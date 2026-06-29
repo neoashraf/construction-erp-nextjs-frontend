@@ -1,0 +1,159 @@
+{
+  "openapi": "3.0.3",
+  "info": {
+    "title": "Zakir Enterprise Construction ERP API",
+    "version": "0.1.0",
+    "description": "Local snapshot of the NestJS REST contract. SCAFFOLD NOTE: until the backend exposes its live Swagger doc, `api:generate` runs against this committed spec (auth slice from docs/api-contracts/05-audit-security.md). Repoint api:generate at the backend's /api-json (or its OpenAPI URL) once it ships; never hand-edit the generated output."
+  },
+  "servers": [{ "url": "/api" }],
+  "components": {
+    "schemas": {
+      "ApiErrorEnvelope": {
+        "type": "object",
+        "description": "Overview §6 error envelope.",
+        "required": ["error"],
+        "properties": {
+          "error": {
+            "type": "object",
+            "required": ["code", "message"],
+            "properties": {
+              "code": { "type": "string", "example": "VALIDATION_ERROR" },
+              "message": { "type": "string" },
+              "details": { "type": "object", "additionalProperties": true, "nullable": true }
+            }
+          }
+        }
+      },
+      "SafeUser": {
+        "type": "object",
+        "description": "The safe user payload exposed to the browser (never includes password_hash).",
+        "required": ["id", "email", "name", "role", "companyId", "financialYearId", "isActive"],
+        "properties": {
+          "id": { "type": "string", "format": "uuid" },
+          "email": { "type": "string", "format": "email" },
+          "name": { "type": "string" },
+          "role": {
+            "type": "string",
+            "enum": ["ADMIN", "PROJECT_MANAGER", "SITE_ENGINEER", "STORE_KEEPER", "ACCOUNTS_TEAM", "HR_MANAGER"]
+          },
+          "companyId": { "type": "string", "format": "uuid" },
+          "financialYearId": { "type": "string", "format": "uuid" },
+          "isActive": { "type": "boolean" },
+          "lastLoginAt": { "type": "string", "format": "date-time", "nullable": true }
+        }
+      },
+      "LoginRequest": {
+        "type": "object",
+        "required": ["email", "password"],
+        "properties": {
+          "email": { "type": "string", "format": "email" },
+          "password": { "type": "string" }
+        }
+      },
+      "LoginResponse": {
+        "type": "object",
+        "required": ["accessToken", "refreshToken", "expiresIn", "user"],
+        "properties": {
+          "accessToken": { "type": "string" },
+          "refreshToken": { "type": "string" },
+          "expiresIn": { "type": "integer", "example": 900 },
+          "user": { "$ref": "#/components/schemas/SafeUser" }
+        }
+      },
+      "RefreshRequest": {
+        "type": "object",
+        "required": ["refreshToken"],
+        "properties": { "refreshToken": { "type": "string" } }
+      },
+      "RefreshResponse": {
+        "type": "object",
+        "required": ["accessToken", "expiresIn"],
+        "properties": {
+          "accessToken": { "type": "string" },
+          "expiresIn": { "type": "integer", "example": 900 },
+          "refreshToken": { "type": "string", "nullable": true }
+        }
+      },
+      "LogoutRequest": {
+        "type": "object",
+        "required": ["refreshToken"],
+        "properties": { "refreshToken": { "type": "string" } }
+      },
+      "ChangePasswordRequest": {
+        "type": "object",
+        "required": ["currentPassword", "newPassword"],
+        "properties": {
+          "currentPassword": { "type": "string" },
+          "newPassword": { "type": "string" }
+        }
+      }
+    }
+  },
+  "paths": {
+    "/auth/login": {
+      "post": {
+        "operationId": "authLogin",
+        "summary": "Authenticate; returns tokens + safe user (FR-AUD-001..009).",
+        "requestBody": {
+          "required": true,
+          "content": { "application/json": { "schema": { "$ref": "#/components/schemas/LoginRequest" } } }
+        },
+        "responses": {
+          "200": {
+            "description": "OK",
+            "content": { "application/json": { "schema": { "$ref": "#/components/schemas/LoginResponse" } } }
+          },
+          "400": { "description": "VALIDATION_ERROR", "content": { "application/json": { "schema": { "$ref": "#/components/schemas/ApiErrorEnvelope" } } } },
+          "401": { "description": "INVALID_CREDENTIALS", "content": { "application/json": { "schema": { "$ref": "#/components/schemas/ApiErrorEnvelope" } } } }
+        }
+      }
+    },
+    "/auth/refresh": {
+      "post": {
+        "operationId": "authRefresh",
+        "summary": "Exchange a refresh token for a new access token (FR-AUD-004).",
+        "requestBody": {
+          "required": true,
+          "content": { "application/json": { "schema": { "$ref": "#/components/schemas/RefreshRequest" } } }
+        },
+        "responses": {
+          "200": {
+            "description": "OK",
+            "content": { "application/json": { "schema": { "$ref": "#/components/schemas/RefreshResponse" } } }
+          },
+          "401": { "description": "INVALID_CREDENTIALS", "content": { "application/json": { "schema": { "$ref": "#/components/schemas/ApiErrorEnvelope" } } } },
+          "403": { "description": "FORBIDDEN (user deactivated)", "content": { "application/json": { "schema": { "$ref": "#/components/schemas/ApiErrorEnvelope" } } } }
+        }
+      }
+    },
+    "/auth/logout": {
+      "post": {
+        "operationId": "authLogout",
+        "summary": "Revoke the presented refresh token (FR-AUD-005).",
+        "requestBody": {
+          "required": true,
+          "content": { "application/json": { "schema": { "$ref": "#/components/schemas/LogoutRequest" } } }
+        },
+        "responses": {
+          "204": { "description": "No content" },
+          "401": { "description": "UNAUTHORIZED / TOKEN_EXPIRED", "content": { "application/json": { "schema": { "$ref": "#/components/schemas/ApiErrorEnvelope" } } } }
+        }
+      }
+    },
+    "/auth/change-password": {
+      "post": {
+        "operationId": "authChangePassword",
+        "summary": "Change the caller's own password; revokes all their refresh tokens (FR-AUD-006).",
+        "requestBody": {
+          "required": true,
+          "content": { "application/json": { "schema": { "$ref": "#/components/schemas/ChangePasswordRequest" } } }
+        },
+        "responses": {
+          "204": { "description": "No content" },
+          "400": { "description": "VALIDATION_ERROR", "content": { "application/json": { "schema": { "$ref": "#/components/schemas/ApiErrorEnvelope" } } } },
+          "401": { "description": "INVALID_CREDENTIALS / UNAUTHORIZED", "content": { "application/json": { "schema": { "$ref": "#/components/schemas/ApiErrorEnvelope" } } } }
+        }
+      }
+    }
+  }
+}
