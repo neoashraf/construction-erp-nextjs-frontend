@@ -1,0 +1,82 @@
+{
+  "root": true,
+  "extends": [
+    "next/core-web-vitals",
+    "next/typescript",
+    "plugin:boundaries/recommended",
+    "prettier"
+  ],
+  "plugins": ["boundaries"],
+  "settings": {
+    "boundaries/include": ["src/**/*"],
+    "boundaries/elements": [
+      { "type": "app", "pattern": "src/app/**/*" },
+      { "type": "feature", "pattern": "src/features/*/**/*", "capture": ["module"] },
+      { "type": "components", "pattern": "src/components/**/*" },
+      { "type": "providers", "pattern": "src/providers/**/*" },
+      { "type": "lib", "pattern": "src/lib/**/*" },
+      { "type": "lib-api-generated", "pattern": "src/lib/api/generated/**/*" },
+      { "type": "styles", "pattern": "src/styles/**/*" }
+    ]
+  },
+  "rules": {
+    "boundaries/element-types": [
+      "error",
+      {
+        "default": "allow",
+        "rules": [
+          {
+            "from": "feature",
+            "disallow": ["feature"],
+            "message": "A feature ('${file.module}') must not import from another feature ('${dependency.module}'). Share via lib/ or the api/domain layer (skill §2.4)."
+          },
+          {
+            "from": ["components", "lib", "providers"],
+            "disallow": ["feature"],
+            "message": "Shared code (components/lib/providers) must not depend on a feature (skill §2.4)."
+          }
+        ]
+      }
+    ],
+    "no-restricted-imports": [
+      "error",
+      {
+        "patterns": [
+          {
+            "group": ["@/lib/api/generated/*", "*/lib/api/generated/*"],
+            "message": "Only src/lib/api/ may import the generated client. Features must use the configured apiClient / their module api binding (skill §2.4, §3)."
+          }
+        ]
+      }
+    ],
+    "no-restricted-globals": [
+      "error",
+      {
+        "name": "localStorage",
+        "message": "Auth tokens must live in httpOnly cookies via the BFF — never localStorage (ADR-0003 F5)."
+      },
+      {
+        "name": "sessionStorage",
+        "message": "Auth tokens must live in httpOnly cookies via the BFF — never sessionStorage (ADR-0003 F5)."
+      }
+    ]
+  },
+  "overrides": [
+    {
+      "files": ["src/lib/api/**/*"],
+      "rules": { "no-restricted-imports": "off" }
+    },
+    {
+      "files": ["**/*.test.{ts,tsx}", "test/**/*"],
+      "rules": { "boundaries/element-types": "off" }
+    }
+  ],
+  "ignorePatterns": [
+    "node_modules/",
+    ".next/",
+    "src/lib/api/generated/",
+    "playwright-report/",
+    "test-results/",
+    "coverage/"
+  ]
+}
