@@ -19,9 +19,9 @@ export const Select = React.forwardRef<HTMLSelectElement, SelectProps>(
         aria-invalid={invalid || undefined}
         className={cn(
           "h-9 w-full appearance-none rounded-token border border-border-strong bg-background pl-3 pr-9 text-sm text-foreground",
-          "focus:border-accent focus:outline-none focus:ring-[3px] focus:ring-accent-soft",
+          "focus:border-accent focus:outline-none focus:shadow-focus",
           "disabled:cursor-not-allowed disabled:bg-muted disabled:opacity-60",
-          invalid && "border-destructive focus:border-destructive focus:ring-destructive-soft",
+          invalid && "border-destructive focus:border-destructive focus:shadow-focus-error",
           className,
         )}
         {...props}

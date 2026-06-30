@@ -114,6 +114,8 @@ const config: Config = {
         DEFAULT: "var(--shadow)",
         md: "var(--shadow-md)",
         lg: "var(--shadow-lg)",
+        focus: "var(--focus-ring)",
+        "focus-error": "var(--focus-ring-error)",
       },
       fontFamily: {
         // Bangla-safe stack: Bangla fallbacks ensure Bangla never clips.

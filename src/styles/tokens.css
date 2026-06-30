@@ -117,6 +117,11 @@
   --shadow-md: 0 4px 12px rgba(16, 24, 40, 0.08);
   --shadow-lg: 0 8px 24px rgba(16, 24, 40, 0.1);
 
+  /* Field focus affordance (design-system §7): a crisp lime ring + a soft halo.
+     box-shadow → no layout shift; stronger presence than a flat ring, on-brand. */
+  --focus-ring: 0 0 0 1.5px var(--color-accent), 0 0 0 4.5px var(--color-accent-soft);
+  --focus-ring-error: 0 0 0 1.5px var(--color-destructive), 0 0 0 4.5px var(--color-destructive-soft);
+
   /* Motion */
   --ease-out: cubic-bezier(0.2, 0.8, 0.2, 1);
   --dur-fast: 120ms;

@@ -19,10 +19,10 @@ export const Input = React.forwardRef<HTMLInputElement, InputProps>(
       className={cn(
         "flex h-9 w-full rounded-token border border-border-strong bg-background px-3 text-sm text-foreground",
         "placeholder:text-faint transition-colors",
-        "focus:border-accent focus:outline-none focus:ring-[3px] focus:ring-accent-soft",
+        "focus:border-accent focus:outline-none focus:shadow-focus",
         "disabled:cursor-not-allowed disabled:bg-muted disabled:opacity-60",
         invalid &&
-          "border-destructive focus:border-destructive focus:ring-destructive-soft",
+          "border-destructive focus:border-destructive focus:shadow-focus-error",
         className,
       )}
       {...props}

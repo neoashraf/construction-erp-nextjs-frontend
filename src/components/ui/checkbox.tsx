@@ -12,7 +12,7 @@ export const Checkbox = React.forwardRef<HTMLInputElement, React.InputHTMLAttrib
       ref={ref}
       className={cn(
         "h-4 w-4 cursor-pointer rounded-sm border border-border-strong accent-accent",
-        "focus:outline-none focus:ring-[3px] focus:ring-accent-soft",
+        "focus:outline-none focus:shadow-focus",
         "disabled:cursor-not-allowed disabled:opacity-60",
         className,
       )}

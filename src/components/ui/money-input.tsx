@@ -25,9 +25,9 @@ export const MoneyInput = React.forwardRef<HTMLInputElement, MoneyInputProps>(
         aria-invalid={invalid || undefined}
         className={cn(
           "h-9 w-full rounded-token border border-border-strong bg-background pl-7 pr-3 text-right text-sm tabular-nums text-foreground",
-          "placeholder:text-faint focus:border-accent focus:outline-none focus:ring-[3px] focus:ring-accent-soft",
+          "placeholder:text-faint focus:border-accent focus:outline-none focus:shadow-focus",
           "disabled:cursor-not-allowed disabled:bg-muted disabled:opacity-60",
-          invalid && "border-destructive focus:border-destructive focus:ring-destructive-soft",
+          invalid && "border-destructive focus:border-destructive focus:shadow-focus-error",
           className,
         )}
         {...props}
