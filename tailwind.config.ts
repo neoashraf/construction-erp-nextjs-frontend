@@ -82,6 +82,14 @@ const config: Config = {
           soft: "var(--color-info-soft)",
           ink: "var(--color-info-ink)",
         },
+        violet: {
+          DEFAULT: "var(--color-violet)",
+          soft: "var(--color-violet-soft)",
+        },
+        teal: {
+          DEFAULT: "var(--color-teal)",
+          soft: "var(--color-teal-soft)",
+        },
 
         // categorical (charts)
         chart: {

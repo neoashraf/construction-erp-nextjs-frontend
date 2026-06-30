@@ -31,8 +31,9 @@
   --color-primary-foreground: #ffffff;
 
   /* Accent — brand lime. Logo mark, dimension chips, the nav active rail,
-     small highlights & one chart series. NEVER used as text on white
-     (fails contrast) — use --color-accent-ink for accent-coloured text. */
+     small highlights, one chart series & the FORM-FIELD FOCUS border (a
+     non-text affordance). NEVER used as text on white (fails contrast) —
+     use --color-accent-ink for accent-coloured text. */
   --color-accent: #a3ce3c;
   --color-accent-foreground: #16243f; /* dark text ON a lime fill */
   --color-accent-ink: #5e7f18; /* accent-coloured text/links on light bg (≥14px / medium) */
@@ -96,6 +97,12 @@
   --color-chart-4: #7c5cf6; /* violet  */
   --color-chart-5: #12a8a8; /* teal    */
   --color-chart-6: #e0484d; /* red     */
+
+  /* Named categorical hues (chips, nav module icons, category bars). */
+  --color-violet: #7c5cf6;
+  --color-violet-soft: #efebfe;
+  --color-teal: #12a8a8;
+  --color-teal-soft: #e3f5f5;
 
   /* Radius scale */
   --radius-sm: 6px;
