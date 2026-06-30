@@ -10,13 +10,17 @@
     -webkit-text-size-adjust: 100%;
   }
   body {
-    background-color: var(--color-background);
+    background-color: var(--color-canvas);
     color: var(--color-foreground);
     font-family: var(--font-sans);
+    font-size: 0.875rem; /* 14px — dense ERP base; components still use text-xs/sm/etc. */
+    line-height: 1.5;
+    -webkit-font-smoothing: antialiased;
+    text-rendering: optimizeLegibility;
   }
-  /* WCAG 2.1 AA: a visible focus ring everywhere (TODO: design-system tokens). */
+  /* WCAG 2.1 AA: a visible focus ring everywhere (design-system --color-ring token). */
   :focus-visible {
-    outline: 2px solid var(--color-primary);
+    outline: 2px solid var(--color-ring);
     outline-offset: 2px;
   }
 }

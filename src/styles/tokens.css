@@ -1,42 +1,167 @@
 /* ──────────────────────────────────────────────────────────────────────────
- * DESIGN TOKENS — PLACEHOLDER VALUES (TODO).
+ * ZAKIR ERP — DESIGN TOKENS  (design system v1)
  *
- * These are deliberately provisional. The REAL design system (colour, type,
- * spacing, elevation, component tokens) is a LATER phase (ADR-0003 constants;
- * FE-DOC-TRACK §6/§7). Components must reference these token variables (via the
- * Tailwind theme mapping in tailwind.config.ts) — never scattered raw hex/spacing.
+ * Source of truth for colour, radius, elevation, motion & type variables.
+ * Full rationale + usage: docs/design/design-system.md.
  *
- * TODO(design-system): replace every value below with the approved palette/scale.
- * TODO(design-system): add the full type scale, spacing scale, elevation, motion.
- * TODO(design-system): wire a Bangla-capable font into --font-sans.
+ * TWO LAYERS (this is the white-label engine):
+ *   • BRAND LAYER   — swappable per client (primary, accent, sidebar). Override
+ *                     ONLY these to reskin for another construction company.
+ *   • STRUCTURAL    — stable across every client (neutrals, status, chart,
+ *                     radius, elevation, motion, type). Do not fork per client.
+ *
+ * RULE: pick ONE base hex per role; *-soft / *-ink tints are intentionally
+ * pre-derived here (not computed at runtime) so they stay WCAG-checked. Never
+ * scatter raw hex/spacing in components — use the Tailwind token utilities
+ * (tailwind.config.ts maps every variable below).
+ *
+ * Brand palette from the Zakir Enterprise logo (docs/design/assets/zk-logo.png):
+ *   navy #1C2C4C · lime #A3CE3C · cool grey. Default theme = navy + lime.
  * ────────────────────────────────────────────────────────────────────────── */
 
 :root {
-  /* TODO placeholder colours */
-  --color-background: #ffffff;
-  --color-foreground: #111827;
-  --color-muted: #f3f4f6;
-  --color-muted-foreground: #6b7280;
-  --color-border: #e5e7eb;
-  --color-primary: #1f2937; /* TODO: brand primary */
-  --color-primary-foreground: #ffffff;
-  --color-destructive: #b91c1c;
-  --color-destructive-foreground: #ffffff;
+  /* ========================================================================
+   * BRAND LAYER  — override these (and the logo) to white-label a new client.
+   * ===================================================================== */
 
-  /* TODO placeholder radius + font */
-  --radius: 6px;
-  --font-sans: ui-sans-serif; /* TODO: + Bangla-capable family so Bangla never clips */
+  /* Primary — brand navy. Primary buttons, active/selected, links-on-chrome,
+     the net-profit/series-1 accent in charts, pagination. */
+  --color-primary: #1c2c4c;
+  --color-primary-hover: #16243f;
+  --color-primary-foreground: #ffffff;
+
+  /* Accent — brand lime. Logo mark, dimension chips, the nav active rail,
+     small highlights & one chart series. NEVER used as text on white
+     (fails contrast) — use --color-accent-ink for accent-coloured text. */
+  --color-accent: #a3ce3c;
+  --color-accent-foreground: #16243f; /* dark text ON a lime fill */
+  --color-accent-ink: #5e7f18; /* accent-coloured text/links on light bg (≥14px / medium) */
+  --color-accent-soft: #eef6dc; /* lime tint background (chips, hovers) */
+
+  /* Sidebar — the navy app chrome (its own scale so the body stays light). */
+  --color-sidebar: #16243f;
+  --color-sidebar-foreground: #c3ccdb;
+  --color-sidebar-muted: #7e8ca6; /* group labels, meta */
+  --color-sidebar-hover: #1d2c49;
+  --color-sidebar-active: #243456;
+  --color-sidebar-active-foreground: #ffffff;
+  --color-sidebar-border: #26354f;
+  --color-sidebar-ring: var(--color-accent); /* active-item rail */
+
+  /* ========================================================================
+   * STRUCTURAL LAYER — shared by every client. Keep stable.
+   * ===================================================================== */
+
+  /* Neutral surfaces & text */
+  --color-canvas: #f6f7f9; /* app background behind cards (body) */
+  --color-background: #ffffff; /* surfaces: cards, inputs, menus, buttons */
+  --color-surface: #ffffff;
+  --color-surface-2: #fafbfc; /* subtle: table header, zebra, inset */
+  --color-foreground: #15181d; /* primary ink */
+  --color-muted: #f1f3f5; /* hover/disabled surface, quiet fills */
+  --color-muted-foreground: #697079; /* secondary text (AA on white) */
+  --color-faint: #9aa1ab; /* tertiary/placeholder ONLY — not AA body text */
+  --color-border: #eceef1; /* hairline dividers, card borders */
+  --color-border-strong: #e1e4e9; /* input borders, stronger separation */
+  --color-input: #e1e4e9;
+  --color-ring: #1c2c4c; /* focus ring (navy, AA-visible) */
+
+  /* Functional / status — semantic meaning, same in every theme.
+     base = fill/dot · soft = tint bg · ink = text on soft (AA) · fg = text on fill */
+  --color-success: #1fa46b;
+  --color-success-foreground: #ffffff;
+  --color-success-soft: #e7f5ee;
+  --color-success-ink: #157a4e; /* posted / paid / positive */
+
+  --color-warning: #e0922a;
+  --color-warning-foreground: #ffffff;
+  --color-warning-soft: #fbefdb;
+  --color-warning-ink: #8a5a12; /* draft / pending / attention */
+
+  --color-destructive: #e0484d;
+  --color-destructive-foreground: #ffffff;
+  --color-destructive-soft: #fcebeb;
+  --color-destructive-ink: #b5363b; /* overdue / error / negative / reverse */
+
+  --color-info: #3b7df6;
+  --color-info-foreground: #ffffff;
+  --color-info-soft: #e9f0fe;
+  --color-info-ink: #2a5fd0; /* informational */
+
+  /* Categorical (charts, category bars) — distinct hues, no inherent meaning.
+     Brand navy (primary) & lime (accent) also join this set as series. */
+  --color-chart-1: #1fa46b; /* green   */
+  --color-chart-2: #3b7df6; /* blue    */
+  --color-chart-3: #e0922a; /* amber   */
+  --color-chart-4: #7c5cf6; /* violet  */
+  --color-chart-5: #12a8a8; /* teal    */
+  --color-chart-6: #e0484d; /* red     */
+
+  /* Radius scale */
+  --radius-sm: 6px;
+  --radius: 8px; /* default control radius (rounded-token) */
+  --radius-md: 10px; /* cards */
+  --radius-lg: 12px;
+  --radius-pill: 9999px;
+
+  /* Elevation — cards stay flat (border + sm); depth is for overlays. */
+  --shadow-sm: 0 1px 2px rgba(16, 24, 40, 0.05);
+  --shadow: 0 1px 2px rgba(16, 24, 40, 0.05), 0 1px 3px rgba(16, 24, 40, 0.06);
+  --shadow-md: 0 4px 12px rgba(16, 24, 40, 0.08);
+  --shadow-lg: 0 8px 24px rgba(16, 24, 40, 0.1);
+
+  /* Motion */
+  --ease-out: cubic-bezier(0.2, 0.8, 0.2, 1);
+  --dur-fast: 120ms;
+  --dur: 200ms;
+
+  /* Type — Bangla-safe stack so Bangla never clips (overview §9 / NFR-009).
+     TODO(design-system): load Inter + a Bangla face (Hind Siliguri / Noto Sans
+     Bengali) via next/font and prepend to --font-sans. */
+  --font-sans: system-ui, -apple-system, "Segoe UI", Roboto, "Helvetica Neue", Arial,
+    "Noto Sans Bengali", "Hind Siliguri", sans-serif;
+  --font-mono: ui-monospace, "SFMono-Regular", Menlo, Consolas, monospace;
 }
 
+/* ──────────────────────────────────────────────────────────────────────────
+ * DARK THEME — PROVISIONAL hook. v1 ships LIGHT ONLY; these values keep the
+ * mechanism coherent if toggled, but are not yet WCAG-verified. Validate before
+ * exposing a theme switch. Only the deltas are overridden; unlisted vars inherit
+ * :root. (docs/design/design-system.md §9.)
+ * ────────────────────────────────────────────────────────────────────────── */
 [data-theme="dark"] {
-  /* TODO placeholder dark values */
-  --color-background: #0b0f19;
-  --color-foreground: #f9fafb;
-  --color-muted: #1f2937;
-  --color-muted-foreground: #9ca3af;
-  --color-border: #374151;
-  --color-primary: #e5e7eb;
-  --color-primary-foreground: #111827;
-  --color-destructive: #ef4444;
-  --color-destructive-foreground: #111827;
+  --color-primary: #41598c;
+  --color-primary-hover: #4d669a;
+  --color-primary-foreground: #0b1220;
+  --color-accent-ink: #b6d85c;
+  --color-accent-soft: #20301a;
+
+  --color-sidebar: #0e1626;
+  --color-sidebar-foreground: #c3ccdb;
+  --color-sidebar-muted: #6b7a95;
+  --color-sidebar-hover: #16223a;
+  --color-sidebar-active: #1c2c4c;
+  --color-sidebar-border: #233351;
+
+  --color-canvas: #0e1626;
+  --color-background: #14203a;
+  --color-surface: #14203a;
+  --color-surface-2: #18243f;
+  --color-foreground: #e8ecf3;
+  --color-muted: #1c2a47;
+  --color-muted-foreground: #9aa7bd;
+  --color-faint: #6b7a95;
+  --color-border: #233351;
+  --color-border-strong: #2c3e60;
+  --color-input: #2c3e60;
+  --color-ring: #a3ce3c;
+
+  --color-success-soft: #11271e;
+  --color-success-ink: #4fd49b;
+  --color-warning-soft: #2a2113;
+  --color-warning-ink: #e6b45c;
+  --color-destructive-soft: #2a1718;
+  --color-destructive-ink: #f08a8e;
+  --color-info-soft: #14223f;
+  --color-info-ink: #7fa8fb;
 }
