@@ -1,0 +1,11 @@
+services:
+  ze-erp-frontend:
+    container_name: ze-erp-frontend
+    build:
+      context: .
+      dockerfile: Dockerfile
+    restart: unless-stopped
+    env_file:
+      - .env
+    ports:
+      - "7002:3000"
