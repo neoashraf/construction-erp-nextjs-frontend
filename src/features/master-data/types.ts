@@ -34,3 +34,24 @@ export interface Company {
   isActive: boolean;
   version: number;
 }
+
+/**
+ * A party — customer and/or supplier (FR-MAS-022/023/024; API `GET …/parties/:id`).
+ * One record may hold both roles. `openingBalance` is a Decimal(18,4) string (GEN
+ * opening journal); `phone` is E.164. `version` drives concurrency (FR-MAS-032).
+ */
+export interface Party {
+  id: string;
+  name: string;
+  isCustomer: boolean;
+  isSupplier: boolean;
+  tin: string | null;
+  bin: string | null;
+  address: string | null;
+  phone: string;
+  email: string | null;
+  paymentTermsDays: number | null;
+  openingBalance: string | null;
+  isActive: boolean;
+  version: number;
+}

@@ -3,3 +3,4 @@
  */
 export * from "./financial-year.schema";
 export * from "./company.schema";
+export * from "./party.schema";

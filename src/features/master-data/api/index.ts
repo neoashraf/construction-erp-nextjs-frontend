@@ -5,3 +5,4 @@
  */
 export * from "./financial-years";
 export * from "./company";
+export * from "./parties";
