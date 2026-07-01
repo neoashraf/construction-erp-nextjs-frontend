@@ -24,3 +24,25 @@
     outline-offset: 2px;
   }
 }
+
+/* Indeterminate progress sweep (login success card, later loaders). Consumed via
+   the Tailwind arbitrary animation utility `animate-[slide_...]`. */
+@keyframes slide {
+  0% {
+    transform: translateX(-130%);
+  }
+  100% {
+    transform: translateX(330%);
+  }
+}
+
+/* Motion: honour reduced-motion (design-system §3.6) — pause non-essential loops. */
+@media (prefers-reduced-motion: reduce) {
+  *,
+  *::before,
+  *::after {
+    animation-duration: 0.01ms !important;
+    animation-iteration-count: 1 !important;
+    transition-duration: 0.01ms !important;
+  }
+}
