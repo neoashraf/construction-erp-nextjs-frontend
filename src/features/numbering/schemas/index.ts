@@ -1,6 +1,5 @@
 /**
- * Voucher Numbering (NUM) — zod schemas (skill §2.1/§6) for this module's forms + parsing. Empty
- * in the scaffold; per-screen briefs add the schemas, aligned to the generated
- * request types.
+ * Voucher Numbering (NUM) — zod schemas (skill §2.1/§6) for the series editor +
+ * the client-side preview composition and server-error mapping.
  */
-export {};
+export * from "./numbering-series.schema";
