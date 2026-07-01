@@ -86,3 +86,48 @@ export function entryStatus(e: Pick<JournalEntryHeader, "isReversal" | "isRevers
 
 /** Tri-state reversal filter (design toggle) → API `isReversal` (undefined = all). */
 export type ReversalFilter = "all" | "normal" | "reversal";
+
+/**
+ * A denormalised journal LINE — API contract 02 § `GET /api/ledger/lines` item (the
+ * account-ledger + dimension drill-down substrate). Each line carries its parent
+ * entry's identifying fields plus the four dimensions + party (FR-LED-006/012/030).
+ * `runningBalance` is present ONLY in account-ledger mode (`accountId` + date range),
+ * computed cumulatively server-side, debit-positive (FR-LED-007). Money is
+ * `Decimal(18,4)` as a string (formatted via lib/money, never float).
+ */
+export interface LedgerLine {
+  lineId: string;
+  lineNo: number;
+  entryId: string;
+  entryNo: string;
+  voucherType: VoucherType | string;
+  voucherDate: string; // YYYY-MM-DD
+  sourceType: string | null;
+  sourceId: string | null;
+  isReversal: boolean;
+  accountId: string;
+  projectId: string | null;
+  costCentreId: string | null;
+  purposeId: string | null;
+  godownId: string | null;
+  partyId: string | null;
+  debit: string; // Decimal(18,4) as string (exactly one of debit/credit non-zero)
+  credit: string; // Decimal(18,4) as string
+  runningBalance?: string | null; // Decimal(18,4); only in account-ledger mode
+  narration: string | null;
+}
+
+/**
+ * The account-ledger / drill-down response (API contract 02 § lines). `openingBalance`
+ * is present ONLY in account-ledger mode — the carry immediately before `dateFrom`,
+ * rendered as the synthesised "Opening balance" first row that seeds the running
+ * balance. In drill-down mode (no `accountId`) both `openingBalance` and each row's
+ * `runningBalance` are omitted (spec §13).
+ */
+export interface LedgerLinesPage {
+  data: LedgerLine[];
+  openingBalance?: string | null;
+  page: number;
+  pageSize: number;
+  total: number;
+}

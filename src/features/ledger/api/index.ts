@@ -5,3 +5,4 @@
  * Import boundary: features import `@/lib/api`, never `@/lib/api/generated/*`.
  */
 export * from "./entries";
+export * from "./lines";
