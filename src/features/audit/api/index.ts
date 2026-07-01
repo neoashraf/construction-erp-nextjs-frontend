@@ -8,3 +8,5 @@ export * from "./users";
 export * from "./financial-years";
 export * from "./roles";
 export * from "./permissions";
+export * from "./user-projects";
+export * from "./project-options";
