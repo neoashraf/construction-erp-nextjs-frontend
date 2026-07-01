@@ -1,5 +1,5 @@
 /**
- * Voucher Numbering (NUM) — TanStack Query hooks (skill §2.1/§7) wrapping this module's api/
- * bindings. Empty in the scaffold; per-screen briefs add the hooks.
+ * Voucher Numbering (NUM) — TanStack Query hooks (skill §2.1/§7) wrapping this
+ * module's api/ bindings.
  */
-export {};
+export * from "./useNumberingSeries";
