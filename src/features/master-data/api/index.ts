@@ -10,3 +10,4 @@ export * from "./chart-of-accounts";
 export * from "./cost-centres";
 export * from "./projects";
 export * from "./purposes";
+export * from "./items";

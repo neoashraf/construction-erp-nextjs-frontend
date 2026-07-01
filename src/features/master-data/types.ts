@@ -35,6 +35,31 @@ export interface Company {
   version: number;
 }
 
+/**
+ * A material/service item (FR-MAS-025/027; API `GET …/items/:id`). `baseUom` is
+ * immutable once conversions/transactions exist (FR-MAS-034). `hasConversions`/
+ * `hasTransactions` (when supplied) drive the read-only base-UoM state.
+ */
+export interface Item {
+  id: string;
+  code: string;
+  name: string;
+  baseUom: string;
+  hsCode: string | null;
+  defaultAccountId: string | null;
+  isActive: boolean;
+  version: number;
+  hasTransactions?: boolean;
+}
+
+/** A unit-of-measure conversion for an item (FR-MAS-026). `factorToBase` is Decimal(18,4). */
+export interface ItemUomConversion {
+  id: string;
+  itemId: string;
+  uom: string;
+  factorToBase: string;
+}
+
 /** A project status (FR-MAS-005/006). */
 export type ProjectStatus = "PLANNED" | "ACTIVE" | "ON_HOLD" | "CLOSED";
 
