@@ -5,3 +5,4 @@ export * from "./financial-year.schema";
 export * from "./company.schema";
 export * from "./party.schema";
 export * from "./chart-of-accounts.schema";
+export * from "./cost-centre.schema";

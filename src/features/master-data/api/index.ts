@@ -7,3 +7,4 @@ export * from "./financial-years";
 export * from "./company";
 export * from "./parties";
 export * from "./chart-of-accounts";
+export * from "./cost-centres";
