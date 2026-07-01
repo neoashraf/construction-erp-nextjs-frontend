@@ -31,6 +31,10 @@
             "message": "A feature ('${file.module}') must not import from another feature ('${dependency.module}'). Share via lib/ or the api/domain layer (skill §2.4)."
           },
           {
+            "from": "feature",
+            "allow": [["feature", { "module": "${from.module}" }]]
+          },
+          {
             "from": ["components", "lib", "providers"],
             "disallow": ["feature"],
             "message": "Shared code (components/lib/providers) must not depend on a feature (skill §2.4)."

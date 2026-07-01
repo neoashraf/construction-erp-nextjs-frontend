@@ -15,11 +15,14 @@ jest.mock("next/link", () => ({
 }));
 jest.mock("next/navigation", () => ({
   useRouter: () => ({ replace: jest.fn(), refresh: jest.fn(), push: jest.fn() }),
+  usePathname: () => "/dashboard",
 }));
 
 function renderShell(user: SafeUser) {
   return render(
-    <CompanyFyProvider initial={{ companyId: user.companyId, financialYearId: user.financialYearId }}>
+    <CompanyFyProvider
+      initial={{ companyId: user.companyId, financialYearId: user.financialYearId }}
+    >
       <SessionProvider user={user}>
         <AppShell>
           <div data-testid="child">content</div>

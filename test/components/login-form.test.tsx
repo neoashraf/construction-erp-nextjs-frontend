@@ -1,5 +1,11 @@
-import { render, screen } from "@testing-library/react";
+/**
+ * Backward-compat test: LoginForm re-exports LoginCard — verifies the alias works.
+ * Full behavioral coverage is in test/components/login-card.test.tsx.
+ */
+import React from "react";
+import { render, screen, waitFor } from "@testing-library/react";
 import userEvent from "@testing-library/user-event";
+import { QueryClient, QueryClientProvider } from "@tanstack/react-query";
 import { LoginForm } from "@/app/(auth)/login/login-form";
 import { apiClient } from "@/lib/api/client";
 import { ApiError } from "@/lib/api/errors";
@@ -15,7 +21,18 @@ jest.mock("@/lib/api/client", () => ({
 
 const postMock = apiClient.post as jest.Mock;
 
-describe("LoginForm — auth plumbing", () => {
+function renderForm() {
+  const client = new QueryClient({
+    defaultOptions: { queries: { retry: false }, mutations: { retry: false } },
+  });
+  return render(
+    <QueryClientProvider client={client}>
+      <LoginForm />
+    </QueryClientProvider>,
+  );
+}
+
+describe("LoginForm — alias shim", () => {
   beforeEach(() => {
     postMock.mockReset();
     replace.mockReset();
@@ -23,29 +40,45 @@ describe("LoginForm — auth plumbing", () => {
   });
 
   it("posts to the BFF and navigates into the shell on success", async () => {
-    postMock.mockResolvedValue({ user: { id: "u1" } });
-    render(<LoginForm />);
-    await userEvent.type(screen.getByLabelText(/email/i), "admin@ze.test");
-    await userEvent.type(screen.getByLabelText(/password/i), "Passw0rd!");
-    await userEvent.click(screen.getByRole("button", { name: /sign in/i }));
-
-    expect(postMock).toHaveBeenCalledWith("/auth/login", {
-      email: "admin@ze.test",
-      password: "Passw0rd!",
+    postMock.mockResolvedValue({
+      user: {
+        id: "u1",
+        email: "admin@ze.test",
+        name: "Admin",
+        role: "ADMIN",
+        companyId: "c1",
+        financialYearId: "fy1",
+        isActive: true,
+        lastLoginAt: null,
+      },
     });
+    renderForm();
+    await userEvent.type(screen.getByLabelText("Email"), "admin@ze.test");
+    await userEvent.type(screen.getByLabelText("Password"), "Passw0rd!");
+    await userEvent.click(screen.getByRole("button", { name: /^sign in$/i }));
+    await waitFor(() =>
+      expect(postMock).toHaveBeenCalledWith("/auth/login", {
+        email: "admin@ze.test",
+        password: "Passw0rd!",
+      }),
+    );
     expect(replace).toHaveBeenCalledWith("/dashboard");
   });
 
-  it("shows a uniform message for INVALID_CREDENTIALS (no enumeration)", async () => {
+  it("shows a uniform generic message for INVALID_CREDENTIALS (no enumeration)", async () => {
     postMock.mockRejectedValue(
-      new ApiError({ code: "INVALID_CREDENTIALS", message: "whatever", details: null, status: 401 }),
+      new ApiError({
+        code: "INVALID_CREDENTIALS",
+        message: "whatever",
+        details: null,
+        status: 401,
+      }),
     );
-    render(<LoginForm />);
-    await userEvent.type(screen.getByLabelText(/email/i), "nobody@ze.test");
-    await userEvent.type(screen.getByLabelText(/password/i), "wrong");
-    await userEvent.click(screen.getByRole("button", { name: /sign in/i }));
-
-    expect(await screen.findByTestId("login-error")).toHaveTextContent("Invalid email or password.");
+    renderForm();
+    await userEvent.type(screen.getByLabelText("Email"), "nobody@ze.test");
+    await userEvent.type(screen.getByLabelText("Password"), "wrong");
+    await userEvent.click(screen.getByRole("button", { name: /^sign in$/i }));
+    expect(await screen.findByRole("alert")).toHaveTextContent("Incorrect email or password.");
     expect(replace).not.toHaveBeenCalled();
   });
 });

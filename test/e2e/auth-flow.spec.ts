@@ -13,9 +13,11 @@ const AUTH_COOKIES = ["ze_access", "ze_refresh", "ze_session"];
 
 async function login(page: import("@playwright/test").Page, creds: { email: string; password: string }) {
   await page.goto("/login");
-  await page.getByLabel(/email/i).fill(creds.email);
-  await page.getByLabel(/password/i).fill(creds.password);
-  await page.getByRole("button", { name: /sign in/i }).click();
+  // Exact labels: the password show/hide button carries aria-label "Show password",
+  // which a loose /password/i would also match (strict-mode collision).
+  await page.getByLabel("Email", { exact: true }).fill(creds.email);
+  await page.getByLabel("Password", { exact: true }).fill(creds.password);
+  await page.getByRole("button", { name: /^sign in$/i }).click();
   await page.waitForURL("**/dashboard");
 }
 
@@ -61,9 +63,9 @@ test("a proxied request transparently refreshes on a TOKEN_EXPIRED 401 and rotat
   // access token — the first proxied call gets TOKEN_EXPIRED, the proxy refreshes,
   // rotates cookies, and retries once.
   await page.goto("/login");
-  await page.getByLabel(/email/i).fill(ADMIN.email);
-  await page.getByLabel(/password/i).fill(`${ADMIN.password}#expired`);
-  await page.getByRole("button", { name: /sign in/i }).click();
+  await page.getByLabel("Email", { exact: true }).fill(ADMIN.email);
+  await page.getByLabel("Password", { exact: true }).fill(`${ADMIN.password}#expired`);
+  await page.getByRole("button", { name: /^sign in$/i }).click();
   await page.waitForURL("**/dashboard");
 
   const before = (await context.cookies()).find((c) => c.name === "ze_access")?.value;
