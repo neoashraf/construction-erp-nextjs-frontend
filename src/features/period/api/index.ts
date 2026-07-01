@@ -1,8 +1,8 @@
 /**
  * Accounting Period Control (PER) — module API bindings (skill §2.1/§3). Thin named wrappers over the
- * configured `apiClient` (and the generated client via lib/api). Empty in the
- * scaffold; per-screen briefs add the calls their screen makes.
+ * configured `apiClient` (and the generated client via lib/api).
  *
  * Import boundary: features import `@/lib/api`, never `@/lib/api/generated/*`.
  */
-export {};
+export * from "./periods";
+export * from "./financial-year-options";
