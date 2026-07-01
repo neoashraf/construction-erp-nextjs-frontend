@@ -35,6 +35,40 @@ export interface Company {
   version: number;
 }
 
+/** A project status (FR-MAS-005/006). */
+export type ProjectStatus = "PLANNED" | "ACTIVE" | "ON_HOLD" | "CLOSED";
+
+/**
+ * A project (FR-MAS-005; API `GET …/projects`). Only the fields the master screens
+ * need are modelled here; per-screen briefs extend as required.
+ */
+export interface Project {
+  id: string;
+  projectCode: string;
+  name: string;
+  status: ProjectStatus;
+  location: string | null;
+  customerId: string | null;
+  projectManagerId: string | null;
+  startDate: string;
+  expectedEndDate: string;
+  actualEndDate: string | null;
+  isActive: boolean;
+  version: number;
+}
+
+/**
+ * A project-scoped purpose — the fourth posting dimension (FR-MAS-011/012/013; API
+ * `GET …/projects/:projectId/purposes`). Case-insensitive unique per project.
+ */
+export interface Purpose {
+  id: string;
+  projectId: string;
+  name: string;
+  isActive: boolean;
+  version: number;
+}
+
 /**
  * A company-global cost centre (FR-MAS-009/010; API `GET …/cost-centres`). One of
  * the four posting dimensions. `version` drives concurrency (FR-MAS-032).
