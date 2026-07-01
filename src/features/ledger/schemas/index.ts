@@ -3,3 +3,4 @@
  * form, not a writing form) + its reversal-toggle → API mapping.
  */
 export * from "./entries-filter.schema";
+export * from "./lines-filter.schema";
