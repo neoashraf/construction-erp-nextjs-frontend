@@ -28,19 +28,22 @@ function csrf() {
 }
 
 export interface NumberingSeriesFilter {
-  companyId: string;
   financialYearId?: string;
   voucherType?: string;
   page?: number;
   pageSize?: number;
 }
 
-/** List series for a company (+ optional FY / voucher-type filter). `companyId` required. */
+/**
+ * List series for the active company (+ optional FY / voucher-type filter).
+ * `companyId` is never sent — the server resolves it from the JWT actor, never
+ * from a client-supplied param (CLAUDE.md multi-tenancy rule; the DTO rejects
+ * an unknown `companyId` property outright).
+ */
 export async function listNumberingSeries(
   filter: NumberingSeriesFilter,
 ): Promise<Paginated<NumberingSeries>> {
   const p = new URLSearchParams();
-  p.set("companyId", filter.companyId);
   if (filter.financialYearId) p.set("financialYearId", filter.financialYearId);
   if (filter.voucherType) p.set("voucherType", filter.voucherType);
   p.set("page", String(filter.page ?? 1));

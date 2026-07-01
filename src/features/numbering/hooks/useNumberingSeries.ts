@@ -31,7 +31,6 @@ export function useNumberingSeries() {
     queryKey: queryKeys.list("numbering", "series", scope),
     queryFn: () =>
       listNumberingSeries({
-        companyId: user.companyId,
         financialYearId: user.financialYearId,
       }),
     placeholderData: keepPreviousData,
