@@ -6,3 +6,5 @@ export * from "./login";
 export * from "./change-password";
 export * from "./users";
 export * from "./financial-years";
+export * from "./roles";
+export * from "./permissions";
