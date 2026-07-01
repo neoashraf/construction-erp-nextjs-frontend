@@ -35,6 +35,37 @@ export interface Company {
   version: number;
 }
 
+/** The five account classifications (FR-MAS-006/017/018). */
+export type AccountType = "ASSET" | "LIABILITY" | "EQUITY" | "INCOME" | "EXPENSE";
+
+export const ACCOUNT_TYPES: AccountType[] = ["ASSET", "LIABILITY", "EQUITY", "INCOME", "EXPENSE"];
+
+/** An account group node (FR-MAS-017; API `GET …/account-groups`). Nestable by parentGroupId. */
+export interface AccountGroup {
+  id: string;
+  name: string;
+  parentGroupId: string | null;
+  type: AccountType;
+  version: number;
+}
+
+/**
+ * A posting account (FR-MAS-018/019/020/021; API `GET …/accounts/:id`). `type` equals
+ * its group's type; immutable once it has postings. `openingBalance` is Decimal(18,4)
+ * reference data. `hasPostings` (when the API supplies it) disables the type/group edit.
+ */
+export interface Account {
+  id: string;
+  code: string;
+  name: string;
+  accountGroupId: string;
+  type: AccountType;
+  openingBalance: string | null;
+  isActive: boolean;
+  version: number;
+  hasPostings?: boolean;
+}
+
 /**
  * A party — customer and/or supplier (FR-MAS-022/023/024; API `GET …/parties/:id`).
  * One record may hold both roles. `openingBalance` is a Decimal(18,4) string (GEN
