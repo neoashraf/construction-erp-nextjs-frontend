@@ -131,3 +131,64 @@ export interface LedgerLinesPage {
   pageSize: number;
   total: number;
 }
+
+/**
+ * A single balanced LINE within one journal-entry detail (Entry viewer) — API
+ * contract 02 § `GET /api/ledger/entries/{id}` `lines[]` item (FR-LED-006). Unlike
+ * `LedgerLine` (the flat `/ledger/lines` read), this line does NOT repeat its parent
+ * entry's identifying fields — it belongs to one `JournalEntryDetail`. Money is
+ * `Decimal(18,4)` as a string (formatted via lib/money, never float); exactly one of
+ * debit/credit is non-zero per line (FR-LED-007).
+ */
+export interface JournalEntryDetailLine {
+  id: string;
+  lineNo: number;
+  accountId: string;
+  projectId: string | null;
+  costCentreId: string | null;
+  purposeId: string | null;
+  godownId: string | null;
+  partyId: string | null;
+  debit: string; // Decimal(18,4) as string
+  credit: string; // Decimal(18,4) as string
+  narration: string | null;
+}
+
+/**
+ * The derived reversed-by linkage, expanded with the reversing entry's number
+ * (API contract 02 § `GET /api/ledger/entries/{id}` `reversedBy`; FR-LED-026).
+ * `null` when no reversal references this entry.
+ */
+export interface ReversedByLink {
+  entryId: string;
+  entryNo: string;
+}
+
+/**
+ * One posted journal entry with its full set of balanced lines (Entry viewer;
+ * API contract 02 § `GET /api/ledger/entries/{id}`). READ-ONLY (FR-LED-024) — this
+ * is the detail counterpart of `JournalEntryHeader` (the list-row shape); it adds
+ * `lines[]` and the expanded `reversedBy` linkage. `isReversed` / `reversedByEntryId`
+ * / `reversedBy` are derived, append-only fields computed at read time from the
+ * existence of a reversal entry — the original row is never mutated (FR-LED-026).
+ */
+export interface JournalEntryDetail {
+  id: string;
+  entryNo: string;
+  financialYearId: string;
+  voucherType: VoucherType | string;
+  voucherDate: string; // YYYY-MM-DD
+  sourceType: string | null;
+  sourceId: string | null;
+  isReversal: boolean;
+  reversalOf: string | null;
+  isReversed: boolean;
+  reversedByEntryId: string | null;
+  reversedBy: ReversedByLink | null;
+  narration: string | null;
+  postedAt: string; // ISO-8601 UTC
+  postedBy: string | null; // User id (AUD); name resolution is out of this endpoint
+  totalDebit: string; // Decimal(18,4) as string
+  totalCredit: string; // Decimal(18,4) as string
+  lines: JournalEntryDetailLine[];
+}

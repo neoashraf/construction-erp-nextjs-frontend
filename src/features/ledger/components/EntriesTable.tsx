@@ -21,7 +21,7 @@ import { type JournalEntryHeader, voucherTypeLabel, entryStatus } from "../types
 const GRID = "grid-cols-[1.45fr_0.9fr_2fr_1.2fr_1fr_1fr_1fr_44px]";
 
 function entryHref(id: string): string {
-  return `/ledger/journal-entries/${id}`;
+  return `/ledger/entry-viewer?id=${id}`;
 }
 
 function sourceHref(sourceType: string | null, sourceId: string | null): string | null {
