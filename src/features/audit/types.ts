@@ -324,3 +324,39 @@ export interface PermissionBatchDiff {
   approvalLimitChanged: boolean;
   approvalLimit: string | null;
 }
+
+// ── Project assignment (FE-19) ──────────────────────────────────────────────
+
+/**
+ * A minimal project option for the add-projects picker (API contract 01
+ * `GET /api/masters/projects` item, filtered to this company). Not the full MAS
+ * `Project` — this feature never imports `features/master-data` (skill §2.4).
+ */
+export interface ProjectOption {
+  id: string;
+  name: string;
+  projectCode: string;
+}
+
+/**
+ * One row of the user's assigned-project set (API `GET /api/users/:id/projects`
+ * list item). `projectName` may be absent when the project record can no longer
+ * be resolved (spec §6 "partial" — id fallback + refresh hint, SRS §12 edge 12).
+ */
+export interface AssignedProject {
+  projectId: string;
+  projectName: string | null;
+}
+
+/**
+ * The `GET /api/users/:id/projects` response (API contract 05 § User <-> Project
+ * assignment). An unscoped role (Admin, Accounts Team) returns `{ scope: "ALL" }`
+ * instead of a list — spec §5/§6 "All projects" banner, editing disabled.
+ */
+export type UserProjectAssignment =
+  { scope: "ASSIGNED"; projects: AssignedProject[] } | { scope: "ALL" };
+
+/** `PUT /api/users/:id/projects` request body — full-set replace (spec §9; SRS §16). No `version`. */
+export interface ReplaceAssignedProjectsInput {
+  projectIds: string[];
+}

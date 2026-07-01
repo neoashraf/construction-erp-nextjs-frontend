@@ -91,7 +91,7 @@ export function UserDetailPanel({
                     Assigned projects
                   </span>
                   <Link
-                    href="/audit/project-assignment"
+                    href={`/audit/users/${userId}/projects`}
                     className="text-[12px] font-semibold text-accent-ink hover:underline"
                   >
                     Manage assignment →
@@ -102,7 +102,10 @@ export function UserDetailPanel({
                     All projects
                   </Badge>
                 ) : user.assignedProjects.length === 0 ? (
-                  <p className="text-[12.5px] text-muted-foreground" data-testid="user-detail-no-projects">
+                  <p
+                    className="text-[12.5px] text-muted-foreground"
+                    data-testid="user-detail-no-projects"
+                  >
                     No projects assigned — this user can&rsquo;t transact yet.
                   </p>
                 ) : (
@@ -112,7 +115,10 @@ export function UserDetailPanel({
                         key={p.projectId}
                         className="flex items-center gap-2 rounded-token border border-border bg-surface-2 px-3 py-2 text-[13px] text-foreground"
                       >
-                        <span className="h-1.5 w-1.5 flex-none rounded-full bg-accent" aria-hidden />
+                        <span
+                          className="h-1.5 w-1.5 flex-none rounded-full bg-accent"
+                          aria-hidden
+                        />
                         {p.projectName}
                       </li>
                     ))}
@@ -124,7 +130,12 @@ export function UserDetailPanel({
         </SheetBody>
         {user && (
           <SheetFooter>
-            <Button variant="outline" size="md" onClick={onResetPassword} data-testid="detail-reset">
+            <Button
+              variant="outline"
+              size="md"
+              onClick={onResetPassword}
+              data-testid="detail-reset"
+            >
               Reset password
             </Button>
             <Button
