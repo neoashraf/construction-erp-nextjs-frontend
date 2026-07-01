@@ -74,6 +74,11 @@ function envelope(code: string, message: string) {
   return { error: { code, message, details: null } };
 }
 
+/** Wrap a success payload in the platform's `{ data, meta }` envelope (overview §6). */
+function success(data: unknown) {
+  return { data, meta: { requestId: `mock-${jtiCounterSeed}` } };
+}
+
 function makeAccess(userKey: string, ttlMs = ACCESS_TTL_MS): string {
   // The exp is purely deterministic — the mock does not read the clock so e2e is
   // stable. A ttlMs<=0 yields an already-expired token.
@@ -135,12 +140,12 @@ export async function mockNestjsFetch(req: MockReq): Promise<MockResult> {
     const ttl = wantExpired ? -1 : ACCESS_TTL_MS;
     return {
       status: 200,
-      body: {
+      body: success({
         accessToken: makeAccess(email, ttl),
         refreshToken: makeRefresh(email),
         expiresIn: 900,
         user: safeUser(user),
-      },
+      }),
     };
   }
 
@@ -158,11 +163,11 @@ export async function mockNestjsFetch(req: MockReq): Promise<MockResult> {
     revokedJtis.add(parsed.jti);
     return {
       status: 200,
-      body: {
+      body: success({
         accessToken: makeAccess(parsed.userKey),
         refreshToken: makeRefresh(parsed.userKey),
         expiresIn: 900,
-      },
+      }),
     };
   }
 
@@ -199,7 +204,7 @@ export async function mockNestjsFetch(req: MockReq): Promise<MockResult> {
 
   // A tiny sample protected resource for the proxy/refresh e2e.
   if (req.path === "/auth/me") {
-    return { status: 200, body: { user: safeUser(user) } };
+    return { status: 200, body: success({ user: safeUser(user) }) };
   }
-  return { status: 200, body: { ok: true, path: req.path } };
+  return { status: 200, body: success({ ok: true, path: req.path }) };
 }

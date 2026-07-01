@@ -31,7 +31,9 @@ export async function POST(req: NextRequest) {
     return res;
   }
 
-  const data = upstream.body as { accessToken: string; expiresIn: number; refreshToken?: string };
+  const { data } = upstream.body as {
+    data: { accessToken: string; expiresIn: number; refreshToken?: string };
+  };
   const res = NextResponse.json({ ok: true }, { status: 200 });
   rotateAccessCookie(res, data.accessToken, data.expiresIn, data.refreshToken);
   return res;

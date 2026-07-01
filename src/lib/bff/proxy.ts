@@ -82,7 +82,9 @@ export async function handleProxy(req: NextRequest, segments: string[]): Promise
       return res;
     }
 
-    const data = refreshed.body as { accessToken: string; expiresIn: number; refreshToken?: string };
+    const { data } = refreshed.body as {
+      data: { accessToken: string; expiresIn: number; refreshToken?: string };
+    };
     // Retry the original request once with the new access token.
     upstream = await forward(fullPath, req.method, json, data.accessToken);
 

@@ -27,11 +27,13 @@ export async function POST(req: NextRequest) {
     return NextResponse.json(upstream.body, { status: upstream.status });
   }
 
-  const data = upstream.body as {
-    accessToken: string;
-    refreshToken: string;
-    expiresIn: number;
-    user: SafeUser;
+  const { data } = upstream.body as {
+    data: {
+      accessToken: string;
+      refreshToken: string;
+      expiresIn: number;
+      user: SafeUser;
+    };
   };
 
   const csrfToken = generateCsrfToken();

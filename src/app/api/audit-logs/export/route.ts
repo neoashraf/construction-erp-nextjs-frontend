@@ -91,10 +91,12 @@ export async function GET(req: NextRequest) {
         return res;
       }
 
-      const data = refreshed.body as {
-        accessToken: string;
-        expiresIn: number;
-        refreshToken?: string;
+      const { data } = refreshed.body as {
+        data: {
+          accessToken: string;
+          expiresIn: number;
+          refreshToken?: string;
+        };
       };
       upstream = await forwardExport(search, data.accessToken);
       const res = await streamBack(upstream);
