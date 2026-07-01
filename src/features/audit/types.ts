@@ -146,3 +146,181 @@ export interface FinancialYearOption {
   id: string;
   label: string;
 }
+
+// ── Role & permission editor (FE-18) ────────────────────────────────────────
+
+/** The overview §4 module codes a permission grant can target (SRS §8 `Permission.module`). */
+export const PERMISSION_MODULES = [
+  "MAS",
+  "LED",
+  "NUM",
+  "PER",
+  "SAL",
+  "PUR",
+  "PAY",
+  "REC",
+  "GEN",
+  "INV",
+  "CC",
+  "REQ",
+  "HR",
+  "RPT",
+  "DSH",
+  "AUD",
+] as const;
+
+export type PermissionModule = (typeof PERMISSION_MODULES)[number];
+
+/** Human label for a module code (design file §5; en). */
+export const PERMISSION_MODULE_LABEL: Record<PermissionModule, string> = {
+  MAS: "Master Data",
+  LED: "Ledger",
+  NUM: "Numbering",
+  PER: "Periods",
+  SAL: "Sales & Billing",
+  PUR: "Purchases",
+  PAY: "Payments",
+  REC: "Receipts",
+  GEN: "General Journal",
+  INV: "Inventory",
+  CC: "Cost Centres",
+  REQ: "Requisitions",
+  HR: "HR & Payroll",
+  RPT: "Reports",
+  DSH: "Dashboard",
+  AUD: "Audit & Access",
+};
+
+/** The 8 grantable actions (SRS §8 `Permission.action`; FR-AUD-013). */
+export const PERMISSION_ACTIONS = [
+  "CREATE",
+  "READ",
+  "UPDATE",
+  "DELETE",
+  "POST",
+  "CANCEL",
+  "APPROVE",
+  "REJECT",
+] as const;
+
+export type PermissionAction = (typeof PERMISSION_ACTIONS)[number];
+
+export const PERMISSION_ACTION_LABEL: Record<PermissionAction, string> = {
+  CREATE: "Create",
+  READ: "Read",
+  UPDATE: "Update",
+  DELETE: "Delete",
+  POST: "Post",
+  CANCEL: "Cancel",
+  APPROVE: "Approve",
+  REJECT: "Reject",
+};
+
+/** Project-scope mode on a granted permission (SRS §8 `Permission.project_scope`). */
+export const PROJECT_SCOPES = ["ALL", "ASSIGNED"] as const;
+export type ProjectScope = (typeof PROJECT_SCOPES)[number];
+
+/** The six fixed platform roles, in the design file's Role-selector order. */
+export const ROLE_NAMES = [
+  "ADMIN",
+  "ACCOUNTS_TEAM",
+  "PROJECT_MANAGER",
+  "SITE_ENGINEER",
+  "STORE_KEEPER",
+  "HR_MANAGER",
+] as const;
+
+export type RoleName = (typeof ROLE_NAMES)[number];
+
+export const ROLE_NAME_LABEL: Record<RoleName, string> = {
+  ADMIN: "Admin",
+  ACCOUNTS_TEAM: "Accounts Team",
+  PROJECT_MANAGER: "Project Manager",
+  SITE_ENGINEER: "Site Engineer",
+  STORE_KEEPER: "Store Keeper",
+  HR_MANAGER: "HR Manager",
+};
+
+/** A role list row (API contract 05 `GET /api/roles` item). */
+export interface RoleListItem {
+  id: string;
+  name: RoleName | string;
+  approvalLimit: string | null;
+  isUnscoped: boolean;
+  version: number;
+}
+
+/** One `(role, module, action)` grant (API `GET /api/roles/:id` `permissions[]`). */
+export interface PermissionRecord {
+  id: string;
+  module: PermissionModule | string;
+  action: PermissionAction | string;
+  projectScope: ProjectScope;
+  valueLimit: string | null;
+}
+
+/** The role detail (API `GET /api/roles/:id`). `version` drives the batched save's lock. */
+export interface RoleDetail {
+  id: string;
+  name: RoleName | string;
+  approvalLimit: string | null;
+  isUnscoped: boolean;
+  version: number;
+  permissions: PermissionRecord[];
+}
+
+/** `PATCH /api/roles/:id` request body (spec §7; FR-AUD-016/019). */
+export interface UpdateRoleInput {
+  approvalLimit?: string | null;
+  isUnscoped?: boolean;
+  version: number;
+}
+
+/** `POST /api/permissions` request body (spec §7; FR-AUD-013/016). */
+export interface CreatePermissionInput {
+  roleId: string;
+  module: PermissionModule | string;
+  action: PermissionAction | string;
+  projectScope: ProjectScope;
+  valueLimit?: string | null;
+}
+
+/** `PATCH /api/permissions/:id` request body — carries the role's `version` (spec §9). */
+export interface UpdatePermissionInput {
+  projectScope?: ProjectScope;
+  valueLimit?: string | null;
+  version: number;
+}
+
+/**
+ * One grid cell's edited state, keyed by `"<module>|<action>"` in the pending-edit
+ * set (spec §9 batch model). `null` means the cell is revoked/ungranted; otherwise
+ * it carries the working scope + limit for that grant.
+ */
+export interface PendingCellEdit {
+  scope: ProjectScope;
+  /** `Decimal(18,4)` string, or null = inherits the role's `approvalLimit` ("Role limit"). */
+  valueLimit: string | null;
+}
+
+/** The full pending-edit set for the role being edited: `"<module>|<action>"` -> edit or null (revoked). */
+export type PendingPermissionMap = Record<string, PendingCellEdit | null>;
+
+/** One diffed write the batched save will issue (spec §9). */
+export type PermissionDiffOp =
+  | {
+      kind: "grant";
+      module: PermissionModule | string;
+      action: PermissionAction | string;
+      scope: ProjectScope;
+      valueLimit: string | null;
+    }
+  | { kind: "revoke"; permissionId: string }
+  | { kind: "update"; permissionId: string; scope?: ProjectScope; valueLimit?: string | null };
+
+/** The full diff for one save: permission ops + whether the approval limit itself changed. */
+export interface PermissionBatchDiff {
+  ops: PermissionDiffOp[];
+  approvalLimitChanged: boolean;
+  approvalLimit: string | null;
+}
