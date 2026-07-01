@@ -82,6 +82,33 @@ export interface Project {
   version: number;
 }
 
+/** A per-cost-centre project budget (FR-MAS-007/008). `budgetedAmount` is Decimal(18,4). */
+export interface ProjectBudget {
+  id: string;
+  projectId: string;
+  costCentreId: string;
+  budgetedAmount: string;
+  version?: number;
+}
+
+/** A project-scoped godown/store (FR-MAS-014/015/016). */
+export interface Godown {
+  id: string;
+  projectId: string;
+  name: string;
+  location: string | null;
+  isActive: boolean;
+  version: number;
+}
+
+/** A user for the project-manager picker (AUD `GET /api/users`). */
+export interface UserRef {
+  id: string;
+  name: string;
+  email: string;
+  role: string;
+}
+
 /**
  * A project-scoped purpose — the fourth posting dimension (FR-MAS-011/012/013; API
  * `GET …/projects/:projectId/purposes`). Case-insensitive unique per project.
