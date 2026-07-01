@@ -2,3 +2,4 @@
  * Audit, Security & Access (AUD) — TanStack Query hooks (skill §2.1/§7).
  */
 export * from "./use-login";
+export * from "./use-change-password";

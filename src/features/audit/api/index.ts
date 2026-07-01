@@ -3,3 +3,4 @@
  * Import boundary: features import @/lib/api, never @/lib/api/generated/*.
  */
 export * from "./login";
+export * from "./change-password";
