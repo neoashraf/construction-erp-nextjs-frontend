@@ -1,8 +1,13 @@
+import { redirect } from "next/navigation";
 import { requireModuleAccess } from "@/lib/auth/guard-module-page";
-import { ModulePlaceholder } from "@/components/shell/module-placeholder";
 
-/** Voucher Numbering (NUM) segment — guarded, empty. Screens come with their briefs. */
+/**
+ * Voucher Numbering (NUM) segment. The one built screen (fe-numbering-series)
+ * lives at /master-data/numbering-series per its brief (breadcrumb "Master Data /
+ * Numbering series"); redirect the sidebar's Numbering entry there so the nav
+ * link isn't a dead end.
+ */
 export default async function NumberingPage() {
   await requireModuleAccess("numbering");
-  return <ModulePlaceholder module="numbering" />;
+  redirect("/master-data/numbering-series");
 }
