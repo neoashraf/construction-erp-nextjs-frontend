@@ -4,3 +4,4 @@ export * from "./user";
 export * from "./role-permissions";
 export * from "./permission-diff";
 export * from "./project-assignment";
+export * from "./audit-log-filter";

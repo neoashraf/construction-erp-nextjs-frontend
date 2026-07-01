@@ -360,3 +360,116 @@ export type UserProjectAssignment =
 export interface ReplaceAssignedProjectsInput {
   projectIds: string[];
 }
+
+// ── Audit log viewer (FE-20) ────────────────────────────────────────────────
+
+/**
+ * The audit-log `action` enum. The SRS/screen-spec's 7 lifecycle actions
+ * (FR-AUD-020/021) plus the two the live backend also emits/validates
+ * (`ACTIVATE`/`DEACTIVATE` — user activation toggles) so the filter never sends a
+ * value the API would reject with `VALIDATION_ERROR`. `EXPORT` itself is
+ * write-only (emitted when an export runs) and is deliberately NOT filterable —
+ * mirrors the backend's `VALID_FILTER_ACTIONS` set.
+ */
+export const AUDIT_ACTIONS = [
+  "CREATE",
+  "UPDATE",
+  "DELETE",
+  "POST",
+  "CANCEL",
+  "APPROVE",
+  "REJECT",
+  "ACTIVATE",
+  "DEACTIVATE",
+] as const;
+
+export type AuditAction = (typeof AUDIT_ACTIONS)[number];
+
+/** Per-action badge tone (design file — action→badge tones). */
+export type AuditActionTone = "positive" | "info" | "negative" | "brand" | "warning";
+
+export const AUDIT_ACTION_TONE: Record<AuditAction, AuditActionTone> = {
+  CREATE: "positive",
+  UPDATE: "info",
+  DELETE: "negative",
+  POST: "brand",
+  CANCEL: "warning",
+  APPROVE: "positive",
+  REJECT: "negative",
+  ACTIVATE: "positive",
+  DEACTIVATE: "warning",
+};
+
+/**
+ * One audit-log list row (API contract 05 `GET /api/audit-logs` item; FR-AUD-020/
+ * 021/026). The live endpoint's projection carries `userId` only (no `userName`
+ * resolved in the list projection — confirmed against the merged backend); the
+ * Actor cell falls back to the id. `projectId`/`ipAddress` are nullable — the UI
+ * renders "—" for either (spec §6 partial state).
+ */
+export interface AuditLogRow {
+  id: string;
+  action: AuditAction | string;
+  entityType: string;
+  entityId: string;
+  userId: string;
+  userName?: string | null;
+  projectId: string | null;
+  ipAddress: string | null;
+  createdAt: string; // ISO-8601 UTC
+}
+
+/**
+ * The audit-log detail (API `GET /api/audit-logs/:id`; FR-AUD-022/024). `before`
+ * is null on CREATE, `after` is null on DELETE, both populated on UPDATE/POST/
+ * CANCEL/APPROVE/REJECT/ACTIVATE/DEACTIVATE. `before`/`after` are API-sanitised —
+ * never render `password_hash`/encrypted fields even if present (defence-in-depth,
+ * the UI does not special-case field names to hide, it trusts the API contract).
+ * `seal` is display-only — no verify control exists (SRS §16).
+ */
+export interface AuditLogDetail {
+  id: string;
+  action: AuditAction | string;
+  entityType: string;
+  entityId: string;
+  userId: string;
+  userName?: string | null;
+  before: Record<string, unknown> | null;
+  after: Record<string, unknown> | null;
+  ipAddress: string | null;
+  seal: string;
+  createdAt: string; // ISO-8601 UTC
+}
+
+/** Query filters for `GET /api/audit-logs` (list) and `GET /api/audit-logs/export` — all optional, AND-combined. */
+export interface AuditLogFilter {
+  entityType?: string;
+  entityId?: string;
+  userId?: string;
+  action?: AuditAction | string;
+  projectId?: string;
+  dateFrom?: string; // YYYY-MM-DD
+  dateTo?: string; // YYYY-MM-DD
+  page?: number;
+  pageSize?: number;
+}
+
+/** `GET /api/audit-logs/export` format (default `csv` per the contract). */
+export type AuditExportFormat = "csv" | "xlsx";
+
+/**
+ * One changed/unchanged field in the before/after diff (view-model computed
+ * client-side from `before`/`after` — FR-AUD-022; spec §5/§9).
+ */
+export interface AuditDiffField {
+  field: string;
+  before: unknown;
+  after: unknown;
+  changed: boolean;
+}
+
+/** The diff view-model for one detail entry (CREATE → after-only, DELETE → before-only, else both). */
+export interface AuditDiffViewModel {
+  mode: "create" | "delete" | "both";
+  fields: AuditDiffField[];
+}
