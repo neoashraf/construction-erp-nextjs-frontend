@@ -36,6 +36,47 @@
   }
 }
 
+/* Overlay/dialog/sheet/toast entrances (design-system §3.6). Consumed via the
+   Tailwind arbitrary animation utilities on the ui primitives (dialog/sheet/toast). */
+@keyframes fadeIn {
+  from {
+    opacity: 0;
+  }
+  to {
+    opacity: 1;
+  }
+}
+@keyframes popIn {
+  from {
+    transform: translate(-50%, -50%) scale(0.98);
+    opacity: 0;
+  }
+  to {
+    transform: translate(-50%, -50%) scale(1);
+    opacity: 1;
+  }
+}
+@keyframes slideInRight {
+  from {
+    transform: translateX(28px);
+    opacity: 0;
+  }
+  to {
+    transform: translateX(0);
+    opacity: 1;
+  }
+}
+@keyframes toastIn {
+  from {
+    transform: translateY(12px);
+    opacity: 0;
+  }
+  to {
+    transform: translateY(0);
+    opacity: 1;
+  }
+}
+
 /* Motion: honour reduced-motion (design-system §3.6) — pause non-essential loops. */
 @media (prefers-reduced-motion: reduce) {
   *,
