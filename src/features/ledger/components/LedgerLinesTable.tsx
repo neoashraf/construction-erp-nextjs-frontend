@@ -30,7 +30,7 @@ const GRID_LEDGER = "grid-cols-[0.85fr_1.1fr_2fr_1.2fr_1fr_1fr_1.1fr_44px]";
 const GRID_DRILL = "grid-cols-[0.85fr_1.1fr_2fr_1.2fr_1fr_1fr_44px]";
 
 function entryHref(entryId: string): string {
-  return `/ledger/journal-entries/${entryId}`;
+  return `/ledger/entry-viewer?id=${entryId}`;
 }
 function sourceHref(sourceType: string | null, sourceId: string | null): string | null {
   if (!sourceType || !sourceId) return null;

@@ -1,6 +1,6 @@
 import { apiClient } from "@/lib/api";
 import { type Paginated, DEFAULT_PAGE_SIZE } from "@/lib/api/pagination";
-import { type JournalEntryHeader } from "../types";
+import { type JournalEntryHeader, type JournalEntryDetail } from "../types";
 
 /**
  * Journal-entries API binding (API contract 02 § `GET /api/ledger/entries`). The
@@ -74,4 +74,16 @@ export async function listJournalEntries(
     pageSize: meta.pageSize ?? filter.pageSize ?? DEFAULT_PAGE_SIZE,
     total: meta.total ?? res.data.length,
   };
+}
+
+/**
+ * Fetch one posted journal entry with its full set of balanced lines (Entry viewer;
+ * API contract 02 § `GET /api/ledger/entries/{id}`). READ-ONLY GET — no create/edit/
+ * delete counterpart exists for the ledger. Throws `ApiError` (404 NOT_FOUND when the
+ * entry doesn't exist or isn't in the caller's company; 403 FORBIDDEN for a PM with no
+ * assigned-project line) — the hook/screen render these as the 404 / permission-denied
+ * states (spec §6).
+ */
+export async function getJournalEntry(id: string): Promise<JournalEntryDetail> {
+  return apiClient.get<JournalEntryDetail>(`${BASE}/${id}`);
 }
