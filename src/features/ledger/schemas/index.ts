@@ -1,6 +1,5 @@
 /**
- * Ledger (LED) — zod schemas (skill §2.1/§6) for this module's forms + parsing. Empty
- * in the scaffold; per-screen briefs add the schemas, aligned to the generated
- * request types.
+ * Ledger (LED) — zod schemas (skill §2.1/§6). The journal-entries filter (a query
+ * form, not a writing form) + its reversal-toggle → API mapping.
  */
-export {};
+export * from "./entries-filter.schema";

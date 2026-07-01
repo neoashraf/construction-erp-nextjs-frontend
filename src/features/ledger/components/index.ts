@@ -1,6 +1,9 @@
 /**
- * Ledger (LED) — module-specific UI components (skill §2.1). Empty in the scaffold;
- * per-screen briefs add the screen's components here. No cross-feature imports
- * (lint-enforced import boundary, skill §2.4).
+ * Ledger (LED) — module-specific UI components (skill §2.1). No cross-feature
+ * imports (lint-enforced import boundary, skill §2.4).
  */
-export {};
+export * from "./JournalEntriesScreen";
+export * from "./EntriesFilterBar";
+export * from "./EntriesTable";
+export * from "./EntriesPagination";
+export * from "./EntryStatusBadge";
