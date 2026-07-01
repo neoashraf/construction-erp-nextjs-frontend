@@ -6,3 +6,4 @@ export * from "./useFinancialYears";
 export * from "./useFinancialYearMutations";
 export * from "./useCompany";
 export * from "./useParties";
+export * from "./useChartOfAccounts";
