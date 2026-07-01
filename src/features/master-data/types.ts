@@ -35,6 +35,18 @@ export interface Company {
   version: number;
 }
 
+/**
+ * A company-global cost centre (FR-MAS-009/010; API `GET …/cost-centres`). One of
+ * the four posting dimensions. `version` drives concurrency (FR-MAS-032).
+ */
+export interface CostCentre {
+  id: string;
+  code: string;
+  name: string;
+  isActive: boolean;
+  version: number;
+}
+
 /** The five account classifications (FR-MAS-006/017/018). */
 export type AccountType = "ASSET" | "LIABILITY" | "EQUITY" | "INCOME" | "EXPENSE";
 

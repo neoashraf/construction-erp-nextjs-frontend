@@ -24,3 +24,7 @@ export * from "./TypeBadge";
 export * from "./GroupModal";
 export * from "./AccountModal";
 export * from "./AccountStatusDialog";
+export * from "./CostCentresScreen";
+export * from "./CostCentresTable";
+export * from "./CostCentreFormModal";
+export * from "./CostCentreStatusDialog";
