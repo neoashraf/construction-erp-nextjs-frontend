@@ -6,3 +6,4 @@
  */
 export * from "./entries";
 export * from "./lines";
+export * from "./trial-balance";

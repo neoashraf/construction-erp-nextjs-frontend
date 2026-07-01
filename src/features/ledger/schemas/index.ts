@@ -6,3 +6,4 @@
 export * from "./entries-filter.schema";
 export * from "./lines-filter.schema";
 export * from "./entry-id.schema";
+export * from "./trial-balance-filter.schema";

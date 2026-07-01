@@ -5,3 +5,4 @@
 export * from "./useJournalEntries";
 export * from "./useAccountLedger";
 export * from "./useJournalEntry";
+export * from "./useTrialBalance";

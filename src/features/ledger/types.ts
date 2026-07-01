@@ -192,3 +192,44 @@ export interface JournalEntryDetail {
   totalCredit: string; // Decimal(18,4) as string
   lines: JournalEntryDetailLine[];
 }
+
+/**
+ * One aggregated row of the trial balance (API contract 02 §
+ * `GET /api/ledger/trial-balance` `data[]` item; FR-LED-031/001). Grouping columns
+ * not requested via `groupBy` come back `null` (spec §5). `net` is server-computed
+ * (`debit − credit`, debit-positive) — the FE never recomputes it. Money is
+ * `Decimal(18,4)` as a string (formatted via lib/money, never float).
+ */
+export interface TrialBalanceRow {
+  accountId: string;
+  projectId: string | null;
+  costCentreId: string | null;
+  purposeId: string | null;
+  godownId: string | null;
+  partyId: string | null;
+  debit: string; // Decimal(18,4) as string
+  credit: string; // Decimal(18,4) as string
+  net: string; // Decimal(18,4) as string (debit - credit, debit-positive)
+}
+
+/**
+ * The balance-proof totals (API contract 02 § trial-balance `totals`; FR-LED-014).
+ * `debit` always equals `credit` for a posted, balanced ledger — the balance-proof
+ * chip and sticky totals footer assert this rather than recomputing it.
+ */
+export interface TrialBalanceTotals {
+  debit: string; // Decimal(18,4) as string
+  credit: string; // Decimal(18,4) as string
+}
+
+/**
+ * The trial-balance response page (API contract 02 § trial-balance). Grouped rows
+ * paginate like any other list (`page`/`pageSize`/`total`, default `pageSize` 25).
+ */
+export interface TrialBalancePage {
+  data: TrialBalanceRow[];
+  totals: TrialBalanceTotals;
+  page: number;
+  pageSize: number;
+  total: number;
+}
