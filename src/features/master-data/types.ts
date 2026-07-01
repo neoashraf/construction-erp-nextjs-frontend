@@ -16,3 +16,21 @@ export interface FinancialYear {
   isActive: boolean;
   version: number;
 }
+
+/**
+ * The single company record (FR-MAS-001/004; API `GET /api/masters/companies/:id`).
+ * `version` drives optimistic concurrency on identity/localization saves (FR-MAS-032).
+ */
+export interface Company {
+  id: string;
+  name: string;
+  legalName: string | null;
+  bin: string | null;
+  tin: string | null;
+  address: string | null;
+  currency: string;
+  dateFormat: string;
+  locale: string;
+  isActive: boolean;
+  version: number;
+}

@@ -4,3 +4,4 @@
  * `@/lib/api`, never `@/lib/api/generated/*`.
  */
 export * from "./financial-years";
+export * from "./company";
