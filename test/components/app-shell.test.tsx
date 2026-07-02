@@ -1,10 +1,23 @@
+/**
+ * FE-SHELL app shell integration (screen spec §4/§6/§10). Skip-link, landmarks,
+ * role-filtered nav inside the real frame, the user menu (replacing the old Sign-out
+ * button), and the breadcrumb. Sub-component behaviour is covered by sidebar/toolbar
+ * tests; this asserts the assembled shell.
+ */
+import React from "react";
 import { render, screen } from "@testing-library/react";
+import { QueryClient, QueryClientProvider } from "@tanstack/react-query";
 import { AppShell } from "@/components/shell/app-shell";
 import { SessionProvider } from "@/providers/session-provider";
 import { CompanyFyProvider } from "@/providers/company-fy-provider";
+import { ToastProvider } from "@/components/ui/toast";
 import { type SafeUser } from "@/lib/auth/session";
 
-// next/link → passthrough anchor; next/navigation → router stub (LogoutButton uses useRouter).
+let mockPath = "/dashboard";
+jest.mock("next/navigation", () => ({
+  useRouter: () => ({ replace: jest.fn(), refresh: jest.fn(), push: jest.fn() }),
+  usePathname: () => mockPath,
+}));
 jest.mock("next/link", () => ({
   __esModule: true,
   default: ({ children, href, ...rest }: { children: React.ReactNode; href: string }) => (
@@ -13,22 +26,30 @@ jest.mock("next/link", () => ({
     </a>
   ),
 }));
-jest.mock("next/navigation", () => ({
-  useRouter: () => ({ replace: jest.fn(), refresh: jest.fn(), push: jest.fn() }),
-  usePathname: () => "/dashboard",
+jest.mock("@/lib/shell/shell-data", () => ({
+  useShellMasters: () => ({
+    data: { company: { id: "c1", name: "Zakir Enterprise" }, financialYears: [{ id: "fy1", label: "FY 2025–26", isActive: true }] },
+    isLoading: false,
+    isError: false,
+  }),
+  useAlertCount: () => ({ count: null }),
 }));
 
-function renderShell(user: SafeUser) {
+function renderShell(user: SafeUser, path = "/dashboard") {
+  mockPath = path;
+  const qc = new QueryClient({ defaultOptions: { queries: { retry: false } } });
   return render(
-    <CompanyFyProvider
-      initial={{ companyId: user.companyId, financialYearId: user.financialYearId }}
-    >
-      <SessionProvider user={user}>
-        <AppShell>
-          <div data-testid="child">content</div>
-        </AppShell>
-      </SessionProvider>
-    </CompanyFyProvider>,
+    <QueryClientProvider client={qc}>
+      <CompanyFyProvider initial={{ companyId: user.companyId, financialYearId: user.financialYearId }}>
+        <SessionProvider user={user}>
+          <ToastProvider>
+            <AppShell>
+              <div data-testid="child">content</div>
+            </AppShell>
+          </ToastProvider>
+        </SessionProvider>
+      </CompanyFyProvider>
+    </QueryClientProvider>,
   );
 }
 
@@ -43,29 +64,53 @@ const baseUser: SafeUser = {
   assignedProjectIds: [],
 };
 
-describe("AppShell — role-based shell", () => {
-  it("renders the topbar with the user + role and the children", () => {
+describe("AppShell v2 — frame + landmarks (spec §4/§10)", () => {
+  it("renders the skip link as the first tabbable element → #app-content", () => {
     renderShell(baseUser);
+    const skip = screen.getByText("Skip to content");
+    expect(skip).toHaveAttribute("href", "#app-content");
+  });
+
+  it("exposes the main, header, and Primary sidebar landmarks + renders children", () => {
+    renderShell(baseUser);
+    expect(screen.getByTestId("app-content")).toBeInTheDocument();
     expect(screen.getByTestId("topbar")).toBeInTheDocument();
-    expect(screen.getByTestId("topbar-user")).toHaveTextContent("Test User");
-    expect(screen.getByTestId("topbar-user")).toHaveTextContent("Admin");
+    expect(screen.getByRole("complementary", { name: "Primary" })).toBeInTheDocument();
     expect(screen.getByTestId("child")).toBeInTheDocument();
   });
 
-  it("shows nav slots for an Admin's modules (and the audit module)", () => {
+  it("replaces the standalone Sign-out button with the user menu (name shown)", () => {
     renderShell(baseUser);
-    expect(screen.getByTestId("nav-audit")).toBeInTheDocument();
-    expect(screen.getByTestId("nav-ledger")).toBeInTheDocument();
+    expect(screen.queryByTestId("logout-button")).not.toBeInTheDocument();
+    expect(screen.getByTestId("user-menu")).toHaveTextContent("Test User");
+  });
+});
+
+describe("AppShell v2 — role-filtered nav in the frame (spec §11)", () => {
+  it("Admin sees the Ledger + Audit modules", () => {
+    renderShell(baseUser);
+    expect(screen.getByTestId("nav-module-ledger")).toBeInTheDocument();
+    expect(screen.getByTestId("nav-module-audit")).toBeInTheDocument();
   });
 
-  it("hides modules a role can't access (PM has no audit nav)", () => {
-    renderShell({ ...baseUser, role: "PROJECT_MANAGER", assignedProjectIds: ["p1"] });
-    expect(screen.queryByTestId("nav-audit")).not.toBeInTheDocument();
-    expect(screen.getByTestId("nav-ledger")).toBeInTheDocument();
+  it("a PM does not see Audit & access, but does see Ledger", () => {
+    renderShell({ ...baseUser, role: "PROJECT_MANAGER", assignedProjectIds: ["p1"] }, "/ledger/account-ledger");
+    expect(screen.queryByTestId("nav-module-audit")).not.toBeInTheDocument();
+    expect(screen.getByTestId("nav-module-ledger")).toBeInTheDocument();
   });
 
-  it("shows an empty-state when a role has no modules", () => {
+  it("every role has Dashboard (no empty-nav in Phase 1) — Site Engineer included", () => {
     renderShell({ ...baseUser, role: "SITE_ENGINEER" });
-    expect(screen.getByTestId("sidebar-empty")).toBeInTheDocument();
+    expect(screen.getByTestId("nav-module-dashboard")).toBeInTheDocument();
+    expect(screen.queryByTestId("sidebar-empty")).not.toBeInTheDocument();
+  });
+});
+
+describe("AppShell v2 — breadcrumb (spec §3.3)", () => {
+  it("renders the Module › Screen trail derived from the active route", () => {
+    renderShell(baseUser, "/ledger/trial-balance");
+    const crumb = screen.getByTestId("breadcrumb");
+    expect(crumb).toHaveTextContent("Ledger");
+    expect(crumb).toHaveTextContent("Trial balance");
   });
 });

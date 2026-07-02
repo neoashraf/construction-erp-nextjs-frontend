@@ -1,0 +1,40 @@
+import {
+  LayoutDashboard,
+  FileText,
+  Wallet,
+  ShoppingCart,
+  Banknote,
+  ArrowLeftRight,
+  Boxes,
+  ClipboardList,
+  Users,
+  BookOpenText,
+  Gauge,
+  BarChart3,
+  Database,
+  Hash,
+  CalendarRange,
+  ShieldCheck,
+  type LucideIcon,
+} from "lucide-react";
+import { type NavIconKey } from "@/lib/nav/nav-tree";
+
+/** Resolve a nav module's icon key to its lucide component (design-system iconography). */
+export const NAV_ICON: Record<NavIconKey, LucideIcon> = {
+  dashboard: LayoutDashboard,
+  sales: FileText,
+  receipts: Wallet,
+  purchases: ShoppingCart,
+  payments: Banknote,
+  "contra-journal": ArrowLeftRight,
+  inventory: Boxes,
+  requisitions: ClipboardList,
+  hr: Users,
+  ledger: BookOpenText,
+  "cost-control": Gauge,
+  reports: BarChart3,
+  "master-data": Database,
+  numbering: Hash,
+  periods: CalendarRange,
+  audit: ShieldCheck,
+};

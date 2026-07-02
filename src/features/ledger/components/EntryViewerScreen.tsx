@@ -8,6 +8,7 @@ import { Button } from "@/components/ui/button";
 import { EmptyState } from "@/components/ui/empty-state";
 import { Alert } from "@/components/ui/alert";
 import { asApiError } from "@/lib/api/errors";
+import { useSetRecordCrumb } from "@/components/shell/breadcrumb";
 import { useJournalEntry } from "../hooks/useJournalEntry";
 import { EntryHeaderBlock } from "./EntryHeaderBlock";
 import { EntryLinesTable, EntryLinesCards } from "./EntryLinesTable";
@@ -46,6 +47,10 @@ export function EntryViewerScreen({ id, fyLabel = "Active FY" }: { id: string | 
   const online = useOnline();
   const query = useJournalEntry(id);
   const entry = query.data;
+
+  // Feed the shell breadcrumb with the entry number (Ledger › Journal entries › {no}).
+  // No-ops when rendered outside the shell's BreadcrumbProvider (e.g. in tests).
+  useSetRecordCrumb(entry?.entryNo ?? null);
 
   const err = query.isError ? asApiError(query.error) : null;
   const notFound = err?.code === "NOT_FOUND" || err?.status === 404;

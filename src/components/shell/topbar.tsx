@@ -1,8 +1,14 @@
 "use client";
 
-import { roleLabel, type Role } from "@/lib/auth/roles";
-import { useCompanyFy } from "@/providers/company-fy-provider";
-import { LogoutButton } from "./logout-button";
+import { PanelLeft, Menu } from "lucide-react";
+import { type Role } from "@/lib/auth/roles";
+import { useShellChrome } from "./shell-chrome-context";
+import { Breadcrumb } from "./breadcrumb";
+import { CompanyFySwitcher } from "./company-fy-switcher";
+import { NavCommand } from "./nav-command";
+import { QuickCreateMenu } from "./quick-create-menu";
+import { AlertsBell } from "./alerts-bell";
+import { UserMenu } from "./user-menu";
 
 interface TopbarUser {
   name: string;
@@ -10,47 +16,57 @@ interface TopbarUser {
 }
 
 /**
- * Topbar (design-system §5.2, skill §2.1). A light bar over the content showing the
- * active company/FY context (multi-company/FY aware, NFR-005), the user + role, and
- * logout. The brand now lives in the navy sidebar.
+ * App Shell v2 toolbar (screen spec §5). Left→right: collapse toggle (≥768) /
+ * hamburger (<768) · breadcrumb · company·FY switcher chip. Right: nav-search
+ * trigger (Ctrl+K) · "+ New" quick-create · alerts bell · user menu. Replaces the
+ * bare UUID-slice context + standalone Sign-out button of the FE-0 placeholder.
+ * `<header>` landmark.
  */
 export function Topbar({ user }: { user: TopbarUser }) {
-  const { companyId, financialYearId } = useCompanyFy();
-  const initials = user.name
-    .split(" ")
-    .map((p) => p[0])
-    .filter(Boolean)
-    .slice(0, 2)
-    .join("")
-    .toUpperCase();
+  const { collapsed, toggleCollapsed, setDrawerOpen } = useShellChrome();
 
   return (
     <header
       data-testid="topbar"
-      className="flex h-14 shrink-0 items-center gap-3 border-b border-border bg-surface px-5"
+      className="flex h-14 shrink-0 items-center gap-3 border-b border-border bg-surface px-3 md:px-5"
     >
-      <span
-        data-testid="company-fy"
-        className="inline-flex items-center gap-2 rounded-token border border-border-strong px-2.5 py-1.5 text-xs text-muted-foreground"
+      {/* far-left: collapse toggle (≥768) */}
+      <button
+        type="button"
+        data-testid="collapse-toggle"
+        aria-label={collapsed ? "Expand sidebar" : "Collapse sidebar"}
+        aria-pressed={collapsed}
+        onClick={toggleCollapsed}
+        className="hidden h-9 w-9 place-items-center rounded-token text-muted-foreground transition-colors hover:bg-muted hover:text-foreground md:grid"
       >
-        {/* TODO(screen brief): resolve names from masters; ids shown for now. */}
-        <span className="font-semibold text-foreground">Co</span> {companyId.slice(0, 8)}
-        <span className="text-faint">·</span>
-        <span className="font-semibold text-foreground">FY</span> {financialYearId.slice(0, 8)}
-      </span>
+        <PanelLeft className="h-[18px] w-[18px]" aria-hidden />
+      </button>
 
-      <div className="flex-1" />
-
-      <span data-testid="topbar-user" className="text-sm text-foreground">
-        {user.name} <span className="text-muted-foreground">· {roleLabel(user.role)}</span>
-      </span>
-      <div
-        className="grid h-8 w-8 place-items-center rounded-full bg-accent-soft text-xs font-bold text-accent-ink"
-        aria-hidden
+      {/* far-left: hamburger (<768) opens the mobile drawer */}
+      <button
+        type="button"
+        data-testid="drawer-toggle"
+        aria-label="Open menu"
+        onClick={() => setDrawerOpen(true)}
+        className="grid h-9 w-9 place-items-center rounded-token text-muted-foreground transition-colors hover:bg-muted hover:text-foreground md:hidden"
       >
-        {initials}
+        <Menu className="h-5 w-5" aria-hidden />
+      </button>
+
+      <Breadcrumb />
+
+      <div className="mx-1 hidden h-6 w-px bg-border sm:block" aria-hidden />
+
+      <div className="hidden sm:block">
+        <CompanyFySwitcher />
       </div>
-      <LogoutButton />
+
+      <div className="ml-auto flex items-center gap-2">
+        <NavCommand role={user.role} />
+        <QuickCreateMenu role={user.role} />
+        <AlertsBell role={user.role} />
+        <UserMenu name={user.name} role={user.role} />
+      </div>
     </header>
   );
 }
