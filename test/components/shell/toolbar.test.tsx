@@ -197,7 +197,7 @@ describe("Ctrl+K nav palette (spec §5/§9/§14-1)", () => {
     expect(pushMock).toHaveBeenCalledWith("/ledger/trial-balance");
   });
 
-  it("only surfaces built nav destinations (no unbuilt routes)", async () => {
+  it("surfaces every navigable nav destination (incl. Coming-soon placeholders)", async () => {
     const user = userEvent.setup();
     render(
       <Providers>
@@ -206,7 +206,8 @@ describe("Ctrl+K nav palette (spec §5/§9/§14-1)", () => {
     );
     await user.click(screen.getByTestId("nav-search-trigger"));
     await user.type(await screen.findByTestId("nav-command-input"), "IPC");
-    expect(screen.queryByTestId("nav-command-item-/sales/ipcs")).not.toBeInTheDocument();
-    expect(screen.getByText("No matches.")).toBeInTheDocument();
+    // /sales/ipcs is now navigable (routes to its Coming-soon page) → the palette
+    // lists it rather than showing "No matches."
+    expect(await screen.findByTestId("nav-command-item-/sales/ipcs")).toBeInTheDocument();
   });
 });

@@ -25,6 +25,36 @@
   }
 }
 
+@layer components {
+  /* Thin, unobtrusive scrollbar for internal scroll regions (sidebar nav, content
+     outlet). The track is transparent and the thumb only appears on hover, so an
+     overflow container never shows a heavy always-on gutter when it barely overflows.
+     Firefox uses `scrollbar-width/-color`; WebKit/Chromium uses the pseudo-elements. */
+  .scrollbar-thin {
+    scrollbar-width: thin;
+    scrollbar-color: transparent transparent;
+  }
+  .scrollbar-thin:hover {
+    scrollbar-color: var(--color-sidebar-border) transparent;
+  }
+  .scrollbar-thin::-webkit-scrollbar {
+    width: 8px;
+    height: 8px;
+  }
+  .scrollbar-thin::-webkit-scrollbar-track {
+    background: transparent;
+  }
+  .scrollbar-thin::-webkit-scrollbar-thumb {
+    background-color: transparent;
+    border-radius: 9999px;
+    border: 2px solid transparent;
+    background-clip: content-box;
+  }
+  .scrollbar-thin:hover::-webkit-scrollbar-thumb {
+    background-color: var(--color-sidebar-border);
+  }
+}
+
 /* Indeterminate progress sweep (login success card, later loaders). Consumed via
    the Tailwind arbitrary animation utility `animate-[slide_...]`. */
 @keyframes slide {

@@ -47,12 +47,14 @@ export function Sidebar({ role }: { role: Role }) {
       data-testid="sidebar"
       data-collapsed={collapsed ? "true" : "false"}
       className={cn(
-        "hidden shrink-0 flex-col bg-sidebar transition-[width] duration-150 md:flex",
+        // h-screen: self-contained 100vh chrome (spec §4). The nav below scrolls
+        // internally; the brand (above) and footer (below) stay pinned.
+        "hidden h-screen shrink-0 flex-col bg-sidebar transition-[width] duration-150 md:flex",
         collapsed ? "w-14" : "w-[230px]",
       )}
     >
-      {/* brand */}
-      <div className={cn("flex items-center gap-2.5 px-4 py-4", collapsed && "justify-center px-0")}>
+      {/* brand — pinned top chrome (shrink-0 so a short viewport can't compress it) */}
+      <div className={cn("flex shrink-0 items-center gap-2.5 px-4 py-4", collapsed && "justify-center px-0")}>
         <div className="grid h-8 w-8 shrink-0 place-items-center rounded-md bg-accent text-[11px] font-extrabold text-accent-foreground">
           ZE
         </div>
@@ -68,8 +70,11 @@ export function Sidebar({ role }: { role: Role }) {
         )}
       </div>
 
-      {/* nav tree */}
-      <nav className="flex-1 overflow-y-auto px-2 pb-3">
+      {/* nav tree — the only scrolling region; min-h-0 lets it shrink below its
+          content height so overflow engages and the pinned footer isn't clipped.
+          scrollbar-thin keeps the gutter subtle (thumb only on hover) so a nav that
+          barely overflows doesn't show a heavy always-on scrollbar. */}
+      <nav className="scrollbar-thin min-h-0 flex-1 overflow-y-auto px-2 pb-3">
         {tree.length === 0 ? (
           <p className="px-3 py-2 text-[13px] text-sidebar-muted" data-testid="sidebar-empty">
             No modules available for your role.
@@ -122,7 +127,7 @@ export function Sidebar({ role }: { role: Role }) {
 function SidebarFooter() {
   const { financialYearLabel } = useCompanyFy();
   return (
-    <div className="border-t border-sidebar-border px-4 py-3 text-[11px] text-sidebar-muted">
+    <div className="shrink-0 border-t border-sidebar-border px-4 py-3 text-[11px] text-sidebar-muted">
       {financialYearLabel ? `${financialYearLabel} · ` : ""}BDT (৳)
     </div>
   );
@@ -232,10 +237,10 @@ function SubItemLink({ item, activePath }: { item: NavSubItem; activePath: strin
         data-built="false"
         aria-disabled="true"
         title="Coming soon"
-        className="relative my-0.5 flex cursor-default items-center gap-2 rounded-token px-2.5 py-1.5 text-[12.5px] text-sidebar-muted/70"
+        className="relative my-0.5 flex cursor-default items-center gap-2 rounded-token px-2.5 py-1.5 text-[12.5px] text-sidebar-muted"
       >
         <span className="truncate">{item.label}</span>
-        <span className="ml-auto rounded-sm bg-sidebar-hover px-1.5 py-px text-[9px] font-semibold uppercase tracking-wide text-sidebar-muted">
+        <span className="ml-auto rounded-sm bg-sidebar-hover px-1.5 py-px text-[9px] font-semibold uppercase tracking-wide text-sidebar-foreground/80">
           Soon
         </span>
       </span>

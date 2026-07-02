@@ -33,13 +33,21 @@ export function AppShell({ children }: { children: ReactNode }) {
           Skip to content
         </a>
 
-        <div className="flex min-h-screen bg-canvas">
+        {/* 100vh persistent frame (spec §4 "above-the-fold ≥1024"): sidebar + topbar
+            are pinned chrome; only the sidebar nav tree and the <main> outlet scroll
+            internally. `h-screen overflow-hidden` clamps the frame to the viewport so
+            the page never scrolls as a whole (which would carry the topbar off-screen). */}
+        <div className="flex h-screen overflow-hidden bg-canvas">
           <Sidebar role={user.role} />
           <NavDrawer role={user.role} />
-          <div className="flex min-w-0 flex-1 flex-col">
+          <div className="flex min-w-0 flex-1 flex-col overflow-hidden">
             <Topbar user={user} />
             <OfflineBanner />
-            <main id="app-content" className="flex-1 p-5 lg:p-6" data-testid="app-content">
+            <main
+              id="app-content"
+              className="scrollbar-thin min-h-0 flex-1 overflow-y-auto p-5 lg:p-6"
+              data-testid="app-content"
+            >
               {children}
             </main>
           </div>

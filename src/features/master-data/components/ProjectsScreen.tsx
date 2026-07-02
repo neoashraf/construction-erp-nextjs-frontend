@@ -52,11 +52,15 @@ export function ProjectsScreen() {
   const usersQuery = useUsers();
 
   const customerLabel = useMemo(() => {
-    const map = new Map((customersQuery.data?.data ?? []).map((c) => [c.id, c.name]));
+    const customers = customersQuery.data?.data;
+    const map = new Map((Array.isArray(customers) ? customers : []).map((c) => [c.id, c.name]));
     return (id: string | null) => (id ? (map.get(id) ?? "—") : "—");
   }, [customersQuery.data]);
   const pmLabel = useMemo(() => {
-    const map = new Map((usersQuery.data ?? []).map((u) => [u.id, u.name]));
+    // Guard the shape: a malformed/empty users response must not crash the screen —
+    // fall back to an empty map so the PM column just shows "—".
+    const users = usersQuery.data;
+    const map = new Map((Array.isArray(users) ? users : []).map((u) => [u.id, u.name]));
     return (id: string | null) => (id ? (map.get(id) ?? "—") : "—");
   }, [usersQuery.data]);
 

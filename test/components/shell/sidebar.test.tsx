@@ -110,16 +110,17 @@ describe("Sidebar — active state (spec §3.1/§10)", () => {
   });
 });
 
-describe("Sidebar — unbuilt handling (spec §3.2 note; scope §10)", () => {
-  it("an unbuilt sub-item renders de-emphasised + non-navigating (no link, Coming soon)", async () => {
+describe("Sidebar — item navigation (spec §3.2 note; scope §10)", () => {
+  it("a Tier-2/3 sub-item is a real navigating link (routes to its Coming-soon page)", async () => {
     const user = userEvent.setup();
     renderSidebar("ADMIN", "/dashboard");
-    await user.click(screen.getByTestId("nav-module-sales")); // expand Sales / IPC (all unbuilt)
+    await user.click(screen.getByTestId("nav-module-sales")); // expand Sales / IPC
     const item = screen.getByTestId("nav-item-/sales/ipcs");
-    expect(item).toHaveAttribute("data-built", "false");
-    expect(item.tagName).not.toBe("A");
-    expect(item).toHaveAttribute("aria-disabled", "true");
-    expect(item).toHaveAttribute("title", "Coming soon");
+    // Every nav item is now navigable — it links to a real page (a Coming-soon
+    // placeholder for not-yet-built screens), never a dead "Coming soon" span.
+    expect(item).toHaveAttribute("data-built", "true");
+    expect(item.tagName).toBe("A");
+    expect(item).toHaveAttribute("href", "/sales/ipcs");
   });
 
   it("a built sub-item is a real navigating link", async () => {

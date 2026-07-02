@@ -84,14 +84,15 @@ describe("nav tree — role-filtered visibility (spec §11)", () => {
   });
 });
 
-describe("nav tree — unbuilt retention + direct links", () => {
-  it("keeps unbuilt Tier-2/3 items in the tree (filtered by role, not by built)", () => {
-    // Admin's Sales/IPC items are all unbuilt but must still render (Coming soon).
+describe("nav tree — item retention + direct links", () => {
+  it("keeps Tier-2/3 items in the tree (filtered by role, not by built)", () => {
+    // Every Tier-2/3 nav item is now navigable (its route lands on a Coming-soon
+    // placeholder page), so the sidebar links to a real page, never a dead link.
     const sales = visibleTreeForRole("ADMIN")
       .flatMap((g) => g.modules)
       .find((m) => m.id === "sales");
     expect(sales?.items.length).toBeGreaterThan(0);
-    expect(sales?.items.every((i) => i.built === false)).toBe(true);
+    expect(sales?.items.every((i) => i.built === true)).toBe(true);
   });
 
   it("single-screen modules are direct links; multi-screen are not", () => {
@@ -119,18 +120,20 @@ describe("quick-create + alerts-bell gating (spec §5/§11)", () => {
     expect(showsAlertsBell("HR_MANAGER")).toBe(false);
   });
 
-  it("cost-control is unbuilt in Phase-1 v2 (bell degrades to plain, no live fetch)", () => {
+  it("cost-control has no data-backed screen yet → bell degrades to plain (no live fetch)", () => {
+    // CC nav items are navigable (Coming-soon placeholders) but there's no CC alerts
+    // API, so the bell's fetch gate stays false until the real CC screen ships.
     expect(costControlBuilt()).toBe(false);
   });
 });
 
 describe("Ctrl+K destinations + route matching", () => {
-  it("nav destinations are built + role-permitted only (unbuilt excluded)", () => {
+  it("nav destinations are built + role-permitted (every nav route is now navigable)", () => {
     const dests = navDestinationsForRole("ADMIN");
     const routes = dests.map((d) => d.route);
     expect(routes).toContain("/ledger/journal-entries");
     expect(routes).toContain("/numbering");
-    expect(routes).not.toContain("/sales/ipcs"); // unbuilt
+    expect(routes).toContain("/sales/ipcs"); // now navigable (Coming-soon placeholder)
   });
 
   it("matchNav picks the deepest matching sub-item (detail route → its list item)", () => {

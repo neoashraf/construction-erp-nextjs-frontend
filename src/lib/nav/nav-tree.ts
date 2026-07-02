@@ -128,12 +128,12 @@ export const NAV_TREE: readonly NavSectionGroup[] = [
         chip: "lime",
         icon: "sales",
         items: [
-          { label: "IPCs", route: "/sales/ipcs", roles: ["ACCOUNTS_TEAM", "ADMIN", "PROJECT_MANAGER"], built: false },
+          { label: "IPCs", route: "/sales/ipcs", roles: ["ACCOUNTS_TEAM", "ADMIN", "PROJECT_MANAGER"], built: true },
           {
             label: "IPC register & retention",
             route: "/sales/ipc-register",
             roles: ["ACCOUNTS_TEAM", "ADMIN", "PROJECT_MANAGER"],
-            built: false,
+            built: true,
           },
         ],
       },
@@ -142,7 +142,7 @@ export const NAV_TREE: readonly NavSectionGroup[] = [
         label: "Receipts",
         chip: "green",
         icon: "receipts",
-        items: [{ label: "Receipts", route: "/receipts", roles: ["ACCOUNTS_TEAM", "ADMIN"], built: false }],
+        items: [{ label: "Receipts", route: "/receipts", roles: ["ACCOUNTS_TEAM", "ADMIN"], built: true }],
       },
       {
         id: "purchases",
@@ -150,13 +150,13 @@ export const NAV_TREE: readonly NavSectionGroup[] = [
         chip: "blue",
         icon: "purchases",
         items: [
-          { label: "Purchase orders", route: "/purchase/orders", roles: ["ACCOUNTS_TEAM", "ADMIN"], built: false },
-          { label: "Purchase bills", route: "/purchase/bills", roles: ["ACCOUNTS_TEAM", "ADMIN"], built: false },
+          { label: "Purchase orders", route: "/purchase/orders", roles: ["ACCOUNTS_TEAM", "ADMIN"], built: true },
+          { label: "Purchase bills", route: "/purchase/bills", roles: ["ACCOUNTS_TEAM", "ADMIN"], built: true },
           {
             label: "GRN & matching",
             route: "/purchase/grn",
             roles: ["STORE_KEEPER", "ACCOUNTS_TEAM", "ADMIN"],
-            built: false,
+            built: true,
           },
         ],
       },
@@ -166,8 +166,8 @@ export const NAV_TREE: readonly NavSectionGroup[] = [
         chip: "teal",
         icon: "payments",
         items: [
-          { label: "Payments", route: "/payments", roles: ["ACCOUNTS_TEAM", "ADMIN"], built: false },
-          { label: "Open payables", route: "/payments/open-payables", roles: ["ACCOUNTS_TEAM", "ADMIN"], built: false },
+          { label: "Payments", route: "/payments", roles: ["ACCOUNTS_TEAM", "ADMIN"], built: true },
+          { label: "Open payables", route: "/payments/open-payables", roles: ["ACCOUNTS_TEAM", "ADMIN"], built: true },
         ],
       },
       {
@@ -176,8 +176,8 @@ export const NAV_TREE: readonly NavSectionGroup[] = [
         chip: "violet",
         icon: "contra-journal",
         items: [
-          { label: "Vouchers", route: "/contra-journal/vouchers", roles: ["ACCOUNTS_TEAM", "ADMIN"], built: false },
-          { label: "Opening balances", route: "/contra-journal/opening", roles: ["ADMIN", "ACCOUNTS_TEAM"], built: false },
+          { label: "Vouchers", route: "/contra-journal/vouchers", roles: ["ACCOUNTS_TEAM", "ADMIN"], built: true },
+          { label: "Opening balances", route: "/contra-journal/opening", roles: ["ADMIN", "ACCOUNTS_TEAM"], built: true },
         ],
       },
       {
@@ -190,13 +190,13 @@ export const NAV_TREE: readonly NavSectionGroup[] = [
             label: "Stock journals",
             route: "/inventory/stock-journals",
             roles: ["STORE_KEEPER", "ACCOUNTS_TEAM", "ADMIN"],
-            built: false,
+            built: true,
           },
           {
             label: "Stock ledger",
             route: "/inventory/stock-ledger",
             roles: ["STORE_KEEPER", "ACCOUNTS_TEAM", "ADMIN", "PROJECT_MANAGER"],
-            built: false,
+            built: true,
           },
         ],
       },
@@ -210,10 +210,10 @@ export const NAV_TREE: readonly NavSectionGroup[] = [
             label: "Requisitions",
             route: "/requisitions",
             roles: ["PROJECT_MANAGER", "SITE_ENGINEER", "ACCOUNTS_TEAM", "STORE_KEEPER"],
-            built: false,
+            built: true,
           },
-          { label: "Approvals", route: "/requisitions/approvals", roles: ["PROJECT_MANAGER", "ACCOUNTS_TEAM"], built: false },
-          { label: "Issues", route: "/requisitions/issues", roles: ["STORE_KEEPER"], built: false },
+          { label: "Approvals", route: "/requisitions/approvals", roles: ["PROJECT_MANAGER", "ACCOUNTS_TEAM"], built: true },
+          { label: "Issues", route: "/requisitions/issues", roles: ["STORE_KEEPER"], built: true },
         ],
       },
     ],
@@ -227,9 +227,9 @@ export const NAV_TREE: readonly NavSectionGroup[] = [
         chip: "teal",
         icon: "hr",
         items: [
-          { label: "Employees", route: "/hr/employees", roles: ["HR_MANAGER"], built: false },
-          { label: "Attendance", route: "/hr/attendance", roles: ["HR_MANAGER", "SITE_ENGINEER"], built: false },
-          { label: "Salary sheets", route: "/hr/salary-sheets", roles: ["HR_MANAGER"], built: false },
+          { label: "Employees", route: "/hr/employees", roles: ["HR_MANAGER"], built: true },
+          { label: "Attendance", route: "/hr/attendance", roles: ["HR_MANAGER", "SITE_ENGINEER"], built: true },
+          { label: "Salary sheets", route: "/hr/salary-sheets", roles: ["HR_MANAGER"], built: true },
         ],
       },
     ],
@@ -263,15 +263,15 @@ export const NAV_TREE: readonly NavSectionGroup[] = [
             label: "Budget vs actual",
             route: "/cost-control/budget-vs-actual",
             roles: ["ACCOUNTS_TEAM", "ADMIN", "PROJECT_MANAGER"],
-            built: false,
+            built: true,
           },
           {
             label: "Over-budget alerts",
             route: "/cost-control/alerts",
             roles: ["ACCOUNTS_TEAM", "ADMIN", "PROJECT_MANAGER"],
-            built: false,
+            built: true,
           },
-          { label: "Profitability", route: "/cost-control/profitability", roles: ["ACCOUNTS_TEAM", "ADMIN"], built: false },
+          { label: "Profitability", route: "/cost-control/profitability", roles: ["ACCOUNTS_TEAM", "ADMIN"], built: true },
         ],
       },
       {
@@ -284,7 +284,7 @@ export const NAV_TREE: readonly NavSectionGroup[] = [
             label: "Reports",
             route: "/reports",
             roles: ["ACCOUNTS_TEAM", "ADMIN", "PROJECT_MANAGER", "HR_MANAGER"],
-            built: false,
+            built: true,
           },
         ],
       },
@@ -447,12 +447,14 @@ export function showsAlertsBell(role: Role): boolean {
 }
 
 /**
- * Whether the Cost-control module is built yet (gates the live alerts fetch). Derived
- * from the CC module's items — the bell degrades to a plain bell while this is false.
+ * Whether the Cost-control module has a REAL, data-backed screen yet — this gates the
+ * live `GET /api/cost-control/alerts` fetch behind the bell. The CC nav items are now
+ * navigable, but they resolve to Coming-soon *placeholders* with no backing endpoint,
+ * so this stays `false` until the actual CC alerts screen + API ship. Keeping it false
+ * means the bell degrades to a plain bell instead of firing a fetch that must fail.
  */
 export function costControlBuilt(): boolean {
-  const cc = NAV_TREE.flatMap((g) => g.modules).find((m) => m.id === "cost-control");
-  return cc ? cc.items.some((it) => it.built) : false;
+  return false;
 }
 
 /**
