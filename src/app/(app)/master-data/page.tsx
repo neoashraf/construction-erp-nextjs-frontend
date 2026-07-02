@@ -7,7 +7,6 @@ import {
   Tags,
   Package,
   FolderKanban,
-  Hash,
 } from "lucide-react";
 import { requireModuleAccess } from "@/lib/auth/guard-module-page";
 import { ModuleIndex, type ModuleIndexEntry } from "@/components/shell/module-index";
@@ -21,7 +20,9 @@ const ENTRIES: ModuleIndexEntry[] = [
   { href: "/master-data/purposes", title: "Purposes", description: "Project-scoped spend purposes.", icon: Tags },
   { href: "/master-data/items", title: "Items", description: "Stock items, UoM conversions, base-UoM.", icon: Package },
   { href: "/master-data/projects", title: "Projects", description: "Project master, budgets, and godowns.", icon: FolderKanban },
-  { href: "/master-data/numbering-series", title: "Numbering series", description: "Voucher prefix/padding + gap audit (Admin).", icon: Hash },
+  // Numbering series is now the canonical ADMINISTRATION → Numbering (`/numbering`) home
+  // (screen spec §14-5). The `/master-data/numbering-series` route still resolves as a
+  // deep-link fallback but is no longer surfaced here (no double-home).
 ];
 
 /** Master Data (MAS) segment landing page — links to the module's built screens. */
