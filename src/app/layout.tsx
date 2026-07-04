@@ -1,5 +1,26 @@
 import type { Metadata } from "next";
+import { Inter, Hind_Siliguri } from "next/font/google";
 import "./globals.css";
+
+/**
+ * Design-system type stack (docs/design/design-files/Zakir ERP Design System.dc.html
+ * §Type): Inter for Latin text, Hind Siliguri as the Bangla-safe fallback so Bangla
+ * text never clips (overview §9 / NFR-009). Both are exposed as CSS variables that
+ * --font-sans (src/styles/tokens.css) consumes — self-hosted via next/font, no
+ * runtime Google Fonts request.
+ */
+const inter = Inter({
+  subsets: ["latin"],
+  weight: ["400", "500", "600", "700"],
+  variable: "--font-inter",
+  display: "swap",
+});
+const hindSiliguri = Hind_Siliguri({
+  subsets: ["bengali", "latin"],
+  weight: ["400", "600"],
+  variable: "--font-hind-siliguri",
+  display: "swap",
+});
 
 export const metadata: Metadata = {
   title: "Zakir Enterprise — Construction ERP",
@@ -20,7 +41,12 @@ export const metadata: Metadata = {
  */
 export default function RootLayout({ children }: { children: React.ReactNode }) {
   return (
-    <html lang="en" data-theme="light" suppressHydrationWarning>
+    <html
+      lang="en"
+      data-theme="light"
+      className={`${inter.variable} ${hindSiliguri.variable}`}
+      suppressHydrationWarning
+    >
       <body
         className="min-h-screen bg-canvas text-foreground antialiased"
         suppressHydrationWarning

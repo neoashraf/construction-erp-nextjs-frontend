@@ -1,7 +1,6 @@
 import { z } from "zod";
 import { isE164 } from "@/lib/format";
 import { type ApiError } from "@/lib/api/errors";
-import { USER_ROLES } from "../types";
 
 /**
  * Create / edit user form schemas (spec §7/§8; FR-AUD-002/007/011/019). Messages
@@ -23,10 +22,15 @@ const phoneField = z
   .optional()
   .refine((v) => !v || isE164(v), PHONE_MESSAGE);
 
+// roleId is a Role UUID (populated from `GET /api/roles`), not a role-name literal —
+// the backend looks it up via `roles.findById`, so any non-empty string is valid here;
+// an empty selection is caught by `min(1)`.
+const roleIdField = z.string().trim().min(1, ROLE_MESSAGE);
+
 export const createUserSchema = z.object({
   email: z.string().trim().min(1, EMAIL_MESSAGE).email(EMAIL_MESSAGE),
   name: z.string().trim().min(1, NAME_MESSAGE),
-  roleId: z.enum(USER_ROLES, { errorMap: () => ({ message: ROLE_MESSAGE }) }),
+  roleId: roleIdField,
   financialYearId: z.string().trim().min(1, FY_MESSAGE),
   phone: phoneField,
   temporaryPassword: z.string().min(10, PASSWORD_MESSAGE),
@@ -37,7 +41,7 @@ export type CreateUserFormValues = z.infer<typeof createUserSchema>;
 
 export const editUserSchema = z.object({
   name: z.string().trim().min(1, NAME_MESSAGE),
-  roleId: z.enum(USER_ROLES, { errorMap: () => ({ message: ROLE_MESSAGE }) }),
+  roleId: roleIdField,
   financialYearId: z.string().trim().min(1, FY_MESSAGE),
   phone: phoneField,
 });

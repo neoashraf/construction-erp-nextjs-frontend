@@ -1,6 +1,6 @@
 "use client";
 
-import { useState } from "react";
+import { useEffect, useState } from "react";
 import { useForm } from "react-hook-form";
 import { zodResolver } from "@hookform/resolvers/zod";
 import { Eye, EyeOff } from "lucide-react";
@@ -14,8 +14,9 @@ import { Alert } from "@/components/ui/alert";
 import { asApiError } from "@/lib/api/errors";
 import { formatDate } from "@/lib/format";
 import { useCreateUser, useUpdateUser, useFinancialYearOptions } from "../hooks/use-users";
+import { useRoles } from "../hooks/use-roles";
 import { createUserSchema, editUserSchema, mapUserFormError } from "../schemas/user";
-import { USER_ROLES, userRoleLabel, type UserDetail } from "../types";
+import { userRoleLabel, type UserDetail } from "../types";
 
 type Mode = { kind: "create" } | { kind: "edit"; user: UserDetail };
 
@@ -41,6 +42,7 @@ export function UserDrawer({
   const create = useCreateUser();
   const update = useUpdateUser();
   const fyOptions = useFinancialYearOptions();
+  const roles = useRoles();
   const [pwVisible, setPwVisible] = useState(false);
   const [conflict, setConflict] = useState(false);
   const [formMessage, setFormMessage] = useState<string | null>(null);
@@ -50,13 +52,14 @@ export function UserDrawer({
     register,
     handleSubmit,
     setError,
+    setValue,
     formState: { errors },
   } = useForm({
     resolver: zodResolver(schema as never),
     defaultValues: isEdit
       ? {
           name: mode.user.name,
-          roleId: mode.user.role,
+          roleId: "",
           financialYearId: mode.user.financialYearId,
           phone: mode.user.phone ?? "",
         }
@@ -69,6 +72,16 @@ export function UserDrawer({
           temporaryPassword: "",
         },
   });
+
+  // Edit mode: `UserDetail.role` is the role NAME (e.g. "HR_MANAGER"), but the form
+  // field/API need the role's UUID (`POST`/`PATCH` look it up via `roles.findById`).
+  // Roles load async, so resolve + fill the select once the list arrives.
+  useEffect(() => {
+    if (!isEdit || !roles.data) return;
+    const match = roles.data.find((r) => r.name === mode.user.role);
+    if (match) setValue("roleId" as never, match.id as never);
+    // eslint-disable-next-line react-hooks/exhaustive-deps
+  }, [isEdit, roles.data]);
 
   const saving = create.isPending || update.isPending;
 
@@ -207,11 +220,16 @@ export function UserDrawer({
                 <Label htmlFor="user-role">
                   Role <span className="text-destructive">*</span>
                 </Label>
-                <Select id="user-role" invalid={!!errors.roleId} disabled={saving} {...register("roleId")}>
+                <Select
+                  id="user-role"
+                  invalid={!!errors.roleId}
+                  disabled={saving || roles.isLoading}
+                  {...register("roleId")}
+                >
                   <option value="">Select a role</option>
-                  {USER_ROLES.map((r) => (
-                    <option key={r} value={r}>
-                      {userRoleLabel(r)}
+                  {(roles.data ?? []).map((r) => (
+                    <option key={r.id} value={r.id}>
+                      {userRoleLabel(r.name)}
                     </option>
                   ))}
                 </Select>

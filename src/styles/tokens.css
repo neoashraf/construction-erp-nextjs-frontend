@@ -127,11 +127,12 @@
   --dur-fast: 120ms;
   --dur: 200ms;
 
-  /* Type — Bangla-safe stack so Bangla never clips (overview §9 / NFR-009).
-     TODO(design-system): load Inter + a Bangla face (Hind Siliguri / Noto Sans
-     Bengali) via next/font and prepend to --font-sans. */
-  --font-sans: system-ui, -apple-system, "Segoe UI", Roboto, "Helvetica Neue", Arial,
-    "Noto Sans Bengali", "Hind Siliguri", sans-serif;
+  /* Type — Inter (Latin) + Hind Siliguri (Bangla-safe fallback) so Bangla never
+     clips (overview §9 / NFR-009). Both loaded via next/font in app/layout.tsx,
+     exposed as --font-inter / --font-hind-siliguri; system-ui is the last-resort
+     fallback if a font variable is ever unavailable (e.g. a non-Next.js preview). */
+  --font-sans: var(--font-inter), var(--font-hind-siliguri), system-ui, -apple-system,
+    "Segoe UI", Roboto, "Helvetica Neue", Arial, sans-serif;
   --font-mono: ui-monospace, "SFMono-Regular", Menlo, Consolas, monospace;
 }
 
