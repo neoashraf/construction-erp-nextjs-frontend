@@ -7,6 +7,7 @@ import { Button } from "@/components/ui/button";
 import { useToast } from "@/components/ui/toast";
 import { useCompanyFy } from "@/providers/company-fy-provider";
 import { useShellMasters } from "@/lib/shell/shell-data";
+import { useSessionRefresh } from "@/providers/session-provider";
 import { cn } from "@/lib/utils";
 
 /**
@@ -72,6 +73,7 @@ export function CompanyFySwitcher({
   const companyText = companyName ?? (namesUnavailable ? `Co ${companyId.slice(0, 8)}` : companyName ?? `Co ${companyId.slice(0, 8)}`);
   const fyText = financialYearLabel ?? `FY ${financialYearId.slice(0, 8)}`;
 
+  const refreshSession = useSessionRefresh();
   const fyOptions = masters.data?.financialYears ?? [];
   const dirty = draftFy !== financialYearId;
 
@@ -83,6 +85,9 @@ export function CompanyFySwitcher({
     const chosen = fyOptions.find((f) => f.id === draftFy);
     const label = chosen?.label ?? null;
     switchFinancialYear(draftFy, label);
+    // FE-21 (FR-AUD-033): re-read the session projection under the new scope so
+    // live grant/scope changes surface without a reload.
+    void refreshSession();
     toast(`Financial year switched to ${label ?? "the selected year"}.`, "success");
     setOpen(false);
   }

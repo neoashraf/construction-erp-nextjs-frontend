@@ -11,7 +11,10 @@ import { type ModuleKey } from "./roles";
  */
 export async function requireModuleAccess(module: ModuleKey): Promise<void> {
   const user = await getServerSession();
-  const decision = guardModule(user?.role, module);
+  // FE-21: pass the whole session — when it carries the permission projection the
+  // guard is permission-driven; otherwise it falls back to the role map. Either
+  // way the backend re-checks the exact grant on every call (defence-in-depth).
+  const decision = guardModule(user, module);
   if (!decision.allow) {
     redirect(decision.redirectTo);
   }

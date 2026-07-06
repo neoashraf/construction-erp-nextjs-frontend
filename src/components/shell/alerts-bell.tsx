@@ -2,7 +2,7 @@
 
 import Link from "next/link";
 import { Bell } from "lucide-react";
-import { showsAlertsBell, costControlBuilt, type Role } from "@/lib/nav/nav-tree";
+import { showsAlertsBell, costControlBuilt, type NavViewer } from "@/lib/nav/nav-tree";
 import { useAlertCount } from "@/lib/shell/shell-data";
 
 /**
@@ -12,8 +12,8 @@ import { useAlertCount } from "@/lib/shell/shell-data";
  * **degrades silently to a plain bell** (no badge) on error or while the CC module is
  * unbuilt (`built:false`) — it never blocks the shell. Links to `/cost-control/alerts`.
  */
-export function AlertsBell({ role }: { role: Role }) {
-  const visible = showsAlertsBell(role);
+export function AlertsBell({ viewer }: { viewer: NavViewer }) {
+  const visible = showsAlertsBell(viewer);
   const ccBuilt = costControlBuilt();
   // Only hit the endpoint when the bell is shown AND the CC module has shipped.
   const { count } = useAlertCount(visible && ccBuilt);

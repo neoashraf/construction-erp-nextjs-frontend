@@ -149,7 +149,7 @@ describe("Alerts bell (spec §5/§6/§14-2)", () => {
     useAlertCount.mockReturnValue({ count: null });
     render(
       <Providers>
-        <AlertsBell role="ACCOUNTS_TEAM" />
+        <AlertsBell viewer={{ role: "ACCOUNTS_TEAM" }} />
       </Providers>,
     );
     expect(screen.getByTestId("alerts-bell")).toBeInTheDocument();
@@ -159,7 +159,7 @@ describe("Alerts bell (spec §5/§6/§14-2)", () => {
   it("does NOT render for a non-CC role (Site Engineer)", () => {
     render(
       <Providers>
-        <AlertsBell role="SITE_ENGINEER" />
+        <AlertsBell viewer={{ role: "SITE_ENGINEER" }} />
       </Providers>,
     );
     expect(screen.queryByTestId("alerts-bell")).not.toBeInTheDocument();
@@ -201,7 +201,7 @@ describe("Ctrl+K nav palette (spec §5/§9/§14-1)", () => {
     const user = userEvent.setup();
     render(
       <Providers>
-        <NavCommand role="ADMIN" />
+        <NavCommand viewer={{ role: "ADMIN" }} />
       </Providers>,
     );
     await user.click(screen.getByTestId("nav-search-trigger"));
@@ -215,7 +215,7 @@ describe("Ctrl+K nav palette (spec §5/§9/§14-1)", () => {
     const user = userEvent.setup();
     render(
       <Providers>
-        <NavCommand role="ADMIN" />
+        <NavCommand viewer={{ role: "ADMIN" }} />
       </Providers>,
     );
     await user.click(screen.getByTestId("nav-search-trigger"));

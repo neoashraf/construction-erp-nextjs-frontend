@@ -18,7 +18,11 @@ import { NAV_ICON } from "./nav-icons";
 import { useShellChrome } from "./shell-chrome-context";
 import { useCompanyFy } from "@/providers/company-fy-provider";
 import { UserMenu, type UserMenuUser } from "./user-menu";
+import { type SessionPermission } from "@/lib/auth/session";
 import { cn } from "@/lib/utils";
+
+/** The sidebar's viewer: identity for the footer + the grant set for nav filtering. */
+export type SidebarUser = UserMenuUser & { permissions?: SessionPermission[] | null };
 
 /**
  * App Shell v3 sidebar navbar (screen spec §3.1/§5/§9/§10). Two levels: section
@@ -30,11 +34,11 @@ import { cn } from "@/lib/utils";
  * context line (`FY … · BDT (৳)`) and the user/profile block (upward menu) — the
  * profile lives here, not the topbar (v3). `aside[aria-label="Primary"]`.
  */
-export function Sidebar({ user }: { user: UserMenuUser }) {
-  const role: Role = user.role;
+export function Sidebar({ user }: { user: SidebarUser }) {
   const pathname = usePathname();
   const { collapsed } = useShellChrome();
-  const tree = visibleTreeForRole(role);
+  // FE-21: permission-driven filtering when the projection is present; role fallback otherwise.
+  const tree = visibleTreeForRole(user);
   const match = matchNav(pathname);
   const activeModuleId = match?.module.id ?? null;
 

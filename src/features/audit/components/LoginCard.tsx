@@ -52,10 +52,16 @@ export function LoginCard({ sessionExpired = false }: LoginCardProps) {
   function onSubmit(data: LoginInput) {
     setBanner("none");
     mutate(data, {
-      onSuccess: () => {
+      onSuccess: (result) => {
         setSignedIn(true);
+        // Forced change (FR-AUD-030): a temp/reset password holds the user on
+        // change-password (forced mode) before any shell route renders.
+        const mustChange =
+          typeof result === "object" && result !== null && "user" in result
+            ? Boolean((result as { user?: { mustChangePassword?: boolean } }).user?.mustChangePassword)
+            : false;
         // Cookies are set; route into the shell. refresh() re-renders server components.
-        router.replace("/dashboard");
+        router.replace(mustChange ? "/change-password?forced=1" : "/dashboard");
         router.refresh();
       },
       onError: (err) => {

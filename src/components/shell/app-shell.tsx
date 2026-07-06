@@ -43,7 +43,7 @@ export function AppShell({ children }: { children: ReactNode }) {
           <Sidebar user={user} />
           <NavDrawer user={user} />
           <div className="flex min-w-0 flex-1 flex-col overflow-hidden">
-            <Topbar role={user.role} />
+            <Topbar viewer={user} />
             <OfflineBanner />
             <main
               id="app-content"

@@ -1,4 +1,5 @@
 import { networkError, toApiError } from "./errors";
+import { navigateToForcedChange } from "@/lib/auth/forced-change";
 import { type Paginated } from "./pagination";
 
 /**
@@ -76,7 +77,14 @@ export async function request<T>(path: string, options: RequestOptions = {}): Pr
 
   const body = await parseBody(res);
   if (!res.ok) {
-    throw toApiError(body, res.status, res.statusText);
+    const error = toApiError(body, res.status, res.statusText);
+    // Forced-change gate (FR-AUD-030): while the user is on a temp/reset password
+    // the backend 403s every data call with PASSWORD_CHANGE_REQUIRED — route them
+    // to the forced change-password screen (browser only; SSR callers just throw).
+    if (error.code === "PASSWORD_CHANGE_REQUIRED") {
+      navigateToForcedChange();
+    }
+    throw error;
   }
   return body as T;
 }
