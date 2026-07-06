@@ -42,9 +42,13 @@ const PM_DETAIL: UserDetail = {
   email: "m.hasan@zakirent.com",
   name: "Mohammad Hasan",
   role: "PROJECT_MANAGER",
+  roleId: "role-pm",
+  roleIsSystem: true,
+  roleIsUnscoped: false,
   financialYearId: "fy1",
   isActive: true,
   lastLoginAt: null,
+  mustChangePassword: false,
   phone: null,
   assignedProjects: [],
   version: 1,
@@ -55,6 +59,8 @@ const ADMIN_DETAIL: UserDetail = {
   id: "u1",
   name: "Ashraf Uddin",
   role: "ADMIN",
+  roleId: "role-admin",
+  roleIsUnscoped: true,
 };
 
 const PROJECT_OPTIONS: ProjectOption[] = [

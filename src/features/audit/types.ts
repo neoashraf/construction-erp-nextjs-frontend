@@ -79,15 +79,24 @@ export function userRoleLabel(role: UserRole | string): string {
 }
 
 /**
- * A user list row (API contract 05 `GET /api/users` item). Never carries
+ * A user list row (API contract 05 `GET /api/users` item · RBAC v2). Never carries
  * `password_hash` or any encrypted-at-rest field (FR-AUD-002/010) — the API omits
- * them, and this type has no field for them by design.
+ * them, and this type has no field for them by design. The `role*` fields (BE #43)
+ * let the UI key the Custom tag + project-scope display on the payload directly,
+ * not on a fragile role-name match.
  */
 export interface UserListItem {
   id: string;
   email: string;
   name: string;
+  /** Role NAME (built-in enum or a custom-role string) — for display. */
   role: UserRole | string;
+  /** Role UUID (the picker/filter value). */
+  roleId: string;
+  /** `false` = a custom role → the "Custom" tag. */
+  roleIsSystem: boolean;
+  /** `true` → the user sees "All projects" (no assignment); else the assigned count. */
+  roleIsUnscoped: boolean;
   isActive: boolean;
   lastLoginAt: string | null;
   assignedProjectCount: number;
@@ -108,9 +117,15 @@ export interface UserDetail {
   email: string;
   name: string;
   role: UserRole | string;
+  /** Role UUID (drives the edit-drawer picker + payload-keyed scope/tag). */
+  roleId: string;
+  roleIsSystem: boolean;
+  roleIsUnscoped: boolean;
   financialYearId: string;
   isActive: boolean;
   lastLoginAt: string | null;
+  /** FR-AUD-030 — `true` while the user is still on a temporary/reset password. */
+  mustChangePassword: boolean;
   phone: string | null;
   assignedProjects: AssignedProjectRef[];
   version: number;

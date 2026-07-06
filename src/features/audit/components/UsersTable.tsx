@@ -17,7 +17,7 @@ import {
 } from "@/components/ui/dropdown-menu";
 import { MoreHorizontal } from "lucide-react";
 import { formatDate } from "@/lib/format";
-import { userRoleLabel, isUnscopedUserRole, type UserListItem } from "../types";
+import { userRoleLabel, type UserListItem } from "../types";
 
 function StatusBadge({ active }: { active: boolean }) {
   return active ? (
@@ -31,17 +31,32 @@ function StatusBadge({ active }: { active: boolean }) {
   );
 }
 
+/** Role badge — name + a "Custom" tag when the role resolves to a non-system role (BE #43). */
+function RoleCell({ user }: { user: UserListItem }) {
+  return (
+    <span className="inline-flex items-center gap-1.5">
+      <Badge tone="info">{userRoleLabel(user.role)}</Badge>
+      {!user.roleIsSystem && (
+        <Badge tone="neutral" data-testid={`role-custom-tag-${user.id}`}>
+          Custom
+        </Badge>
+      )}
+    </span>
+  );
+}
+
 function ProjectsCell({ user }: { user: UserListItem }) {
-  if (isUnscopedUserRole(user.role)) {
+  // Keyed on the payload's roleIsUnscoped (BE #43), not a role-name heuristic.
+  if (user.roleIsUnscoped) {
     return (
-      <Badge tone="accent" className="whitespace-nowrap">
+      <Badge tone="accent" className="whitespace-nowrap" data-testid={`scope-all-${user.id}`}>
         All projects
       </Badge>
     );
   }
   const count = user.assignedProjectCount;
   return (
-    <span className="text-[12.5px] font-medium text-muted-foreground">
+    <span className="text-[12.5px] font-medium text-muted-foreground" data-testid={`scope-count-${user.id}`}>
       {count} {count === 1 ? "project" : "projects"}
     </span>
   );
@@ -155,7 +170,7 @@ export function UsersTable({
                   </span>
                 </TableCell>
                 <TableCell>
-                  <Badge tone="info">{userRoleLabel(u.role)}</Badge>
+                  <RoleCell user={u} />
                 </TableCell>
                 <TableCell>
                   <StatusBadge active={u.isActive} />
@@ -202,7 +217,7 @@ export function UsersTable({
                   {u.name}
                 </button>
                 <div className="mt-1 flex flex-wrap items-center gap-1.5">
-                  <Badge tone="info">{userRoleLabel(u.role)}</Badge>
+                  <RoleCell user={u} />
                   <StatusBadge active={u.isActive} />
                 </div>
               </div>
