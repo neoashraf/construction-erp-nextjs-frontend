@@ -1,7 +1,10 @@
 /**
- * FE-SHELL toolbar (screen spec §5/§6/§7/§9). Company·FY switcher name-resolution +
- * degrade + FY-switch query invalidation, quick-create filtering, alerts-bell gating +
- * degrade, user menu (Change password / Sign out), and the Ctrl+K nav palette.
+ * FE-SHELL v3 toolbar (screen spec §4/§5/§6/§7/§9). Company·FY switcher
+ * name-resolution + degrade + FY-switch query invalidation, alerts-bell gating +
+ * degrade, the sidebar-footer user menu (identity header incl. email / Change
+ * password / Sign out, upward), and the Ctrl+K nav palette behind the icon-box
+ * search trigger. The topbar quick-create is GONE in v3 (creates live in each
+ * page's content header).
  */
 import React from "react";
 import { render, screen, waitFor, within } from "@testing-library/react";
@@ -10,7 +13,6 @@ import { QueryClient, QueryClientProvider } from "@tanstack/react-query";
 import { CompanyFyProvider } from "@/providers/company-fy-provider";
 import { ToastProvider } from "@/components/ui/toast";
 import { CompanyFySwitcher } from "@/components/shell/company-fy-switcher";
-import { QuickCreateMenu } from "@/components/shell/quick-create-menu";
 import { AlertsBell } from "@/components/shell/alerts-bell";
 import { UserMenu } from "@/components/shell/user-menu";
 import { NavCommand } from "@/components/shell/nav-command";
@@ -135,14 +137,10 @@ describe("Company·FY switcher (spec §5/§6/§7)", () => {
   });
 });
 
-describe("Quick-create (+ New) (spec §5/§11)", () => {
-  it("is hidden for every role in Phase-1 v2 (no built create targets yet)", () => {
-    render(
-      <Providers>
-        <QuickCreateMenu role="ADMIN" />
-      </Providers>,
-    );
-    expect(screen.queryByTestId("quick-create")).not.toBeInTheDocument();
+describe("Quick-create (+ New) — dropped from the topbar in v3 (spec §5/§5a)", () => {
+  it("the quick-create-menu component no longer exists (creates live in page headers)", () => {
+    // The module was deleted; requiring it must fail. This pins the v3 reversal.
+    expect(() => require("@/components/shell/quick-create-menu")).toThrow();
   });
 });
 
@@ -168,17 +166,33 @@ describe("Alerts bell (spec §5/§6/§14-2)", () => {
   });
 });
 
-describe("User menu (spec §5/§8)", () => {
-  it("opens Change password + Sign out; role label is read-only", async () => {
+describe("User menu — sidebar footer, opens upward (v3 spec §5/§8/§10)", () => {
+  const menuUser = { name: "Sadia Rahman", role: "ACCOUNTS_TEAM" as const, email: "sadia@ze.test" };
+
+  it("identity header shows name · role · email; Change password navigates", async () => {
     const user = userEvent.setup();
     render(
       <Providers>
-        <UserMenu name="Sadia Rahman" role="ACCOUNTS_TEAM" />
+        <UserMenu user={menuUser} />
       </Providers>,
     );
-    await user.click(screen.getByTestId("user-menu"));
-    await user.click(await screen.findByTestId("user-menu-change-password"));
+    const trigger = screen.getByTestId("user-menu");
+    expect(trigger).toHaveAttribute("aria-haspopup", "menu");
+    await user.click(trigger);
+    expect(await screen.findByTestId("user-menu-email")).toHaveTextContent("sadia@ze.test");
+    await user.click(screen.getByTestId("user-menu-change-password"));
     expect(pushMock).toHaveBeenCalledWith("/change-password");
+  });
+
+  it("rail variant collapses to the avatar only (no name/role text on the trigger)", () => {
+    render(
+      <Providers>
+        <UserMenu user={menuUser} variant="rail" />
+      </Providers>,
+    );
+    const trigger = screen.getByTestId("user-menu");
+    expect(trigger).not.toHaveTextContent("Sadia Rahman");
+    expect(trigger).toHaveAttribute("aria-label", "Account — Sadia Rahman");
   });
 });
 

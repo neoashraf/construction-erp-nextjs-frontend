@@ -3,26 +3,26 @@
 import { PanelLeft, Menu } from "lucide-react";
 import { type Role } from "@/lib/auth/roles";
 import { useShellChrome } from "./shell-chrome-context";
-import { Breadcrumb } from "./breadcrumb";
 import { CompanyFySwitcher } from "./company-fy-switcher";
 import { NavCommand } from "./nav-command";
-import { QuickCreateMenu } from "./quick-create-menu";
 import { AlertsBell } from "./alerts-bell";
-import { UserMenu } from "./user-menu";
-
-interface TopbarUser {
-  name: string;
-  role: Role;
-}
 
 /**
- * App Shell v2 toolbar (screen spec §5). Left→right: collapse toggle (≥768) /
- * hamburger (<768) · breadcrumb · company·FY switcher chip. Right: nav-search
- * trigger (Ctrl+K) · "+ New" quick-create · alerts bell · user menu. Replaces the
- * bare UUID-slice context + standalone Sign-out button of the FE-0 placeholder.
+ * App Shell v3 toolbar (screen spec §3.3/§4/§5) — GLOBAL context + utilities ONLY.
+ * Left group: collapse toggle (36×36 bordered icon box, panel-left glyph — never a
+ * hamburger at ≥768) · 1px divider · company·FY switcher chip. Right group: go-to
+ * search icon-box (opens the search takeover) · alerts bell icon-box. Nothing
+ * page-specific lives here: no "+ New" (creates are in each page's content header),
+ * no breadcrumb (detail-only, in the content header), no user block (docked in the
+ * sidebar footer). The three utility icons are identical 36×36 bordered boxes.
  * `<header>` landmark.
  */
-export function Topbar({ user }: { user: TopbarUser }) {
+
+/** The shared 36×36 bordered icon-box style for the topbar utility trio (spec §4). */
+export const TOPBAR_ICON_BOX =
+  "grid h-9 w-9 place-items-center rounded-lg border border-border bg-surface text-muted-foreground transition-colors hover:border-border-strong hover:bg-canvas hover:text-foreground";
+
+export function Topbar({ role }: { role: Role }) {
   const { collapsed, toggleCollapsed, setDrawerOpen } = useShellChrome();
 
   return (
@@ -30,42 +30,39 @@ export function Topbar({ user }: { user: TopbarUser }) {
       data-testid="topbar"
       className="flex h-14 shrink-0 items-center gap-3 border-b border-border bg-surface px-3 md:px-5"
     >
-      {/* far-left: collapse toggle (≥768) */}
+      {/* left group — collapse toggle (≥768): panel-left icon box, NOT a hamburger */}
       <button
         type="button"
         data-testid="collapse-toggle"
         aria-label={collapsed ? "Expand sidebar" : "Collapse sidebar"}
         aria-pressed={collapsed}
         onClick={toggleCollapsed}
-        className="hidden h-9 w-9 place-items-center rounded-token text-muted-foreground transition-colors hover:bg-muted hover:text-foreground md:grid"
+        className={`hidden md:grid ${TOPBAR_ICON_BOX}`}
       >
-        <PanelLeft className="h-[18px] w-[18px]" aria-hidden />
+        <PanelLeft className="h-[17px] w-[17px]" aria-hidden />
       </button>
 
-      {/* far-left: hamburger (<768) opens the mobile drawer */}
+      {/* hamburger only on the mobile frame (<768): opens the nav drawer */}
       <button
         type="button"
         data-testid="drawer-toggle"
         aria-label="Open menu"
         onClick={() => setDrawerOpen(true)}
-        className="grid h-9 w-9 place-items-center rounded-token text-muted-foreground transition-colors hover:bg-muted hover:text-foreground md:hidden"
+        className={`md:hidden ${TOPBAR_ICON_BOX}`}
       >
-        <Menu className="h-5 w-5" aria-hidden />
+        <Menu className="h-[18px] w-[18px]" aria-hidden />
       </button>
 
-      <Breadcrumb />
-
-      <div className="mx-1 hidden h-6 w-px bg-border sm:block" aria-hidden />
+      <div className="hidden h-6 w-px bg-border sm:block" aria-hidden />
 
       <div className="hidden sm:block">
         <CompanyFySwitcher />
       </div>
 
+      {/* right group — search + bell icon boxes (identical trio with the toggle) */}
       <div className="ml-auto flex items-center gap-2">
-        <NavCommand role={user.role} />
-        <QuickCreateMenu role={user.role} />
-        <AlertsBell role={user.role} />
-        <UserMenu name={user.name} role={user.role} />
+        <NavCommand role={role} />
+        <AlertsBell role={role} />
       </div>
     </header>
   );

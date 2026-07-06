@@ -86,17 +86,16 @@ export function NavCommand({ role }: { role: Role }) {
 
   return (
     <>
+      {/* v3: icon-only 36×36 bordered box — never an inline field; opens the takeover */}
       <button
         type="button"
         data-testid="nav-search-trigger"
+        aria-label="Go to… (Ctrl+K)"
+        title="Go to… (Ctrl+K)"
         onClick={() => setOpen(true)}
-        className="hidden h-9 items-center gap-2 rounded-token border border-border-strong bg-canvas px-3 text-[13px] text-muted-foreground transition-colors hover:bg-muted md:inline-flex"
+        className="grid h-9 w-9 place-items-center rounded-lg border border-border bg-surface text-muted-foreground transition-colors hover:border-border-strong hover:bg-canvas hover:text-foreground"
       >
-        <Search className="h-4 w-4" aria-hidden />
-        <span>Go to…</span>
-        <kbd className="ml-2 rounded border border-border-strong bg-surface px-1.5 py-px text-[10px] font-semibold text-faint">
-          Ctrl K
-        </kbd>
+        <Search className="h-[17px] w-[17px]" aria-hidden />
       </button>
 
       <DialogPrimitive.Root open={open} onOpenChange={setOpen}>

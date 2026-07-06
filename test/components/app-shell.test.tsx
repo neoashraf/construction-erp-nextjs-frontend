@@ -1,11 +1,13 @@
 /**
- * FE-SHELL app shell integration (screen spec §4/§6/§10). Skip-link, landmarks,
- * role-filtered nav inside the real frame, the user menu (replacing the old Sign-out
- * button), and the breadcrumb. Sub-component behaviour is covered by sidebar/toolbar
- * tests; this asserts the assembled shell.
+ * FE-SHELL v3 app shell integration (screen spec §3.3/§4/§6/§10). Skip-link,
+ * landmarks, role-filtered nav inside the real frame, the GLOBAL-ONLY topbar (no
+ * user block / no "+ New" / no list-page breadcrumb), the sidebar-footer profile
+ * block, and the detail-only breadcrumb in the content area. Sub-component behaviour
+ * is covered by sidebar/toolbar tests; this asserts the assembled shell.
  */
 import React from "react";
-import { render, screen } from "@testing-library/react";
+import { render, screen, within } from "@testing-library/react";
+import { useSetRecordCrumb } from "@/components/shell/breadcrumb";
 import { QueryClient, QueryClientProvider } from "@tanstack/react-query";
 import { AppShell } from "@/components/shell/app-shell";
 import { SessionProvider } from "@/providers/session-provider";
@@ -79,10 +81,24 @@ describe("AppShell v2 — frame + landmarks (spec §4/§10)", () => {
     expect(screen.getByTestId("child")).toBeInTheDocument();
   });
 
-  it("replaces the standalone Sign-out button with the user menu (name shown)", () => {
+  it("docks the user/profile block in the SIDEBAR FOOTER (not the topbar) — v3", () => {
     renderShell(baseUser);
     expect(screen.queryByTestId("logout-button")).not.toBeInTheDocument();
-    expect(screen.getByTestId("user-menu")).toHaveTextContent("Test User");
+    const footer = screen.getByTestId("sidebar-footer");
+    expect(within(footer).getByTestId("user-menu")).toHaveTextContent("Test User");
+    expect(within(screen.getByTestId("topbar")).queryByTestId("user-menu")).not.toBeInTheDocument();
+  });
+
+  it("topbar is GLOBAL-ONLY: collapse toggle · switcher · search · bell — no '+ New', no user block, no breadcrumb", () => {
+    renderShell(baseUser);
+    const topbar = screen.getByTestId("topbar");
+    expect(within(topbar).getByTestId("collapse-toggle")).toBeInTheDocument();
+    expect(within(topbar).getByTestId("company-fy")).toBeInTheDocument();
+    expect(within(topbar).getByTestId("nav-search-trigger")).toBeInTheDocument();
+    expect(within(topbar).getByTestId("alerts-bell")).toBeInTheDocument();
+    expect(within(topbar).queryByTestId("quick-create")).not.toBeInTheDocument();
+    expect(within(topbar).queryByTestId("user-menu")).not.toBeInTheDocument();
+    expect(within(topbar).queryByTestId("breadcrumb")).not.toBeInTheDocument();
   });
 });
 
@@ -106,11 +122,39 @@ describe("AppShell v2 — role-filtered nav in the frame (spec §11)", () => {
   });
 });
 
-describe("AppShell v2 — breadcrumb (spec §3.3)", () => {
-  it("renders the Module › Screen trail derived from the active route", () => {
+/** A stand-in detail screen that feeds a record crumb (like a viewer page does). */
+function DetailChild() {
+  useSetRecordCrumb("PB-2025-000123");
+  return <div data-testid="detail-child">detail</div>;
+}
+
+describe("AppShell v3 — breadcrumb is detail-only, in the content area (spec §3.3)", () => {
+  it("a flat list page renders NO breadcrumb (H1 is the identity)", () => {
     renderShell(baseUser, "/ledger/trial-balance");
-    const crumb = screen.getByTestId("breadcrumb");
-    expect(crumb).toHaveTextContent("Ledger");
-    expect(crumb).toHaveTextContent("Trial balance");
+    expect(screen.queryByTestId("breadcrumb")).not.toBeInTheDocument();
+  });
+
+  it("a detail page's record crumb renders `Screen › Record` inside the content, never starting at a section", () => {
+    mockPath = "/ledger/journal-entries/abc";
+    const qc = new QueryClient({ defaultOptions: { queries: { retry: false } } });
+    render(
+      <QueryClientProvider client={qc}>
+        <CompanyFyProvider initial={{ companyId: baseUser.companyId, financialYearId: baseUser.financialYearId }}>
+          <SessionProvider user={baseUser}>
+            <ToastProvider>
+              <AppShell>
+                <DetailChild />
+              </AppShell>
+            </ToastProvider>
+          </SessionProvider>
+        </CompanyFyProvider>
+      </QueryClientProvider>,
+    );
+    const content = screen.getByTestId("app-content");
+    const crumb = within(content).getByTestId("breadcrumb");
+    expect(crumb).toHaveTextContent("Journal entries");
+    expect(crumb).toHaveTextContent("PB-2025-000123");
+    expect(crumb).not.toHaveTextContent("LEDGER & REPORTS"); // never a section name
+    expect(crumb).not.toHaveTextContent(/^Ledger\s*›/); // nor the module label
   });
 });

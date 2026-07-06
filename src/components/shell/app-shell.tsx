@@ -3,16 +3,18 @@
 import { useEffect, useState, type ReactNode } from "react";
 import { useSession } from "@/providers/session-provider";
 import { ShellChromeProvider } from "./shell-chrome-context";
-import { BreadcrumbProvider } from "./breadcrumb";
+import { BreadcrumbProvider, Breadcrumb } from "./breadcrumb";
 import { Sidebar } from "./sidebar";
 import { NavDrawer } from "./nav-drawer";
 import { Topbar } from "./topbar";
 import { ShellSkeleton } from "./shell-skeleton";
 
 /**
- * App Shell v2 (screen spec §4/§6/§10). The persistent frame around every
- * authenticated screen: navy two-level sidebar (or 56px rail) + mobile drawer + a
- * light toolbar over the content outlet. Adds the skip-link (first tabbable →
+ * App Shell v3 (screen spec §3.3/§4/§6/§10). The persistent frame around every
+ * authenticated screen: navy two-level sidebar (or 56px rail) with the profile
+ * docked in its footer + mobile drawer + a GLOBAL-ONLY toolbar over the content
+ * outlet. The detail-only breadcrumb renders in the content area just above the
+ * routed screen (never the topbar). Adds the skip-link (first tabbable →
  * `#app-content`), the offline banner, and the collapse/breadcrumb context. Screens
  * render unchanged inside `<main id="app-content">`.
  */
@@ -38,16 +40,18 @@ export function AppShell({ children }: { children: ReactNode }) {
             internally. `h-screen overflow-hidden` clamps the frame to the viewport so
             the page never scrolls as a whole (which would carry the topbar off-screen). */}
         <div className="flex h-screen overflow-hidden bg-canvas">
-          <Sidebar role={user.role} />
-          <NavDrawer role={user.role} />
+          <Sidebar user={user} />
+          <NavDrawer user={user} />
           <div className="flex min-w-0 flex-1 flex-col overflow-hidden">
-            <Topbar user={user} />
+            <Topbar role={user.role} />
             <OfflineBanner />
             <main
               id="app-content"
               className="scrollbar-thin min-h-0 flex-1 overflow-y-auto p-5 lg:p-6"
               data-testid="app-content"
             >
+              {/* detail-only breadcrumb — content header, above the screen's H1 (v3 §3.3) */}
+              <Breadcrumb />
               {children}
             </main>
           </div>

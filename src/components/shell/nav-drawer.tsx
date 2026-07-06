@@ -15,16 +15,19 @@ import {
 } from "@/lib/nav/nav-tree";
 import { NAV_ICON } from "./nav-icons";
 import { useShellChrome } from "./shell-chrome-context";
+import { UserMenu, type UserMenuUser } from "./user-menu";
 import { cn } from "@/lib/utils";
 
 /**
  * Mobile navigation drawer (screen spec §4 responsive · §10). At <768 the sidebar is
  * replaced by a topbar hamburger opening this full-height left **drawer** (Radix
  * Dialog — focus-trap, Esc, scroll-lock, focus restored on close) with the same
- * role-filtered tree, sections as headers, all groups pre-expanded. Tapping a built
+ * role-filtered tree, sections as headers, all groups pre-expanded, and the user
+ * block pinned at the drawer bottom (same upward profile menu — v3). Tapping a built
  * sub-item navigates + closes; unbuilt items render de-emphasised + non-navigating.
  */
-export function NavDrawer({ role }: { role: Role }) {
+export function NavDrawer({ user }: { user: UserMenuUser }) {
+  const role: Role = user.role;
   const pathname = usePathname();
   const { drawerOpen, setDrawerOpen } = useShellChrome();
   const tree = visibleTreeForRole(role);
@@ -83,6 +86,11 @@ export function NavDrawer({ role }: { role: Role }) {
               ))
             )}
           </nav>
+
+          {/* user block pinned at the drawer bottom (spec §4/§5 — v3) */}
+          <div data-testid="drawer-footer" className="shrink-0 border-t border-sidebar-border px-2 py-2">
+            <UserMenu user={user} variant="drawer" />
+          </div>
         </DialogPrimitive.Content>
       </DialogPrimitive.Portal>
     </DialogPrimitive.Root>

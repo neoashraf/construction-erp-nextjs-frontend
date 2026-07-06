@@ -8,12 +8,15 @@ import { matchNav } from "@/lib/nav/nav-tree";
 import { cn } from "@/lib/utils";
 
 /**
- * Shell-owned breadcrumb (screen spec §3.3 / §5). The shell renders a
- * `Module › Screen › Record` trail: the module + screen crumbs derive automatically
- * from the nav tree (so the 20 built pages need no change for the base trail), and a
- * routed screen may supply a **record** crumb (e.g. `PB-2025-000123`) via
- * `useSetRecordCrumb(label)`. Module/screen crumbs link; the record crumb is the
- * current page (not a link). On ≤768 the trail collapses to the last segment with a
+ * Shell-owned breadcrumb — DETAIL PAGES ONLY (App Shell v3, spec §3.3). Flat
+ * list/master pages render NO breadcrumb (the H1 is the page identity; the topbar
+ * stays purely global). A drill-down screen supplies its **record** crumb via
+ * `useSetRecordCrumb(label)`; only then does the trail render — in the CONTENT
+ * header, just above the screen (not the topbar) — as a real clickable path from
+ * the list page to the record (e.g. `Chart of accounts › Cash in Hand`). The trail
+ * never starts at a sidebar SECTION name; it starts at the first real page (the
+ * screen's list route, derived from the nav tree). Long/Bangla record segments
+ * truncate with a `title` tooltip. On <768 it collapses to the last segment with a
  * back chevron. `nav[aria-label="Breadcrumb"]` landmark (§10).
  */
 
@@ -60,31 +63,17 @@ interface Crumb {
   href?: string;
 }
 
-/** Build the trail from the active nav match + any screen-supplied record crumb. */
+/**
+ * Build the detail-only trail: nothing without a record crumb (list pages carry no
+ * breadcrumb — v3 §3.3); with one, the trail is `Screen (list, link) › Record`,
+ * starting at the first real page — never a sidebar section or module label.
+ */
 function useTrail(): Crumb[] {
   const pathname = usePathname();
   const { recordCrumb } = useBreadcrumbContext();
   const match = matchNav(pathname);
-  if (!match) return [];
-
-  const trail: Crumb[] = [];
-  // Module crumb → module landing (its first sub-item's parent segment). For a
-  // direct-link module the module + screen crumb coincide; show it once as a link.
-  const moduleRoute = `/${match.item.route.split("/").filter(Boolean)[0] ?? ""}`;
-  trail.push({ label: match.module.label, href: moduleRoute });
-
-  const isDirectLink = match.module.items.length === 1;
-  if (!isDirectLink || match.item.label !== match.module.label) {
-    // Screen crumb → the list route; it's the current page (no link) unless a record
-    // crumb follows it.
-    trail.push({ label: match.item.label, href: recordCrumb ? match.item.route : undefined });
-  } else {
-    // Direct-link module: the single crumb is the current page — drop its link.
-    trail[0] = { label: match.module.label, href: recordCrumb ? moduleRoute : undefined };
-  }
-
-  if (recordCrumb) trail.push({ label: recordCrumb });
-  return trail;
+  if (!recordCrumb || !match) return [];
+  return [{ label: match.item.label, href: match.item.route }, { label: recordCrumb }];
 }
 
 export function Breadcrumb() {
@@ -95,7 +84,7 @@ export function Breadcrumb() {
   const parent = trail.length > 1 ? trail[trail.length - 2] : undefined;
 
   return (
-    <nav aria-label="Breadcrumb" data-testid="breadcrumb" className="min-w-0">
+    <nav aria-label="Breadcrumb" data-testid="breadcrumb" className="mb-3 min-w-0">
       {/* ≤768: collapse to the last segment with a back chevron to the parent. */}
       <div className="flex items-center gap-1 text-[13px] text-muted-foreground md:hidden">
         {parent?.href && (
@@ -128,6 +117,7 @@ export function Breadcrumb() {
                 <span
                   className={cn("truncate", isLast ? "font-medium text-foreground" : "text-muted-foreground")}
                   aria-current={isLast ? "page" : undefined}
+                  title={crumb.label}
                 >
                   {crumb.label}
                 </span>

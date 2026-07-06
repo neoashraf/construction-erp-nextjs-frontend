@@ -9,6 +9,7 @@ import userEvent from "@testing-library/user-event";
 import { QueryClient, QueryClientProvider } from "@tanstack/react-query";
 import { CompanyFyProvider } from "@/providers/company-fy-provider";
 import { ShellChromeProvider } from "@/components/shell/shell-chrome-context";
+import { ToastProvider } from "@/components/ui/toast";
 import { Sidebar } from "@/components/shell/sidebar";
 import { type Role } from "@/lib/auth/roles";
 
@@ -32,9 +33,11 @@ function renderSidebar(role: Role, path = "/dashboard") {
   return render(
     <QueryClientProvider client={qc}>
       <CompanyFyProvider initial={{ companyId: "c1", financialYearId: "fy1" }}>
-        <ShellChromeProvider>
-          <Sidebar role={role} />
-        </ShellChromeProvider>
+        <ToastProvider>
+          <ShellChromeProvider>
+            <Sidebar user={{ name: "Test User", role, email: "test@ze.test" }} />
+          </ShellChromeProvider>
+        </ToastProvider>
       </CompanyFyProvider>
     </QueryClientProvider>,
   );
@@ -107,6 +110,17 @@ describe("Sidebar — active state (spec §3.1/§10)", () => {
     const ledger = screen.getByTestId("nav-module-ledger");
     expect(ledger).not.toHaveAttribute("aria-current");
     expect(screen.getByTestId("nav-item-/ledger/account-ledger")).toHaveAttribute("aria-current", "page");
+  });
+});
+
+describe("Sidebar — footer user block (v3 spec §5/§10)", () => {
+  it("pins the context line + user block at the sidebar bottom", () => {
+    renderSidebar("ADMIN");
+    const footer = screen.getByTestId("sidebar-footer");
+    expect(within(footer).getByTestId("sidebar-context-line")).toHaveTextContent("BDT (৳)");
+    const trigger = within(footer).getByTestId("user-menu");
+    expect(trigger).toHaveTextContent("Test User");
+    expect(trigger).toHaveAttribute("aria-haspopup", "menu");
   });
 });
 
