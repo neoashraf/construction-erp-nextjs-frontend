@@ -4,14 +4,18 @@ import { Search } from "lucide-react";
 import { Input } from "@/components/ui/input";
 import { Select } from "@/components/ui/select";
 import { Label } from "@/components/ui/label";
-import { USER_ROLES, userRoleLabel } from "../types";
+import { Button } from "@/components/ui/button";
+import { useRoles } from "../hooks/use-roles";
+import { RoleOptionGroups } from "./RoleOptionGroups";
 
 export type StatusFilter = "all" | "active" | "inactive";
 
 /**
- * Users filter bar (spec §5, design file: Role · Status · debounced search).
- * Filters apply on change — the parent debounces search and re-queries
- * `GET /api/users` server-side (spec §9, overview §6 pagination).
+ * Users filter bar (spec §5/§7 · RBAC v2). Role · Status · debounced search. The
+ * Role filter is sourced from `GET /api/roles` (built-in + custom, grouped), keyed
+ * by `roleId` — no hardcoded role enum. A roles-load failure degrades ONLY the role
+ * control ("Couldn't load roles." + Retry); the list stays usable. Filters apply on
+ * change — the parent debounces search and re-queries `GET /api/users` server-side.
  */
 export function UserFilters({
   role,
@@ -28,23 +32,31 @@ export function UserFilters({
   q: string;
   onQ: (v: string) => void;
 }) {
+  const roles = useRoles();
+
   return (
     <div className="flex flex-wrap items-end gap-3 rounded-card border border-border bg-surface p-3.5 shadow-sm">
       <div className="flex flex-col gap-1.5">
         <Label htmlFor="user-filter-role">Role</Label>
-        <Select
-          id="user-filter-role"
-          value={role}
-          onChange={(e) => onRole(e.target.value)}
-          className="w-[190px]"
-        >
-          <option value="all">All roles</option>
-          {USER_ROLES.map((r) => (
-            <option key={r} value={r}>
-              {userRoleLabel(r)}
-            </option>
-          ))}
-        </Select>
+        {roles.isError ? (
+          <div className="flex items-center gap-2" data-testid="filter-roles-error">
+            <span className="text-[12px] text-destructive-ink">Couldn&rsquo;t load roles.</span>
+            <Button size="sm" variant="outline" onClick={() => roles.refetch()} data-testid="filter-roles-retry">
+              Retry
+            </Button>
+          </div>
+        ) : (
+          <Select
+            id="user-filter-role"
+            value={role}
+            disabled={roles.isLoading}
+            onChange={(e) => onRole(e.target.value)}
+            className="w-[210px]"
+          >
+            <option value="all">All roles</option>
+            {roles.data && <RoleOptionGroups roles={roles.data} />}
+          </Select>
+        )}
       </div>
 
       <div className="flex flex-col gap-1.5">
@@ -64,10 +76,7 @@ export function UserFilters({
       <div className="flex min-w-0 flex-1 flex-col gap-1.5">
         <Label htmlFor="user-filter-search">Search</Label>
         <div className="relative">
-          <Search
-            className="pointer-events-none absolute left-3 top-1/2 h-4 w-4 -translate-y-1/2 text-faint"
-            aria-hidden
-          />
+          <Search className="pointer-events-none absolute left-3 top-1/2 h-4 w-4 -translate-y-1/2 text-faint" aria-hidden />
           <Input
             id="user-filter-search"
             type="search"

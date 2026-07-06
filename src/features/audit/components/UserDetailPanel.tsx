@@ -8,7 +8,7 @@ import { Button } from "@/components/ui/button";
 import { Skeleton } from "@/components/ui/skeleton";
 import { EmptyState } from "@/components/ui/empty-state";
 import { formatDate } from "@/lib/format";
-import { userRoleLabel, isUnscopedUserRole } from "../types";
+import { userRoleLabel } from "../types";
 import { useUserDetail } from "../hooks/use-users";
 
 /**
@@ -59,8 +59,13 @@ export function UserDetailPanel({
             <div className="flex flex-col gap-4">
               <div>
                 <div className="font-mono text-[12.5px] text-faint">{user.email}</div>
-                <div className="mt-2 flex items-center gap-2">
+                <div className="mt-2 flex flex-wrap items-center gap-2">
                   <Badge tone="info">{userRoleLabel(user.role)}</Badge>
+                  {!user.roleIsSystem && (
+                    <Badge tone="neutral" data-testid="detail-role-custom-tag">
+                      Custom
+                    </Badge>
+                  )}
                   {user.isActive ? (
                     <Badge tone="success" dot>
                       Active
@@ -72,6 +77,16 @@ export function UserDetailPanel({
                   )}
                 </div>
               </div>
+
+              {user.mustChangePassword && (
+                <div
+                  className="flex items-start gap-2 rounded-token border border-warning/40 bg-warning-soft px-3 py-2 text-[12.5px] text-warning-ink"
+                  data-testid="must-change-password"
+                >
+                  <span aria-hidden>ⓘ</span>
+                  <span>Temporary password — pending first-login change.</span>
+                </div>
+              )}
 
               <div className="flex items-center gap-2 text-[12.5px] text-muted-foreground">
                 <span>Last login</span>
@@ -97,8 +112,8 @@ export function UserDetailPanel({
                     Manage assignment →
                   </Link>
                 </div>
-                {isUnscopedUserRole(user.role) ? (
-                  <Badge tone="accent" className="w-fit">
+                {user.roleIsUnscoped ? (
+                  <Badge tone="accent" className="w-fit" data-testid="detail-scope-all">
                     All projects
                   </Badge>
                 ) : user.assignedProjects.length === 0 ? (

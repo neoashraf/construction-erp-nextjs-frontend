@@ -1,9 +1,13 @@
 /**
- * FE-17 user-management tests (FR-AUD-002/007/008/009/011/018/019/020/027).
+ * FE-23 user-management v2 tests (FR-AUD-002/007/008/009/011/015/018/019/020/027/030/034).
  * List: state matrix, filters, Admin-only 403. Create/edit drawer: validation,
  * server-error mapping (CONFLICT email-taken, OPTIMISTIC_LOCK_CONFLICT reload
  * banner, VALIDATION_ERROR). Status + reset-password dialogs: server-confirmed,
  * exact confirm copy, password never shown/returned. Detail panel + NOT_FOUND.
+ * RBAC v2 (BE #43): the Role filter/picker/column source from GET /api/roles
+ * (grouped Built-in/Custom, keyed by roleId); the Custom tag + project scope key
+ * on the payload's roleIsSystem/roleIsUnscoped; the detail surfaces
+ * mustChangePassword; a roles-load failure degrades only the role controls.
  */
 import React from "react";
 import { render, screen, waitFor, within } from "@testing-library/react";
@@ -53,15 +57,28 @@ const resetMock = usersApi.resetUserPassword as jest.Mock;
 const fyMock = fyApi.listFinancialYearOptions as jest.Mock;
 const rolesListMock = rolesApi.listRoles as jest.Mock;
 
-const SEEDED_ROLES = ["ADMIN", "ACCOUNTS_TEAM", "PROJECT_MANAGER", "SITE_ENGINEER", "STORE_KEEPER", "HR_MANAGER"].map(
-  (name) => ({ id: name, name, approvalLimit: null, isUnscoped: name === "ADMIN", version: 1 }),
-);
+// RBAC v2 roles (BE #43): built-in six + one custom, each keyed by a real id.
+const SEEDED_ROLES = [
+  ...["ADMIN", "ACCOUNTS_TEAM", "PROJECT_MANAGER", "SITE_ENGINEER", "STORE_KEEPER", "HR_MANAGER"].map((name) => ({
+    id: `role-${name}`,
+    name,
+    isSystem: true,
+    approvalLimit: null,
+    isUnscoped: name === "ADMIN" || name === "ACCOUNTS_TEAM" || name === "HR_MANAGER",
+    userCount: 1,
+    version: 1,
+  })),
+  { id: "role-auditor", name: "Site Auditor", isSystem: false, approvalLimit: null, isUnscoped: false, userCount: 1, version: 1 },
+];
 
 const ADMIN_ROW: UserListItem = {
   id: "u1",
   email: "ashraf.uddin@zakirent.com",
   name: "Ashraf Uddin",
   role: "ADMIN",
+  roleId: "role-ADMIN",
+  roleIsSystem: true,
+  roleIsUnscoped: true,
   isActive: true,
   lastLoginAt: "2026-06-28T10:00:00.000Z",
   assignedProjectCount: 0,
@@ -71,9 +88,24 @@ const PM_ROW: UserListItem = {
   email: "m.hasan@zakirent.com",
   name: "Mohammad Hasan",
   role: "PROJECT_MANAGER",
+  roleId: "role-PROJECT_MANAGER",
+  roleIsSystem: true,
+  roleIsUnscoped: false,
   isActive: true,
   lastLoginAt: null,
   assignedProjectCount: 2,
+};
+const CUSTOM_ROW: UserListItem = {
+  id: "u3",
+  email: "nadia@zakirent.com",
+  name: "Nadia Islam",
+  role: "Site Auditor",
+  roleId: "role-auditor",
+  roleIsSystem: false,
+  roleIsUnscoped: false,
+  isActive: true,
+  lastLoginAt: null,
+  assignedProjectCount: 1,
 };
 
 const PM_DETAIL: UserDetail = {
@@ -81,9 +113,13 @@ const PM_DETAIL: UserDetail = {
   email: "m.hasan@zakirent.com",
   name: "Mohammad Hasan",
   role: "PROJECT_MANAGER",
+  roleId: "role-PROJECT_MANAGER",
+  roleIsSystem: true,
+  roleIsUnscoped: false,
   financialYearId: "fy1",
   isActive: true,
   lastLoginAt: null,
+  mustChangePassword: false,
   phone: "+8801819223344",
   assignedProjects: [{ projectId: "p1", projectName: "Bridge-04 — Buriganga" }],
   version: 1,
@@ -197,9 +233,10 @@ describe("UsersScreen — list + state matrix (spec §6)", () => {
     listMock.mockResolvedValue(page(ADMIN_ROW));
     renderScreen();
     await screen.findByTestId("users-desktop");
-    await userEvent.selectOptions(screen.getByLabelText("Role"), "ADMIN");
+    // RBAC v2: the Role filter value is a roleId (from GET /api/roles), not a name.
+    await userEvent.selectOptions(await screen.findByLabelText("Role", { selector: "#user-filter-role" }), "role-ADMIN");
     await waitFor(() =>
-      expect(listMock).toHaveBeenCalledWith(expect.objectContaining({ role: "ADMIN" })),
+      expect(listMock).toHaveBeenCalledWith(expect.objectContaining({ role: "role-ADMIN" })),
     );
     await userEvent.selectOptions(screen.getByLabelText("Status"), "active");
     await waitFor(() =>
@@ -272,7 +309,7 @@ describe("UserDrawer — create (FR-AUD-007, spec §7)", () => {
     );
     await userEvent.type(screen.getByLabelText(/^email/i), "nazia.rahman@zakirent.com");
     await userEvent.type(screen.getByLabelText(/^name/i), "Nazia Rahman");
-    await userEvent.selectOptions(screen.getByLabelText(/^role/i), "STORE_KEEPER");
+    await userEvent.selectOptions(screen.getByLabelText(/^role/i), "role-STORE_KEEPER");
     await userEvent.selectOptions(await screen.findByLabelText(/financial year/i), "fy1");
     await userEvent.type(screen.getByLabelText(/temporary password/i), "TempPass123");
     await userEvent.click(screen.getByTestId("user-save"));
@@ -281,7 +318,7 @@ describe("UserDrawer — create (FR-AUD-007, spec §7)", () => {
         expect.objectContaining({
           email: "nazia.rahman@zakirent.com",
           name: "Nazia Rahman",
-          roleId: "STORE_KEEPER",
+          roleId: "role-STORE_KEEPER",
           financialYearId: "fy1",
           temporaryPassword: "TempPass123",
         }),
@@ -308,7 +345,7 @@ describe("UserDrawer — create (FR-AUD-007, spec §7)", () => {
     );
     await userEvent.type(screen.getByLabelText(/^email/i), "dup@zakirent.com");
     await userEvent.type(screen.getByLabelText(/^name/i), "Dup User");
-    await userEvent.selectOptions(screen.getByLabelText(/^role/i), "STORE_KEEPER");
+    await userEvent.selectOptions(screen.getByLabelText(/^role/i), "role-STORE_KEEPER");
     await userEvent.selectOptions(await screen.findByLabelText(/financial year/i), "fy1");
     await userEvent.type(screen.getByLabelText(/temporary password/i), "TempPass123");
     await userEvent.click(screen.getByTestId("user-save"));
@@ -355,7 +392,8 @@ describe("UserDrawer — edit (FR-AUD-019, spec §6/§7)", () => {
     await waitFor(() =>
       expect(updateMock).toHaveBeenCalledWith(
         "u2",
-        expect.objectContaining({ version: 1, name: "Mohammad Hasan" }),
+        // roleId comes straight from the payload (BE #43), no name-match resolve.
+        expect.objectContaining({ version: 1, name: "Mohammad Hasan", roleId: "role-PROJECT_MANAGER" }),
       ),
     );
     expect(onSaved).toHaveBeenCalledWith("Changes saved.");
@@ -477,5 +515,67 @@ describe("UsersScreen — row click opens detail; company-scoped NOT_FOUND (FR-A
     const row = await screen.findByTestId("user-row-u2");
     await userEvent.click(row);
     expect(await screen.findByText("This user no longer exists.")).toBeInTheDocument();
+  });
+});
+
+// ── RBAC v2: dynamic roles + payload-keyed tags/scope + mustChangePassword ────
+describe("UsersScreen — RBAC v2 (FR-AUD-011/015/030/034; BE #43)", () => {
+  it("the Role filter sources from GET /api/roles, grouped Built-in / Custom (no hardcoded enum)", async () => {
+    listMock.mockResolvedValue(page(ADMIN_ROW));
+    renderScreen();
+    const select = (await screen.findByLabelText("Role", { selector: "#user-filter-role" })) as HTMLSelectElement;
+    // the custom role appears once roles resolve; its option value is the roleId
+    const custom = (await within(select).findByRole("option", { name: /Site Auditor/ })) as HTMLOptionElement;
+    expect(custom.value).toBe("role-auditor");
+    // grouped Built-in / Custom optgroups (JSDOM doesn't expose optgroup as a role → query the DOM)
+    expect(select.querySelector('optgroup[label="Built-in roles"]')).not.toBeNull();
+    expect(select.querySelector('optgroup[label="Custom roles"]')).not.toBeNull();
+  });
+
+  it("the Role column shows a Custom tag for a custom-role user and the scope keys on roleIsUnscoped", async () => {
+    listMock.mockResolvedValue(page(ADMIN_ROW, PM_ROW, CUSTOM_ROW));
+    renderScreen();
+    const table = await screen.findByTestId("users-desktop");
+    // Custom tag only on the custom-role user (BE #43 roleIsSystem=false)
+    expect(within(table).getByTestId("role-custom-tag-u3")).toBeInTheDocument();
+    expect(within(table).queryByTestId("role-custom-tag-u1")).not.toBeInTheDocument();
+    // scope keys on the payload: Admin (unscoped) → All projects; PM (scoped) → count
+    expect(within(table).getByTestId("scope-all-u1")).toHaveTextContent("All projects");
+    expect(within(table).getByTestId("scope-count-u2")).toHaveTextContent("2 projects");
+  });
+
+  it("a roles-load failure degrades ONLY the Role filter (list stays usable)", async () => {
+    listMock.mockResolvedValue(page(ADMIN_ROW));
+    rolesListMock.mockRejectedValue(new ApiError({ code: "UNKNOWN", message: "x", details: null, status: 500 }));
+    renderScreen();
+    expect(await screen.findByTestId("filter-roles-error")).toHaveTextContent("Couldn’t load roles.");
+    expect(screen.getByTestId("filter-roles-retry")).toBeInTheDocument();
+    // the user list still rendered
+    expect(within(await screen.findByTestId("users-desktop")).getByText("Ashraf Uddin")).toBeInTheDocument();
+  });
+
+  it("the detail panel surfaces the temporary-password flag when mustChangePassword", async () => {
+    listMock.mockResolvedValue(page(PM_ROW));
+    getMock.mockResolvedValue({ ...PM_DETAIL, mustChangePassword: true });
+    renderScreen();
+    await userEvent.click(await screen.findByTestId("user-row-u2"));
+    expect(await screen.findByTestId("must-change-password")).toHaveTextContent(
+      "Temporary password — pending first-login change.",
+    );
+  });
+});
+
+// ── UserDrawer RBAC v2: grouped role picker + roles-load degrade ──────────────
+describe("UserDrawer — RBAC v2 role picker (FR-AUD-034; BE #43)", () => {
+  const noop = () => {};
+
+  it("blocks submit while roles fail to load and offers Retry", async () => {
+    rolesListMock.mockRejectedValue(new ApiError({ code: "UNKNOWN", message: "x", details: null, status: 500 }));
+    renderNode(
+      <UserDrawer mode={{ kind: "create" }} onClose={noop} onSaved={noop} onReloadRequested={noop} />,
+    );
+    expect(await screen.findByTestId("drawer-roles-error")).toBeInTheDocument();
+    expect(screen.getByTestId("drawer-roles-retry")).toBeInTheDocument();
+    expect(screen.getByTestId("user-save")).toBeDisabled();
   });
 });

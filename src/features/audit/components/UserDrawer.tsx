@@ -1,6 +1,6 @@
 "use client";
 
-import { useEffect, useState } from "react";
+import { useState } from "react";
 import { useForm } from "react-hook-form";
 import { zodResolver } from "@hookform/resolvers/zod";
 import { Eye, EyeOff } from "lucide-react";
@@ -16,7 +16,8 @@ import { formatDate } from "@/lib/format";
 import { useCreateUser, useUpdateUser, useFinancialYearOptions } from "../hooks/use-users";
 import { useRoles } from "../hooks/use-roles";
 import { createUserSchema, editUserSchema, mapUserFormError } from "../schemas/user";
-import { userRoleLabel, type UserDetail } from "../types";
+import { type UserDetail } from "../types";
+import { RoleOptionGroups } from "./RoleOptionGroups";
 
 type Mode = { kind: "create" } | { kind: "edit"; user: UserDetail };
 
@@ -52,14 +53,14 @@ export function UserDrawer({
     register,
     handleSubmit,
     setError,
-    setValue,
     formState: { errors },
   } = useForm({
     resolver: zodResolver(schema as never),
     defaultValues: isEdit
       ? {
           name: mode.user.name,
-          roleId: "",
+          // RBAC v2 (BE #43): the payload carries `roleId` directly — no name-match needed.
+          roleId: mode.user.roleId,
           financialYearId: mode.user.financialYearId,
           phone: mode.user.phone ?? "",
         }
@@ -73,17 +74,11 @@ export function UserDrawer({
         },
   });
 
-  // Edit mode: `UserDetail.role` is the role NAME (e.g. "HR_MANAGER"), but the form
-  // field/API need the role's UUID (`POST`/`PATCH` look it up via `roles.findById`).
-  // Roles load async, so resolve + fill the select once the list arrives.
-  useEffect(() => {
-    if (!isEdit || !roles.data) return;
-    const match = roles.data.find((r) => r.name === mode.user.role);
-    if (match) setValue("roleId" as never, match.id as never);
-    // eslint-disable-next-line react-hooks/exhaustive-deps
-  }, [isEdit, roles.data]);
-
+  // The role picker sources from `GET /api/roles` (built-in + custom, keyed by
+  // roleId). Submit is blocked until roles resolve (spec §7). A stale saved roleId
+  // that no longer resolves is caught server-side (NOT_FOUND → inline).
   const saving = create.isPending || update.isPending;
+  const rolesUnavailable = roles.isLoading || roles.isError;
 
   function onSubmit(values: Record<string, unknown>) {
     setFormMessage(null);
@@ -223,20 +218,23 @@ export function UserDrawer({
                 <Select
                   id="user-role"
                   invalid={!!errors.roleId}
-                  disabled={saving || roles.isLoading}
+                  disabled={saving || rolesUnavailable}
                   {...register("roleId")}
                 >
                   <option value="">Select a role</option>
-                  {(roles.data ?? []).map((r) => (
-                    <option key={r.id} value={r.id}>
-                      {userRoleLabel(r.name)}
-                    </option>
-                  ))}
+                  {roles.data && <RoleOptionGroups roles={roles.data} />}
                 </Select>
                 {errors.roleId ? (
                   <p className="text-[12px] text-destructive-ink">{String(errors.roleId.message)}</p>
+                ) : roles.isError ? (
+                  <p className="flex items-center gap-2 text-[11px] text-destructive-ink" data-testid="drawer-roles-error">
+                    Couldn&rsquo;t load roles.
+                    <button type="button" className="font-semibold underline" onClick={() => roles.refetch()} data-testid="drawer-roles-retry">
+                      Retry
+                    </button>
+                  </p>
                 ) : (
-                  <p className="text-[11px] text-faint">One role per user.</p>
+                  <p className="text-[11px] text-faint">One role per user. Built-in or custom.</p>
                 )}
               </div>
               <div className="flex flex-1 flex-col gap-1.5">
@@ -370,7 +368,7 @@ export function UserDrawer({
             type="submit"
             form="user-form"
             size="md"
-            disabled={saving}
+            disabled={saving || rolesUnavailable}
             aria-busy={saving || undefined}
             data-testid="user-save"
           >
