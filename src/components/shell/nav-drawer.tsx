@@ -11,7 +11,6 @@ import {
   CHIP_CLASS,
   type NavModule,
   type NavSubItem,
-  type Role,
 } from "@/lib/nav/nav-tree";
 import { NAV_ICON } from "./nav-icons";
 import { useShellChrome } from "./shell-chrome-context";
