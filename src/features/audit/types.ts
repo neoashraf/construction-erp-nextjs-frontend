@@ -147,49 +147,39 @@ export interface FinancialYearOption {
   label: string;
 }
 
-// ── Role & permission editor (FE-18) ────────────────────────────────────────
+// ── Role & permission editor (FE-22 · RBAC v2) ──────────────────────────────
 
-/** The overview §4 module codes a permission grant can target (SRS §8 `Permission.module`). */
-export const PERMISSION_MODULES = [
-  "MAS",
-  "LED",
-  "NUM",
-  "PER",
-  "SAL",
-  "PUR",
-  "PAY",
-  "REC",
-  "GEN",
-  "INV",
-  "CC",
-  "REQ",
-  "HR",
-  "RPT",
-  "DSH",
-  "AUD",
-] as const;
+/**
+ * RBAC v2 (FR-AUD-035): permissions are `(resource, action)` grants over a
+ * **Resource Catalogue** of screen/feature codes — NOT the old fixed 16-module ×
+ * 8-action matrix. The grid rows come exclusively from `GET /api/permissions/catalog`
+ * (there is deliberately no hardcoded module/resource list in this feature); each
+ * resource enables only the actions it declares.
+ */
 
-export type PermissionModule = (typeof PERMISSION_MODULES)[number];
+/** One resource (screen/feature) in the catalogue — a grid row. */
+export interface ResourceCatalogEntry {
+  /** Resource code, e.g. `cost_control.profitability`. */
+  resource: string;
+  /** Human label for the editor. */
+  label: string;
+  /** The actions this resource declares — the only enabled cells in its row. */
+  actions: readonly string[];
+}
 
-/** Human label for a module code (design file §5; en). */
-export const PERMISSION_MODULE_LABEL: Record<PermissionModule, string> = {
-  MAS: "Master Data",
-  LED: "Ledger",
-  NUM: "Numbering",
-  PER: "Periods",
-  SAL: "Sales & Billing",
-  PUR: "Purchases",
-  PAY: "Payments",
-  REC: "Receipts",
-  GEN: "General Journal",
-  INV: "Inventory",
-  CC: "Cost Centres",
-  REQ: "Requisitions",
-  HR: "HR & Payroll",
-  RPT: "Reports",
-  DSH: "Dashboard",
-  AUD: "Audit & Access",
-};
+/** One module group in the catalogue — a collapsible section of resource rows. */
+export interface ResourceCatalogModule {
+  /** Owning nav module code (groups the catalogue). */
+  module: string;
+  /** Human label for the group header. */
+  label: string;
+  resources: readonly ResourceCatalogEntry[];
+}
+
+/** The Resource Catalogue (`GET /api/permissions/catalog` response). */
+export interface PermissionCatalog {
+  modules: readonly ResourceCatalogModule[];
+}
 
 /** The 8 grantable actions (SRS §8 `Permission.action`; FR-AUD-013). */
 export const PERMISSION_ACTIONS = [
@@ -241,59 +231,72 @@ export const ROLE_NAME_LABEL: Record<RoleName, string> = {
   HR_MANAGER: "HR Manager",
 };
 
-/** A role list row (API contract 05 `GET /api/roles` item). */
+/** A role list row (API contract 05 `GET /api/roles` item; RBAC v2). */
 export interface RoleListItem {
   id: string;
   name: RoleName | string;
+  /** `true` for the six protected built-ins (name-locked, non-deletable). */
+  isSystem: boolean;
   approvalLimit: string | null;
   isUnscoped: boolean;
+  /** Users holding this role — drives the delete guard (ROLE_IN_USE) + the count chip. */
+  userCount: number;
   version: number;
 }
 
-/** One `(role, module, action)` grant (API `GET /api/roles/:id` `permissions[]`). */
+/** One `(role, resource, action)` grant (API `GET /api/roles/:id` `permissions[]`; RBAC v2). */
 export interface PermissionRecord {
   id: string;
-  module: PermissionModule | string;
+  resource: string;
   action: PermissionAction | string;
   projectScope: ProjectScope;
   valueLimit: string | null;
 }
 
-/** The role detail (API `GET /api/roles/:id`). `version` drives the batched save's lock. */
+/** The role detail (API `GET /api/roles/:id`). `version` drives the batch save's lock. */
 export interface RoleDetail {
   id: string;
   name: RoleName | string;
+  isSystem: boolean;
   approvalLimit: string | null;
   isUnscoped: boolean;
+  userCount: number;
   version: number;
   permissions: PermissionRecord[];
 }
 
-/** `PATCH /api/roles/:id` request body (spec §7; FR-AUD-016/019). */
-export interface UpdateRoleInput {
-  approvalLimit?: string | null;
-  isUnscoped?: boolean;
-  version: number;
-}
-
-/** `POST /api/permissions` request body (spec §7; FR-AUD-013/016). */
-export interface CreatePermissionInput {
-  roleId: string;
-  module: PermissionModule | string;
+/** One grant in a batch replace / role-create payload. */
+export interface PermissionInput {
+  resource: string;
   action: PermissionAction | string;
   projectScope: ProjectScope;
   valueLimit?: string | null;
 }
 
-/** `PATCH /api/permissions/:id` request body — carries the role's `version` (spec §9). */
-export interface UpdatePermissionInput {
-  projectScope?: ProjectScope;
-  valueLimit?: string | null;
+/** `POST /api/roles` request body — create a custom role (FR-AUD-034). */
+export interface CreateRoleInput {
+  name: string;
+  isUnscoped?: boolean;
+  approvalLimit?: string | null;
+  permissions?: PermissionInput[];
+}
+
+/** `PATCH /api/roles/:id` request body — role meta only (name for custom; FR-AUD-016/019/034). */
+export interface UpdateRoleInput {
+  name?: string;
+  approvalLimit?: string | null;
+  isUnscoped?: boolean;
   version: number;
 }
 
+/** `PATCH /api/roles/:id/permissions` request body — atomic full-set grid replace (spec §9). */
+export interface ReplaceRolePermissionsInput {
+  version: number;
+  permissions: PermissionInput[];
+}
+
 /**
- * One grid cell's edited state, keyed by `"<module>|<action>"` in the pending-edit
+ * One grid cell's edited state, keyed by `"<resource>|<action>"` in the pending-edit
  * set (spec §9 batch model). `null` means the cell is revoked/ungranted; otherwise
  * it carries the working scope + limit for that grant.
  */
@@ -303,27 +306,8 @@ export interface PendingCellEdit {
   valueLimit: string | null;
 }
 
-/** The full pending-edit set for the role being edited: `"<module>|<action>"` -> edit or null (revoked). */
+/** The full pending-edit set for the role being edited: `"<resource>|<action>"` -> edit or null. */
 export type PendingPermissionMap = Record<string, PendingCellEdit | null>;
-
-/** One diffed write the batched save will issue (spec §9). */
-export type PermissionDiffOp =
-  | {
-      kind: "grant";
-      module: PermissionModule | string;
-      action: PermissionAction | string;
-      scope: ProjectScope;
-      valueLimit: string | null;
-    }
-  | { kind: "revoke"; permissionId: string }
-  | { kind: "update"; permissionId: string; scope?: ProjectScope; valueLimit?: string | null };
-
-/** The full diff for one save: permission ops + whether the approval limit itself changed. */
-export interface PermissionBatchDiff {
-  ops: PermissionDiffOp[];
-  approvalLimitChanged: boolean;
-  approvalLimit: string | null;
-}
 
 // ── Project assignment (FE-19) ──────────────────────────────────────────────
 

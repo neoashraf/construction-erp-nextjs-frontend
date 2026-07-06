@@ -15,12 +15,15 @@ export function ValueLimitInput({
   value,
   roleApprovalLimit,
   isUnscopedRole,
+  disabled = false,
   onChange,
 }: {
   cellKey: string;
   value: string;
   roleApprovalLimit: string | null;
   isUnscopedRole: boolean;
+  /** Anti-lockout (Admin): introducing a limit is a narrow, so the field is locked. */
+  disabled?: boolean;
   onChange: (value: string) => void;
 }) {
   const invalid = isInvalidLimit(value);
@@ -56,6 +59,7 @@ export function ValueLimitInput({
         value={value}
         placeholder="Role limit"
         invalid={invalid}
+        disabled={disabled}
         onChange={(e) => onChange(e.target.value)}
         className="h-9"
         data-testid={`value-limit-input-${cellKey}`}

@@ -41,7 +41,10 @@ export type RolePermissionErrorKind =
   | "validation"
   | "optimisticLockConflict"
   | "roleScopeConflict"
-  | "duplicatePermission"
+  | "adminLockout"
+  | "duplicateRoleName"
+  | "systemRoleImmutable"
+  | "roleInUse"
   | "forbidden"
   | "offline"
   | "notFound"
@@ -56,19 +59,27 @@ const CONFLICT_MESSAGE =
   "This role was changed by someone else. Reload to see the latest, then reapply your changes.";
 const SCOPE_CLASH_MESSAGE =
   "This role applies to all projects, so project scope can't be restricted.";
+const ADMIN_LOCKOUT_MESSAGE = "The Admin role must keep full access.";
+const DUPLICATE_ROLE_NAME_MESSAGE = "A role with this name already exists.";
+const SYSTEM_ROLE_IMMUTABLE_MESSAGE = "Built-in roles can't be renamed or deleted.";
 const OFFLINE_MESSAGE = "Can't reach the server. Check your connection and try again.";
-const LOAD_ERROR_MESSAGE = "Couldn't load this role.";
+const LOAD_ERROR_MESSAGE = "Couldn't load roles & permissions.";
 
-/** Map a save-time server error to the exact spec §8 banner/toast string. */
+/** Map a save/CRUD-time server error to the exact spec §8 banner/toast string. */
 export function mapRolePermissionError(err: ApiError): MappedRolePermissionError {
   switch (err.code) {
     case "OPTIMISTIC_LOCK_CONFLICT":
       return { kind: "optimisticLockConflict", message: CONFLICT_MESSAGE };
     case "ROLE_SCOPE_CONFLICT":
       return { kind: "roleScopeConflict", message: SCOPE_CLASH_MESSAGE };
-    case "DUPLICATE_PERMISSION":
-      // Reconciled silently as "on" by the caller — this message is a fallback only.
-      return { kind: "duplicatePermission", message: "That permission is already granted." };
+    case "ADMIN_LOCKOUT_FORBIDDEN":
+      return { kind: "adminLockout", message: ADMIN_LOCKOUT_MESSAGE };
+    case "DUPLICATE_ROLE_NAME":
+      return { kind: "duplicateRoleName", message: DUPLICATE_ROLE_NAME_MESSAGE };
+    case "SYSTEM_ROLE_IMMUTABLE":
+      return { kind: "systemRoleImmutable", message: SYSTEM_ROLE_IMMUTABLE_MESSAGE };
+    case "ROLE_IN_USE":
+      return { kind: "roleInUse", message: "Reassign the users holding this role before deleting." };
     case "VALIDATION_ERROR":
       return { kind: "validation", message: LIMIT_MESSAGE };
     case "FORBIDDEN":
@@ -82,4 +93,17 @@ export function mapRolePermissionError(err: ApiError): MappedRolePermissionError
   }
 }
 
-export { CONFLICT_MESSAGE, SCOPE_CLASH_MESSAGE, OFFLINE_MESSAGE, LOAD_ERROR_MESSAGE };
+/** Delete-role guard copy (spec §8): ROLE_IN_USE names the count; SYSTEM immutability. */
+export function roleInUseMessage(userCount: number): string {
+  return `This role is assigned to ${userCount} user${userCount === 1 ? "" : "s"}. Reassign them before deleting.`;
+}
+
+export {
+  CONFLICT_MESSAGE,
+  SCOPE_CLASH_MESSAGE,
+  ADMIN_LOCKOUT_MESSAGE,
+  DUPLICATE_ROLE_NAME_MESSAGE,
+  SYSTEM_ROLE_IMMUTABLE_MESSAGE,
+  OFFLINE_MESSAGE,
+  LOAD_ERROR_MESSAGE,
+};
