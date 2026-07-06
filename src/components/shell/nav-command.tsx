@@ -4,7 +4,7 @@ import { useEffect, useMemo, useState } from "react";
 import { useRouter } from "next/navigation";
 import * as DialogPrimitive from "@radix-ui/react-dialog";
 import { Search, CornerDownLeft } from "lucide-react";
-import { navDestinationsForRole, quickCreateForRole, type Role } from "@/lib/nav/nav-tree";
+import { navDestinationsForRole, quickCreateForRole, type NavViewer } from "@/lib/nav/nav-tree";
 import { cn } from "@/lib/utils";
 
 /**
@@ -13,27 +13,28 @@ import { cn } from "@/lib/utils";
  * backing endpoint). Type-ahead filters; Enter navigates the highlighted item; Esc
  * closes and restores focus (Radix Dialog manages the focus trap + restore).
  */
-export function NavCommand({ role }: { role: Role }) {
+export function NavCommand({ viewer }: { viewer: NavViewer }) {
   const router = useRouter();
   const [open, setOpen] = useState(false);
   const [query, setQuery] = useState("");
   const [active, setActive] = useState(0);
 
   const commands = useMemo(() => {
-    const nav = navDestinationsForRole(role).map((d) => ({
+    const nav = navDestinationsForRole(viewer).map((d) => ({
       key: `nav:${d.route}`,
       label: d.label,
       hint: d.moduleLabel,
       route: d.route,
     }));
-    const create = quickCreateForRole(role).map((t) => ({
+    const create = quickCreateForRole(viewer).map((t) => ({
       key: `new:${t.route}`,
       label: `New ${t.label}`,
       hint: "Create",
       route: t.route,
     }));
     return [...nav, ...create];
-  }, [role]);
+    // eslint-disable-next-line react-hooks/exhaustive-deps
+  }, [viewer.role, viewer.permissions]);
 
   const results = useMemo(() => {
     const q = query.trim().toLowerCase();

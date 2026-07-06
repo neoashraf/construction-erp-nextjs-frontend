@@ -13,29 +13,39 @@ export interface HasProjectId {
   projectId: string;
 }
 
-/** True when this user may see the given project id. Unscoped roles always may. */
-export function canSeeProject(user: Pick<SafeUser, "role" | "assignedProjectIds">, projectId: string): boolean {
+type ScopedUser = Pick<SafeUser, "role" | "assignedProjectIds" | "projectScope">;
+
+/**
+ * FE-21: the session projection's `projectScope` (from `GET /api/auth/me`,
+ * FR-AUD-031) is authoritative when present; the role heuristic is the fallback
+ * for a degraded session.
+ */
+
+/** True when this user may see the given project id. */
+export function canSeeProject(user: ScopedUser, projectId: string): boolean {
+  if (user.projectScope !== undefined) {
+    return user.projectScope === "ALL" || user.projectScope.projectIds.includes(projectId);
+  }
   if (isUnscopedRole(user.role)) return true;
   return (user.assignedProjectIds ?? []).includes(projectId);
 }
 
 /**
- * Filter a list of project-bound items to those the user may see. Unscoped roles
- * get the list unchanged; scoped roles get only their assigned projects.
+ * Filter a list of project-bound items to those the user may see. `ALL`-scoped
+ * users get the list unchanged; scoped users only their assigned projects.
  */
-export function filterToAssignedProjects<T extends HasProjectId>(
-  user: Pick<SafeUser, "role" | "assignedProjectIds">,
-  items: T[],
-): T[] {
-  if (isUnscopedRole(user.role)) return items;
-  const allowed = new Set(user.assignedProjectIds ?? []);
+export function filterToAssignedProjects<T extends HasProjectId>(user: ScopedUser, items: T[]): T[] {
+  const scope = effectiveProjectScope(user);
+  if (scope === "ALL") return items;
+  const allowed = new Set(scope);
   return items.filter((item) => allowed.has(item.projectId));
 }
 
-/** Returns the effective project scope: "ALL" for unscoped roles, else the id list. */
-export function effectiveProjectScope(
-  user: Pick<SafeUser, "role" | "assignedProjectIds">,
-): "ALL" | string[] {
+/** Returns the effective project scope: "ALL", or the assigned project id list. */
+export function effectiveProjectScope(user: ScopedUser): "ALL" | string[] {
+  if (user.projectScope !== undefined) {
+    return user.projectScope === "ALL" ? "ALL" : [...user.projectScope.projectIds];
+  }
   return isUnscopedRole(user.role) ? "ALL" : [...(user.assignedProjectIds ?? [])];
 }
 

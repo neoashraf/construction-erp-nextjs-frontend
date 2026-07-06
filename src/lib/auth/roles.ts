@@ -15,10 +15,51 @@ export const ROLES = [
   "SITE_ENGINEER",
   "STORE_KEEPER",
   "ACCOUNTS_TEAM",
+  "ACCOUNTS_MANAGER", // backend rename of ACCOUNTS_TEAM (RBAC v2, BE #37) — both accepted
   "HR_MANAGER",
 ] as const;
 
 export type Role = (typeof ROLES)[number];
+
+/**
+ * RBAC v2 (FE-21): built-in role names are a fallback only — visibility is
+ * permission-driven where the session projection is present. Custom roles arrive
+ * as arbitrary strings; `isRole` narrowing is for the six built-ins (+ the
+ * ACCOUNTS_TEAM→ACCOUNTS_MANAGER rename, treated as equivalent in fallbacks).
+ */
+export const ACTION_CODES = [
+  "CREATE", "READ", "UPDATE", "DELETE", "POST", "CANCEL", "APPROVE", "REJECT",
+] as const;
+export type ActionCode = (typeof ACTION_CODES)[number];
+
+/** One effective grant (shape mirrors the session projection; see lib/auth/session). */
+interface GrantLike {
+  resource: string;
+  action: string;
+}
+
+/**
+ * Permission-set predicate (FR-AUD-032): true when the effective set covers
+ * `(resource, action)`. ADMIN is the platform superuser and always passes
+ * (app-shell §11 "Admin | Everything").
+ */
+export function hasGrant(
+  viewer: { role: Role | string; permissions?: readonly GrantLike[] | null },
+  resource: string,
+  action: ActionCode,
+): boolean {
+  if (viewer.role === "ADMIN") return true;
+  if (!viewer.permissions) return false;
+  return viewer.permissions.some((p) => p.resource === resource && p.action === action);
+}
+
+/** The two spellings of the accounts role are equivalent in role-map fallbacks. */
+export function roleMatches(listed: readonly Role[], role: Role | string): boolean {
+  if (listed.includes(role as Role)) return true;
+  if (role === "ACCOUNTS_MANAGER") return listed.includes("ACCOUNTS_TEAM");
+  if (role === "ACCOUNTS_TEAM") return listed.includes("ACCOUNTS_MANAGER");
+  return false;
+}
 
 /** App modules that own a route segment under `(app)/`. Tier-1 set. */
 export const MODULES = ["master-data", "ledger", "numbering", "period", "audit"] as const;
@@ -35,6 +76,7 @@ export type ModuleKey = (typeof MODULES)[number];
 const ROLE_MODULES: Record<Role, readonly ModuleKey[]> = {
   ADMIN: ["master-data", "ledger", "numbering", "period", "audit"],
   ACCOUNTS_TEAM: ["master-data", "ledger", "numbering", "period"],
+  ACCOUNTS_MANAGER: ["master-data", "ledger", "numbering", "period"],
   PROJECT_MANAGER: ["ledger"],
   SITE_ENGINEER: [],
   STORE_KEEPER: [],
@@ -42,7 +84,35 @@ const ROLE_MODULES: Record<Role, readonly ModuleKey[]> = {
 };
 
 /** Roles that are NOT project-scoped (see all projects). The rest are scoped. */
-export const UNSCOPED_ROLES: readonly Role[] = ["ADMIN", "ACCOUNTS_TEAM", "HR_MANAGER"];
+export const UNSCOPED_ROLES: readonly Role[] = ["ADMIN", "ACCOUNTS_TEAM", "ACCOUNTS_MANAGER", "HR_MANAGER"];
+
+/**
+ * Module segment → the Resource-Catalogue prefix(es) its screens' grants use
+ * (FE-21). A session holding ANY READ grant on a matching resource may enter the
+ * segment; the per-screen affordances then key on their own exact resource.
+ */
+export const MODULE_RESOURCE_PREFIX: Record<ModuleKey, readonly string[]> = {
+  "master-data": ["master_data."],
+  ledger: ["ledger."],
+  numbering: ["numbering"],
+  period: ["periods"],
+  audit: ["audit."],
+};
+
+/** True when the effective set holds any READ grant inside the module (FE-21). */
+export function hasModuleGrant(
+  viewer: { role: Role | string; permissions?: readonly { resource: string; action: string }[] | null },
+  module: ModuleKey,
+): boolean {
+  if (viewer.role === "ADMIN") return true;
+  if (!viewer.permissions) return false;
+  const prefixes = MODULE_RESOURCE_PREFIX[module];
+  return viewer.permissions.some(
+    (p) =>
+      p.action === "READ" &&
+      prefixes.some((prefix) => (prefix.endsWith(".") ? p.resource.startsWith(prefix) : p.resource === prefix)),
+  );
+}
 
 export function isRole(value: unknown): value is Role {
   return typeof value === "string" && (ROLES as readonly string[]).includes(value);
@@ -71,9 +141,11 @@ export function roleLabel(role: Role): string {
     SITE_ENGINEER: "Site Engineer",
     STORE_KEEPER: "Store Keeper",
     ACCOUNTS_TEAM: "Accounts Team",
+    ACCOUNTS_MANAGER: "Accounts Manager",
     HR_MANAGER: "HR Manager",
   };
-  return labels[role];
+  // Custom roles (RBAC v2) arrive as arbitrary strings — render them verbatim.
+  return labels[role] ?? String(role);
 }
 
 /** Human label for a module (en). */

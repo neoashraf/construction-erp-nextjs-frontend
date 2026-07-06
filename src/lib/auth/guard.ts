@@ -1,4 +1,5 @@
-import { canAccessModule, type ModuleKey, type Role } from "./roles";
+import { canAccessModule, hasModuleGrant, type ModuleKey, type Role } from "./roles";
+import { type SessionPermission } from "./session";
 
 /**
  * Pure route-guard decisions (skill §5). Kept side-effect-free so they unit-test
@@ -17,12 +18,23 @@ export type GuardDecision =
 export const LOGIN_PATH = "/login";
 export const FORBIDDEN_PATH = "/403";
 
-/** Decide whether a (possibly absent) role may enter an `(app)` module segment. */
-export function guardModule(role: Role | null | undefined, module: ModuleKey): GuardDecision {
-  if (!role) {
+/**
+ * Decide whether a (possibly absent) viewer may enter an `(app)` module segment.
+ * FE-21 (FR-AUD-032): when the session projection is present, the decision is
+ * permission-driven — any READ grant inside the module admits; the static
+ * role→module map is only the fallback for a degraded session. Defence-in-depth
+ * either way — the backend re-checks the exact `(resource, action)` per route.
+ */
+export function guardModule(
+  viewer: { role: Role; permissions?: SessionPermission[] | null } | Role | null | undefined,
+  module: ModuleKey,
+): GuardDecision {
+  if (!viewer) {
     return { allow: false, reason: "unauthenticated", redirectTo: LOGIN_PATH };
   }
-  if (!canAccessModule(role, module)) {
+  const v = typeof viewer === "string" ? { role: viewer, permissions: undefined } : viewer;
+  const allowed = v.permissions ? hasModuleGrant(v, module) : canAccessModule(v.role, module);
+  if (!allowed) {
     return { allow: false, reason: "forbidden", redirectTo: FORBIDDEN_PATH };
   }
   return { allow: true };

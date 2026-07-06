@@ -1,7 +1,7 @@
 "use client";
 
 import { PanelLeft, Menu } from "lucide-react";
-import { type Role } from "@/lib/auth/roles";
+import { type NavViewer } from "@/lib/nav/nav-tree";
 import { useShellChrome } from "./shell-chrome-context";
 import { CompanyFySwitcher } from "./company-fy-switcher";
 import { NavCommand } from "./nav-command";
@@ -22,7 +22,7 @@ import { AlertsBell } from "./alerts-bell";
 export const TOPBAR_ICON_BOX =
   "grid h-9 w-9 place-items-center rounded-lg border border-border bg-surface text-muted-foreground transition-colors hover:border-border-strong hover:bg-canvas hover:text-foreground";
 
-export function Topbar({ role }: { role: Role }) {
+export function Topbar({ viewer }: { viewer: NavViewer }) {
   const { collapsed, toggleCollapsed, setDrawerOpen } = useShellChrome();
 
   return (
@@ -61,8 +61,8 @@ export function Topbar({ role }: { role: Role }) {
 
       {/* right group — search + bell icon boxes (identical trio with the toggle) */}
       <div className="ml-auto flex items-center gap-2">
-        <NavCommand role={role} />
-        <AlertsBell role={role} />
+        <NavCommand viewer={viewer} />
+        <AlertsBell viewer={viewer} />
       </div>
     </header>
   );

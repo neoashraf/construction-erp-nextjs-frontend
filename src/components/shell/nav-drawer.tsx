@@ -26,11 +26,11 @@ import { cn } from "@/lib/utils";
  * block pinned at the drawer bottom (same upward profile menu — v3). Tapping a built
  * sub-item navigates + closes; unbuilt items render de-emphasised + non-navigating.
  */
-export function NavDrawer({ user }: { user: UserMenuUser }) {
-  const role: Role = user.role;
+export function NavDrawer({ user }: { user: UserMenuUser & { permissions?: import("@/lib/auth/session").SessionPermission[] | null } }) {
   const pathname = usePathname();
   const { drawerOpen, setDrawerOpen } = useShellChrome();
-  const tree = visibleTreeForRole(role);
+  // FE-21: permission-driven filtering when the projection is present; role fallback otherwise.
+  const tree = visibleTreeForRole(user);
   const activeItemRoute = matchNav(pathname)?.item.route ?? null;
 
   // Close the drawer whenever the route changes (a nav tap navigated).
