@@ -65,9 +65,12 @@ test("nav drill to a built screen + persistent collapse rail", async ({ page }) 
   await page.getByTestId("nav-item-/ledger/trial-balance").click();
   await page.waitForURL("**/ledger/trial-balance");
 
-  // Breadcrumb reflects the trail.
-  await expect(page.getByTestId("breadcrumb")).toContainText("Ledger");
-  await expect(page.getByTestId("breadcrumb")).toContainText("Trial balance");
+  // v3: a flat list page carries NO breadcrumb; the topbar is global-only (the
+  // profile block is docked in the sidebar footer, not the topbar).
+  await expect(page.getByTestId("breadcrumb")).toHaveCount(0);
+  const topbar = page.getByTestId("topbar");
+  await expect(topbar.getByTestId("user-menu")).toHaveCount(0);
+  await expect(page.getByTestId("sidebar-footer").getByTestId("user-menu")).toBeVisible();
 
   // Collapse the sidebar to the icon rail; the toggle persists the choice.
   const sidebar = page.getByTestId("sidebar");

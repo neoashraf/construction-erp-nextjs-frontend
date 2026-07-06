@@ -34,6 +34,14 @@ jest.mock("@/features/audit/api/users", () => ({
 jest.mock("@/features/audit/api/financial-years", () => ({
   listFinancialYearOptions: jest.fn(),
 }));
+// The drawer's role picker now sources from GET /api/roles (RBAC v2) — mock the
+// roles api the barrel re-exports. Ids mirror the role names so the option values
+// the tests select stay readable.
+jest.mock("@/features/audit/api/roles", () => ({
+  ...jest.requireActual("@/features/audit/api/roles"),
+  listRoles: jest.fn(),
+}));
+import * as rolesApi from "@/features/audit/api/roles";
 
 const listMock = usersApi.listUsers as jest.Mock;
 const getMock = usersApi.getUser as jest.Mock;
@@ -43,6 +51,11 @@ const activateMock = usersApi.activateUser as jest.Mock;
 const deactivateMock = usersApi.deactivateUser as jest.Mock;
 const resetMock = usersApi.resetUserPassword as jest.Mock;
 const fyMock = fyApi.listFinancialYearOptions as jest.Mock;
+const rolesListMock = rolesApi.listRoles as jest.Mock;
+
+const SEEDED_ROLES = ["ADMIN", "ACCOUNTS_TEAM", "PROJECT_MANAGER", "SITE_ENGINEER", "STORE_KEEPER", "HR_MANAGER"].map(
+  (name) => ({ id: name, name, approvalLimit: null, isUnscoped: name === "ADMIN", version: 1 }),
+);
 
 const ADMIN_ROW: UserListItem = {
   id: "u1",
@@ -111,9 +124,14 @@ function renderScreen(role: Role = "ADMIN") {
 }
 
 function renderNode(ui: React.ReactElement) {
+  // The audit hooks (use-users/use-roles) read the session for Admin gating, so even
+  // bare component renders need a SessionProvider (pre-existing harness gap, surfaced
+  // when the hooks gained useAuthenticatedUser).
   return render(
     <QueryClientProvider client={client()}>
-      <ToastProvider>{ui}</ToastProvider>
+      <SessionProvider user={user("ADMIN")}>
+        <ToastProvider>{ui}</ToastProvider>
+      </SessionProvider>
     </QueryClientProvider>,
   );
 }
@@ -135,6 +153,8 @@ beforeEach(() => {
   resetMock.mockReset();
   fyMock.mockReset();
   fyMock.mockResolvedValue([{ id: "fy1", label: "2025–26" }]);
+  rolesListMock.mockReset();
+  rolesListMock.mockResolvedValue(SEEDED_ROLES);
 });
 
 // ── List / state matrix ──────────────────────────────────────────────────────

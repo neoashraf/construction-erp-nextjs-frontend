@@ -27,9 +27,9 @@ export function AlertsBell({ role }: { role: Role }) {
       href="/cost-control/alerts"
       data-testid="alerts-bell"
       aria-label={showBadge ? `Over-budget alerts (${count})` : "Over-budget alerts"}
-      className="relative grid h-9 w-9 place-items-center rounded-token text-muted-foreground transition-colors hover:bg-muted hover:text-foreground"
+      className="relative grid h-9 w-9 place-items-center rounded-lg border border-border bg-surface text-muted-foreground transition-colors hover:border-border-strong hover:bg-canvas hover:text-foreground"
     >
-      <Bell className="h-[18px] w-[18px]" aria-hidden />
+      <Bell className="h-[17px] w-[17px]" aria-hidden />
       {showBadge && (
         <span
           data-testid="alerts-badge"

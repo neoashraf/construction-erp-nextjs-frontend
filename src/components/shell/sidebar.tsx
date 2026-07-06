@@ -17,17 +17,21 @@ import {
 import { NAV_ICON } from "./nav-icons";
 import { useShellChrome } from "./shell-chrome-context";
 import { useCompanyFy } from "@/providers/company-fy-provider";
+import { UserMenu, type UserMenuUser } from "./user-menu";
 import { cn } from "@/lib/utils";
 
 /**
- * App Shell v2 sidebar navbar (screen spec §3.1/§5/§9/§10). Two levels: section
+ * App Shell v3 sidebar navbar (screen spec §3.1/§5/§9/§10). Two levels: section
  * labels → module rows (accordion disclosure) → indented sub-item links; single-item
  * modules are direct links (no chevron). One module open at a time (accordion); the
  * active route's module auto-expands on load and never auto-collapses. User-toggled
  * collapse narrows to a 56px icon rail with hover/click flyouts. Role-filtered
- * (defence-in-depth UI — guards + backend re-check). `aside[aria-label="Primary"]`.
+ * (defence-in-depth UI — guards + backend re-check). The FOOTER pins the working
+ * context line (`FY … · BDT (৳)`) and the user/profile block (upward menu) — the
+ * profile lives here, not the topbar (v3). `aside[aria-label="Primary"]`.
  */
-export function Sidebar({ role }: { role: Role }) {
+export function Sidebar({ user }: { user: UserMenuUser }) {
+  const role: Role = user.role;
   const pathname = usePathname();
   const { collapsed } = useShellChrome();
   const tree = visibleTreeForRole(role);
@@ -118,17 +122,25 @@ export function Sidebar({ role }: { role: Role }) {
         )}
       </nav>
 
-      {/* footer */}
-      {!collapsed && <SidebarFooter />}
+      {/* footer — pinned below the scrolling tree: context line + user block (v3) */}
+      <SidebarFooter user={user} collapsed={collapsed} />
     </aside>
   );
 }
 
-function SidebarFooter() {
+function SidebarFooter({ user, collapsed }: { user: UserMenuUser; collapsed: boolean }) {
   const { financialYearLabel } = useCompanyFy();
   return (
-    <div className="shrink-0 border-t border-sidebar-border px-4 py-3 text-[11px] text-sidebar-muted">
-      {financialYearLabel ? `${financialYearLabel} · ` : ""}BDT (৳)
+    <div
+      data-testid="sidebar-footer"
+      className={cn("shrink-0 border-t border-sidebar-border", collapsed ? "flex justify-center py-2" : "px-2 py-2")}
+    >
+      {!collapsed && (
+        <div data-testid="sidebar-context-line" className="px-2 pb-1.5 text-[11px] text-sidebar-muted">
+          {financialYearLabel ? `${financialYearLabel} · ` : ""}BDT (৳)
+        </div>
+      )}
+      <UserMenu user={user} variant={collapsed ? "rail" : "footer"} />
     </div>
   );
 }
