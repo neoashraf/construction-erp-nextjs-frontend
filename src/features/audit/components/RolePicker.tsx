@@ -3,7 +3,7 @@
 import { useEffect, useRef, useState } from "react";
 import { Check, ChevronDown, Plus, Trash2 } from "lucide-react";
 import { cn } from "@/lib/utils";
-import { ROLE_NAME_LABEL, type RoleListItem } from "../types";
+import { roleNameLabel, type RoleListItem } from "../types";
 
 /**
  * Role picker (design file · RBAC v2 meta-card "Role" dropdown). Replaces the old
@@ -45,7 +45,7 @@ export function RolePicker({
   }, [open]);
 
   function roleLabel(r: RoleListItem): string {
-    return ROLE_NAME_LABEL[r.name as keyof typeof ROLE_NAME_LABEL] ?? r.name;
+    return roleNameLabel(r.name);
   }
 
   const selected = roles.find((r) => r.id === selectedId);

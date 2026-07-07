@@ -225,10 +225,15 @@ export const PERMISSION_ACTION_LABEL: Record<PermissionAction, string> = {
 export const PROJECT_SCOPES = ["ALL", "ASSIGNED"] as const;
 export type ProjectScope = (typeof PROJECT_SCOPES)[number];
 
-/** The six fixed platform roles, in the design file's Role-selector order. */
+/**
+ * The fixed platform roles, in the design file's Role-selector order.
+ * `ACCOUNTS_MANAGER` is the backend's RBAC-v2 rename of `ACCOUNTS_TEAM` (BE #37);
+ * both names are accepted, mirroring `lib/auth/roles.ts`.
+ */
 export const ROLE_NAMES = [
   "ADMIN",
   "ACCOUNTS_TEAM",
+  "ACCOUNTS_MANAGER",
   "PROJECT_MANAGER",
   "SITE_ENGINEER",
   "STORE_KEEPER",
@@ -240,11 +245,31 @@ export type RoleName = (typeof ROLE_NAMES)[number];
 export const ROLE_NAME_LABEL: Record<RoleName, string> = {
   ADMIN: "Admin",
   ACCOUNTS_TEAM: "Accounts Team",
+  ACCOUNTS_MANAGER: "Accounts Manager",
   PROJECT_MANAGER: "Project Manager",
   SITE_ENGINEER: "Site Engineer",
   STORE_KEEPER: "Store Keeper",
   HR_MANAGER: "HR Manager",
 };
+
+/**
+ * Display label for any role name — built-in or custom. Built-ins use the curated
+ * `ROLE_NAME_LABEL` copy; anything else (custom roles, or a built-in the map hasn't
+ * caught up with) is humanized from its `SCREAMING_SNAKE_CASE` code so the UI never
+ * shows a raw underscore-joined name (e.g. `ACCOUNTS_MANAGER` → "Accounts Manager").
+ */
+export function humanizeRoleName(name: string): string {
+  return name
+    .toLowerCase()
+    .split("_")
+    .filter(Boolean)
+    .map((word) => word.charAt(0).toUpperCase() + word.slice(1))
+    .join(" ");
+}
+
+export function roleNameLabel(name: RoleName | string): string {
+  return ROLE_NAME_LABEL[name as RoleName] ?? humanizeRoleName(name);
+}
 
 /** A role list row (API contract 05 `GET /api/roles` item; RBAC v2). */
 export interface RoleListItem {

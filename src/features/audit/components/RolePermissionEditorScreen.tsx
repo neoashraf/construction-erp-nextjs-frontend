@@ -25,7 +25,7 @@ import {
 } from "../schemas/permission-diff";
 import { mapRolePermissionError, normaliseLimit } from "../schemas/role-permissions";
 import {
-  ROLE_NAME_LABEL,
+  roleNameLabel,
   type PendingPermissionMap,
   type ProjectScope,
   type RoleDetail,
@@ -110,7 +110,7 @@ export function RolePermissionEditorScreen() {
       (isUnscoped !== role.isUnscoped ? 1 : 0)
     : 0;
   const isEmptyRole = role ? role.permissions.length === 0 && Object.values(work).every((v) => v === null) : false;
-  const roleName = role ? (ROLE_NAME_LABEL[role.name as keyof typeof ROLE_NAME_LABEL] ?? role.name) : "";
+  const roleName = role ? roleNameLabel(role.name) : "";
 
   // Granted vs. total-declared count for the grid card header (matches the design file's
   // "N of M granted" copy). Draft-aware: counts the pending working set, not the saved grid.

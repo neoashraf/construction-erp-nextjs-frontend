@@ -3,7 +3,7 @@
 import Link from "next/link";
 import { Dialog, DialogContent, DialogTitle, DialogDescription } from "@/components/ui/dialog";
 import { Button } from "@/components/ui/button";
-import { ROLE_NAME_LABEL, type RoleListItem } from "../types";
+import { roleNameLabel, type RoleListItem } from "../types";
 import { roleInUseMessage } from "../schemas/role-permissions";
 
 /**
@@ -23,7 +23,7 @@ export function DeleteRoleDialog({
   onConfirm: () => void;
 }) {
   if (!role) return null;
-  const label = ROLE_NAME_LABEL[role.name as keyof typeof ROLE_NAME_LABEL] ?? role.name;
+  const label = roleNameLabel(role.name);
   const inUse = role.userCount > 0;
 
   return (
