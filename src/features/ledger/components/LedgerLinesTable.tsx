@@ -124,7 +124,7 @@ export function LedgerLinesTable({
               }}
               className={cn(
                 "grid cursor-pointer items-center border-b border-border outline-none",
-                "focus:bg-accent-soft hover:bg-surface-2",
+                "focus:bg-accent-soft hover:bg-accent-soft/60",
                 grid,
               )}
               data-testid={`ledger-row-${line.lineId}`}
@@ -255,7 +255,7 @@ export function LedgerLinesTable({
           <Link
             key={line.lineId}
             href={entryHref(line.entryId)}
-            className="block rounded-card border border-border bg-surface p-3.5 shadow-sm hover:bg-surface-2"
+            className="block rounded-card border border-border bg-surface p-3.5 shadow-sm hover:bg-accent-soft/60"
             data-testid={`ledger-card-${line.lineId}`}
           >
             <div className="flex items-start gap-2">

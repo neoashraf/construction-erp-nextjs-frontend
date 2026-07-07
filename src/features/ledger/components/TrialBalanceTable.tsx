@@ -93,7 +93,7 @@ export function TrialBalanceTable({
                   router.push(accountLedgerHref(row, dateScope));
                 }
               }}
-              className="grid cursor-pointer items-center border-b border-border outline-none focus:bg-accent-soft hover:bg-surface-2"
+              className="grid cursor-pointer items-center border-b border-border outline-none focus:bg-accent-soft hover:bg-accent-soft/60"
               style={{ gridTemplateColumns: gridTemplate }}
               data-testid={`tb-row-${row.accountId}`}
             >
@@ -185,7 +185,7 @@ export function TrialBalanceTable({
           <Link
             key={`${row.accountId}-${row.projectId ?? ""}-${row.costCentreId ?? ""}-${row.purposeId ?? ""}-${row.godownId ?? ""}-${row.partyId ?? ""}`}
             href={accountLedgerHref(row, dateScope)}
-            className="block rounded-card border border-border bg-surface p-3.5 shadow-sm hover:bg-surface-2"
+            className="block rounded-card border border-border bg-surface p-3.5 shadow-sm hover:bg-accent-soft/60"
             data-testid={`tb-card-${row.accountId}`}
           >
             <div className="font-mono text-[13px] font-semibold text-accent-ink" title={row.accountId}>

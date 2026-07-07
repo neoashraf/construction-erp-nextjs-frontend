@@ -30,7 +30,7 @@ export function AuditMobileCards({
           key={row.id}
           type="button"
           onClick={() => onOpen(row)}
-          className="block w-full rounded-card border border-border bg-surface p-3.5 text-left shadow-sm hover:bg-surface-2"
+          className="block w-full rounded-card border border-border bg-surface p-3.5 text-left shadow-sm hover:bg-accent-soft/60"
           data-testid={`audit-card-${row.id}`}
         >
           <div className="flex items-start justify-between gap-2">

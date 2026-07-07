@@ -66,7 +66,7 @@ export function EntriesTable({ entries }: { entries: JournalEntryHeader[] }) {
               }}
               className={cn(
                 "grid cursor-pointer items-center border-b border-border outline-none",
-                "focus:bg-accent-soft hover:bg-surface-2",
+                "focus:bg-accent-soft hover:bg-accent-soft/60",
                 GRID,
               )}
               data-testid={`entry-row-${e.entryNo}`}
@@ -150,7 +150,7 @@ export function EntriesTable({ entries }: { entries: JournalEntryHeader[] }) {
             <Link
               key={e.id}
               href={entryHref(e.id)}
-              className="block rounded-card border border-border bg-surface p-3.5 shadow-sm hover:bg-surface-2"
+              className="block rounded-card border border-border bg-surface p-3.5 shadow-sm hover:bg-accent-soft/60"
               data-testid={`entry-card-${e.entryNo}`}
             >
               <div className="flex items-start gap-2">

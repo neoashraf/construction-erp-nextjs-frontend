@@ -70,7 +70,7 @@ export function SeriesTable({
               tabIndex={0}
               className={cn(
                 "grid items-center border-b border-border outline-none",
-                "focus:bg-accent-soft hover:bg-surface-2",
+                "focus:bg-accent-soft hover:bg-accent-soft/60",
                 GRID,
               )}
               data-testid={`series-row-${s.voucherType}`}

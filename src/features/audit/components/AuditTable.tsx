@@ -103,7 +103,7 @@ export function AuditTable({
               "relative grid cursor-pointer items-center border-b border-border outline-none",
               GRID_TABLET,
               GRID_DESKTOP,
-              selected ? "bg-accent-soft/40" : "hover:bg-surface-2",
+              selected ? "bg-accent-soft/40" : "hover:bg-accent-soft/60",
               "focus:bg-accent-soft/60",
             )}
             data-testid={`audit-row-${row.id}`}
