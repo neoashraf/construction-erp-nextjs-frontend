@@ -18,11 +18,13 @@ import { cellKey } from "../schemas/permission-diff";
 export function RolesMobileSummary({
   roleName,
   approvalLimit,
+  isUnscoped,
   catalog,
   pending,
 }: {
   roleName: string;
   approvalLimit: string | null;
+  isUnscoped: boolean;
   catalog: PermissionCatalog;
   pending: PendingPermissionMap;
 }) {
@@ -54,6 +56,9 @@ export function RolesMobileSummary({
 
       <div className="mt-3.5 text-[11px] font-semibold uppercase tracking-wide text-faint">Role</div>
       <div className="mt-0.5 text-base font-bold text-foreground">{roleName}</div>
+      <div className="mt-0.5 text-[12.5px] text-muted-foreground">
+        {isUnscoped ? "All projects" : "Project-scoped"}
+      </div>
       <div className="mt-0.5 text-[12.5px] text-muted-foreground">{approvalText}</div>
 
       <div className="mt-4 flex flex-col gap-2.5">

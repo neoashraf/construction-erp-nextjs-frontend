@@ -516,6 +516,26 @@ describe("UsersScreen — row click opens detail; company-scoped NOT_FOUND (FR-A
     await userEvent.click(row);
     expect(await screen.findByText("This user no longer exists.")).toBeInTheDocument();
   });
+
+  it("an unscoped-role user's detail shows the 'All projects' note and hides Manage assignment (spec §5/§9)", async () => {
+    listMock.mockResolvedValue(page(ADMIN_ROW));
+    getMock.mockResolvedValue({
+      ...PM_DETAIL,
+      id: "u1",
+      role: "ADMIN",
+      roleId: "role-ADMIN",
+      roleIsUnscoped: true,
+      assignedProjects: [],
+    });
+    renderScreen();
+    const row = await screen.findByTestId("user-row-u1");
+    await userEvent.click(row);
+    const panel = await screen.findByTestId("user-detail-panel");
+    expect(within(panel).getByTestId("detail-scope-all")).toHaveTextContent(
+      "All projects — unscoped role, no assignment needed",
+    );
+    expect(within(panel).queryByText("Manage assignment →")).not.toBeInTheDocument();
+  });
 });
 
 // ── RBAC v2: dynamic roles + payload-keyed tags/scope + mustChangePassword ────

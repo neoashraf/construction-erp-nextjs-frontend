@@ -100,22 +100,37 @@ export function UserDetailPanel({
                 <span className="font-mono text-foreground">{user.phone ?? "—"}</span>
               </div>
 
+              <div className="text-[12px] text-muted-foreground">
+                {user.roleIsUnscoped
+                  ? "Unscoped role — access to all projects"
+                  : "Scoped role — limited to assigned projects"}
+              </div>
+
               <div className="flex flex-col gap-2">
                 <div className="flex items-center justify-between">
                   <span className="text-xs font-semibold uppercase tracking-wide text-muted-foreground">
                     Assigned projects
                   </span>
-                  <Link
-                    href={`/audit/users/${userId}/projects`}
-                    className="text-[12px] font-semibold text-accent-ink hover:underline"
-                  >
-                    Manage assignment →
-                  </Link>
+                  {!user.roleIsUnscoped && (
+                    <Link
+                      href={`/audit/users/${userId}/projects`}
+                      className="text-[12px] font-semibold text-accent-ink hover:underline"
+                    >
+                      Manage assignment →
+                    </Link>
+                  )}
                 </div>
                 {user.roleIsUnscoped ? (
-                  <Badge tone="accent" className="w-fit" data-testid="detail-scope-all">
-                    All projects
-                  </Badge>
+                  <div
+                    className="flex items-center gap-2 text-[13px] text-foreground"
+                    data-testid="detail-scope-all"
+                  >
+                    <span className="h-1.5 w-1.5 flex-none rounded-full bg-accent" aria-hidden />
+                    <span>All projects </span>
+                    <span className="text-[12px] text-faint">
+                      — unscoped role, no assignment needed
+                    </span>
+                  </div>
                 ) : user.assignedProjects.length === 0 ? (
                   <p
                     className="text-[12.5px] text-muted-foreground"

@@ -47,7 +47,7 @@ export function AppShell({ children }: { children: ReactNode }) {
             <OfflineBanner />
             <main
               id="app-content"
-              className="scrollbar-thin min-h-0 flex-1 overflow-y-auto p-5 lg:p-6"
+              className="scrollbar-thin flex min-h-0 flex-1 flex-col overflow-y-auto p-5 lg:p-6"
               data-testid="app-content"
             >
               {/* detail-only breadcrumb — content header, above the screen's H1 (v3 §3.3) */}

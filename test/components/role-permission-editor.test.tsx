@@ -140,6 +140,26 @@ function renderScreen(role: Role = "ADMIN") {
   );
 }
 
+/**
+ * The role selector is a dropdown in the meta card (RBAC v2 redesign): open the
+ * `role-picker` button, then click the `role-option-<NAME>` entry. Helper opens the
+ * dropdown only if it isn't already showing the target option.
+ */
+async function selectRole(name: string) {
+  const optionId = `role-option-${name}`;
+  if (!screen.queryByTestId(optionId)) {
+    await userEvent.click(await screen.findByTestId("role-picker"));
+  }
+  await userEvent.click(await screen.findByTestId(optionId));
+}
+
+/** Open the picker and leave it open (for asserting on badges / delete affordances inside it). */
+async function openRolePicker() {
+  if (!screen.queryByTestId("role-option-ADMIN")) {
+    await userEvent.click(await screen.findByTestId("role-picker"));
+  }
+}
+
 beforeEach(() => {
   jest.clearAllMocks();
   catalogMock.mockResolvedValue(CATALOG);
@@ -172,8 +192,7 @@ describe("state matrix + catalogue grid (spec §5/§6; FR-AUD-035)", () => {
   it("undeclared (resource, action) cells are disabled — not grantable (FR-AUD-035)", async () => {
     getRoleMock.mockResolvedValue(pmDetail());
     renderScreen("ADMIN");
-    await screen.findByTestId("role-tab-PROJECT_MANAGER");
-    await userEvent.click(screen.getByTestId("role-tab-PROJECT_MANAGER"));
+    await selectRole("PROJECT_MANAGER");
     await screen.findByTestId("permission-matrix");
     // purchase.grn does NOT declare APPROVE → that cell is non-declared
     const cell = await screen.findByTestId("cell-purchase.grn-APPROVE");
@@ -184,7 +203,7 @@ describe("state matrix + catalogue grid (spec §5/§6; FR-AUD-035)", () => {
     getRoleMock.mockImplementation((id: string) => Promise.resolve(id === "r-custom" ? customEmptyDetail() : adminDetail()));
     renderScreen();
     await screen.findByTestId("permission-matrix");
-    await userEvent.click(screen.getByTestId("role-tab-Site Auditor"));
+    await selectRole("Site Auditor");
     expect(await screen.findByTestId("matrix-empty-hint")).toHaveTextContent("This role has no permissions yet.");
   });
 
@@ -199,8 +218,7 @@ describe("state matrix + catalogue grid (spec §5/§6; FR-AUD-035)", () => {
   it("Save is disabled until an edit is made", async () => {
     getRoleMock.mockResolvedValue(pmDetail());
     renderScreen();
-    await screen.findByTestId("role-tab-PROJECT_MANAGER");
-    await userEvent.click(screen.getByTestId("role-tab-PROJECT_MANAGER"));
+    await selectRole("PROJECT_MANAGER");
     await screen.findByTestId("permission-matrix");
     expect(screen.getByTestId("save-changes")).toBeDisabled();
     await userEvent.click(screen.getByTestId("cell-purchase.orders-CREATE"));
@@ -214,14 +232,12 @@ describe("batch save — one PATCH /roles/:id/permissions (spec §9; FR-AUD-013/
     getRoleMock.mockResolvedValue(pmDetail());
     replaceMock.mockResolvedValue(pmDetail({ version: 13 }));
     renderScreen();
-    await userEvent.click(await screen.findByTestId("role-tab-PROJECT_MANAGER"));
+    await selectRole("PROJECT_MANAGER");
     await screen.findByTestId("permission-matrix");
 
-    // grant one cell, revoke an existing one
+    // grant one cell (click empty), revoke an existing one (click the granted cell again)
     await userEvent.click(screen.getByTestId("cell-purchase.orders-CREATE"));
-    await userEvent.click(screen.getByTestId("done-purchase.orders-CREATE"));
     await userEvent.click(screen.getByTestId("cell-requisitions.list-CREATE"));
-    await userEvent.click(await screen.findByTestId("revoke-requisitions.list-CREATE"));
 
     await userEvent.click(screen.getByTestId("save-changes"));
 
@@ -241,7 +257,7 @@ describe("batch save — one PATCH /roles/:id/permissions (spec §9; FR-AUD-013/
     getRoleMock.mockResolvedValue(pmDetail());
     replaceMock.mockRejectedValue(new ApiError({ code: "ROLE_SCOPE_CONFLICT", message: "x", details: null, status: 409 }));
     renderScreen();
-    await userEvent.click(await screen.findByTestId("role-tab-PROJECT_MANAGER"));
+    await selectRole("PROJECT_MANAGER");
     await screen.findByTestId("permission-matrix");
     await userEvent.click(screen.getByTestId("cell-purchase.orders-CREATE"));
     await userEvent.click(screen.getByTestId("save-changes"));
@@ -254,7 +270,7 @@ describe("batch save — one PATCH /roles/:id/permissions (spec §9; FR-AUD-013/
     getRoleMock.mockResolvedValue(pmDetail());
     replaceMock.mockRejectedValue(new ApiError({ code: "OPTIMISTIC_LOCK_CONFLICT", message: "stale", details: null, status: 409 }));
     renderScreen();
-    await userEvent.click(await screen.findByTestId("role-tab-PROJECT_MANAGER"));
+    await selectRole("PROJECT_MANAGER");
     await screen.findByTestId("permission-matrix");
     await userEvent.click(screen.getByTestId("cell-purchase.orders-CREATE"));
     await userEvent.click(screen.getByTestId("save-changes"));
@@ -268,12 +284,72 @@ describe("batch save — one PATCH /roles/:id/permissions (spec §9; FR-AUD-013/
   });
 });
 
+// ── Scope mode (spec §5 meta card — RBAC v2) ────────────────────────────────
+describe("Scope mode toggle (spec §5/§6/§9)", () => {
+  it("switching a scoped role to 'All projects' forces every pending grant's scope to ALL and is saved", async () => {
+    getRoleMock.mockResolvedValue(pmDetail());
+    replaceMock.mockResolvedValue(pmDetail({ version: 13 }));
+    renderScreen();
+    await selectRole("PROJECT_MANAGER");
+    await screen.findByTestId("permission-matrix");
+
+    expect(screen.getByTestId("scope-mode-all")).toHaveAttribute("aria-checked", "false");
+    expect(screen.getByTestId("scope-mode-scoped")).toHaveAttribute("aria-checked", "true");
+    expect(screen.queryByTestId("unscoped-badge")).not.toBeInTheDocument();
+
+    await userEvent.click(screen.getByTestId("scope-mode-all"));
+    expect(screen.getByTestId("scope-mode-all")).toHaveAttribute("aria-checked", "true");
+    expect(screen.getByTestId("unscoped-badge")).toBeInTheDocument();
+    expect(screen.getByTestId("save-changes")).not.toBeDisabled();
+
+    await userEvent.click(screen.getByTestId("save-changes"));
+
+    await waitFor(() =>
+      expect(replaceMock).toHaveBeenCalledWith("r-pm", {
+        version: 12,
+        // pmDetail's existing ASSIGNED grant is cascaded to ALL by the scope-mode switch.
+        permissions: [
+          { resource: "purchase.orders", action: "APPROVE", projectScope: "ALL", valueLimit: "200000" },
+          { resource: "requisitions.list", action: "CREATE", projectScope: "ALL", valueLimit: null },
+        ],
+      }),
+    );
+    expect(updateRoleMock).toHaveBeenCalledWith(
+      "r-pm",
+      expect.objectContaining({ isUnscoped: true, version: 13 }),
+    );
+  });
+
+  it("the Admin role's scope mode is disabled (anti-lockout)", async () => {
+    getRoleMock.mockResolvedValue(adminDetail());
+    renderScreen();
+    await screen.findByTestId("permission-matrix");
+    expect(screen.getByTestId("scope-mode-all")).toBeDisabled();
+    expect(screen.getByTestId("scope-mode-scoped")).toBeDisabled();
+  });
+
+  it("discard reverts a pending scope-mode change", async () => {
+    getRoleMock.mockResolvedValue(pmDetail());
+    renderScreen();
+    await selectRole("PROJECT_MANAGER");
+    await screen.findByTestId("permission-matrix");
+    await userEvent.click(screen.getByTestId("scope-mode-all"));
+    expect(screen.getByTestId("save-changes")).not.toBeDisabled();
+
+    await userEvent.click(screen.getByTestId("discard-changes"));
+    await userEvent.click(await screen.findByTestId("discard-permissions-confirm"));
+
+    expect(screen.getByTestId("scope-mode-scoped")).toHaveAttribute("aria-checked", "true");
+    expect(screen.getByTestId("save-changes")).toBeDisabled();
+  });
+});
+
 // ── Bulk toggles ─────────────────────────────────────────────────────────────
 describe("bulk grant/clear (spec §5/§9)", () => {
   it("a module tri-state toggle grants every declared (resource, action) in the module", async () => {
     getRoleMock.mockResolvedValue(customEmptyDetail());
     renderScreen();
-    await userEvent.click(await screen.findByTestId("role-tab-Site Auditor"));
+    await selectRole("Site Auditor");
     await screen.findByTestId("permission-matrix");
     const modBox = screen.getByTestId("bulk-module-REQ");
     expect(modBox).toHaveAttribute("aria-checked", "false");
@@ -287,7 +363,7 @@ describe("bulk grant/clear (spec §5/§9)", () => {
   it("a bulk clear over grants carrying value limits warns first", async () => {
     getRoleMock.mockResolvedValue(pmDetail()); // purchase.orders|APPROVE has a 200000 limit
     renderScreen();
-    await userEvent.click(await screen.findByTestId("role-tab-PROJECT_MANAGER"));
+    await selectRole("PROJECT_MANAGER");
     await screen.findByTestId("permission-matrix");
     // purchase.orders is mixed (only APPROVE granted, with a limit). A mixed click
     // COMPLETES the set (spec §9); clicking again on the now-checked set CLEARS it,
@@ -312,13 +388,16 @@ describe("Admin anti-lockout (spec §6/§13; FR-AUD-034)", () => {
     expect(screen.getByTestId("bulk-module-AUD")).toBeDisabled();
   });
 
-  it("a granted Admin cell's editor row offers no Revoke (only the lockout note)", async () => {
+  it("a granted Admin cell can't be revoked by clicking it (anti-lockout)", async () => {
     getRoleMock.mockResolvedValue(adminDetail());
     renderScreen();
     await screen.findByTestId("permission-matrix");
-    await userEvent.click(screen.getByTestId("cell-audit.roles-READ"));
-    expect(await screen.findByTestId("admin-locked-audit.roles-READ")).toBeInTheDocument();
-    expect(screen.queryByTestId("revoke-audit.roles-READ")).not.toBeInTheDocument();
+    const cell = screen.getByTestId("cell-audit.roles-READ");
+    expect(cell).toHaveAttribute("aria-checked", "true");
+    // clicking a granted Admin cell is a no-op (revoke is blocked) — it stays granted
+    await userEvent.click(cell);
+    expect(cell).toHaveAttribute("aria-checked", "true");
+    expect(screen.getByTestId("save-changes")).toBeDisabled();
   });
 });
 
@@ -353,6 +432,7 @@ describe("custom-role CRUD (FR-AUD-034)", () => {
     getRoleMock.mockResolvedValue(adminDetail());
     renderScreen();
     await screen.findByTestId("permission-matrix");
+    await openRolePicker();
     expect(screen.getByTestId("system-badge-ADMIN")).toBeInTheDocument();
     expect(screen.queryByTestId("delete-role-r-admin")).not.toBeInTheDocument();
     // a custom role IS deletable
@@ -364,6 +444,7 @@ describe("custom-role CRUD (FR-AUD-034)", () => {
     deleteRoleMock.mockResolvedValue(undefined);
     renderScreen();
     await screen.findByTestId("permission-matrix");
+    await openRolePicker();
     await userEvent.click(screen.getByTestId("delete-role-r-custom"));
     await userEvent.click(await screen.findByTestId("delete-role-confirm"));
     await waitFor(() => expect(deleteRoleMock).toHaveBeenCalledWith("r-custom"));
@@ -374,6 +455,7 @@ describe("custom-role CRUD (FR-AUD-034)", () => {
     getRoleMock.mockResolvedValue(adminDetail());
     renderScreen();
     await screen.findByTestId("permission-matrix");
+    await openRolePicker();
     await userEvent.click(screen.getByTestId("delete-role-r-custom-used"));
     expect(await screen.findByTestId("delete-role-inuse")).toHaveTextContent(
       "This role is assigned to 3 users. Reassign them before deleting.",
@@ -388,7 +470,7 @@ describe("responsive + a11y (spec §4/§10)", () => {
   it("renders the full matrix (lg:flex) and the read-only mobile summary (lg:hidden)", async () => {
     getRoleMock.mockResolvedValue(pmDetail());
     renderScreen();
-    await userEvent.click(await screen.findByTestId("role-tab-PROJECT_MANAGER"));
+    await selectRole("PROJECT_MANAGER");
     const matrix = await screen.findByTestId("permission-matrix");
     const summary = screen.getByTestId("roles-mobile-summary");
     expect(matrix.closest(".lg\\:flex")).toBeTruthy();
@@ -399,7 +481,7 @@ describe("responsive + a11y (spec §4/§10)", () => {
   it("each cell's accessible name combines resource and action", async () => {
     getRoleMock.mockResolvedValue(pmDetail());
     renderScreen();
-    await userEvent.click(await screen.findByTestId("role-tab-PROJECT_MANAGER"));
+    await selectRole("PROJECT_MANAGER");
     await screen.findByTestId("permission-matrix");
     expect(screen.getByRole("checkbox", { name: "purchase.orders — APPROVE" })).toBeInTheDocument();
   });

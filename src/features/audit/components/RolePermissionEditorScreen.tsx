@@ -31,10 +31,11 @@ import {
   type RoleDetail,
   type RoleListItem,
 } from "../types";
-import { RoleList } from "./RoleList";
+import { RolePicker } from "./RolePicker";
 import { NewRoleDialog } from "./NewRoleDialog";
 import { DeleteRoleDialog } from "./DeleteRoleDialog";
 import { ApprovalLimitInput } from "./ApprovalLimitInput";
+import { ScopeModeControl } from "./ScopeModeControl";
 import { PermissionMatrix } from "./PermissionMatrix";
 import { SaveBar } from "./SaveBar";
 import { ConflictBanner } from "./ConflictBanner";
@@ -73,6 +74,7 @@ export function RolePermissionEditorScreen() {
 
   const [work, setWork] = useState<PendingPermissionMap>({});
   const [approvalLimit, setApprovalLimit] = useState("");
+  const [isUnscoped, setIsUnscoped] = useState(false);
   const [conflict, setConflict] = useState(false);
   const [discardOpen, setDiscardOpen] = useState(false);
   const [newRoleOpen, setNewRoleOpen] = useState(false);
@@ -88,6 +90,7 @@ export function RolePermissionEditorScreen() {
     if (role) {
       setWork(baseMapFromRole(role));
       setApprovalLimit(role.approvalLimit ?? "");
+      setIsUnscoped(role.isUnscoped);
       setConflict(false);
     }
   }, [role]);
@@ -98,18 +101,28 @@ export function RolePermissionEditorScreen() {
   if (!isAdmin) return <RolesForbiddenView />;
 
   const dirty = role
-    ? hasPendingChanges(base, work, role.approvalLimit, normaliseLimit(approvalLimit))
+    ? hasPendingChanges(base, work, role.approvalLimit, normaliseLimit(approvalLimit)) ||
+      isUnscoped !== role.isUnscoped
     : false;
   const changeCount = role
     ? changedCellCount(base, work) +
-      (String(role.approvalLimit ?? "") !== normaliseLimit(approvalLimit) ? 1 : 0)
+      (String(role.approvalLimit ?? "") !== normaliseLimit(approvalLimit) ? 1 : 0) +
+      (isUnscoped !== role.isUnscoped ? 1 : 0)
     : 0;
   const isEmptyRole = role ? role.permissions.length === 0 && Object.values(work).every((v) => v === null) : false;
   const roleName = role ? (ROLE_NAME_LABEL[role.name as keyof typeof ROLE_NAME_LABEL] ?? role.name) : "";
 
+  // Granted vs. total-declared count for the grid card header (matches the design file's
+  // "N of M granted" copy). Draft-aware: counts the pending working set, not the saved grid.
+  const grantedCount = Object.values(work).filter((v) => v !== null).length;
+  const totalDeclared = catalog
+    ? catalog.modules.reduce((n, m) => n + m.resources.reduce((k, r) => k + r.actions.length, 0), 0)
+    : 0;
+  const grantCountText = `${grantedCount} of ${totalDeclared} granted`;
+
   // ── grid edit handlers ──────────────────────────────────────────────────────
   function grant(resource: string, action: string) {
-    setWork((w) => ({ ...w, [cellKey(resource, action)]: defaultCell(!!role?.isUnscoped) }));
+    setWork((w) => ({ ...w, [cellKey(resource, action)]: defaultCell(isUnscoped) }));
   }
   function revoke(resource: string, action: string) {
     // Anti-lockout: never revoke a catalogue-valid Admin grant (the control is disabled anyway).
@@ -117,7 +130,7 @@ export function RolePermissionEditorScreen() {
     setWork((w) => ({ ...w, [cellKey(resource, action)]: null }));
   }
   function setScope(resource: string, action: string, scope: ProjectScope) {
-    if (role?.isUnscoped) return;
+    if (isUnscoped) return;
     setWork((w) => {
       const key = cellKey(resource, action);
       const current = w[key];
@@ -138,12 +151,30 @@ export function RolePermissionEditorScreen() {
     });
   }
 
+  // Scope mode (spec §5 meta card "Scope mode" — editable for every role except the
+  // built-in Admin, anti-lockout). Switching to "All projects" forces every pending
+  // grant's project scope to ALL, mirroring the design's `setMode` cascade so the
+  // grid never shows a stale ASSIGNED scope under an unscoped role.
+  function setScopeMode(next: boolean) {
+    if (isAdminRole) return;
+    setIsUnscoped(next);
+    if (next) {
+      setWork((w) => {
+        const out: PendingPermissionMap = {};
+        for (const [key, cell] of Object.entries(w)) {
+          out[key] = cell ? { ...cell, scope: "ALL" } : cell;
+        }
+        return out;
+      });
+    }
+  }
+
   // ── bulk toggles (draft-only; spec §5/§9) ───────────────────────────────────
   function applyBulk(keys: string[], grantAll: boolean) {
     setWork((w) => {
       const next = { ...w };
       for (const key of keys) {
-        next[key] = grantAll ? (w[key] ?? defaultCell(!!role?.isUnscoped)) : null;
+        next[key] = grantAll ? (w[key] ?? defaultCell(isUnscoped)) : null;
       }
       return next;
     });
@@ -218,6 +249,7 @@ export function RolePermissionEditorScreen() {
     if (role) {
       setWork(baseMapFromRole(role));
       setApprovalLimit(role.approvalLimit ?? "");
+      setIsUnscoped(role.isUnscoped);
     }
     setDiscardOpen(false);
   }
@@ -228,13 +260,15 @@ export function RolePermissionEditorScreen() {
   async function save() {
     if (!role || !dirty || saveMutation.isPending) return;
     setConflict(false);
-    const permissions = buildReplacePayload(work, !!role.isUnscoped);
+    const permissions = buildReplacePayload(work, isUnscoped);
     const approvalChanged = String(role.approvalLimit ?? "") !== normaliseLimit(approvalLimit);
+    const scopeModeChanged = isUnscoped !== role.isUnscoped;
     try {
       await saveMutation.mutateAsync({
         role,
         permissions,
         ...(approvalChanged ? { approvalLimit: normaliseLimit(approvalLimit) } : {}),
+        ...(scopeModeChanged ? { isUnscoped } : {}),
       });
       toast("Permissions saved.", "success");
     } catch (err) {
@@ -252,10 +286,19 @@ export function RolePermissionEditorScreen() {
   const catalogError = catalogQuery.isError;
 
   return (
-    <div className="mx-auto flex h-full max-w-6xl flex-col">
-      <div className="flex flex-wrap items-start justify-between gap-4">
-        <h1 className="text-[22px] font-bold tracking-[-0.02em] text-foreground">Roles &amp; permissions</h1>
-        <Button onClick={openNewRole} data-testid="new-role-header" className="hidden lg:inline-flex">
+    <div className="flex h-full w-full flex-col">
+      <div className="flex flex-none items-start justify-between gap-4">
+        <div className="min-w-0">
+          {roleName && (
+            <div className="mb-1.5 text-[12px] text-muted-foreground">
+              <span className="text-muted-foreground">Roles &amp; permissions</span>{" "}
+              <span className="text-border-strong">›</span>{" "}
+              <span className="font-medium text-foreground">{roleName}</span>
+            </div>
+          )}
+          <h1 className="text-[22px] font-bold tracking-[-0.02em] text-foreground">Roles &amp; permissions</h1>
+        </div>
+        <Button onClick={openNewRole} data-testid="new-role-header" className="hidden flex-none lg:inline-flex">
           New role
         </Button>
       </div>
@@ -278,112 +321,120 @@ export function RolePermissionEditorScreen() {
       {(rolesQuery.isLoading || catalogQuery.isLoading) && !rolesQuery.isError && <LoadingSkeleton />}
 
       {!rolesQuery.isLoading && !rolesQuery.isError && rolesQuery.data && (
-        // Single RoleList instance (left on desktop, top on mobile); the right side
-        // is the editor (>=1024) or the read-only summary (<1024).
-        <div className="mt-4 flex min-h-0 flex-1 flex-col gap-5 lg:flex-row">
-          <div className="w-full flex-none overflow-y-auto lg:w-[260px]">
-            <RoleList
-              roles={rolesQuery.data}
-              selectedId={roleId}
-              onSelect={selectRole}
-              onNewRole={openNewRole}
-              onDeleteRole={setDeleteTarget}
-            />
-          </div>
+        // Full-width editor (design file · RBAC v2): the role picker lives in the meta
+        // card, not a left column. Desktop/tablet (>=1024) shows the two-pane editor;
+        // narrower widths fall back to the read-only summary.
+        <div className="mt-3.5 flex min-h-0 min-w-0 flex-1 flex-col">
+          {roleQuery.isLoading && <LoadingSkeleton />}
 
-          <div className="flex min-h-0 min-w-0 flex-1 flex-col">
-            {roleQuery.isLoading && <LoadingSkeleton />}
+          {roleQuery.isError && (
+            <Alert tone="destructive" title="Couldn't load this role." className="mt-1">
+              <div className="flex flex-col items-start gap-2">
+                <span>Check your connection and try again.</span>
+                <Button size="sm" onClick={() => roleQuery.refetch()} data-testid="role-retry">Retry</Button>
+              </div>
+            </Alert>
+          )}
 
-            {roleQuery.isError && (
-              <Alert tone="destructive" title="Couldn't load this role." className="mt-1">
-                <div className="flex flex-col items-start gap-2">
-                  <span>Check your connection and try again.</span>
-                  <Button size="sm" onClick={() => roleQuery.refetch()} data-testid="role-retry">Retry</Button>
-                </div>
-              </Alert>
-            )}
+          {catalogError && (
+            <Alert tone="destructive" title="Couldn't load the permission catalogue." className="mt-1">
+              <div className="flex flex-col items-start gap-2">
+                <span>The grid can’t render without it.</span>
+                <Button size="sm" onClick={() => catalogQuery.refetch()} data-testid="catalog-retry">Retry</Button>
+              </div>
+            </Alert>
+          )}
 
-            {catalogError && (
-              <Alert tone="destructive" title="Couldn't load the permission catalogue." className="mt-1">
-                <div className="flex flex-col items-start gap-2">
-                  <span>The grid can’t render without it.</span>
-                  <Button size="sm" onClick={() => catalogQuery.refetch()} data-testid="catalog-retry">Retry</Button>
-                </div>
-              </Alert>
-            )}
-
-            {role && catalog && !roleQuery.isLoading && !roleQuery.isError && (
-              <>
-                {/* Desktop/tablet editor (>=1024) */}
-                <div className="hidden min-h-0 flex-1 flex-col lg:flex">
-                  <Card className="flex-none">
-                    <div className="border-b border-border p-4">
-                      <div className="flex flex-wrap items-center gap-2">
-                        <span className="text-[15px] font-bold text-foreground">{roleName}</span>
+          {role && catalog && !roleQuery.isLoading && !roleQuery.isError && (
+            <>
+              {/* Desktop/tablet editor (>=1024) */}
+              <div className="hidden min-h-0 flex-1 flex-col lg:flex">
+                {/* META CARD */}
+                <Card className="flex-none p-4">
+                  <div className="flex flex-wrap items-start justify-between gap-6">
+                    <div className="min-w-[280px] flex-1">
+                      <div className="flex flex-wrap items-center gap-2.5">
+                        <RolePicker
+                          roles={rolesQuery.data}
+                          selectedId={roleId}
+                          onSelect={selectRole}
+                          onNewRole={openNewRole}
+                          onDeleteRole={setDeleteTarget}
+                        />
                         {role.isSystem ? (
                           <Badge tone="neutral" data-testid="system-badge">System</Badge>
                         ) : (
                           <Badge tone="accent" data-testid="custom-badge">Custom</Badge>
                         )}
-                        {role.isUnscoped && (
-                          <Badge tone="accent" dot data-testid="unscoped-badge">Unscoped · all projects</Badge>
+                        {isUnscoped && (
+                          <Badge tone="accent" dot data-testid="unscoped-badge">
+                            All projects
+                          </Badge>
                         )}
-                        <span className="text-[11.5px] text-faint" data-testid="role-usercount">
-                          {role.userCount} user{role.userCount === 1 ? "" : "s"}
+                        <span className="font-mono text-[11px] text-faint" data-testid="role-version">
+                          v{role.version}
                         </span>
-                        <span className="font-mono text-[11px] text-faint" data-testid="role-version">v{role.version}</span>
                       </div>
-                      <div className="mt-1.5">
-                        <span className="rounded-token bg-muted px-2.5 py-1 text-[11.5px] font-semibold tabular-nums text-muted-foreground">
-                          {role.permissions.length} permission{role.permissions.length === 1 ? "" : "s"} granted
-                        </span>
+                      <div className="mt-1.5 text-[12.5px] text-muted-foreground" data-testid="role-usercount">
+                        {role.userCount} user{role.userCount === 1 ? "" : "s"}
                         {isAdminRole && (
-                          <span className="ml-2 text-[11.5px] italic text-muted-foreground" data-testid="admin-lockout-note">
-                            The Admin role must keep full access.
-                          </span>
+                          <>
+                            {" · "}
+                            <span className="text-faint" data-testid="admin-lockout-note">
+                              The Admin role must keep full access.
+                            </span>
+                          </>
                         )}
                       </div>
-                    </div>
-                    <div className="flex flex-wrap items-start justify-between gap-6 p-4">
-                      <div className="min-w-[280px] flex-1" />
-                      <ApprovalLimitInput value={approvalLimit} onChange={setApprovalLimit} />
-                    </div>
-                  </Card>
 
-                  <div className="mt-3.5 flex min-h-0 flex-1 flex-col">
-                    <PermissionMatrix
-                      catalog={catalog}
-                      pending={work}
-                      isUnscopedRole={role.isUnscoped}
-                      isAdminRole={isAdminRole}
-                      roleApprovalLimit={role.approvalLimit}
-                      isEmptyRole={isEmptyRole}
-                      disabled={saveMutation.isPending}
-                      onGrant={grant}
-                      onRevoke={revoke}
-                      onScopeChange={setScope}
-                      onLimitChange={setLimit}
-                      onBulkModule={onBulkModule}
-                      onBulkResource={onBulkResource}
-                    />
-                    <SaveBar
-                      dirty={dirty}
-                      saving={saveMutation.isPending}
-                      changeCount={changeCount}
-                      roleVersion={role.version}
-                      onSave={save}
-                      onDiscard={askDiscard}
-                    />
+                      <div className="mt-4">
+                        <ScopeModeControl isUnscoped={isUnscoped} disabled={isAdminRole} onChange={setScopeMode} />
+                      </div>
+                    </div>
+
+                    <ApprovalLimitInput value={approvalLimit} onChange={setApprovalLimit} />
                   </div>
-                </div>
+                </Card>
 
-                {/* Mobile read-only summary (<1024) */}
-                <div className="lg:hidden">
-                  <RolesMobileSummary roleName={roleName} approvalLimit={role.approvalLimit} catalog={catalog} pending={work} />
+                <div className="mt-3.5 flex min-h-0 flex-1 flex-col">
+                  <PermissionMatrix
+                    catalog={catalog}
+                    pending={work}
+                    isUnscopedRole={isUnscoped}
+                    isAdminRole={isAdminRole}
+                    isEmptyRole={isEmptyRole}
+                    disabled={saveMutation.isPending}
+                    grantCountText={grantCountText}
+                    onGrant={grant}
+                    onRevoke={revoke}
+                    onScopeChange={setScope}
+                    onLimitChange={setLimit}
+                    onBulkModule={onBulkModule}
+                    onBulkResource={onBulkResource}
+                  />
+                  <SaveBar
+                    dirty={dirty}
+                    saving={saveMutation.isPending}
+                    changeCount={changeCount}
+                    roleVersion={role.version}
+                    onSave={save}
+                    onDiscard={askDiscard}
+                  />
                 </div>
-              </>
-            )}
-          </div>
+              </div>
+
+              {/* Mobile read-only summary (<1024) */}
+              <div className="lg:hidden">
+                <RolesMobileSummary
+                  roleName={roleName}
+                  approvalLimit={role.approvalLimit}
+                  isUnscoped={role.isUnscoped}
+                  catalog={catalog}
+                  pending={work}
+                />
+              </div>
+            </>
+          )}
         </div>
       )}
 
@@ -417,35 +468,29 @@ export function RolePermissionEditorScreen() {
 
 function LoadingSkeleton() {
   return (
-    <div className="mt-4" data-testid="roles-loading">
-      <div className="flex gap-5">
-        <div className="w-[260px] flex-none">
-          {[0, 1, 2, 3, 4, 5].map((i) => (
-            <Skeleton key={i} className="mb-2 h-[42px] w-full" />
-          ))}
-        </div>
+    <div className="mt-3.5 flex-1" data-testid="roles-loading">
+      <Card className="flex flex-wrap items-start justify-between gap-6 p-4">
         <div className="flex-1">
-          <Card className="p-4">
-            <Skeleton className="h-3.5 w-40" />
-            <div className="mt-4 flex justify-end">
-              <Skeleton className="h-9 w-[300px]" />
-            </div>
-          </Card>
-          <Card className="mt-3.5 overflow-hidden p-0">
-            <Skeleton className="h-[52px] w-full rounded-none" />
-            {[0, 1, 2, 3, 4, 5].map((i) => (
-              <div key={i} className="flex items-center gap-3.5 border-b border-border px-4" style={{ height: 52 }}>
-                <Skeleton className="h-3 w-48" />
-                <div className="ml-8 flex gap-6">
-                  {[0, 1, 2, 3, 4, 5, 6, 7].map((j) => (
-                    <Skeleton key={j} className="h-5 w-5" />
-                  ))}
-                </div>
-              </div>
-            ))}
-          </Card>
+          <Skeleton className="h-10 w-[240px]" />
+          <Skeleton className="mt-3 h-3 w-40" />
+          <Skeleton className="mt-4 h-9 w-[220px]" />
         </div>
-      </div>
+        <Skeleton className="h-[62px] w-[288px]" />
+      </Card>
+      <Card className="mt-3.5 overflow-hidden p-0">
+        <Skeleton className="h-[46px] w-full rounded-none" />
+        {[0, 1, 2, 3, 4, 5, 6, 7].map((i) => (
+          <div key={i} className="flex items-center gap-3.5 border-b border-border px-4" style={{ height: 52 }}>
+            <Skeleton className="h-3 w-48" />
+            <div className="ml-8 flex gap-6">
+              {[0, 1, 2, 3, 4, 5, 6, 7].map((j) => (
+                <Skeleton key={j} className="h-5 w-5" />
+              ))}
+            </div>
+            <Skeleton className="ml-auto h-[26px] w-[150px]" />
+          </div>
+        ))}
+      </Card>
     </div>
   );
 }
