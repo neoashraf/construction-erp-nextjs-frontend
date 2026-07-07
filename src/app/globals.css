@@ -55,6 +55,19 @@
   }
 }
 
+/* Full-width content: every screen's root wrapper is the direct child of
+   <main id="app-content"> (after the breadcrumb). Individual screens center their
+   content with `mx-auto max-w-*` by convention; this one rule neutralizes that cap
+   app-wide so pages fill the whole content area edge-to-edge. Nested `max-w-*`
+   inside cards/forms/modals is untouched — only the top-level page wrapper widens.
+   New screens inherit this automatically (no per-file edit needed). */
+#app-content > :not(nav) {
+  max-width: none !important;
+  margin-left: 0 !important;
+  margin-right: 0 !important;
+  width: 100% !important;
+}
+
 /* Indeterminate progress sweep (login success card, later loaders). Consumed via
    the Tailwind arbitrary animation utility `animate-[slide_...]`. */
 @keyframes slide {
