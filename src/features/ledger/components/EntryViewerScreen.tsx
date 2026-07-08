@@ -8,6 +8,7 @@ import { Button } from "@/components/ui/button";
 import { EmptyState } from "@/components/ui/empty-state";
 import { Alert } from "@/components/ui/alert";
 import { asApiError } from "@/lib/api/errors";
+import { Breadcrumb as UiBreadcrumb } from "@/components/ui/breadcrumb";
 import { useSetRecordCrumb } from "@/components/shell/breadcrumb";
 import { useJournalEntry } from "../hooks/useJournalEntry";
 import { EntryHeaderBlock } from "./EntryHeaderBlock";
@@ -188,16 +189,12 @@ function NotFoundView({ onBack }: { onBack: () => void }) {
 
 function Breadcrumb({ entryNo }: { entryNo?: string }) {
   return (
-    <nav aria-label="Breadcrumb" className="mb-1.5 text-xs text-muted-foreground">
-      Ledger <span className="text-border-strong">/</span>{" "}
-      {entryNo ? (
-        <>
-          <span className="text-border-strong">Journal entries</span> <span className="text-border-strong">/</span>{" "}
-          <span className="font-mono font-medium text-foreground">{entryNo}</span>
-        </>
-      ) : (
-        <span className="font-medium text-foreground">Journal entries</span>
-      )}
-    </nav>
+    <UiBreadcrumb
+      items={[
+        { label: "Ledger" },
+        { label: "Journal entries", href: entryNo ? "/ledger/journal-entries" : undefined },
+        ...(entryNo ? [{ label: entryNo }] : []),
+      ]}
+    />
   );
 }

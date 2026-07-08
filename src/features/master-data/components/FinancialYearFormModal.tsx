@@ -1,9 +1,10 @@
 "use client";
 
-import { useForm } from "react-hook-form";
+import { useForm, Controller } from "react-hook-form";
 import { zodResolver } from "@hookform/resolvers/zod";
 import { Sheet, SheetContent, SheetHeader, SheetBody, SheetFooter } from "@/components/ui/sheet";
 import { Input } from "@/components/ui/input";
+import { DatePickerInput } from "@/components/ui/date-picker";
 import { Label } from "@/components/ui/label";
 import { Button } from "@/components/ui/button";
 import { Alert } from "@/components/ui/alert";
@@ -48,6 +49,7 @@ export function FinancialYearFormModal({
 
   const {
     register,
+    control,
     handleSubmit,
     setError,
     formState: { errors },
@@ -165,13 +167,20 @@ export function FinancialYearFormModal({
                 <Label htmlFor="fy-start" className="text-[11px] tracking-[0.4px]">
                   Start date <span className="text-destructive">*</span>
                 </Label>
-                <Input
-                  id="fy-start"
-                  className="h-[38px] font-mono"
-                  placeholder="DD/MM/YYYY"
-                  inputMode="numeric"
-                  invalid={!!errors.startDate}
-                  {...register("startDate")}
+                <Controller
+                  control={control}
+                  name="startDate"
+                  render={({ field }) => (
+                    <DatePickerInput
+                      id="fy-start"
+                      className="h-[38px]"
+                      value={field.value ?? ""}
+                      onChange={field.onChange}
+                      onBlur={field.onBlur}
+                      name={field.name}
+                      invalid={!!errors.startDate}
+                    />
+                  )}
                 />
                 {errors.startDate ? (
                   <span className="text-xs text-destructive-ink" data-testid="start-error">
@@ -183,13 +192,21 @@ export function FinancialYearFormModal({
                 <Label htmlFor="fy-end" className="text-[11px] tracking-[0.4px]">
                   End date <span className="text-destructive">*</span>
                 </Label>
-                <Input
-                  id="fy-end"
-                  className="h-[38px] font-mono"
-                  placeholder="DD/MM/YYYY"
-                  inputMode="numeric"
-                  invalid={!!errors.endDate}
-                  {...register("endDate")}
+                <Controller
+                  control={control}
+                  name="endDate"
+                  render={({ field }) => (
+                    <DatePickerInput
+                      id="fy-end"
+                      className="h-[38px]"
+                      align="right"
+                      value={field.value ?? ""}
+                      onChange={field.onChange}
+                      onBlur={field.onBlur}
+                      name={field.name}
+                      invalid={!!errors.endDate}
+                    />
+                  )}
                 />
                 {errors.endDate ? (
                   <span className="text-xs text-destructive-ink" data-testid="end-error">

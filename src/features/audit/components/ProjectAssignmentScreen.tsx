@@ -1,9 +1,9 @@
 "use client";
 
 import { useEffect, useRef, useState } from "react";
-import Link from "next/link";
 import { useSession } from "@/providers/session-provider";
 import { hasGrant } from "@/lib/auth/roles";
+import { Breadcrumb as UiBreadcrumb } from "@/components/ui/breadcrumb";
 import { useToast } from "@/components/ui/toast";
 import { Skeleton } from "@/components/ui/skeleton";
 import { asApiError } from "@/lib/api/errors";
@@ -245,19 +245,14 @@ export function ProjectAssignmentScreen({ userId }: { userId: string }) {
 
 function Breadcrumb({ userName }: { userName: string }) {
   return (
-    <nav aria-label="Breadcrumb" className="text-xs text-muted-foreground">
-      <Link href="/audit/users" className="hover:underline">
-        Admin
-      </Link>{" "}
-      <span className="text-border-strong">/</span>{" "}
-      <Link href="/audit/users" className="hover:underline">
-        Users
-      </Link>{" "}
-      <span className="text-border-strong">/</span>{" "}
-      <span className="font-medium text-foreground">{userName}</span>{" "}
-      <span className="text-border-strong">/</span>{" "}
-      <span className="font-medium text-foreground">Projects</span>
-    </nav>
+    <UiBreadcrumb
+      items={[
+        { label: "Admin", href: "/audit/users" },
+        { label: "Users", href: "/audit/users" },
+        { label: userName },
+        { label: "Projects" },
+      ]}
+    />
   );
 }
 

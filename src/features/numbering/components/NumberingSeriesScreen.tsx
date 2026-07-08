@@ -8,6 +8,7 @@ import { Skeleton } from "@/components/ui/skeleton";
 import { EmptyState } from "@/components/ui/empty-state";
 import { Alert } from "@/components/ui/alert";
 import { useToast } from "@/components/ui/toast";
+import { Breadcrumb } from "@/components/ui/breadcrumb";
 import { useSession } from "@/providers/session-provider";
 import { hasGrant } from "@/lib/auth/roles";
 import { SeriesTable } from "./SeriesTable";
@@ -43,7 +44,7 @@ export function NumberingSeriesScreen() {
   if (!canView) {
     return (
       <div className="mx-auto max-w-5xl" data-testid="numbering-forbidden">
-        <Breadcrumb />
+        <Breadcrumb items={[{ label: "Master Data" }, { label: "Numbering series" }]} />
         <Card className="mt-4 p-8">
           <EmptyState
             icon={Lock}
@@ -69,7 +70,7 @@ export function NumberingSeriesScreen() {
 
   return (
     <div className="mx-auto max-w-5xl">
-      <Breadcrumb />
+      <Breadcrumb items={[{ label: "Master Data" }, { label: "Numbering series" }]} />
 
       <div className="flex flex-wrap items-start justify-between gap-4">
         <div>
@@ -163,14 +164,5 @@ export function NumberingSeriesScreen() {
         />
       )}
     </div>
-  );
-}
-
-function Breadcrumb() {
-  return (
-    <nav aria-label="Breadcrumb" className="mb-1.5 text-xs text-muted-foreground">
-      Master Data <span className="text-border-strong">/</span>{" "}
-      <span className="font-medium text-foreground">Numbering series</span>
-    </nav>
   );
 }

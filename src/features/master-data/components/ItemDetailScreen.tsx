@@ -10,6 +10,7 @@ import { Skeleton } from "@/components/ui/skeleton";
 import { Alert } from "@/components/ui/alert";
 import { Card } from "@/components/ui/card";
 import { useToast } from "@/components/ui/toast";
+import { Breadcrumb } from "@/components/ui/breadcrumb";
 import { useSession } from "@/providers/session-provider";
 import { hasGrant } from "@/lib/auth/roles";
 import { useItem } from "../hooks/useItems";
@@ -84,15 +85,13 @@ export function ItemDetailScreen({ id }: { id: string }) {
 
   return (
     <div className="mx-auto max-w-3xl">
-      <nav aria-label="Breadcrumb" className="mb-1.5 text-xs text-muted-foreground">
-        <Link href={LIST_PATH} className="hover:text-foreground">
-          Master Data <span className="text-border-strong">/</span> Items
-        </Link>{" "}
-        <span className="text-border-strong">/</span>{" "}
-        <span className="font-medium text-foreground">
-          {isNew ? "New item" : `${item?.code} — ${item?.name}`}
-        </span>
-      </nav>
+      <Breadcrumb
+        items={[
+          { label: "Master Data" },
+          { label: "Items", href: LIST_PATH },
+          { label: isNew ? "New item" : `${item?.code} — ${item?.name}` },
+        ]}
+      />
 
       <div className="flex flex-wrap items-center justify-between gap-3">
         <div className="flex flex-wrap items-center gap-3">

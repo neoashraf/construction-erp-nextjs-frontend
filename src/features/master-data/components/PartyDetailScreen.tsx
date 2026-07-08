@@ -9,6 +9,7 @@ import { Badge } from "@/components/ui/badge";
 import { Skeleton } from "@/components/ui/skeleton";
 import { Alert } from "@/components/ui/alert";
 import { Card } from "@/components/ui/card";
+import { Breadcrumb } from "@/components/ui/breadcrumb";
 import { useSession } from "@/providers/session-provider";
 import { hasGrant } from "@/lib/auth/roles";
 import { useParty } from "../hooks/useParties";
@@ -82,13 +83,13 @@ export function PartyDetailScreen({ id }: { id: string }) {
 
   return (
     <div className="mx-auto max-w-4xl">
-      <nav aria-label="Breadcrumb" className="mb-1.5 text-xs text-muted-foreground">
-        <Link href={LIST_PATH} className="hover:text-foreground">
-          Master Data <span className="text-border-strong">/</span> Parties
-        </Link>{" "}
-        <span className="text-border-strong">/</span>{" "}
-        <span className="font-medium text-foreground">{isNew ? "New party" : party?.name}</span>
-      </nav>
+      <Breadcrumb
+        items={[
+          { label: "Master Data" },
+          { label: "Parties", href: LIST_PATH },
+          { label: isNew ? "New party" : (party?.name ?? "") },
+        ]}
+      />
 
       <div className="flex flex-wrap items-center justify-between gap-3">
         <div className="flex flex-wrap items-center gap-3">

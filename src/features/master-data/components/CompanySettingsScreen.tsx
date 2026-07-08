@@ -2,6 +2,7 @@
 
 import { Alert } from "@/components/ui/alert";
 import { Badge } from "@/components/ui/badge";
+import { Breadcrumb } from "@/components/ui/breadcrumb";
 import { useSession } from "@/providers/session-provider";
 import { hasGrant } from "@/lib/auth/roles";
 import { useCompany } from "../hooks/useCompany";
@@ -25,10 +26,7 @@ export function CompanySettingsScreen() {
   return (
     <div className="mx-auto max-w-5xl">
       {/* Breadcrumb + title + active-company badge */}
-      <nav aria-label="Breadcrumb" className="mb-1.5 text-xs text-muted-foreground">
-        Master Data <span className="text-border-strong">/</span>{" "}
-        <span className="font-medium text-foreground">Company</span>
-      </nav>
+      <Breadcrumb items={[{ label: "Master Data" }, { label: "Company" }]} />
       <div className="flex items-center gap-3">
         <h1 className="text-[23px] font-bold tracking-[-0.02em]">Company settings</h1>
         {company && (

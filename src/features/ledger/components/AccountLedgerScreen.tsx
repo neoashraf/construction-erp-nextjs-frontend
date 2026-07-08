@@ -9,6 +9,7 @@ import { EmptyState } from "@/components/ui/empty-state";
 import { Alert } from "@/components/ui/alert";
 import { cn } from "@/lib/utils";
 import { formatDate } from "@/lib/format";
+import { Breadcrumb as UiBreadcrumb } from "@/components/ui/breadcrumb";
 import { asApiError } from "@/lib/api/errors";
 import { useAccountLedger } from "../hooks/useAccountLedger";
 import { LedgerFilterBar, EMPTY_LINES_FILTER } from "./LedgerFilterBar";
@@ -237,10 +238,5 @@ export function AccountLedgerScreen({
 }
 
 function Breadcrumb({ label }: { label: string }) {
-  return (
-    <nav aria-label="Breadcrumb" className="mb-1.5 text-xs text-muted-foreground">
-      Ledger <span className="text-border-strong">/</span>{" "}
-      <span className="font-medium text-foreground">{label}</span>
-    </nav>
-  );
+  return <UiBreadcrumb items={[{ label: "Ledger" }, { label }]} />;
 }

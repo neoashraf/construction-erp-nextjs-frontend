@@ -12,6 +12,7 @@ import { Alert } from "@/components/ui/alert";
 import { useToast } from "@/components/ui/toast";
 import { useSession } from "@/providers/session-provider";
 import { hasGrant } from "@/lib/auth/roles";
+import { Breadcrumb } from "@/components/ui/breadcrumb";
 import { type Account, type AccountGroup, type AccountType, ACCOUNT_TYPES } from "../types";
 import { ACCOUNT_TYPE_LABEL } from "../schemas/chart-of-accounts.schema";
 import { useAccountGroups, useAccounts } from "../hooks/useChartOfAccounts";
@@ -107,10 +108,7 @@ export function ChartOfAccountsScreen() {
     <div className="mx-auto max-w-5xl">
       <div className="flex flex-wrap items-start justify-between gap-4">
         <div>
-          <nav aria-label="Breadcrumb" className="mb-1.5 text-xs text-muted-foreground">
-            Master Data <span className="text-border-strong">/</span>{" "}
-            <span className="font-medium text-foreground">Chart of accounts</span>
-          </nav>
+          <Breadcrumb items={[{ label: "Master Data" }, { label: "Chart of accounts" }]} />
           <h1 className="text-[23px] font-bold tracking-[-0.02em]">Chart of accounts</h1>
         </div>
         {canManage && (

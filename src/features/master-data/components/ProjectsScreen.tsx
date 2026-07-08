@@ -10,6 +10,7 @@ import { Select } from "@/components/ui/select";
 import { Skeleton } from "@/components/ui/skeleton";
 import { EmptyState } from "@/components/ui/empty-state";
 import { Alert } from "@/components/ui/alert";
+import { Breadcrumb } from "@/components/ui/breadcrumb";
 import { useSession } from "@/providers/session-provider";
 import { hasGrant } from "@/lib/auth/roles";
 import { useProjectsList } from "../hooks/useProjects";
@@ -75,10 +76,7 @@ export function ProjectsScreen() {
     <div className="mx-auto max-w-6xl">
       <div className="flex items-start justify-between gap-4">
         <div>
-          <nav aria-label="Breadcrumb" className="mb-1.5 text-xs text-muted-foreground">
-            Master Data <span className="text-border-strong">/</span>{" "}
-            <span className="font-medium text-foreground">Projects</span>
-          </nav>
+          <Breadcrumb items={[{ label: "Master Data" }, { label: "Projects" }]} />
           <h1 className="text-[23px] font-bold tracking-[-0.02em]">Projects</h1>
         </div>
         {canCreate && (

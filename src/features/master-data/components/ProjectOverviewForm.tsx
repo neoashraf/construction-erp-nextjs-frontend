@@ -1,8 +1,9 @@
 "use client";
 
-import { useForm } from "react-hook-form";
+import { useForm, Controller } from "react-hook-form";
 import { zodResolver } from "@hookform/resolvers/zod";
 import { Input } from "@/components/ui/input";
+import { DatePickerInput } from "@/components/ui/date-picker";
 import { Label } from "@/components/ui/label";
 import { Button } from "@/components/ui/button";
 import { Card, CardContent } from "@/components/ui/card";
@@ -50,6 +51,7 @@ export function ProjectOverviewForm({
 
   const {
     register,
+    control,
     handleSubmit,
     setError,
     formState: { errors },
@@ -229,14 +231,20 @@ export function ProjectOverviewForm({
               <Label htmlFor="pj-start" className="mb-1.5 block text-[10.5px]">
                 Start date <span className="text-destructive">*</span>
               </Label>
-              <Input
-                id="pj-start"
-                className="font-mono"
-                placeholder="DD/MM/YYYY"
-                inputMode="numeric"
-                invalid={!!errors.startDate}
-                disabled={disabled}
-                {...register("startDate")}
+              <Controller
+                control={control}
+                name="startDate"
+                render={({ field }) => (
+                  <DatePickerInput
+                    id="pj-start"
+                    value={field.value ?? ""}
+                    onChange={field.onChange}
+                    onBlur={field.onBlur}
+                    name={field.name}
+                    invalid={!!errors.startDate}
+                    disabled={disabled}
+                  />
+                )}
               />
               {errors.startDate && (
                 <p className="mt-1.5 text-[11.5px] text-destructive-ink">
@@ -248,14 +256,21 @@ export function ProjectOverviewForm({
               <Label htmlFor="pj-end" className="mb-1.5 block text-[10.5px]">
                 Expected end date <span className="text-destructive">*</span>
               </Label>
-              <Input
-                id="pj-end"
-                className="font-mono"
-                placeholder="DD/MM/YYYY"
-                inputMode="numeric"
-                invalid={!!errors.expectedEndDate}
-                disabled={disabled}
-                {...register("expectedEndDate")}
+              <Controller
+                control={control}
+                name="expectedEndDate"
+                render={({ field }) => (
+                  <DatePickerInput
+                    id="pj-end"
+                    align="right"
+                    value={field.value ?? ""}
+                    onChange={field.onChange}
+                    onBlur={field.onBlur}
+                    name={field.name}
+                    invalid={!!errors.expectedEndDate}
+                    disabled={disabled}
+                  />
+                )}
               />
               {errors.expectedEndDate && (
                 <p className="mt-1.5 text-[11.5px] text-destructive-ink" data-testid="pj-end-error">

@@ -7,6 +7,7 @@ import { Button } from "@/components/ui/button";
 import { Skeleton } from "@/components/ui/skeleton";
 import { EmptyState } from "@/components/ui/empty-state";
 import { Alert } from "@/components/ui/alert";
+import { Breadcrumb } from "@/components/ui/breadcrumb";
 import { cn } from "@/lib/utils";
 import { formatMoney } from "@/lib/money";
 import { asApiError } from "@/lib/api/errors";
@@ -108,7 +109,7 @@ export function TrialBalanceScreen() {
   if (forbidden && !projectScopeError) {
     return (
       <div className="mx-auto max-w-6xl" data-testid="trial-balance-forbidden">
-        <Breadcrumb />
+        <Breadcrumb items={[{ label: "Ledger" }, { label: "Trial balance" }]} />
         <h1 className="text-[23px] font-bold tracking-[-0.02em]">Trial balance</h1>
         <Card className="mt-4 p-8">
           <EmptyState
@@ -123,7 +124,7 @@ export function TrialBalanceScreen() {
 
   return (
     <div className="mx-auto max-w-6xl">
-      <Breadcrumb />
+      <Breadcrumb items={[{ label: "Ledger" }, { label: "Trial balance" }]} />
       <div className="mb-4 mt-1 flex flex-wrap items-center gap-3.5">
         <h1 className="text-[23px] font-bold tracking-[-0.02em]" data-testid="tb-title">
           Trial balance
@@ -233,14 +234,5 @@ export function TrialBalanceScreen() {
         )}
       </Card>
     </div>
-  );
-}
-
-function Breadcrumb() {
-  return (
-    <nav aria-label="Breadcrumb" className="mb-1.5 text-xs text-muted-foreground">
-      Ledger <span className="text-border-strong">/</span>{" "}
-      <span className="font-medium text-foreground">Trial balance</span>
-    </nav>
   );
 }

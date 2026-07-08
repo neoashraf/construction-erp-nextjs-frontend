@@ -6,6 +6,7 @@ import { useRouter } from "next/navigation";
 import { Card } from "@/components/ui/card";
 import { Button } from "@/components/ui/button";
 import { Badge } from "@/components/ui/badge";
+import { Breadcrumb as UiBreadcrumb } from "@/components/ui/breadcrumb";
 import { Skeleton } from "@/components/ui/skeleton";
 import { EmptyState } from "@/components/ui/empty-state";
 import { Alert } from "@/components/ui/alert";
@@ -362,17 +363,12 @@ function Pagination({
 
 function Breadcrumb({ entryId }: { entryId?: string | null }) {
   return (
-    <nav aria-label="Breadcrumb" className="mb-1.5 text-xs text-muted-foreground">
-      Admin <span className="text-border-strong">/</span>{" "}
-      {entryId ? (
-        <>
-          <span className="text-border-strong">Audit log</span>{" "}
-          <span className="text-border-strong">/</span>{" "}
-          <span className="font-mono font-medium text-foreground">entry {entryId}</span>
-        </>
-      ) : (
-        <span className="font-medium text-foreground">Audit log</span>
-      )}
-    </nav>
+    <UiBreadcrumb
+      items={[
+        { label: "Admin" },
+        { label: "Audit log", href: entryId ? "/audit/log" : undefined },
+        ...(entryId ? [{ label: `entry ${entryId}` }] : []),
+      ]}
+    />
   );
 }
