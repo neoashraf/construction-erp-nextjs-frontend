@@ -103,10 +103,23 @@ const LEDGER_SCOPE = { accountId: "1201", dateFrom: "2025-04-01", dateTo: "2026-
 beforeEach(() => listMock.mockReset());
 
 describe("AccountLedgerScreen — no-account prompt (spec §6)", () => {
-  it("shows 'Select an account' before any filter is applied", () => {
+  it("shows 'Select an account' once the account filter is cleared", async () => {
+    // The screen now opens in account-ledger mode by default (demo scope); clearing
+    // the filter returns to the empty drill-down prompt (spec §6 no-account state).
+    listMock.mockResolvedValue(ledgerPage([LINE1], "1840000.0000"));
     renderScreen();
+    await userEvent.click(screen.getByTestId("ledger-clear"));
     expect(screen.getByText("Select an account to view its ledger.")).toBeInTheDocument();
-    expect(listMock).not.toHaveBeenCalled(); // query disabled until a filter is set
+  });
+});
+
+describe("AccountLedgerScreen — default load (design mockup: account selected)", () => {
+  it("opens in account-ledger mode with the scope header, titled 'Account ledger'", async () => {
+    listMock.mockResolvedValue(ledgerPage([LINE1], "1840000.0000"));
+    renderScreen();
+    expect(screen.getByTestId("ledger-title")).toHaveTextContent("Account ledger");
+    expect(screen.getByTestId("ledger-scope")).toBeInTheDocument();
+    await waitFor(() => expect(listMock).toHaveBeenCalled());
   });
 });
 

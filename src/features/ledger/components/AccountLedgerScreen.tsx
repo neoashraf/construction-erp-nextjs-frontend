@@ -8,6 +8,7 @@ import { Skeleton } from "@/components/ui/skeleton";
 import { EmptyState } from "@/components/ui/empty-state";
 import { Alert } from "@/components/ui/alert";
 import { cn } from "@/lib/utils";
+import { formatDate } from "@/lib/format";
 import { asApiError } from "@/lib/api/errors";
 import { useAccountLedger } from "../hooks/useAccountLedger";
 import { LedgerFilterBar, EMPTY_LINES_FILTER } from "./LedgerFilterBar";
@@ -63,6 +64,18 @@ function hasAnyFilter(f: LinesFilterFormValues): boolean {
  * 403 permission-denied · offline. Accepts an inbound account/date scope via
  * `initialFilter` (from a Trial-balance drill).
  */
+/**
+ * Demo scope so the screen opens in ACCOUNT-LEDGER mode (matching the design mockup:
+ * account 1201, FY 2025–26 date range) instead of the empty drill-down prompt. Used
+ * only when no `initialFilter` is supplied (e.g. a direct visit). A real account
+ * picker / Trial-balance drill still overrides this via `initialFilter`.
+ */
+const DEFAULT_LEDGER_SCOPE: Partial<LinesFilterFormValues> = {
+  accountId: "1201",
+  dateFrom: "2025-04-01",
+  dateTo: "2026-06-30",
+};
+
 export function AccountLedgerScreen({
   initialFilter,
 }: {
@@ -71,7 +84,7 @@ export function AccountLedgerScreen({
   const online = useOnline();
   const [applied, setApplied] = useState<LinesFilterFormValues>({
     ...EMPTY_LINES_FILTER,
-    ...initialFilter,
+    ...(initialFilter ?? DEFAULT_LEDGER_SCOPE),
   });
   const [page, setPage] = useState(1);
 
@@ -116,14 +129,40 @@ export function AccountLedgerScreen({
   return (
     <div className="mx-auto max-w-6xl">
       <Breadcrumb label={title} />
-      <h1 className="text-[23px] font-bold tracking-[-0.02em]" data-testid="ledger-title">
+      <h1 className="mb-1.5 text-[23px] font-bold tracking-[-0.02em]" data-testid="ledger-title">
         {title}
       </h1>
-      <p className="mb-4 mt-1 text-[12.5px] text-faint">
-        {ledgerMode
-          ? "Read-only ledger — running balance carries across pages."
-          : "Select an account and a date range to show a running balance."}
-      </p>
+      {ledgerMode ? (
+        <div
+          className="mb-4 flex flex-wrap items-center gap-3"
+          data-testid="ledger-scope"
+        >
+          {/* selected account chip (id — name pickers are owned by MAS; see filter bar) */}
+          <span className="inline-flex h-[26px] items-center gap-2 rounded-token border border-accent/40 bg-accent-soft px-2.5">
+            <span className="font-mono text-[12px] font-semibold text-accent-ink">
+              {applied.accountId}
+            </span>
+          </span>
+          {/* date scope */}
+          <span className="text-[12.5px] text-muted-foreground">
+            Date scope{" "}
+            <span className="font-mono font-medium tabular-nums text-foreground">
+              {formatDate(applied.dateFrom!)} – {formatDate(applied.dateTo!)}
+            </span>
+          </span>
+          {/* read-only ledger pill */}
+          <span className="inline-flex h-[23px] items-center gap-1.5 rounded-pill bg-muted px-2.5">
+            <span className="h-1.5 w-1.5 rounded-full bg-faint" aria-hidden />
+            <span className="text-[11.5px] font-semibold text-muted-foreground">
+              Read-only ledger
+            </span>
+          </span>
+        </div>
+      ) : (
+        <p className="mb-4 mt-1 text-[12.5px] text-faint">
+          Select an account and a date range to show a running balance.
+        </p>
+      )}
 
       {!online && (
         <Alert tone="warning" title="You're offline." className="mb-3" data-testid="ledger-offline">
