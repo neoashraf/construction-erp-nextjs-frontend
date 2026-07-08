@@ -104,7 +104,9 @@ describe("CostCentresScreen", () => {
     listMock.mockResolvedValue(pageOf());
     renderScreen();
     expect(await screen.findByText("No cost centres found.")).toBeInTheDocument();
+    // Filters are draft-until-Apply (design's filter bar), so typing + Apply commits them.
     await userEvent.type(screen.getByLabelText(/search cost centres/i), "zzz");
+    await userEvent.click(screen.getByTestId("cc-apply"));
     expect(await screen.findByText("No cost centres match these filters.")).toBeInTheDocument();
     expect(screen.getByTestId("cc-clear")).toBeInTheDocument();
   });
