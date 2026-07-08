@@ -8,6 +8,7 @@ import { Skeleton } from "@/components/ui/skeleton";
 import { EmptyState } from "@/components/ui/empty-state";
 import { Alert } from "@/components/ui/alert";
 import { useSession } from "@/providers/session-provider";
+import { hasGrant } from "@/lib/auth/roles";
 import { useToast } from "@/components/ui/toast";
 import { useUsersList, useUserDetail } from "../hooks/use-users";
 import { UserFilters, type StatusFilter } from "./UserFilters";
@@ -32,7 +33,16 @@ type StatusTarget = { user: UserListItem; mode: "deactivate" | "activate" } | nu
 export function UsersScreen() {
   const session = useSession();
   const { toast } = useToast();
-  const isAdmin = session?.role === "ADMIN";
+  // Permission-driven (FE-21): the users READ grant admits — Admin always has it, and
+  // a custom role granted `audit.users:READ` also gets in. Falls back to Admin-only
+  // when the session has no permission projection. Backend re-checks every call.
+  const canRead = session ? hasGrant(session, "audit.users", "READ") : false;
+  // Creating a user needs the CREATE grant — hide the "New user" affordances without it
+  // (a READ-only viewer can list users but not add one). Backend re-checks on POST.
+  const canCreate = session ? hasGrant(session, "audit.users", "CREATE") : false;
+  // Editing / resetting / (de)activating a user needs the UPDATE grant — hide the row
+  // actions without it. Backend re-checks on each PATCH.
+  const canManage = session ? hasGrant(session, "audit.users", "UPDATE") : false;
 
   const [role, setRole] = useState("all");
   const [status, setStatus] = useState<StatusFilter>("all");
@@ -60,11 +70,11 @@ export function UsersScreen() {
       page,
       pageSize: PAGE_SIZE,
     },
-    isAdmin,
+    canRead,
   );
 
-  // Admin-only screen (spec §11): a non-Admin who reaches the URL sees the 403 view.
-  if (!isAdmin) {
+  // A viewer without the users READ grant who reaches the URL sees the 403 view.
+  if (!canRead) {
     return (
       <div className="mx-auto max-w-3xl" data-testid="users-forbidden">
         <Breadcrumb />
@@ -101,10 +111,12 @@ export function UsersScreen() {
           <Breadcrumb />
           <h1 className="text-[23px] font-bold tracking-[-0.02em]">Users</h1>
         </div>
-        <Button size="md" onClick={() => setDrawer({ kind: "create" })} data-testid="new-user">
-          <Plus className="h-4 w-4" aria-hidden />
-          New user
-        </Button>
+        {canCreate && (
+          <Button size="md" onClick={() => setDrawer({ kind: "create" })} data-testid="new-user">
+            <Plus className="h-4 w-4" aria-hidden />
+            New user
+          </Button>
+        )}
       </div>
 
       <div className="mt-4">
@@ -144,10 +156,12 @@ export function UsersScreen() {
               title="No users yet."
               description="Add the first user so your team can sign in to Zakir Enterprise."
               action={
-                <Button size="md" onClick={() => setDrawer({ kind: "create" })} data-testid="empty-new-user">
-                  <Plus className="h-4 w-4" aria-hidden />
-                  New user
-                </Button>
+                canCreate ? (
+                  <Button size="md" onClick={() => setDrawer({ kind: "create" })} data-testid="empty-new-user">
+                    <Plus className="h-4 w-4" aria-hidden />
+                    New user
+                  </Button>
+                ) : undefined
               }
             />
           )
@@ -155,6 +169,7 @@ export function UsersScreen() {
           <>
             <UsersTable
               users={rows}
+              canManage={canManage}
               onEdit={(u) => setDrawer({ kind: "edit", user: u })}
               onResetPassword={setResetTarget}
               onToggleActive={askToggle}
@@ -219,6 +234,7 @@ export function UsersScreen() {
       {detailId && (
         <UserDetailPanel
           userId={detailId}
+          canManage={canManage}
           onClose={() => setDetailId(null)}
           onEdit={() => {
             const u = rows.find((r) => r.id === detailId);

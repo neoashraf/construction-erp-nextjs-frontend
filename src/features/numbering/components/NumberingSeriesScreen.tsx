@@ -9,6 +9,7 @@ import { EmptyState } from "@/components/ui/empty-state";
 import { Alert } from "@/components/ui/alert";
 import { useToast } from "@/components/ui/toast";
 import { useSession } from "@/providers/session-provider";
+import { hasGrant } from "@/lib/auth/roles";
 import { SeriesTable } from "./SeriesTable";
 import { SeriesEditorDrawer } from "./SeriesEditorDrawer";
 import { useNumberingSeries } from "../hooks/useNumberingSeries";
@@ -28,13 +29,18 @@ export function NumberingSeriesScreen() {
   const { toast } = useToast();
   const [drawer, setDrawer] = useState<DrawerState>(null);
 
-  const isAdmin = session?.role === "ADMIN";
+  // Permission-driven (FE-21): the `numbering` READ grant admits viewing; UPDATE admits
+  // editing a series. Admin always has both (hasGrant special-cases ADMIN); a custom role
+  // granted `numbering:READ`/`:UPDATE` in Roles & permissions gets in too. Falls back to
+  // Admin-only when the session has no permission projection. Backend re-checks every call.
+  const canView = session ? hasGrant(session, "numbering", "READ") : false;
+  const canManage = session ? hasGrant(session, "numbering", "UPDATE") : false;
 
   const query = useNumberingSeries();
   const rows = query.data?.data ?? [];
 
-  // Admin-only screen (spec §11): a non-Admin who reaches the URL sees the 403 view.
-  if (!isAdmin) {
+  // A viewer without the numbering READ grant who reaches the URL sees the 403 view.
+  if (!canView) {
     return (
       <div className="mx-auto max-w-5xl" data-testid="numbering-forbidden">
         <Breadcrumb />
@@ -123,7 +129,7 @@ export function NumberingSeriesScreen() {
           ) : (
             <SeriesTable
               series={rows}
-              canManage={isAdmin}
+              canManage={canManage}
               onEdit={(s) => setDrawer({ series: s, tab: "edit" })}
               onAudit={(s) => setDrawer({ series: s, tab: "audit" })}
               onCopyNext={copyNext}

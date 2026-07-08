@@ -9,6 +9,7 @@ import { EmptyState } from "@/components/ui/empty-state";
 import { cn } from "@/lib/utils";
 import { useToast } from "@/components/ui/toast";
 import { useSession } from "@/providers/session-provider";
+import { hasGrant } from "@/lib/auth/roles";
 import { useFinancialYears } from "../hooks/useFinancialYears";
 import { type FinancialYear } from "../types";
 import { FinancialYearsTable } from "./FinancialYearsTable";
@@ -26,7 +27,10 @@ type Filter = "all" | "active";
  */
 export function FinancialYearsScreen() {
   const session = useSession();
-  const isAdmin = session?.role === "ADMIN";
+  // Permission-driven (FE-21): the financial-years UPDATE grant admits managing (create/edit
+  // FYs); Admin always has it. The list itself is viewable by anyone who reached the page.
+  // Backend re-checks every write.
+  const isAdmin = session ? hasGrant(session, "master_data.financial_years", "UPDATE") : false;
   const { toast } = useToast();
 
   const [filter, setFilter] = useState<Filter>("all");

@@ -10,6 +10,7 @@ import { Skeleton } from "@/components/ui/skeleton";
 import { Alert } from "@/components/ui/alert";
 import { Card } from "@/components/ui/card";
 import { useSession } from "@/providers/session-provider";
+import { hasGrant } from "@/lib/auth/roles";
 import { useParty } from "../hooks/useParties";
 import { RoleBadges } from "./RoleBadges";
 import { PartyDetailForm } from "./PartyDetailForm";
@@ -25,7 +26,8 @@ const LIST_PATH = "/master-data/parties";
 export function PartyDetailScreen({ id }: { id: string }) {
   const router = useRouter();
   const session = useSession();
-  const canManage = session?.role === "ADMIN" || session?.role === "ACCOUNTS_TEAM";
+  // Permission-driven (FE-21): UPDATE grant admits managing; Admin always has it. Backend re-checks.
+  const canManage = session ? hasGrant(session, "master_data.parties", "UPDATE") : false;
   const isNew = id === "new";
   const [statusMode, setStatusMode] = useState<"deactivate" | "reactivate" | null>(null);
 

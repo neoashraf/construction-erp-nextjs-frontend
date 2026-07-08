@@ -33,12 +33,15 @@ export function UserDetailPanel({
   onEdit,
   onResetPassword,
   onToggleActive,
+  canManage = true,
 }: {
   userId: string;
   onClose: () => void;
   onEdit: () => void;
   onResetPassword: () => void;
   onToggleActive: () => void;
+  /** Actions menu (edit / reset / activate) needs the UPDATE grant; hidden without it. */
+  canManage?: boolean;
 }) {
   const query = useUserDetail(userId);
   const user = query.data;
@@ -95,7 +98,7 @@ export function UserDetailPanel({
           </div>
 
           <div className="flex flex-none items-center gap-2">
-            {user && (
+            {user && canManage && (
               <DropdownMenu>
                 <DropdownMenuTrigger
                   aria-label="Actions"

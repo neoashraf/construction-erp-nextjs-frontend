@@ -11,6 +11,7 @@ import { EmptyState } from "@/components/ui/empty-state";
 import { Alert } from "@/components/ui/alert";
 import { useToast } from "@/components/ui/toast";
 import { useSession } from "@/providers/session-provider";
+import { hasGrant } from "@/lib/auth/roles";
 import { type Account, type AccountGroup, type AccountType, ACCOUNT_TYPES } from "../types";
 import { ACCOUNT_TYPE_LABEL } from "../schemas/chart-of-accounts.schema";
 import { useAccountGroups, useAccounts } from "../hooks/useChartOfAccounts";
@@ -26,7 +27,9 @@ type AccountModalState = { kind: "create" } | { kind: "edit"; account: Account }
 /** Chart of accounts (FR-MAS-017/018/019/020/021/029/033). Tree + modals + filters. */
 export function ChartOfAccountsScreen() {
   const session = useSession();
-  const canManage = session?.role === "ADMIN";
+  // Permission-driven (FE-21): UPDATE grant on the resource admits managing. Admin always
+  // has it; a custom role granted it in Roles & permissions does too. Backend re-checks.
+  const canManage = session ? hasGrant(session, "master_data.chart_of_accounts", "UPDATE") : false;
   const { toast } = useToast();
 
   const groupsQuery = useAccountGroups();

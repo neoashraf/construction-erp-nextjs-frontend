@@ -12,6 +12,7 @@ import { Alert } from "@/components/ui/alert";
 import { cn } from "@/lib/utils";
 import { useToast } from "@/components/ui/toast";
 import { useSession } from "@/providers/session-provider";
+import { hasGrant } from "@/lib/auth/roles";
 import { useProjectsList } from "../hooks/useProjects";
 import { usePurposes } from "../hooks/usePurposes";
 import { type Project, type Purpose } from "../types";
@@ -26,8 +27,10 @@ type Modal = { kind: "create" } | { kind: "edit"; purpose: Purpose } | null;
 /** Purposes screen (FR-MAS-011/012/013/029/033) — project-scoped list + inline-create combobox. */
 export function PurposesScreen() {
   const session = useSession();
-  const canManage = session?.role === "ADMIN" || session?.role === "PROJECT_MANAGER";
-  const canCreate = canManage || session?.role === "ACCOUNTS_TEAM";
+  // Permission-driven (FE-21): UPDATE admits managing, CREATE admits creating; Admin has
+  // both. A custom role granted these in Roles & permissions gets in too. Backend re-checks.
+  const canManage = session ? hasGrant(session, "master_data.purposes", "UPDATE") : false;
+  const canCreate = session ? hasGrant(session, "master_data.purposes", "CREATE") : false;
   const { toast } = useToast();
 
   const projectsQuery = useProjectsList({ pageSize: 100 });

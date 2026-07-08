@@ -11,6 +11,7 @@ import { Card } from "@/components/ui/card";
 import { cn } from "@/lib/utils";
 import { useToast } from "@/components/ui/toast";
 import { useSession } from "@/providers/session-provider";
+import { hasGrant } from "@/lib/auth/roles";
 import { useProject } from "../hooks/useProjects";
 import { ProjectStatusBadge } from "./ProjectStatusBadge";
 import { StatusActionButton } from "./StatusActionButton";
@@ -31,8 +32,10 @@ export function ProjectDetailScreen({ id }: { id: string }) {
   const router = useRouter();
   const { toast } = useToast();
   const session = useSession();
+  // Permission-driven (FE-21): UPDATE grant on projects admits managing; Admin always has
+  // it. `isAdmin` kept for admin-only affordances the PM shouldn't see. Backend re-checks.
   const isAdmin = session?.role === "ADMIN";
-  const canManage = isAdmin || session?.role === "PROJECT_MANAGER";
+  const canManage = session ? hasGrant(session, "master_data.projects", "UPDATE") : false;
   const isNew = id === "new";
   const [tab, setTab] = useState<TabKey>("overview");
 

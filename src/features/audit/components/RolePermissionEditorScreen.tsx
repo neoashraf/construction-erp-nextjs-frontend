@@ -7,6 +7,7 @@ import { Alert } from "@/components/ui/alert";
 import { Button } from "@/components/ui/button";
 import { Badge } from "@/components/ui/badge";
 import { useSession } from "@/providers/session-provider";
+import { hasGrant } from "@/lib/auth/roles";
 import { useToast } from "@/components/ui/toast";
 import { asApiError } from "@/lib/api/errors";
 import { useRoles, useRole } from "../hooks/use-roles";
@@ -55,11 +56,19 @@ import { BulkClearWarningDialog } from "./BulkClearWarningDialog";
  */
 export function RolePermissionEditorScreen() {
   const session = useSession();
-  const isAdmin = session?.role === "ADMIN";
+  // Permission-driven screen access (FE-21): the roles READ grant admits — Admin always
+  // has it, and a custom role granted `audit.roles:READ` also gets in. Falls back to
+  // Admin-only without a permission projection. Distinct from `isAdminRole` below, which
+  // is about the role being EDITED (anti-lockout). Backend re-checks every call.
+  const canManage = session ? hasGrant(session, "audit.roles", "READ") : false;
+  // Creating / deleting a role need their own grants — a READ-only viewer can inspect the
+  // grid but not add or remove roles. Backend re-checks on POST/DELETE.
+  const canCreateRole = session ? hasGrant(session, "audit.roles", "CREATE") : false;
+  const canDeleteRole = session ? hasGrant(session, "audit.roles", "DELETE") : false;
   const { toast } = useToast();
 
-  const rolesQuery = useRoles(isAdmin);
-  const catalogQuery = usePermissionCatalog(isAdmin);
+  const rolesQuery = useRoles(canManage);
+  const catalogQuery = usePermissionCatalog(canManage);
   const [roleId, setRoleId] = useState<string | null>(null);
 
   useEffect(() => {
@@ -67,7 +76,7 @@ export function RolePermissionEditorScreen() {
     if (!roleId && firstId) setRoleId(firstId);
   }, [roleId, rolesQuery.data]);
 
-  const roleQuery = useRole(isAdmin ? roleId : null);
+  const roleQuery = useRole(canManage ? roleId : null);
   const saveMutation = useSaveRolePermissions();
   const createRole = useCreateRole();
   const deleteRole = useDeleteRole();
@@ -98,7 +107,7 @@ export function RolePermissionEditorScreen() {
   const catalog = catalogQuery.data;
   const base = useMemo(() => (role ? baseMapFromRole(role) : {}), [role]);
 
-  if (!isAdmin) return <RolesForbiddenView />;
+  if (!canManage) return <RolesForbiddenView />;
 
   const dirty = role
     ? hasPendingChanges(base, work, role.approvalLimit, normaliseLimit(approvalLimit)) ||
@@ -298,9 +307,11 @@ export function RolePermissionEditorScreen() {
           )}
           <h1 className="text-[22px] font-bold tracking-[-0.02em] text-foreground">Roles &amp; permissions</h1>
         </div>
-        <Button onClick={openNewRole} data-testid="new-role-header" className="hidden flex-none lg:inline-flex">
-          New role
-        </Button>
+        {canCreateRole && (
+          <Button onClick={openNewRole} data-testid="new-role-header" className="hidden flex-none lg:inline-flex">
+            New role
+          </Button>
+        )}
       </div>
 
       {conflict && (
@@ -360,6 +371,8 @@ export function RolePermissionEditorScreen() {
                           onSelect={selectRole}
                           onNewRole={openNewRole}
                           onDeleteRole={setDeleteTarget}
+                          canCreate={canCreateRole}
+                          canDelete={canDeleteRole}
                         />
                         {role.isSystem ? (
                           <Badge tone="neutral" data-testid="system-badge">System</Badge>

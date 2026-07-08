@@ -9,6 +9,7 @@ import { Skeleton } from "@/components/ui/skeleton";
 import { EmptyState } from "@/components/ui/empty-state";
 import { Alert } from "@/components/ui/alert";
 import { useSession } from "@/providers/session-provider";
+import { hasGrant } from "@/lib/auth/roles";
 import { usePartiesList } from "../hooks/useParties";
 import { type Party } from "../types";
 import { PartyFilterBar, type RoleFilter } from "./PartyFilterBar";
@@ -20,7 +21,8 @@ const PAGE_SIZE = 25;
 /** Parties list screen (FR-MAS-022/024/029/033). Filters/search/pagination + table. */
 export function PartiesScreen() {
   const session = useSession();
-  const canManage = session?.role === "ADMIN" || session?.role === "ACCOUNTS_TEAM";
+  // Permission-driven (FE-21): UPDATE grant admits managing; Admin always has it. Backend re-checks.
+  const canManage = session ? hasGrant(session, "master_data.parties", "UPDATE") : false;
 
   const [role, setRole] = useState<RoleFilter>("all");
   const [activeOnly, setActiveOnly] = useState(true);

@@ -11,6 +11,7 @@ import { EmptyState } from "@/components/ui/empty-state";
 import { Alert } from "@/components/ui/alert";
 import { cn } from "@/lib/utils";
 import { useSession } from "@/providers/session-provider";
+import { hasGrant } from "@/lib/auth/roles";
 import { useItemsList } from "../hooks/useItems";
 import { useAccounts } from "../hooks/useChartOfAccounts";
 import { type Item } from "../types";
@@ -22,7 +23,8 @@ const PAGE_SIZE = 25;
 /** Items list screen (FR-MAS-025/029/033). Filter/search/pagination + table. */
 export function ItemsScreen() {
   const session = useSession();
-  const canManage = session?.role === "ADMIN" || session?.role === "ACCOUNTS_TEAM";
+  // Permission-driven (FE-21): UPDATE grant admits managing; Admin always has it. Backend re-checks.
+  const canManage = session ? hasGrant(session, "master_data.items", "UPDATE") : false;
 
   const [activeOnly, setActiveOnly] = useState(true);
   const [q, setQ] = useState("");

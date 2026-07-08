@@ -3,6 +3,7 @@
 import { Alert } from "@/components/ui/alert";
 import { Badge } from "@/components/ui/badge";
 import { useSession } from "@/providers/session-provider";
+import { hasGrant } from "@/lib/auth/roles";
 import { useCompany } from "../hooks/useCompany";
 import { CompanyIdentityCard } from "./CompanyIdentityCard";
 import { LocalizationCard } from "./LocalizationCard";
@@ -14,7 +15,10 @@ import { LocalizationCard } from "./LocalizationCard";
  */
 export function CompanySettingsScreen() {
   const session = useSession();
-  const isAdmin = session?.role === "ADMIN";
+  // Permission-driven (FE-21): the company-settings UPDATE grant admits editing (the page
+  // is viewable by anyone who reached it; only editing is gated). Admin always has it.
+  // Backend re-checks every write.
+  const isAdmin = session ? hasGrant(session, "master_data.company_settings", "UPDATE") : false;
   const query = useCompany();
   const company = query.data;
 

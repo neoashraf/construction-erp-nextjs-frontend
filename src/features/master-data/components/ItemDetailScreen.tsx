@@ -11,6 +11,7 @@ import { Alert } from "@/components/ui/alert";
 import { Card } from "@/components/ui/card";
 import { useToast } from "@/components/ui/toast";
 import { useSession } from "@/providers/session-provider";
+import { hasGrant } from "@/lib/auth/roles";
 import { useItem } from "../hooks/useItems";
 import { useUomConversions } from "../hooks/useUomConversions";
 import { useAccounts } from "../hooks/useChartOfAccounts";
@@ -25,7 +26,8 @@ export function ItemDetailScreen({ id }: { id: string }) {
   const router = useRouter();
   const { toast } = useToast();
   const session = useSession();
-  const canManage = session?.role === "ADMIN" || session?.role === "ACCOUNTS_TEAM";
+  // Permission-driven (FE-21): UPDATE grant admits managing; Admin always has it. Backend re-checks.
+  const canManage = session ? hasGrant(session, "master_data.items", "UPDATE") : false;
   const isNew = id === "new";
   const [statusMode, setStatusMode] = useState<"deactivate" | "reactivate" | null>(null);
 

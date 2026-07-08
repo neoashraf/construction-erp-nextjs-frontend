@@ -3,6 +3,7 @@
 import { useEffect, useRef, useState } from "react";
 import Link from "next/link";
 import { useSession } from "@/providers/session-provider";
+import { hasGrant } from "@/lib/auth/roles";
 import { useToast } from "@/components/ui/toast";
 import { Skeleton } from "@/components/ui/skeleton";
 import { asApiError } from "@/lib/api/errors";
@@ -34,12 +35,15 @@ import { AssignmentForbiddenView } from "./AssignmentForbiddenView";
  */
 export function ProjectAssignmentScreen({ userId }: { userId: string }) {
   const session = useSession();
-  const isAdmin = session?.role === "ADMIN";
+  // Permission-driven (FE-21): user-management (`audit.users:READ`) admits — Admin
+  // always has it, and a custom role granted it also gets in. Falls back to Admin-only
+  // without a permission projection. Backend re-checks every call.
+  const canManage = session ? hasGrant(session, "audit.users", "READ") : false;
   const { toast } = useToast();
 
-  const userQuery = useUserDetail(isAdmin ? userId : null);
-  const assignedQuery = useAssignedProjects(userId, isAdmin);
-  const optionsQuery = useProjectOptions(isAdmin);
+  const userQuery = useUserDetail(canManage ? userId : null);
+  const assignedQuery = useAssignedProjects(userId, canManage);
+  const optionsQuery = useProjectOptions(canManage);
   const saveMutation = useReplaceAssignedProjects(userId);
 
   const [pending, setPending] = useState<string[]>([]);
@@ -61,7 +65,7 @@ export function ProjectAssignmentScreen({ userId }: { userId: string }) {
     }
   }, [assignment]);
 
-  if (!isAdmin) {
+  if (!canManage) {
     return <AssignmentForbiddenView />;
   }
 

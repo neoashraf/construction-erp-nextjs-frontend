@@ -18,12 +18,17 @@ export function RolePicker({
   onSelect,
   onNewRole,
   onDeleteRole,
+  canCreate = true,
+  canDelete = true,
 }: {
   roles: RoleListItem[];
   selectedId: string | null;
   onSelect: (id: string) => void;
   onNewRole: () => void;
   onDeleteRole: (role: RoleListItem) => void;
+  /** "New role" needs the CREATE grant; per-role Delete needs the DELETE grant. */
+  canCreate?: boolean;
+  canDelete?: boolean;
 }) {
   const [open, setOpen] = useState(false);
   const ref = useRef<HTMLDivElement>(null);
@@ -124,7 +129,7 @@ export function RolePicker({
                     {r.userCount} user{r.userCount === 1 ? "" : "s"}
                   </div>
                 </div>
-                {!r.isSystem && (
+                {!r.isSystem && canDelete && (
                   <button
                     type="button"
                     title={`Delete ${roleLabel(r)}`}
@@ -142,19 +147,23 @@ export function RolePicker({
               </div>
             );
           })}
-          <div className="mx-1 my-1.5 h-px bg-border" />
-          <button
-            type="button"
-            onClick={() => {
-              setOpen(false);
-              onNewRole();
-            }}
-            data-testid="new-role-picker"
-            className="flex h-9 w-full items-center gap-2 rounded-token px-2.5 text-left text-[13px] font-semibold text-primary transition-colors hover:bg-muted"
-          >
-            <Plus className="h-3.5 w-3.5" aria-hidden />
-            New role
-          </button>
+          {canCreate && (
+            <>
+              <div className="mx-1 my-1.5 h-px bg-border" />
+              <button
+                type="button"
+                onClick={() => {
+                  setOpen(false);
+                  onNewRole();
+                }}
+                data-testid="new-role-picker"
+                className="flex h-9 w-full items-center gap-2 rounded-token px-2.5 text-left text-[13px] font-semibold text-primary transition-colors hover:bg-muted"
+              >
+                <Plus className="h-3.5 w-3.5" aria-hidden />
+                New role
+              </button>
+            </>
+          )}
         </div>
       )}
     </div>

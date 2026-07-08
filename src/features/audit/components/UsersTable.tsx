@@ -124,6 +124,7 @@ export function UsersTable({
   onToggleActive,
   onOpenDetail,
   showLastLoginColumn = true,
+  canManage = true,
 }: {
   users: UserListItem[];
   onEdit: (u: UserListItem) => void;
@@ -131,6 +132,8 @@ export function UsersTable({
   onToggleActive: (u: UserListItem) => void;
   onOpenDetail: (u: UserListItem) => void;
   showLastLoginColumn?: boolean;
+  /** Row actions (edit / reset / activate) need the UPDATE grant; hidden without it. */
+  canManage?: boolean;
 }) {
   return (
     <div>
@@ -185,12 +188,14 @@ export function UsersTable({
                 </TableCell>
                 <TableCell className="text-right" onClick={(e) => e.stopPropagation()}>
                   <div className="flex justify-end">
-                    <RowActions
-                      user={u}
-                      onEdit={onEdit}
-                      onResetPassword={onResetPassword}
-                      onToggleActive={onToggleActive}
-                    />
+                    {canManage && (
+                      <RowActions
+                        user={u}
+                        onEdit={onEdit}
+                        onResetPassword={onResetPassword}
+                        onToggleActive={onToggleActive}
+                      />
+                    )}
                   </div>
                 </TableCell>
               </TableRow>
@@ -221,12 +226,14 @@ export function UsersTable({
                   <StatusBadge active={u.isActive} />
                 </div>
               </div>
-              <RowActions
-                user={u}
-                onEdit={onEdit}
-                onResetPassword={onResetPassword}
-                onToggleActive={onToggleActive}
-              />
+              {canManage && (
+                <RowActions
+                  user={u}
+                  onEdit={onEdit}
+                  onResetPassword={onResetPassword}
+                  onToggleActive={onToggleActive}
+                />
+              )}
             </div>
           </li>
         ))}

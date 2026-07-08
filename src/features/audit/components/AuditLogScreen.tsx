@@ -10,6 +10,7 @@ import { Skeleton } from "@/components/ui/skeleton";
 import { EmptyState } from "@/components/ui/empty-state";
 import { Alert } from "@/components/ui/alert";
 import { useSession } from "@/providers/session-provider";
+import { hasGrant } from "@/lib/auth/roles";
 import { asApiError } from "@/lib/api/errors";
 import { pageCount } from "@/lib/api/pagination";
 import { cn } from "@/lib/utils";
@@ -54,7 +55,11 @@ function useOnline(): boolean {
  */
 export function AuditLogScreen({ initialId = null }: { initialId?: string | null }) {
   const session = useSession();
-  const isAdmin = session?.role === "ADMIN";
+  // Permission-driven (FE-21): the audit-log READ grant admits — Admin always has it,
+  // and a custom role granted `audit.audit_log:READ` in Roles & permissions also gets
+  // in. Falls back to Admin-only when the session has no permission projection. The
+  // backend re-checks every /api/audit-logs* call (defence-in-depth).
+  const canRead = session ? hasGrant(session, "audit.audit_log", "READ") : false;
   const online = useOnline();
   const router = useRouter();
 
@@ -110,7 +115,7 @@ export function AuditLogScreen({ initialId = null }: { initialId?: string | null
     [filter, page],
   );
 
-  const query = useAuditLogs(queryFilter, isAdmin);
+  const query = useAuditLogs(queryFilter, canRead);
   const result = query.data;
 
   const sortedRows = useMemo(
@@ -130,7 +135,7 @@ export function AuditLogScreen({ initialId = null }: { initialId?: string | null
     !!filter.dateTo ||
     filter.actions.length > 0;
 
-  if (!isAdmin) {
+  if (!canRead) {
     return (
       <div className="mx-auto max-w-6xl">
         <Breadcrumb />

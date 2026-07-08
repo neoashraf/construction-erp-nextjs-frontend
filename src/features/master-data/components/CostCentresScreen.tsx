@@ -11,6 +11,7 @@ import { Alert } from "@/components/ui/alert";
 import { cn } from "@/lib/utils";
 import { useToast } from "@/components/ui/toast";
 import { useSession } from "@/providers/session-provider";
+import { hasGrant } from "@/lib/auth/roles";
 import { useCostCentres } from "../hooks/useCostCentres";
 import { type CostCentre } from "../types";
 import { CostCentresTable } from "./CostCentresTable";
@@ -22,7 +23,8 @@ type Modal = { kind: "create" } | { kind: "edit"; centre: CostCentre } | null;
 /** Cost centres screen (FR-MAS-009/010/029/033). List + add/rename + deactivate/reactivate. */
 export function CostCentresScreen() {
   const session = useSession();
-  const canManage = session?.role === "ADMIN";
+  // Permission-driven (FE-21): UPDATE grant admits managing; Admin always has it. Backend re-checks.
+  const canManage = session ? hasGrant(session, "master_data.cost_centres", "UPDATE") : false;
   const { toast } = useToast();
 
   const [activeOnly, setActiveOnly] = useState(true);
