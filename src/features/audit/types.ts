@@ -3,6 +3,8 @@
  * These are UI-facing types — NOT the generated wire types in lib/api/generated.
  */
 
+import { humanizeSnakeCase } from "@/lib/format";
+
 /** Variant for the auth error banner (login screen). */
 export type AuthBannerVariant = "auth" | "session" | "offline";
 
@@ -42,9 +44,11 @@ export interface PolicyChecklistItem {
 // ── User management (FE-17) ─────────────────────────────────────────────────
 
 /**
- * The six platform roles (FR-AUD-011). Mirrors `lib/auth/roles.ts` `Role` — kept
- * as a separate literal union here so this feature never imports the app-shell's
+ * The platform roles (FR-AUD-011). Mirrors `lib/auth/roles.ts` `Role` — kept as a
+ * separate literal union here so this feature never imports the app-shell's
  * route-guard module (skill §2.4 import boundaries); the values are identical.
+ * `ACCOUNTS_MANAGER` is the backend's RBAC-v2 rename of `ACCOUNTS_TEAM` (BE #37);
+ * both spellings are accepted.
  */
 export const USER_ROLES = [
   "ADMIN",
@@ -52,13 +56,19 @@ export const USER_ROLES = [
   "SITE_ENGINEER",
   "STORE_KEEPER",
   "ACCOUNTS_TEAM",
+  "ACCOUNTS_MANAGER",
   "HR_MANAGER",
 ] as const;
 
 export type UserRole = (typeof USER_ROLES)[number];
 
 /** Roles that see every project (no project-assignment needed) — spec §5 "All projects". */
-export const UNSCOPED_USER_ROLES: readonly UserRole[] = ["ADMIN", "ACCOUNTS_TEAM", "HR_MANAGER"];
+export const UNSCOPED_USER_ROLES: readonly UserRole[] = [
+  "ADMIN",
+  "ACCOUNTS_TEAM",
+  "ACCOUNTS_MANAGER",
+  "HR_MANAGER",
+];
 
 export function isUnscopedUserRole(role: UserRole | string): boolean {
   return (UNSCOPED_USER_ROLES as readonly string[]).includes(role);
@@ -71,11 +81,17 @@ export const USER_ROLE_LABEL: Record<UserRole, string> = {
   SITE_ENGINEER: "Site Engineer",
   STORE_KEEPER: "Store Keeper",
   ACCOUNTS_TEAM: "Accounts Team",
+  ACCOUNTS_MANAGER: "Accounts Manager",
   HR_MANAGER: "HR Manager",
 };
 
+/**
+ * Display label for any user role — built-in or custom. Curated copy from
+ * `USER_ROLE_LABEL` when present; otherwise the code is humanized (shared
+ * `humanizeSnakeCase`) so the UI never shows a raw underscore-joined name.
+ */
 export function userRoleLabel(role: UserRole | string): string {
-  return USER_ROLE_LABEL[role as UserRole] ?? role;
+  return USER_ROLE_LABEL[role as UserRole] ?? humanizeSnakeCase(role);
 }
 
 /**
@@ -255,20 +271,12 @@ export const ROLE_NAME_LABEL: Record<RoleName, string> = {
 /**
  * Display label for any role name — built-in or custom. Built-ins use the curated
  * `ROLE_NAME_LABEL` copy; anything else (custom roles, or a built-in the map hasn't
- * caught up with) is humanized from its `SCREAMING_SNAKE_CASE` code so the UI never
- * shows a raw underscore-joined name (e.g. `ACCOUNTS_MANAGER` → "Accounts Manager").
+ * caught up with) is humanized from its `SCREAMING_SNAKE_CASE` code (shared
+ * `humanizeSnakeCase`) so the UI never shows a raw underscore-joined name
+ * (e.g. `ACCOUNTS_MANAGER` → "Accounts Manager").
  */
-export function humanizeRoleName(name: string): string {
-  return name
-    .toLowerCase()
-    .split("_")
-    .filter(Boolean)
-    .map((word) => word.charAt(0).toUpperCase() + word.slice(1))
-    .join(" ");
-}
-
 export function roleNameLabel(name: RoleName | string): string {
-  return ROLE_NAME_LABEL[name as RoleName] ?? humanizeRoleName(name);
+  return ROLE_NAME_LABEL[name as RoleName] ?? humanizeSnakeCase(name);
 }
 
 /** A role list row (API contract 05 `GET /api/roles` item; RBAC v2). */

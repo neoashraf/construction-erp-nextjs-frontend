@@ -85,3 +85,19 @@ export function toBangladeshE164(input: string): string {
   if (local) return `+880${local[1]}`;
   throw new Error(`Cannot normalise to Bangladesh E.164: "${input}"`);
 }
+
+/**
+ * Humanize a `SCREAMING_SNAKE_CASE` code into a title-cased label
+ * (`ACCOUNTS_MANAGER` → "Accounts Manager"). The project-wide fallback for any
+ * role/enum name that has no curated display label — so the UI never shows a raw
+ * underscore-joined code. Curated maps (e.g. `USER_ROLE_LABEL`) still win where a
+ * label can't be derived by casing alone (e.g. `HR_MANAGER` → "HR Manager").
+ */
+export function humanizeSnakeCase(code: string): string {
+  return code
+    .toLowerCase()
+    .split("_")
+    .filter(Boolean)
+    .map((word) => word.charAt(0).toUpperCase() + word.slice(1))
+    .join(" ");
+}

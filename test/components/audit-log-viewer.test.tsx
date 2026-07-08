@@ -331,6 +331,8 @@ describe("AuditLogScreen — filters (spec §7/§9, debounced apply-on-change)",
     listMock.mockResolvedValue(pageOf([ROW_UPDATE]));
     renderScreen();
     await screen.findByTestId("audit-row-log-1");
+    // Action is a dropdown multi-select (design file) — open it, then toggle a chip.
+    await userEvent.click(screen.getByTestId("audit-action-trigger"));
     const updateChip = screen.getByTestId("audit-action-UPDATE");
     expect(updateChip).toHaveAttribute("aria-checked", "false");
     await userEvent.click(updateChip);
@@ -430,6 +432,8 @@ describe("AuditLogScreen — export CTA (FR-AUD-028; FULLY WIRED, not stubbed)",
     listMock.mockResolvedValue(pageOf([ROW_UPDATE]));
     renderScreen();
     await screen.findByTestId("audit-row-log-1");
+    // Open the Action dropdown, then select two actions (endpoint takes one).
+    await userEvent.click(screen.getByTestId("audit-action-trigger"));
     await userEvent.click(screen.getByTestId("audit-action-UPDATE"));
     await userEvent.click(screen.getByTestId("audit-action-POST"));
     await waitFor(() => expect(screen.getByTestId("audit-export-button")).toBeDisabled());

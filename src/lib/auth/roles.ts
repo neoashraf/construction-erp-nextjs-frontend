@@ -9,6 +9,8 @@
  * audit (AUD). Per-screen briefs extend the map as their modules ship.
  */
 
+import { humanizeSnakeCase } from "@/lib/format";
+
 export const ROLES = [
   "ADMIN",
   "PROJECT_MANAGER",
@@ -134,7 +136,7 @@ export function isUnscopedRole(role: Role): boolean {
 }
 
 /** Human label for a role (en). Bangla labels come with the design-system phase. */
-export function roleLabel(role: Role): string {
+export function roleLabel(role: Role | string): string {
   const labels: Record<Role, string> = {
     ADMIN: "Admin",
     PROJECT_MANAGER: "Project Manager",
@@ -144,8 +146,9 @@ export function roleLabel(role: Role): string {
     ACCOUNTS_MANAGER: "Accounts Manager",
     HR_MANAGER: "HR Manager",
   };
-  // Custom roles (RBAC v2) arrive as arbitrary strings — render them verbatim.
-  return labels[role] ?? String(role);
+  // Custom roles (RBAC v2) arrive as arbitrary strings — humanize their code so the
+  // UI never shows a raw underscore-joined name (shared `humanizeSnakeCase`).
+  return labels[role as Role] ?? humanizeSnakeCase(role);
 }
 
 /** Human label for a module (en). */

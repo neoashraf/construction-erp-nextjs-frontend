@@ -26,7 +26,7 @@ export function RoleOptionGroups({ roles }: { roles: RoleListItem[] }) {
         <optgroup label="Custom roles">
           {custom.map((r) => (
             <option key={r.id} value={r.id}>
-              {r.name} (Custom)
+              {userRoleLabel(r.name)} (Custom)
             </option>
           ))}
         </optgroup>
