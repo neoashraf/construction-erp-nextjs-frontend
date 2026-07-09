@@ -1,9 +1,11 @@
 "use client";
 
+import { AlertTriangle, RotateCcw } from "lucide-react";
 import { Dialog, DialogContent, DialogTitle, DialogDescription } from "@/components/ui/dialog";
 import { Button } from "@/components/ui/button";
 import { asApiError } from "@/lib/api/errors";
 import { useToast } from "@/components/ui/toast";
+import { cn } from "@/lib/utils";
 import { type Purpose } from "../types";
 import { useDeactivatePurpose, useReactivatePurpose } from "../hooks/usePurposes";
 
@@ -11,19 +13,30 @@ type Mode = "deactivate" | "reactivate";
 
 const COPY: Record<
   Mode,
-  { title: string; body: string; cta: string; done: (n: string) => string }
+  {
+    title: string;
+    body: string;
+    cta: string;
+    done: (n: string) => string;
+    icon: typeof AlertTriangle;
+    iconBox: string;
+  }
 > = {
   deactivate: {
     title: "Deactivate this purpose?",
-    body: "It stays on posted entries but won't appear in new purpose dropdowns.",
+    body: "It stays on past postings but won't appear in new dropdowns.",
     cta: "Deactivate",
     done: (n) => `‘${n}’ deactivated.`,
+    icon: AlertTriangle,
+    iconBox: "bg-destructive-soft text-destructive-ink",
   },
   reactivate: {
     title: "Reactivate this purpose?",
-    body: "It will appear again in purpose dropdowns. Posted entries are unchanged.",
+    body: "It will appear again in new dropdowns. Past postings are unchanged.",
     cta: "Reactivate",
     done: (n) => `‘${n}’ reactivated.`,
+    icon: RotateCcw,
+    iconBox: "bg-info-soft text-info-ink",
   },
 };
 
@@ -77,12 +90,27 @@ export function PurposeStatusDialog({
     );
   }
 
+  const Icon = copy.icon;
+
   return (
     <Dialog open={purpose !== null} onOpenChange={(open) => !open && onClose()}>
-      <DialogContent hideClose data-testid="purpose-status-dialog">
-        <DialogTitle>{copy.title}</DialogTitle>
-        <DialogDescription className="mt-2">{copy.body}</DialogDescription>
-        <div className="mt-5 flex justify-end gap-2.5">
+      <DialogContent hideClose className="max-w-[438px]" data-testid="purpose-status-dialog">
+        <div className="flex gap-3.5">
+          <div
+            className={cn(
+              "grid h-10 w-10 flex-none place-items-center rounded-[10px]",
+              copy.iconBox,
+            )}
+            aria-hidden
+          >
+            <Icon className="h-[18px] w-[18px]" />
+          </div>
+          <div>
+            <DialogTitle className="text-base">{copy.title}</DialogTitle>
+            <DialogDescription className="mt-1.5 text-[13px]">{copy.body}</DialogDescription>
+          </div>
+        </div>
+        <div className="mt-[22px] flex justify-end gap-2.5">
           <Button variant="outline" size="md" onClick={onClose} disabled={active.isPending}>
             Cancel
           </Button>

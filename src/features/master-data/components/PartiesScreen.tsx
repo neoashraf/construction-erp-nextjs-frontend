@@ -1,8 +1,7 @@
 "use client";
 
 import { useEffect, useState } from "react";
-import Link from "next/link";
-import { Users, Plus } from "lucide-react";
+import { Users, Search, Plus } from "lucide-react";
 import { Card } from "@/components/ui/card";
 import { Button } from "@/components/ui/button";
 import { Skeleton } from "@/components/ui/skeleton";
@@ -13,9 +12,12 @@ import { useSession } from "@/providers/session-provider";
 import { hasGrant } from "@/lib/auth/roles";
 import { usePartiesList } from "../hooks/useParties";
 import { type Party } from "../types";
-import { PartyFilterBar, type RoleFilter } from "./PartyFilterBar";
+import { PartyFilterBar, type RoleFilter, type StatusFilter } from "./PartyFilterBar";
 import { PartiesTable } from "./PartiesTable";
+import { PartyFormSheet } from "./PartyFormSheet";
 import { PartyStatusDialog } from "./PartyStatusDialog";
+
+type FormTarget = { kind: "create" } | { kind: "edit"; party: Party };
 
 const PAGE_SIZE = 25;
 
@@ -26,40 +28,44 @@ export function PartiesScreen() {
   const canManage = session ? hasGrant(session, "master_data.parties", "UPDATE") : false;
 
   const [role, setRole] = useState<RoleFilter>("all");
-  const [activeOnly, setActiveOnly] = useState(true);
+  const [status, setStatus] = useState<StatusFilter>("active");
+  // `qDraft` is what the user types; `q` is the applied term (Apply / Enter commit it).
+  const [qDraft, setQDraft] = useState("");
   const [q, setQ] = useState("");
-  const [debouncedQ, setDebouncedQ] = useState("");
   const [page, setPage] = useState(1);
+  const [formTarget, setFormTarget] = useState<FormTarget | null>(null);
   const [statusTarget, setStatusTarget] = useState<{
     party: Party;
     mode: "deactivate" | "reactivate";
   } | null>(null);
 
-  useEffect(() => {
-    const t = setTimeout(() => setDebouncedQ(q.trim()), 300);
-    return () => clearTimeout(t);
-  }, [q]);
-
-  // Reset to page 1 whenever a filter changes.
-  useEffect(() => setPage(1), [role, activeOnly, debouncedQ]);
+  // Reset to page 1 whenever an applied filter changes.
+  useEffect(() => setPage(1), [role, status, q]);
 
   const query = usePartiesList({
     isCustomer: role === "customers" || undefined,
     isSupplier: role === "suppliers" || undefined,
-    isActive: activeOnly ? true : undefined,
-    q: debouncedQ || undefined,
+    isActive: status === "active" ? true : undefined,
+    q: q || undefined,
     page,
     pageSize: PAGE_SIZE,
   });
 
-  const hasFilters = role !== "all" || debouncedQ !== "" || !activeOnly;
+  const hasFilters = role !== "all" || q !== "" || status !== "active";
   const rows = query.data?.data ?? [];
   const total = query.data?.total ?? 0;
   const totalPages = Math.max(1, Math.ceil(total / PAGE_SIZE));
+  const rangeFrom = total === 0 ? 0 : (page - 1) * PAGE_SIZE + 1;
+  const rangeTo = Math.min(page * PAGE_SIZE, total);
+
+  function applyFilters() {
+    setQ(qDraft.trim());
+  }
 
   function clearFilters() {
     setRole("all");
-    setActiveOnly(true);
+    setStatus("active");
+    setQDraft("");
     setQ("");
   }
 
@@ -71,11 +77,13 @@ export function PartiesScreen() {
           <h1 className="text-[23px] font-bold tracking-[-0.02em]">Parties</h1>
         </div>
         {canManage && (
-          <Button size="md" asChild className="flex-none">
-            <Link href="/master-data/parties/new" data-testid="new-party">
-              <Plus className="h-4 w-4" aria-hidden />
-              New party
-            </Link>
+          <Button
+            className="h-[38px] flex-none px-4"
+            onClick={() => setFormTarget({ kind: "create" })}
+            data-testid="new-party"
+          >
+            <Plus className="h-4 w-4" aria-hidden />
+            New party
           </Button>
         )}
       </div>
@@ -84,14 +92,16 @@ export function PartiesScreen() {
         <PartyFilterBar
           role={role}
           onRole={setRole}
-          activeOnly={activeOnly}
-          onActiveOnly={setActiveOnly}
-          q={q}
-          onQ={setQ}
+          status={status}
+          onStatus={setStatus}
+          q={qDraft}
+          onQ={setQDraft}
+          onApply={applyFilters}
+          onClear={clearFilters}
         />
       </div>
 
-      <Card className="mt-3.5 overflow-hidden p-3 sm:p-4">
+      <Card className="mt-4 overflow-hidden p-3 sm:p-4">
         {query.isLoading ? (
           <div className="flex flex-col gap-2" data-testid="parties-loading">
             {[0, 1, 2, 3, 4].map((i) => (
@@ -110,11 +120,11 @@ export function PartiesScreen() {
         ) : rows.length === 0 ? (
           hasFilters ? (
             <EmptyState
-              icon={Users}
+              icon={Search}
               title="No parties match these filters."
+              description="Try a different role, status, or search term."
               action={
                 <Button
-                  size="md"
                   variant="outline"
                   onClick={clearFilters}
                   data-testid="clear-filters"
@@ -130,11 +140,12 @@ export function PartiesScreen() {
               description="Add customers and suppliers to use them in vouchers."
               action={
                 canManage ? (
-                  <Button size="md" asChild>
-                    <Link href="/master-data/parties/new" data-testid="empty-new-party">
-                      <Plus className="h-4 w-4" aria-hidden />
-                      New party
-                    </Link>
+                  <Button
+                    onClick={() => setFormTarget({ kind: "create" })}
+                    data-testid="empty-new-party"
+                  >
+                    <Plus className="h-4 w-4" aria-hidden />
+                    New party
                   </Button>
                 ) : undefined
               }
@@ -145,22 +156,28 @@ export function PartiesScreen() {
             <PartiesTable
               parties={rows}
               canManage={canManage}
+              onEdit={(party) => setFormTarget({ kind: "edit", party })}
               onDeactivate={(party) => setStatusTarget({ party, mode: "deactivate" })}
               onReactivate={(party) => setStatusTarget({ party, mode: "reactivate" })}
             />
             <div className="mt-3 flex items-center justify-between border-t border-border px-1 pt-3">
               <span className="text-[12.5px] text-muted-foreground">
-                {total} part{total === 1 ? "y" : "ies"}
+                Showing{" "}
+                <span className="font-semibold text-foreground">
+                  {rangeFrom}–{rangeTo}
+                </span>{" "}
+                of <span className="font-semibold text-foreground">{total}</span> part
+                {total === 1 ? "y" : "ies"}
               </span>
               {totalPages > 1 && (
-                <div className="flex items-center gap-2">
+                <div className="flex items-center gap-1.5">
                   <Button
                     size="sm"
                     variant="outline"
                     disabled={page <= 1}
                     onClick={() => setPage((p) => Math.max(1, p - 1))}
                   >
-                    Previous
+                    Prev
                   </Button>
                   <span className="text-[12.5px] tabular-nums text-muted-foreground">
                     Page {page} of {totalPages}
@@ -179,6 +196,15 @@ export function PartiesScreen() {
           </>
         )}
       </Card>
+
+      {formTarget && (
+        <PartyFormSheet
+          mode={formTarget}
+          onClose={() => setFormTarget(null)}
+          onSaved={() => query.refetch()}
+          onReload={() => query.refetch()}
+        />
+      )}
 
       <PartyStatusDialog
         party={statusTarget?.party ?? null}

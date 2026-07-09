@@ -1,9 +1,11 @@
 "use client";
 
+import { AlertTriangle, RotateCcw } from "lucide-react";
 import { Dialog, DialogContent, DialogTitle, DialogDescription } from "@/components/ui/dialog";
 import { Button } from "@/components/ui/button";
 import { asApiError } from "@/lib/api/errors";
 import { useToast } from "@/components/ui/toast";
+import { cn } from "@/lib/utils";
 import { type Account } from "../types";
 import { useDeactivateAccount, useReactivateAccount } from "../hooks/useChartOfAccounts";
 
@@ -11,19 +13,30 @@ type Mode = "deactivate" | "reactivate";
 
 const COPY: Record<
   Mode,
-  { title: string; body: string; cta: string; done: (c: string) => string }
+  {
+    title: string;
+    body: string;
+    cta: string;
+    done: (c: string) => string;
+    icon: typeof AlertTriangle;
+    iconBox: string;
+  }
 > = {
   deactivate: {
     title: "Deactivate this account?",
-    body: "It stays on posted entries but won't appear in new voucher pickers.",
+    body: "It stays on past postings but won't appear in new voucher pickers.",
     cta: "Deactivate",
     done: (c) => `Account ${c} deactivated.`,
+    icon: AlertTriangle,
+    iconBox: "bg-destructive-soft text-destructive-ink",
   },
   reactivate: {
     title: "Reactivate this account?",
-    body: "It will appear again in voucher pickers. Posted entries are unchanged.",
+    body: "It will appear again in voucher pickers. Past postings are unchanged.",
     cta: "Reactivate",
     done: (c) => `Account ${c} reactivated.`,
+    icon: RotateCcw,
+    iconBox: "bg-info-soft text-info-ink",
   },
 };
 
@@ -72,12 +85,27 @@ export function AccountStatusDialog({
     );
   }
 
+  const Icon = copy.icon;
+
   return (
     <Dialog open={account !== null} onOpenChange={(open) => !open && onClose()}>
-      <DialogContent hideClose data-testid="account-status-dialog">
-        <DialogTitle>{copy.title}</DialogTitle>
-        <DialogDescription className="mt-2">{copy.body}</DialogDescription>
-        <div className="mt-5 flex justify-end gap-2.5">
+      <DialogContent hideClose className="max-w-[430px]" data-testid="account-status-dialog">
+        <div className="flex gap-3.5">
+          <div
+            className={cn(
+              "grid h-10 w-10 flex-none place-items-center rounded-[10px]",
+              copy.iconBox,
+            )}
+            aria-hidden
+          >
+            <Icon className="h-[18px] w-[18px]" />
+          </div>
+          <div>
+            <DialogTitle className="text-base">{copy.title}</DialogTitle>
+            <DialogDescription className="mt-1.5 text-[13px]">{copy.body}</DialogDescription>
+          </div>
+        </div>
+        <div className="mt-[22px] flex justify-end gap-2.5">
           <Button variant="outline" size="md" onClick={onClose} disabled={active.isPending}>
             Cancel
           </Button>

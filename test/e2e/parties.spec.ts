@@ -88,18 +88,23 @@ test("Admin creates a party then deactivates it (FR-MAS-022/023/029)", async ({ 
   await page.goto("/master-data/parties");
   await expect(page.getByText("No parties yet.")).toBeVisible();
 
-  // Create
+  // Create — opens the right-side drawer in place (no navigation).
   await page.getByTestId("empty-new-party").click();
-  await page.waitForURL("**/master-data/parties/new");
-  await page.getByLabel(/party name/i).fill("Acme Traders");
-  await page.getByLabel(/customer/i).check();
-  await page.getByLabel(/phone/i).fill("01712345678");
-  await page.getByTestId("party-save").click();
+  const sheet = page.getByTestId("party-form-sheet");
+  await expect(sheet).toBeVisible();
+  await sheet.getByLabel(/^name/i).fill("Acme Traders");
+  await sheet.getByRole("checkbox", { name: /customer/i }).click();
+  await sheet.getByLabel(/phone/i).fill("01712345678");
+  await sheet.getByTestId("party-save").click();
   await expect(page.getByText("Party created.")).toBeVisible();
+  // Drawer closes on success and we stay on the list.
+  await expect(sheet).toBeHidden();
+  await expect(page).toHaveURL(/\/master-data\/parties$/);
 
-  // We navigated to the new party's detail; deactivate it.
-  await page.waitForURL(/\/master-data\/parties\/p101$/);
-  await page.getByTestId("deactivate-party").click();
+  // Deactivate the new row via its kebab menu.
+  const row = page.getByTestId("party-row-p101");
+  await row.getByTestId("party-actions-p101").click();
+  await page.getByRole("menuitem", { name: /deactivate/i }).click();
   const dialog = page.getByTestId("party-status-dialog");
   await expect(dialog).toBeVisible();
   await page.getByTestId("party-status-confirm").click();

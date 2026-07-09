@@ -115,10 +115,12 @@ describe("ChartOfAccountsScreen — tree + states", () => {
     accountsMock.mockResolvedValue(ACCOUNTS);
     renderScreen();
     expect(await screen.findByTestId("group-node-g1")).toBeInTheDocument();
-    // g2 is nested under g1 (expanded by default); expand g2 to reveal a1
-    await userEvent.click(screen.getByRole("button", { name: /expand current assets/i }));
-    expect(await screen.findByTestId("account-leaf-a1")).toBeInTheDocument();
-    expect(screen.getByText("1100")).toBeInTheDocument();
+    // g2 is nested under g1 (expanded by default); expand g2 to reveal a1.
+    // The row has a desktop AND a mobile toggle (CSS-hidden) — either drives the same handler.
+    await userEvent.click(screen.getAllByRole("button", { name: /expand current assets/i })[0]!);
+    const leaf = await screen.findByTestId("account-leaf-a1");
+    // The code renders twice (desktop column + mobile card, toggled by CSS) — assert the row has it.
+    expect(within(leaf).getAllByText("1100").length).toBeGreaterThan(0);
   });
 
   it("type filter switches to a flat account list (spec §5)", async () => {
@@ -126,7 +128,9 @@ describe("ChartOfAccountsScreen — tree + states", () => {
     accountsMock.mockResolvedValue(ACCOUNTS);
     renderScreen();
     await screen.findByTestId("group-node-g1");
-    await userEvent.selectOptions(screen.getByLabelText(/filter by type/i), "ASSET");
+    // Custom type-filter dropdown (design): open it, then pick "Asset".
+    await userEvent.click(screen.getByTestId("coa-type-filter"));
+    await userEvent.click(await screen.findByRole("menuitem", { name: "Asset" }));
     expect(await screen.findByTestId("flat-account-a1")).toBeInTheDocument();
   });
 
@@ -165,7 +169,7 @@ describe("ChartOfAccountsScreen — tree + states", () => {
     await screen.findByTestId("group-node-g1");
     expect(screen.queryByTestId("new-group")).not.toBeInTheDocument();
     expect(screen.queryByTestId("new-account")).not.toBeInTheDocument();
-    await userEvent.click(screen.getByRole("button", { name: /expand current assets/i }));
+    await userEvent.click(screen.getAllByRole("button", { name: /expand current assets/i })[0]!);
     expect(screen.queryByTestId("account-actions-a1")).not.toBeInTheDocument();
   });
 });

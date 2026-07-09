@@ -2,7 +2,8 @@
 
 import { useForm } from "react-hook-form";
 import { zodResolver } from "@hookform/resolvers/zod";
-import { Sheet, SheetContent, SheetHeader, SheetBody, SheetFooter } from "@/components/ui/sheet";
+import { Loader2 } from "lucide-react";
+import { Dialog, DialogContent, DialogTitle, DialogDescription } from "@/components/ui/dialog";
 import { Input } from "@/components/ui/input";
 import { Select } from "@/components/ui/select";
 import { Label } from "@/components/ui/label";
@@ -16,10 +17,15 @@ import {
 } from "../schemas/chart-of-accounts.schema";
 import { useCreateAccountGroup, useUpdateAccountGroup } from "../hooks/useChartOfAccounts";
 
-type Mode = { kind: "create" } | { kind: "edit"; group: AccountGroup };
+type Mode =
+  | { kind: "create"; parentGroupId?: string }
+  | { kind: "edit"; group: AccountGroup };
 
-/** Account-group create/edit modal (FR-MAS-017, spec §7). Type is set at creation
- *  (immutable after — PATCH doesn't accept it); server type-vs-parent errors map to Type. */
+/**
+ * Account-group create/edit modal (FR-MAS-017, spec §7; design file `Chart-of-Accounts.dc.html`).
+ * Centered pop-in dialog. Type is set at creation (immutable after — PATCH doesn't accept it);
+ * server type-vs-parent errors map to Type.
+ */
 export function GroupModal({
   mode,
   groups,
@@ -50,7 +56,7 @@ export function GroupModal({
     resolver: zodResolver(accountGroupSchema),
     defaultValues: editing
       ? { name: editing.name, parentGroupId: editing.parentGroupId ?? "", type: editing.type }
-      : { name: "", parentGroupId: "", type: "ASSET" },
+      : { name: "", parentGroupId: mode.kind === "create" ? (mode.parentGroupId ?? "") : "", type: "ASSET" },
   });
 
   function mapError(err: unknown) {
@@ -103,38 +109,46 @@ export function GroupModal({
   const parentChoices = groups.filter((g) => g.id !== editing?.id);
 
   return (
-    <Sheet open onOpenChange={(open) => !open && onClose()}>
-      <SheetContent>
-        <form
-          onSubmit={handleSubmit(onSubmit)}
-          noValidate
-          className="flex h-full flex-col"
-          data-testid="group-form"
-        >
-          <SheetHeader
-            kicker={isEdit ? "Edit group" : "Create"}
-            title={isEdit ? `Edit ${editing?.name}` : "New account group"}
-          />
-          <SheetBody className="flex flex-col gap-[18px]">
-            <div>
-              <Label htmlFor="grp-name" className="mb-1.5 block text-[10.5px]">
+    <Dialog open onOpenChange={(open) => !open && onClose()}>
+      <DialogContent className="max-w-[480px] p-0" data-testid="group-form">
+        <form onSubmit={handleSubmit(onSubmit)} noValidate className="flex flex-col">
+          {/* header */}
+          <div className="border-b border-border px-[22px] pb-4 pt-5">
+            <DialogTitle className="text-[17px] tracking-[-0.01em]">
+              {isEdit ? `Edit ${editing?.name}` : "New account group"}
+            </DialogTitle>
+            <DialogDescription className="mt-0.5 max-w-[46ch] text-[12.5px]">
+              {isEdit
+                ? "Rename or re-parent the group. Its type is fixed after creation."
+                : "Groups form the account-type hierarchy. Accounts inherit their group's type."}
+            </DialogDescription>
+          </div>
+
+          {/* body */}
+          <div className="flex flex-col gap-[18px] px-[22px] py-5">
+            <div className="flex flex-col gap-1.5">
+              <Label htmlFor="grp-name" className="text-[11px]">
                 Group name <span className="text-destructive">*</span>
               </Label>
               <Input
                 id="grp-name"
+                className="h-[38px]"
+                placeholder="e.g. Current Assets"
                 invalid={!!errors.name}
                 disabled={saving}
                 {...register("name")}
               />
               {errors.name && (
-                <p className="mt-1.5 text-[11.5px] text-destructive-ink">{errors.name.message}</p>
+                <p className="text-[12px] text-destructive-ink">{errors.name.message}</p>
               )}
             </div>
-            <div>
-              <Label htmlFor="grp-parent" className="mb-1.5 block text-[10.5px]">
-                Parent group
+
+            <div className="flex flex-col gap-1.5">
+              <Label htmlFor="grp-parent" className="text-[11px]">
+                Parent group{" "}
+                <span className="font-medium normal-case tracking-normal text-faint">· optional</span>
               </Label>
-              <Select id="grp-parent" disabled={saving} {...register("parentGroupId")}>
+              <Select id="grp-parent" className="h-[38px]" disabled={saving} {...register("parentGroupId")}>
                 <option value="">None (top-level)</option>
                 {parentChoices.map((g) => (
                   <option key={g.id} value={g.id}>
@@ -143,12 +157,14 @@ export function GroupModal({
                 ))}
               </Select>
             </div>
-            <div>
-              <Label htmlFor="grp-type" className="mb-1.5 block text-[10.5px]">
+
+            <div className="flex flex-col gap-1.5">
+              <Label htmlFor="grp-type" className="text-[11px]">
                 Type <span className="text-destructive">*</span>
               </Label>
               <Select
                 id="grp-type"
+                className="h-[38px]"
                 invalid={!!errors.type}
                 disabled={saving || isEdit}
                 {...register("type")}
@@ -160,29 +176,27 @@ export function GroupModal({
                 ))}
               </Select>
               {isEdit ? (
-                <p className="mt-1.5 text-[11.5px] text-faint">
-                  A group&apos;s type is fixed after creation.
-                </p>
+                <p className="text-[12px] text-faint">A group&apos;s type is fixed after creation.</p>
               ) : errors.type ? (
-                <p
-                  className="mt-1.5 text-[11.5px] text-destructive-ink"
-                  data-testid="group-type-error"
-                >
+                <p className="text-[12px] text-destructive-ink" data-testid="group-type-error">
                   {errors.type.message}
                 </p>
               ) : null}
             </div>
-          </SheetBody>
-          <SheetFooter>
+          </div>
+
+          {/* footer */}
+          <div className="flex justify-end gap-2.5 border-t border-border px-[22px] py-3.5">
             <Button type="button" variant="ghost" size="md" onClick={onClose} disabled={saving}>
               Cancel
             </Button>
             <Button type="submit" size="md" disabled={saving} data-testid="group-save">
+              {saving && <Loader2 className="h-3.5 w-3.5 animate-spin" aria-hidden />}
               {saving ? "Saving…" : "Save"}
             </Button>
-          </SheetFooter>
+          </div>
         </form>
-      </SheetContent>
-    </Sheet>
+      </DialogContent>
+    </Dialog>
   );
 }

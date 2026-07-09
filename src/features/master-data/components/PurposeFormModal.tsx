@@ -2,7 +2,8 @@
 
 import { useForm } from "react-hook-form";
 import { zodResolver } from "@hookform/resolvers/zod";
-import { Sheet, SheetContent, SheetHeader, SheetBody, SheetFooter } from "@/components/ui/sheet";
+import { Loader2 } from "lucide-react";
+import { Dialog, DialogContent, DialogTitle, DialogDescription } from "@/components/ui/dialog";
 import { Input } from "@/components/ui/input";
 import { Label } from "@/components/ui/label";
 import { Button } from "@/components/ui/button";
@@ -13,10 +14,15 @@ import { useCreatePurpose, useRenamePurpose } from "../hooks/usePurposes";
 
 type Mode = { kind: "create" } | { kind: "edit"; purpose: Purpose };
 
-/** Add / rename purpose modal (FR-MAS-011/013, spec §7). Case-insensitive unique per project. */
+/**
+ * Add / rename purpose modal (FR-MAS-011/013, spec §7; design file `Purposes.dc.html`).
+ * Centered pop-in dialog (460px): title + subtitle · Name field with help/error · Cancel
+ * + Save. Case-insensitive unique per project.
+ */
 export function PurposeFormModal({
   mode,
   projectId,
+  projectName,
   onClose,
   onSuccess,
   onConflict,
@@ -24,6 +30,8 @@ export function PurposeFormModal({
 }: {
   mode: Mode;
   projectId: string;
+  /** Shown in the subtitle + help text ("Scoped to {projectName}…"); omitted → generic. */
+  projectName?: string;
   onClose: () => void;
   onSuccess: (msg: string) => void;
   onConflict: () => void;
@@ -34,6 +42,8 @@ export function PurposeFormModal({
   const create = useCreatePurpose();
   const rename = useRenamePurpose();
   const saving = create.isPending || rename.isPending;
+
+  const scope = projectName ?? "this project";
 
   const {
     register,
@@ -94,49 +104,59 @@ export function PurposeFormModal({
   }
 
   return (
-    <Sheet open onOpenChange={(open) => !open && onClose()}>
-      <SheetContent>
-        <form
-          onSubmit={handleSubmit(onSubmit)}
-          noValidate
-          className="flex h-full flex-col"
-          data-testid="purpose-form"
-        >
-          <SheetHeader
-            kicker={isEdit ? "Rename" : "Create"}
-            title={isEdit ? `Rename purpose` : "New purpose"}
-          />
-          <SheetBody className="flex flex-col gap-[18px]">
-            <div>
-              <Label htmlFor="purpose-name" className="mb-1.5 block text-[10.5px]">
+    <Dialog open onOpenChange={(open) => !open && onClose()}>
+      <DialogContent className="max-w-[460px] p-0" data-testid="purpose-form">
+        <form onSubmit={handleSubmit(onSubmit)} noValidate className="flex flex-col">
+          {/* header */}
+          <div className="border-b border-border px-[22px] pb-4 pt-5">
+            <DialogTitle className="text-[17px] tracking-[-0.01em]">
+              {isEdit ? "Rename purpose" : "New purpose"}
+            </DialogTitle>
+            <DialogDescription className="mt-0.5 max-w-[44ch] text-[12.5px]">
+              {isEdit
+                ? "The name updates everywhere it appears on this project."
+                : `Scoped to ${scope}. Reusable in this project's voucher pickers.`}
+            </DialogDescription>
+          </div>
+
+          {/* body */}
+          <div className="px-[22px] py-5">
+            <div className="flex flex-col gap-1.5">
+              <Label htmlFor="purpose-name" className="text-[11px]">
                 Name <span className="text-destructive">*</span>
               </Label>
               <Input
                 id="purpose-name"
+                className="h-[38px]"
+                placeholder="e.g. Material Purchase · মালামাল ক্রয়"
                 invalid={!!errors.name}
                 disabled={saving}
                 {...register("name")}
               />
-              {errors.name && (
-                <p
-                  className="mt-1.5 text-[11.5px] text-destructive-ink"
-                  data-testid="purpose-name-error"
-                >
+              {errors.name ? (
+                <p className="text-[12px] text-destructive-ink" data-testid="purpose-name-error">
                   {errors.name.message}
+                </p>
+              ) : (
+                <p className="text-[11.5px] text-faint">
+                  Unique within {scope} (case-insensitive). Bangla is fine.
                 </p>
               )}
             </div>
-          </SheetBody>
-          <SheetFooter>
+          </div>
+
+          {/* footer */}
+          <div className="flex justify-end gap-2.5 border-t border-border px-[22px] py-3.5">
             <Button type="button" variant="ghost" size="md" onClick={onClose} disabled={saving}>
               Cancel
             </Button>
             <Button type="submit" size="md" disabled={saving} data-testid="purpose-save">
+              {saving && <Loader2 className="h-3.5 w-3.5 animate-spin" aria-hidden />}
               {saving ? "Saving…" : "Save"}
             </Button>
-          </SheetFooter>
+          </div>
         </form>
-      </SheetContent>
-    </Sheet>
+      </DialogContent>
+    </Dialog>
   );
 }

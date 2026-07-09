@@ -54,6 +54,75 @@ const USERS: Record<string, MockUser> = {
 const revokedJtis = new Set<string>();
 let jtiCounterSeed = 1000;
 
+// ── Master-data sample (dev/preview only) ────────────────────────────────────
+// A tiny in-memory slice so the master screens render populated when running
+// against the mock (USE_MOCK_NESTJS=true) without a live NestJS/DB. Mirrors the
+// Purposes design-file sample. NEVER used in production.
+interface MockProject {
+  id: string;
+  projectCode: string;
+  name: string;
+  status: string;
+  isActive: boolean;
+  version: number;
+}
+interface MockPurpose {
+  id: string;
+  projectId: string;
+  name: string;
+  isActive: boolean;
+  version: number;
+}
+interface MockParty {
+  id: string;
+  name: string;
+  isCustomer: boolean;
+  isSupplier: boolean;
+  tin: string | null;
+  bin: string | null;
+  address: string | null;
+  phone: string;
+  email: string | null;
+  paymentTermsDays: number | null;
+  openingBalance: string | null;
+  isActive: boolean;
+  version: number;
+}
+const MOCK_PROJECTS: MockProject[] = [
+  { id: "proj-a", projectCode: "BR-04", name: "Bridge-04 — Buriganga", status: "ACTIVE", isActive: true, version: 1 },
+  { id: "proj-b", projectCode: "TW-A", name: "Tower-A — Gulshan", status: "ACTIVE", isActive: true, version: 1 },
+  { id: "proj-c", projectCode: "RD-12", name: "Road-12 — Savar", status: "ACTIVE", isActive: true, version: 1 },
+];
+const MOCK_PURPOSES: MockPurpose[] = [
+  { id: "pp-1", projectId: "proj-a", name: "Material Purchase", isActive: true, version: 1 },
+  { id: "pp-2", projectId: "proj-a", name: "Labour Payment", isActive: true, version: 1 },
+  { id: "pp-3", projectId: "proj-a", name: "Equipment Rental", isActive: true, version: 1 },
+  { id: "pp-4", projectId: "proj-a", name: "Site Office", isActive: true, version: 1 },
+  { id: "pp-5", projectId: "proj-a", name: "Transport & Carrying", isActive: true, version: 1 },
+  { id: "pp-6", projectId: "proj-a", name: "Mobilization Advance · গতিশীলতা অগ্রিম", isActive: true, version: 1 },
+  { id: "pp-7", projectId: "proj-a", name: "Subcontractor Payment", isActive: true, version: 1 },
+  { id: "pp-8", projectId: "proj-a", name: "Safety Equipment · নিরাপত্তা সরঞ্জাম", isActive: true, version: 1 },
+  { id: "pp-9", projectId: "proj-a", name: "Temporary Fencing (legacy)", isActive: false, version: 1 },
+  { id: "pp-10", projectId: "proj-b", name: "Finishing Works", isActive: true, version: 1 },
+  { id: "pp-11", projectId: "proj-b", name: "Lift & MEP", isActive: true, version: 1 },
+];
+let mockPurposeSeq = 500;
+
+// Mirrors the Parties design-file sample so the list renders populated against the mock.
+const MOCK_PARTIES: MockParty[] = [
+  { id: "pa-1", name: "ABC Cement Co.", isCustomer: true, isSupplier: true, tin: "123456789012", bin: "001234567-0101", address: "Plot 7, Tejgaon I/A, Dhaka 1208", phone: "+8801712345678", email: "accounts@abccement.com.bd", paymentTermsDays: 30, openingBalance: "0.0000", isActive: true, version: 1 },
+  { id: "pa-2", name: "Shah Cement Ltd.", isCustomer: false, isSupplier: true, tin: "556677889900", bin: "004455667-0202", address: null, phone: "+8801811223344", email: null, paymentTermsDays: 15, openingBalance: "0.0000", isActive: true, version: 1 },
+  { id: "pa-3", name: "মেঘনা স্টিল মিলস", isCustomer: false, isSupplier: true, tin: "778899001122", bin: null, address: null, phone: "+8801999887766", email: null, paymentTermsDays: 45, openingBalance: "0.0000", isActive: true, version: 1 },
+  { id: "pa-4", name: "Tower-A Developments Ltd.", isCustomer: true, isSupplier: false, tin: "334455667788", bin: "009988776-0303", address: "Gulshan Avenue, Dhaka 1212", phone: "+8801712009988", email: "finance@tower-a.com", paymentTermsDays: 0, openingBalance: "0.0000", isActive: true, version: 1 },
+  { id: "pa-5", name: "M/s Rahman Traders", isCustomer: false, isSupplier: true, tin: null, bin: null, address: null, phone: "+8801677554433", email: null, paymentTermsDays: 7, openingBalance: "0.0000", isActive: false, version: 1 },
+  { id: "pa-6", name: "Bashundhara Group", isCustomer: false, isSupplier: true, tin: "990011223344", bin: "003322110-0404", address: null, phone: "+8801511990022", email: null, paymentTermsDays: 30, openingBalance: "0.0000", isActive: true, version: 1 },
+  { id: "pa-7", name: "করিম এন্টারপ্রাইজ", isCustomer: true, isSupplier: false, tin: "445566778899", bin: null, address: "১২/বি, নিউ মার্কেট, ঢাকা ১২০৫", phone: "+8801733221100", email: null, paymentTermsDays: 60, openingBalance: "0.0000", isActive: true, version: 1 },
+  { id: "pa-8", name: "National Housing Authority", isCustomer: true, isSupplier: false, tin: "112233445566", bin: "006677889-0505", address: null, phone: "+8801866003311", email: null, paymentTermsDays: 90, openingBalance: "0.0000", isActive: true, version: 1 },
+  { id: "pa-9", name: "Padma Aggregates Ltd.", isCustomer: false, isSupplier: true, tin: "667788990011", bin: null, address: null, phone: "+8801799112233", email: null, paymentTermsDays: 14, openingBalance: "0.0000", isActive: false, version: 1 },
+  { id: "pa-10", name: "Zenith Interiors", isCustomer: true, isSupplier: true, tin: "220033445566", bin: "001122334-0606", address: null, phone: "+8801600224466", email: null, paymentTermsDays: 30, openingBalance: "0.0000", isActive: true, version: 1 },
+];
+let mockPartySeq = 800;
+
 const ACCESS_TTL_MS = 15 * 60 * 1000;
 
 function safeUser(u: MockUser) {
@@ -206,5 +275,170 @@ export async function mockNestjsFetch(req: MockReq): Promise<MockResult> {
   if (req.path === "/auth/me") {
     return { status: 200, body: success({ user: safeUser(user) }) };
   }
+
+  // ── Master-data sample endpoints (dev/preview only) ──
+  // Split path from the querystring (the proxy forwards `?page=…` verbatim).
+  const [pathname, rawQuery = ""] = req.path.split("?");
+  const params = new URLSearchParams(rawQuery);
+  const pageEnvelope = (rows: unknown[]) => ({
+    data: rows,
+    meta: { requestId: `mock-${jtiCounterSeed}`, page: 1, pageSize: rows.length || 25, total: rows.length },
+  });
+
+  // GET /masters/projects — list (PM sees only assigned projects; Admin sees all).
+  if (pathname === "/masters/projects" && req.method === "GET") {
+    const scoped =
+      user.assignedProjectIds.length > 0
+        ? MOCK_PROJECTS.filter((p) => user.assignedProjectIds.includes(p.id))
+        : MOCK_PROJECTS;
+    return { status: 200, body: pageEnvelope(scoped) };
+  }
+
+  // /masters/parties[/:id[/(deactivate|reactivate)]]
+  const partyMatch = /^\/masters\/parties(?:\/([^/]+)(?:\/(deactivate|reactivate))?)?$/.exec(
+    pathname ?? "",
+  );
+  if (partyMatch) {
+    const targetId = partyMatch[1];
+    const action = partyMatch[2];
+
+    // GET list (isCustomer/isSupplier/isActive/q filters + naive paging).
+    if (req.method === "GET" && !targetId) {
+      const wantCustomer = params.get("isCustomer") === "true";
+      const wantSupplier = params.get("isSupplier") === "true";
+      const activeOnly = params.get("isActive") === "true";
+      const q = (params.get("q") ?? "").toLowerCase().trim();
+      let rows = MOCK_PARTIES.slice();
+      if (wantCustomer) rows = rows.filter((p) => p.isCustomer);
+      if (wantSupplier) rows = rows.filter((p) => p.isSupplier);
+      if (activeOnly) rows = rows.filter((p) => p.isActive);
+      if (q) rows = rows.filter((p) => p.name.toLowerCase().includes(q) || p.phone.includes(q));
+      const total = rows.length;
+      const page = Math.max(1, Number(params.get("page") ?? 1) || 1);
+      const pageSize = Math.max(1, Number(params.get("pageSize") ?? 25) || 25);
+      const paged = rows.slice((page - 1) * pageSize, page * pageSize);
+      return {
+        status: 200,
+        body: { data: paged, meta: { requestId: `mock-${jtiCounterSeed}`, page, pageSize, total } },
+      };
+    }
+
+    // GET one.
+    if (req.method === "GET" && targetId && !action) {
+      const target = MOCK_PARTIES.find((p) => p.id === targetId);
+      if (!target) return { status: 404, body: envelope("NOT_FOUND", "Party not found") };
+      return { status: 200, body: success(target) };
+    }
+
+    // POST create.
+    if (req.method === "POST" && !targetId) {
+      const b = body as Partial<MockParty>;
+      const name = String(b.name ?? "").trim();
+      if (!name) return { status: 400, body: envelope("VALIDATION_ERROR", "name is required") };
+      const np: MockParty = {
+        id: `pa-${(mockPartySeq += 1)}`,
+        name,
+        isCustomer: !!b.isCustomer,
+        isSupplier: !!b.isSupplier,
+        tin: b.tin ?? null,
+        bin: b.bin ?? null,
+        address: b.address ?? null,
+        phone: String(b.phone ?? ""),
+        email: b.email ?? null,
+        paymentTermsDays: b.paymentTermsDays ?? null,
+        openingBalance: b.openingBalance ?? null,
+        isActive: true,
+        version: 1,
+      };
+      MOCK_PARTIES.unshift(np);
+      return { status: 201, body: success({ id: np.id }) };
+    }
+
+    // PATCH update (optimistic version bump).
+    if (req.method === "PATCH" && targetId) {
+      const target = MOCK_PARTIES.find((p) => p.id === targetId);
+      if (!target) return { status: 404, body: envelope("NOT_FOUND", "Party not found") };
+      const b = body as Partial<MockParty>;
+      Object.assign(target, {
+        name: b.name != null ? String(b.name).trim() : target.name,
+        isCustomer: b.isCustomer != null ? !!b.isCustomer : target.isCustomer,
+        isSupplier: b.isSupplier != null ? !!b.isSupplier : target.isSupplier,
+        tin: b.tin !== undefined ? b.tin : target.tin,
+        bin: b.bin !== undefined ? b.bin : target.bin,
+        address: b.address !== undefined ? b.address : target.address,
+        phone: b.phone != null ? String(b.phone) : target.phone,
+        email: b.email !== undefined ? b.email : target.email,
+        paymentTermsDays:
+          b.paymentTermsDays !== undefined ? b.paymentTermsDays : target.paymentTermsDays,
+        openingBalance:
+          b.openingBalance !== undefined ? b.openingBalance : target.openingBalance,
+        version: target.version + 1,
+      });
+      return { status: 200, body: success(target) };
+    }
+
+    // POST deactivate / reactivate.
+    if (req.method === "POST" && targetId && action) {
+      const target = MOCK_PARTIES.find((p) => p.id === targetId);
+      if (!target) return { status: 404, body: envelope("NOT_FOUND", "Party not found") };
+      target.isActive = action === "reactivate";
+      target.version += 1;
+      return { status: 200, body: success(target) };
+    }
+  }
+
+  // /masters/projects/:id/purposes[/:id/(deactivate|reactivate)]
+  const pm = /^\/masters\/projects\/([^/]+)\/purposes(?:\/([^/]+)\/(deactivate|reactivate))?$/.exec(
+    pathname ?? "",
+  );
+  if (pm) {
+    const projectId = pm[1]!;
+    const targetId = pm[2];
+    const action = pm[3];
+
+    if (req.method === "GET") {
+      const activeOnly = params.get("isActive") === "true";
+      const q = (params.get("q") ?? "").toLowerCase();
+      let rows = MOCK_PURPOSES.filter((p) => p.projectId === projectId);
+      if (activeOnly) rows = rows.filter((p) => p.isActive);
+      if (q) rows = rows.filter((p) => p.name.toLowerCase().includes(q));
+      return { status: 200, body: pageEnvelope(rows) };
+    }
+    // POST create (idempotent) — no action segment.
+    if (req.method === "POST" && !action) {
+      const name = String((body as { name?: unknown }).name ?? "").trim();
+      if (!name) return { status: 400, body: envelope("VALIDATION_ERROR", "name is required") };
+      const existing = MOCK_PURPOSES.find(
+        (p) => p.projectId === projectId && p.name.toLowerCase() === name.toLowerCase(),
+      );
+      if (existing) return { status: 200, body: success(existing) }; // idempotent
+      const np: MockPurpose = {
+        id: `pp-${(mockPurposeSeq += 1)}`,
+        projectId,
+        name,
+        isActive: true,
+        version: 1,
+      };
+      MOCK_PURPOSES.push(np);
+      return { status: 201, body: success(np) };
+    }
+    // POST deactivate / reactivate.
+    if (req.method === "POST" && action && targetId) {
+      const target = MOCK_PURPOSES.find((p) => p.id === targetId);
+      if (!target) return { status: 404, body: envelope("NOT_FOUND", "Purpose not found") };
+      target.isActive = action === "reactivate";
+      target.version += 1;
+      return { status: 200, body: success(target) };
+    }
+    // PATCH rename.
+    if (req.method === "PATCH" && targetId) {
+      const target = MOCK_PURPOSES.find((p) => p.id === targetId);
+      if (!target) return { status: 404, body: envelope("NOT_FOUND", "Purpose not found") };
+      target.name = String((body as { name?: unknown }).name ?? target.name).trim();
+      target.version += 1;
+      return { status: 200, body: success(target) };
+    }
+  }
+
   return { status: 200, body: success({ ok: true, path: req.path }) };
 }

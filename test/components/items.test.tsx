@@ -14,7 +14,7 @@ import { type SafeUser } from "@/lib/auth/session";
 import { type Role } from "@/lib/auth/roles";
 import { type Item, type Account, type ItemUomConversion } from "@/features/master-data/types";
 import { ItemsScreen } from "@/features/master-data/components/ItemsScreen";
-import { ItemDetailForm } from "@/features/master-data/components/ItemDetailForm";
+import { ItemFormDrawer } from "@/features/master-data/components/ItemFormDrawer";
 import { UomConversionsTable } from "@/features/master-data/components/UomConversionsTable";
 import { ItemStatusDialog } from "@/features/master-data/components/ItemStatusDialog";
 import * as iapi from "@/features/master-data/api/items";
@@ -103,13 +103,15 @@ function renderScreen(role: Role = "ADMIN") {
     </QueryClientProvider>,
   );
 }
-function renderNode(ui: React.ReactElement) {
+function renderNode(ui: React.ReactElement, role: Role = "ADMIN") {
   const client = new QueryClient({
     defaultOptions: { queries: { retry: false }, mutations: { retry: false } },
   });
   return render(
     <QueryClientProvider client={client}>
-      <ToastProvider>{ui}</ToastProvider>
+      <SessionProvider user={user(role)}>
+        <ToastProvider>{ui}</ToastProvider>
+      </SessionProvider>
     </QueryClientProvider>,
   );
 }
@@ -146,21 +148,19 @@ describe("ItemsScreen — list", () => {
   });
 });
 
-describe("ItemDetailForm — validation + mapping", () => {
+describe("ItemFormDrawer — validation + mapping", () => {
   const noop = () => {};
   const props = {
-    accounts: [ACCOUNT],
-    baseUomLocked: false,
-    onCreated: noop,
-    onUpdated: noop,
-    onCancel: noop,
-    onReload: noop,
+    canManage: true,
+    onClose: noop,
+    onSuccess: noop,
+    onConflict: noop,
     onError: noop,
   };
 
   it("requires code, name, base unit, default account (FR-MAS-025/027)", async () => {
-    renderNode(<ItemDetailForm mode={{ kind: "create" }} {...props} />);
-    await userEvent.click(screen.getByTestId("item-save"));
+    renderNode(<ItemFormDrawer mode={{ kind: "create" }} {...props} />);
+    await userEvent.click(await screen.findByTestId("item-save"));
     expect(await screen.findByText("Item code is required.")).toBeInTheDocument();
     expect(screen.getByText("Base unit is required.")).toBeInTheDocument();
     expect(screen.getByText("Select a default account.")).toBeInTheDocument();
@@ -170,11 +170,11 @@ describe("ItemDetailForm — validation + mapping", () => {
     createMock.mockRejectedValue(
       new ApiError({ code: "DUPLICATE_CODE", message: "dup", details: null, status: 409 }),
     );
-    renderNode(<ItemDetailForm mode={{ kind: "create" }} {...props} />);
+    renderNode(<ItemFormDrawer mode={{ kind: "create" }} {...props} />);
     await userEvent.type(screen.getByLabelText(/^code/i), "MAT-1");
     await userEvent.type(screen.getByLabelText(/^name/i), "Cement");
-    await userEvent.type(screen.getByLabelText(/base unit/i), "Bag");
-    await userEvent.selectOptions(screen.getByLabelText(/default gl account/i), "acc1");
+    await userEvent.type(screen.getByLabelText(/base uom/i), "Bag");
+    await userEvent.selectOptions(await screen.findByLabelText(/default gl account/i), "acc1");
     await userEvent.click(screen.getByTestId("item-save"));
     expect(await screen.findByTestId("item-code-error")).toHaveTextContent(
       "This item code is already used.",
@@ -185,17 +185,18 @@ describe("ItemDetailForm — validation + mapping", () => {
     updateMock.mockRejectedValue(
       new ApiError({ code: "CROSS_COMPANY_REFERENCE", message: "x", details: null, status: 400 }),
     );
-    renderNode(<ItemDetailForm mode={{ kind: "edit", item: ITEM }} {...props} />);
-    await userEvent.click(screen.getByTestId("item-save"));
+    renderNode(<ItemFormDrawer mode={{ kind: "edit", item: ITEM }} {...props} />);
+    await userEvent.click(await screen.findByTestId("item-save"));
     expect(await screen.findByTestId("item-account-error")).toHaveTextContent(
       "Default account must belong to this company.",
     );
   });
 
-  it("locks the Base unit with a note when baseUomLocked (FR-MAS-034)", () => {
-    renderNode(<ItemDetailForm mode={{ kind: "edit", item: ITEM }} {...props} baseUomLocked />);
-    expect(screen.getByLabelText(/base unit/i)).toBeDisabled();
-    expect(screen.getByTestId("base-uom-locked-note")).toBeInTheDocument();
+  it("locks the Base unit with a note when conversions exist (FR-MAS-034)", async () => {
+    listConvMock.mockResolvedValue([CONV]);
+    renderNode(<ItemFormDrawer mode={{ kind: "edit", item: ITEM }} {...props} />);
+    expect(await screen.findByTestId("base-uom-locked-note")).toBeInTheDocument();
+    expect(screen.getByLabelText(/base uom/i)).toBeDisabled();
   });
 
   it("maps BASE_UOM_IMMUTABLE to a toast via onError (FR-MAS-034)", async () => {
@@ -203,8 +204,8 @@ describe("ItemDetailForm — validation + mapping", () => {
       new ApiError({ code: "BASE_UOM_IMMUTABLE", message: "x", details: null, status: 409 }),
     );
     const onError = jest.fn();
-    renderNode(<ItemDetailForm mode={{ kind: "edit", item: ITEM }} {...props} onError={onError} />);
-    await userEvent.click(screen.getByTestId("item-save"));
+    renderNode(<ItemFormDrawer mode={{ kind: "edit", item: ITEM }} {...props} onError={onError} />);
+    await userEvent.click(await screen.findByTestId("item-save"));
     await waitFor(() =>
       expect(onError).toHaveBeenCalledWith(
         "This item has conversions or transactions, so its base unit can't be changed.",

@@ -1,6 +1,7 @@
 "use client";
 
-import { ChevronRight, MoreHorizontal } from "lucide-react";
+import { useMemo } from "react";
+import Decimal from "decimal.js";
 import {
   DropdownMenu,
   DropdownMenuTrigger,
@@ -8,183 +9,457 @@ import {
   DropdownMenuItem,
 } from "@/components/ui/dropdown-menu";
 import { cn } from "@/lib/utils";
-import { type Account, type AccountGroup } from "../types";
-import { TypeBadge } from "./TypeBadge";
+import { formatMoney } from "@/lib/money";
+import { type Account, type AccountGroup, type AccountType } from "../types";
+import { TypeBadge, statementOf, TYPE_META } from "./TypeBadge";
+import { ACCOUNT_TYPE_LABEL } from "../schemas/chart-of-accounts.schema";
 
 export interface TreeCallbacks {
   canManage: boolean;
   expanded: Set<string>;
   onToggle: (id: string) => void;
   onEditGroup: (g: AccountGroup) => void;
+  /** Kebab → "Add account" preselects this group in the account modal. */
+  onAddAccount: (groupId: string) => void;
+  /** Kebab → "Add sub-group" preselects this group as parent in the group modal. */
+  onAddSubGroup: (parentGroupId: string) => void;
   onEditAccount: (a: Account) => void;
   onDeactivate: (a: Account) => void;
   onReactivate: (a: Account) => void;
 }
 
-function AccountLeaf({
-  account,
-  cb,
-  depth,
-}: {
-  account: Account;
-  cb: TreeCallbacks;
-  depth: number;
-}) {
-  return (
-    <li
-      role="treeitem"
-      aria-selected={false}
-      className="list-none"
-      data-testid={`account-leaf-${account.id}`}
-    >
-      <div
-        className="flex items-center gap-3 rounded-token py-1.5 pr-2 hover:bg-surface-2"
-        style={{ paddingLeft: `${depth * 20 + 28}px` }}
-      >
-        <span className="w-16 font-mono text-[13px] tabular-nums text-accent-ink">
-          {account.code}
-        </span>
-        <span
-          className={cn("flex-1 truncate text-sm", !account.isActive && "text-muted-foreground")}
-        >
-          {account.name}
-          {!account.isActive && <span className="ml-2 text-xs text-faint">(inactive)</span>}
-        </span>
-        <TypeBadge type={account.type} />
-        {cb.canManage && (
-          <DropdownMenu>
-            <DropdownMenuTrigger
-              aria-label={`Actions for account ${account.code}`}
-              data-testid={`account-actions-${account.id}`}
-              className="grid h-7 w-7 place-items-center rounded-token text-muted-foreground hover:bg-muted hover:text-foreground focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-ring"
-            >
-              <MoreHorizontal className="h-4 w-4" aria-hidden />
-            </DropdownMenuTrigger>
-            <DropdownMenuContent>
-              <DropdownMenuItem onSelect={() => cb.onEditAccount(account)}>Edit</DropdownMenuItem>
-              {account.isActive ? (
-                <DropdownMenuItem onSelect={() => cb.onDeactivate(account)}>
-                  Deactivate
-                </DropdownMenuItem>
-              ) : (
-                <DropdownMenuItem onSelect={() => cb.onReactivate(account)}>
-                  Reactivate
-                </DropdownMenuItem>
-              )}
-            </DropdownMenuContent>
-          </DropdownMenu>
-        )}
-      </div>
-    </li>
-  );
-}
+const GUIDE = "#E6E8EC";
 
-function GroupNode({
-  group,
-  groups,
-  accounts,
-  cb,
-  depth,
-}: {
-  group: AccountGroup;
-  groups: AccountGroup[];
-  accounts: Account[];
-  cb: TreeCallbacks;
-  depth: number;
-}) {
-  const childGroups = groups.filter((g) => g.parentGroupId === group.id);
-  const childAccounts = accounts.filter((a) => a.accountGroupId === group.id);
-  const isOpen = cb.expanded.has(group.id);
-  const isEmpty = childGroups.length === 0 && childAccounts.length === 0;
+/** Column widths — mirror the design's tree header (Type · Status · Opening · kebab).
+ *  Columns collapse below md; on phones the data folds under the name (design §4). */
+const COL = {
+  type: "w-[144px]",
+  status: "w-[116px]",
+  opening: "w-[152px]",
+  kebab: "w-[46px]",
+} as const;
 
+type Row =
+  | { kind: "group"; group: AccountGroup; depth: number; open: boolean; count: number; subtotal: Decimal | null }
+  | { kind: "account"; account: Account; depth: number }
+  | { kind: "empty"; depth: number; key: string };
+
+/** Indent rails — one 1px guide line per ancestor level (design). */
+function Rails({ depth }: { depth: number }) {
   return (
-    <li
-      role="treeitem"
-      aria-selected={false}
-      aria-expanded={isOpen}
-      className="list-none"
-      data-testid={`group-node-${group.id}`}
-    >
-      <div
-        className="group flex items-center gap-2 rounded-token py-1.5 pr-2 hover:bg-surface-2"
-        style={{ paddingLeft: `${depth * 20 + 4}px` }}
-      >
-        <button
-          type="button"
-          onClick={() => cb.onToggle(group.id)}
-          aria-label={isOpen ? `Collapse ${group.name}` : `Expand ${group.name}`}
-          className="grid h-6 w-6 flex-none place-items-center rounded-sm text-muted-foreground hover:bg-muted focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-ring"
-        >
-          <ChevronRight
-            className={cn("h-4 w-4 transition-transform", isOpen && "rotate-90")}
-            aria-hidden
+    <>
+      {Array.from({ length: depth }, (_, i) => (
+        <span key={i} className="relative w-[22px] flex-none" aria-hidden>
+          <span
+            className="absolute bottom-0 top-0 w-px"
+            style={{ left: 11, background: GUIDE }}
           />
-        </button>
-        <span className="flex-1 truncate text-sm font-semibold text-foreground">{group.name}</span>
-        <TypeBadge type={group.type} />
-        {cb.canManage && (
-          <button
-            type="button"
-            onClick={() => cb.onEditGroup(group)}
-            data-testid={`group-edit-${group.id}`}
-            className="rounded-sm px-2 py-0.5 text-[11.5px] font-medium text-muted-foreground opacity-0 transition-opacity hover:bg-muted hover:text-foreground focus-visible:opacity-100 group-hover:opacity-100"
-          >
-            Edit
-          </button>
-        )}
-      </div>
-      {isOpen && (
-        <ul role="group">
-          {childGroups.map((g) => (
-            <GroupNode
-              key={g.id}
-              group={g}
-              groups={groups}
-              accounts={accounts}
-              cb={cb}
-              depth={depth + 1}
-            />
-          ))}
-          {childAccounts.map((a) => (
-            <AccountLeaf key={a.id} account={a} cb={cb} depth={depth + 1} />
-          ))}
-          {isEmpty && (
-            <li
-              role="treeitem"
-              aria-selected={false}
-              className="list-none py-1.5 text-xs text-faint"
-              style={{ paddingLeft: `${(depth + 1) * 20 + 28}px` }}
-            >
-              No accounts in this group.
-            </li>
-          )}
-        </ul>
-      )}
-    </li>
+        </span>
+      ))}
+    </>
   );
 }
 
-/** ARIA account tree (FR-MAS-017/018, spec §5/§10). Groups nest by parentGroupId. */
+function StatusPill({ active }: { active: boolean }) {
+  return (
+    <span
+      className="inline-flex items-center gap-1.5 rounded-pill px-[9px] text-[11.5px] font-semibold"
+      style={{
+        height: 22,
+        background: active ? "#E3F5EC" : "#F1F3F5",
+        color: active ? "#15784F" : "#697079",
+      }}
+    >
+      <span
+        className="h-1.5 w-1.5 rounded-full"
+        style={{ background: active ? "#1FA46B" : "#9AA1AB" }}
+        aria-hidden
+      />
+      {active ? "Active" : "Inactive"}
+    </span>
+  );
+}
+
+function OpeningCell({ text, muted }: { text: string; muted: boolean }) {
+  return (
+    <div
+      className={cn(
+        "hidden flex-none items-center justify-end px-4 font-mono text-[12.5px] tabular-nums lg:flex",
+        COL.opening,
+        muted ? "text-faint" : "text-foreground",
+      )}
+    >
+      {text}
+    </div>
+  );
+}
+
 export function AccountTree({
   groups,
   accounts,
   cb,
+  minH = 40,
+  pad = 6,
 }: {
   groups: AccountGroup[];
   accounts: Account[];
   cb: TreeCallbacks;
+  minH?: number;
+  pad?: number;
 }) {
-  const roots = groups.filter((g) => g.parentGroupId == null);
+  const rows = useMemo<Row[]>(() => {
+    const accountsOf = (gid: string) => accounts.filter((a) => a.accountGroupId === gid);
+    const childGroupsOf = (gid: string | null) =>
+      groups.filter((g) => g.parentGroupId === (gid ?? null));
+
+    // Recursive opening-balance rollup (design: subtotals roll up to groups).
+    const subtotal = (gid: string): Decimal | null => {
+      let sum = new Decimal(0);
+      let any = false;
+      for (const a of accountsOf(gid)) {
+        if (a.openingBalance != null && a.openingBalance !== "") {
+          sum = sum.plus(new Decimal(a.openingBalance));
+          any = true;
+        }
+      }
+      for (const g of childGroupsOf(gid)) {
+        const sv = subtotal(g.id);
+        if (sv != null) {
+          sum = sum.plus(sv);
+          any = true;
+        }
+      }
+      return any ? sum : null;
+    };
+    // Total descendant account count (design: "N accounts" on the group row).
+    const descAccounts = (gid: string): number => {
+      let n = accountsOf(gid).length;
+      for (const g of childGroupsOf(gid)) n += descAccounts(g.id);
+      return n;
+    };
+
+    const out: Row[] = [];
+    let emptyKey = 0;
+    const addGroup = (g: AccountGroup, depth: number) => {
+      const open = cb.expanded.has(g.id);
+      out.push({
+        kind: "group",
+        group: g,
+        depth,
+        open,
+        count: descAccounts(g.id),
+        subtotal: subtotal(g.id),
+      });
+      if (open) {
+        const subs = childGroupsOf(g.id);
+        const accs = accountsOf(g.id);
+        subs.forEach((sg) => addGroup(sg, depth + 1));
+        accs.forEach((a) => out.push({ kind: "account", account: a, depth: depth + 1 }));
+        if (subs.length + accs.length === 0)
+          out.push({ kind: "empty", depth: depth + 1, key: `e${emptyKey++}` });
+      }
+    };
+    childGroupsOf(null).forEach((g) => addGroup(g, 0));
+    return out;
+  }, [groups, accounts, cb.expanded]);
+
   return (
-    <ul
-      role="tree"
-      aria-label="Chart of accounts"
-      className="flex flex-col"
-      data-testid="account-tree"
+    <div role="tree" aria-label="Chart of accounts">
+      {rows.map((row) => {
+        if (row.kind === "group") return <GroupRow key={row.group.id} row={row} cb={cb} minH={minH} pad={pad} />;
+        if (row.kind === "account")
+          return <AccountRow key={row.account.id} account={row.account} depth={row.depth} cb={cb} minH={minH} pad={pad} />;
+        return <EmptyRow key={row.key} depth={row.depth} />;
+      })}
+    </div>
+  );
+}
+
+function GroupKebab({ g, cb }: { g: AccountGroup; cb: TreeCallbacks }) {
+  if (!cb.canManage) return null;
+  return (
+    <DropdownMenu>
+      <DropdownMenuTrigger
+        aria-label={`Actions for group ${g.name}`}
+        data-testid={`group-actions-${g.id}`}
+        className="grid h-7 w-7 place-items-center rounded-token text-faint outline-none hover:bg-[#EAEDF0] hover:text-foreground focus-visible:ring-2 focus-visible:ring-ring"
+      >
+        ⋯
+      </DropdownMenuTrigger>
+      <DropdownMenuContent className="w-[186px]">
+        <DropdownMenuItem onSelect={() => cb.onEditGroup(g)}>Edit group</DropdownMenuItem>
+        <DropdownMenuItem onSelect={() => cb.onAddAccount(g.id)}>Add account</DropdownMenuItem>
+        <DropdownMenuItem onSelect={() => cb.onAddSubGroup(g.id)}>Add sub-group</DropdownMenuItem>
+      </DropdownMenuContent>
+    </DropdownMenu>
+  );
+}
+
+function GroupRow({
+  row,
+  cb,
+  minH,
+  pad,
+}: {
+  row: Extract<Row, { kind: "group" }>;
+  cb: TreeCallbacks;
+  minH: number;
+  pad: number;
+}) {
+  const { group: g, depth, open, count, subtotal } = row;
+  const top = depth === 0;
+  const countText = count > 0 ? `${count} account${count === 1 ? "" : "s"}` : "empty";
+
+  return (
+    <div
+      role="treeitem"
+      aria-level={depth + 1}
+      aria-expanded={open}
+      aria-selected={false}
+      tabIndex={0}
+      data-testid={`group-node-${g.id}`}
+      className="outline-none"
     >
-      {roots.map((g) => (
-        <GroupNode key={g.id} group={g} groups={groups} accounts={accounts} cb={cb} depth={0} />
-      ))}
-    </ul>
+      {/* ───── DESKTOP (≥lg): columnar row ───── */}
+      <div
+        className={cn(
+          "relative hidden items-stretch border-b border-[#F1F3F5] lg:flex",
+          "hover:bg-[#F4F7FA]",
+          top ? "bg-[#FBFCFD]" : "bg-surface",
+        )}
+        style={{ minHeight: minH }}
+      >
+        <div className="flex min-w-0 flex-1 items-stretch">
+          <Rails depth={depth} />
+          <button
+            type="button"
+            onClick={() => cb.onToggle(g.id)}
+            aria-label={open ? `Collapse ${g.name}` : `Expand ${g.name}`}
+            className="flex min-w-0 flex-1 items-center gap-2 pr-3 text-left"
+            style={{ paddingTop: pad, paddingBottom: pad }}
+          >
+            <span className="flex w-[22px] flex-none items-center justify-center text-[11px] text-muted-foreground">
+              {open ? "▾" : "▸"}
+            </span>
+            <span
+              className="tracking-[-0.01em] text-foreground [overflow-wrap:anywhere]"
+              style={{ fontSize: top ? 14 : 13.5, fontWeight: top ? 700 : 600 }}
+            >
+              {g.name}
+            </span>
+            {top && (
+              <span className="flex h-[18px] flex-none items-center rounded-[5px] bg-[#EDEFF2] px-[7px] text-[10px] font-semibold tracking-[0.3px] text-muted-foreground">
+                {statementOf(g.type)}
+              </span>
+            )}
+          </button>
+        </div>
+        <div className={cn("flex flex-none items-center px-[9px]", COL.type)}>
+          <TypeBadge type={g.type} />
+        </div>
+        <div className={cn("flex flex-none items-center px-[9px] text-[12px] text-faint", COL.status)}>
+          {countText}
+        </div>
+        <OpeningCell
+          muted
+          text={subtotal != null ? formatMoney(subtotal, { fractionDigits: 2 }) : "—"}
+        />
+        <div className={cn("relative flex flex-none items-center justify-center", COL.kebab)}>
+          <GroupKebab g={g} cb={cb} />
+        </div>
+      </div>
+
+      {/* ───── MOBILE (<lg): category band (top) / sub-group header (nested) ───── */}
+      {top ? (
+        <div className="relative flex items-center gap-2 px-3 pb-2 pt-3.5 lg:hidden">
+          <button
+            type="button"
+            onClick={() => cb.onToggle(g.id)}
+            aria-label={open ? `Collapse ${g.name}` : `Expand ${g.name}`}
+            className="flex min-w-0 items-center gap-2 text-left"
+          >
+            <span className="text-[10px] text-muted-foreground">{open ? "▾" : "▸"}</span>
+            <span className="text-[11.5px] font-bold uppercase tracking-[0.5px] text-foreground">
+              {g.name}
+            </span>
+          </button>
+          <TypeBadge type={g.type} size="sm" />
+          <span className="h-px flex-1 bg-[#EAEDF0]" aria-hidden />
+          <GroupKebab g={g} cb={cb} />
+        </div>
+      ) : (
+        <div
+          className="relative flex items-center gap-2 border-y border-[#F1F3F5] bg-[#FBFCFD] py-2 pl-4 pr-3 lg:hidden"
+          style={{ paddingLeft: 16 + depth * 12 }}
+        >
+          <button
+            type="button"
+            onClick={() => cb.onToggle(g.id)}
+            aria-label={open ? `Collapse ${g.name}` : `Expand ${g.name}`}
+            className="flex min-w-0 flex-1 items-center gap-2 text-left"
+          >
+            <span className="text-[10px] text-muted-foreground">{open ? "▾" : "▸"}</span>
+            <span className="text-[12.5px] font-semibold text-foreground [overflow-wrap:anywhere]">
+              {g.name}
+            </span>
+          </button>
+          <span className="text-[11px] text-faint">{countText}</span>
+          <GroupKebab g={g} cb={cb} />
+        </div>
+      )}
+    </div>
+  );
+}
+
+function AccountKebab({ a, cb }: { a: Account; cb: TreeCallbacks }) {
+  if (!cb.canManage) return null;
+  return (
+    <DropdownMenu>
+      <DropdownMenuTrigger
+        aria-label={`Actions for account ${a.code}`}
+        data-testid={`account-actions-${a.id}`}
+        className="grid h-7 w-7 place-items-center rounded-token text-faint outline-none hover:bg-[#EAEDF0] hover:text-foreground focus-visible:ring-2 focus-visible:ring-ring"
+      >
+        ⋯
+      </DropdownMenuTrigger>
+      <DropdownMenuContent className="w-[176px]">
+        <DropdownMenuItem onSelect={() => cb.onEditAccount(a)}>Edit</DropdownMenuItem>
+        {a.isActive ? (
+          <DropdownMenuItem
+            onSelect={() => cb.onDeactivate(a)}
+            className="text-destructive-ink focus:bg-destructive-soft focus:text-destructive-ink"
+          >
+            Deactivate
+          </DropdownMenuItem>
+        ) : (
+          <DropdownMenuItem onSelect={() => cb.onReactivate(a)}>Reactivate</DropdownMenuItem>
+        )}
+      </DropdownMenuContent>
+    </DropdownMenu>
+  );
+}
+
+function AccountRow({
+  account: a,
+  depth,
+  cb,
+  minH,
+  pad,
+}: {
+  account: Account;
+  depth: number;
+  cb: TreeCallbacks;
+  minH: number;
+  pad: number;
+}) {
+  const hasOpen = a.openingBalance != null && a.openingBalance !== "";
+  const openingText = hasOpen ? formatMoney(a.openingBalance as string, { fractionDigits: 2 }) : "—";
+  const meta = TYPE_META[a.type as AccountType];
+  const metaLine = `${ACCOUNT_TYPE_LABEL[a.type as AccountType]} · ${a.isActive ? "Active" : "Inactive"}`;
+
+  return (
+    <div
+      role="treeitem"
+      aria-level={depth + 1}
+      aria-selected={false}
+      tabIndex={0}
+      data-testid={`account-leaf-${a.id}`}
+      className="outline-none"
+    >
+      {/* ───── DESKTOP (≥lg): columnar row ───── */}
+      <div
+        className="relative hidden items-stretch border-b border-[#F1F3F5] bg-surface hover:bg-surface-2 lg:flex"
+        style={{ minHeight: minH }}
+      >
+        <div className="flex min-w-0 flex-1 items-stretch">
+          <Rails depth={depth} />
+          <span className="flex w-[22px] flex-none items-center justify-center" aria-hidden>
+            <span className="h-[5px] w-[5px] rounded-full bg-[#CBD2DA]" />
+          </span>
+          <div
+            className="flex min-w-0 flex-1 items-center gap-2.5 pr-3"
+            style={{ paddingTop: pad, paddingBottom: pad }}
+          >
+            <a
+              href="#"
+              className="flex-none font-mono text-[12px] font-semibold text-accent-ink hover:underline"
+            >
+              {a.code}
+            </a>
+            <span className="text-[13.5px] font-medium text-foreground [overflow-wrap:anywhere]">
+              {a.name}
+            </span>
+            {!a.isActive && <span className="flex-none text-[11.5px] text-faint">(inactive)</span>}
+          </div>
+        </div>
+        <div className={cn("flex flex-none items-center px-[9px]", COL.type)}>
+          <TypeBadge type={a.type as AccountType} />
+        </div>
+        <div className={cn("flex flex-none items-center px-[9px]", COL.status)}>
+          <StatusPill active={a.isActive} />
+        </div>
+        <div
+          className={cn(
+            "flex flex-none items-center justify-end px-4 font-mono text-[12.5px] tabular-nums",
+            COL.opening,
+            hasOpen ? "text-foreground" : "text-faint",
+          )}
+        >
+          {openingText}
+        </div>
+        <div className={cn("relative flex flex-none items-center justify-center", COL.kebab)}>
+          <AccountKebab a={a} cb={cb} />
+        </div>
+      </div>
+
+      {/* ───── MOBILE (<lg): account card — code chip · name+meta · ৳ amount · ⋯ ───── */}
+      <div className="relative flex items-center gap-2.5 border-b border-[#F1F3F5] bg-surface py-2.5 pl-4 pr-2 lg:hidden">
+        <span
+          className="grid h-9 w-9 flex-none place-items-center rounded-[9px] font-mono text-[11px] font-semibold"
+          style={{ background: meta.soft, color: meta.ink }}
+          aria-hidden
+        >
+          {a.code}
+        </span>
+        <div className="min-w-0 flex-1">
+          <div className="truncate text-[14px] font-semibold text-foreground">{a.name}</div>
+          <div className="mt-0.5 text-[11.5px] text-muted-foreground">{metaLine}</div>
+        </div>
+        <span
+          className={cn(
+            "flex-none whitespace-nowrap font-mono text-[13px] tabular-nums",
+            hasOpen ? "text-foreground" : "text-faint",
+          )}
+        >
+          {openingText}
+        </span>
+        <AccountKebab a={a} cb={cb} />
+      </div>
+    </div>
+  );
+}
+
+function EmptyRow({ depth }: { depth: number }) {
+  return (
+    <div className="border-b border-[#F1F3F5] bg-surface">
+      {/* desktop */}
+      <div className="hidden items-stretch lg:flex" style={{ minHeight: 40 }}>
+        <div className="flex min-w-0 flex-1 items-stretch">
+          <Rails depth={depth} />
+          <span className="w-[22px] flex-none" />
+          <div className="flex flex-1 items-center py-2 text-[12.5px] italic text-faint">
+            No accounts in this group.
+          </div>
+        </div>
+        <div className={cn("flex-none", COL.type)} />
+        <div className={cn("flex-none", COL.status)} />
+        <div className={cn("flex-none", COL.opening)} />
+        <div className={cn("flex-none", COL.kebab)} />
+      </div>
+      {/* mobile */}
+      <div className="px-4 py-2.5 text-[12.5px] italic text-faint lg:hidden">
+        No accounts in this group.
+      </div>
+    </div>
   );
 }

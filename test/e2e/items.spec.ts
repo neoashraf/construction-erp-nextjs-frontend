@@ -1,8 +1,9 @@
 import { test, expect, type Page, type Route } from "@playwright/test";
 
 /**
- * FE-8 items happy path (FR-MAS-025/026/034): create item → add UoM conversion →
- * base unit locks. Deactivate/reactivate covered in the component tests.
+ * FE-8 items happy path (FR-MAS-025/026/034): create item in the slide-over drawer →
+ * reopen it for edit → add a UoM conversion → base unit locks. Deactivate/reactivate
+ * covered in the component tests.
  */
 
 const ADMIN = { email: "admin@ze.test", password: "Passw0rd!" };
@@ -114,27 +115,38 @@ async function login(page: Page) {
   await page.waitForURL("**/dashboard");
 }
 
-test("Admin creates an item, adds a conversion, and the base unit locks", async ({ page }) => {
+test("Admin creates an item in the drawer, edits it to add a conversion, and the base unit locks", async ({
+  page,
+}) => {
   const items: Item[] = [];
   const convs: Conv[] = [];
   await stub(page, items, convs);
   await login(page);
 
-  await page.goto("/master-data/items/new");
+  await page.goto("/master-data/items");
+
+  // Create via the slide-over drawer (no page navigation).
+  await page.getByTestId("new-item").click();
   await page.getByLabel(/^code/i).fill("MAT-1");
   await page.getByLabel(/^name/i).fill("Cement");
-  await page.getByLabel(/base unit/i).fill("Bag");
+  await page.getByLabel(/base uom/i).fill("Bag");
   await page.getByLabel(/default gl account/i).selectOption("acc1");
   await page.getByTestId("item-save").click();
 
-  // Navigated to the created item's detail.
-  await page.waitForURL(/\/master-data\/items\/it101$/);
-  await expect(page.getByTestId("conversions-empty")).toContainText("The base unit is Bag");
+  // Drawer closes, toast confirms, and the new row shows in the list.
+  await expect(page.getByText("Item created.")).toBeVisible();
+  const row = page.getByTestId("item-row-it101");
+  await expect(row).toContainText("MAT-1");
+
+  // Reopen it for edit via the row's actions menu.
+  await row.getByTestId("item-actions-it101").click();
+  await page.getByRole("menuitem", { name: /^edit$/i }).click();
 
   // Base unit editable before conversions exist.
-  await expect(page.getByLabel(/base unit/i)).toBeEnabled();
+  await expect(page.getByLabel(/base uom/i)).toBeEnabled();
+  await expect(page.getByTestId("conversions-empty")).toContainText("The base unit is Bag");
 
-  // Add a conversion.
+  // Add a conversion inside the drawer.
   await page.getByLabel(/^unit/i).fill("Ton");
   await page.getByLabel(/factor to/i).fill("20");
   await page.getByTestId("conversion-save").click();
@@ -143,5 +155,5 @@ test("Admin creates an item, adds a conversion, and the base unit locks", async 
 
   // Base unit now locked with the immutability note.
   await expect(page.getByTestId("base-uom-locked-note")).toBeVisible();
-  await expect(page.getByLabel(/base unit/i)).toBeDisabled();
+  await expect(page.getByLabel(/base uom/i)).toBeDisabled();
 });

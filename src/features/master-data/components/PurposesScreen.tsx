@@ -76,10 +76,12 @@ export function PurposesScreen() {
   }
 
   return (
-    <div className="mx-auto max-w-4xl">
+    <div>
       {/* breadcrumb (with project name) + title + project selector + CTA */}
       <div className="flex flex-wrap items-start justify-between gap-4">
         <div className="min-w-0">
+          {/* Shared breadcrumb (›-separated) — same as every other module. The project
+              scope is the last segment when a project is selected. */}
           <Breadcrumb
             items={[
               { label: "Master Data" },
@@ -90,14 +92,12 @@ export function PurposesScreen() {
           <h1 className="text-[23px] font-bold tracking-[-0.02em]">Purposes</h1>
         </div>
         <div className="flex flex-wrap items-end gap-2.5">
-          <div className="min-w-[240px]">
-            <ProjectSelector
-              projects={projects}
-              value={projectId}
-              onChange={setProjectId}
-              loading={projectsQuery.isLoading}
-            />
-          </div>
+          <ProjectSelector
+            projects={projects}
+            value={projectId}
+            onChange={setProjectId}
+            loading={projectsQuery.isLoading}
+          />
           {canManage && projectId && (
             <Button
               size="md"
@@ -132,7 +132,9 @@ export function PurposesScreen() {
               className="flex flex-wrap items-end gap-3.5"
             >
               <div className="flex flex-none flex-col gap-1.5">
-                <Label id="pu-status-label">Status</Label>
+                <Label id="pu-status-label" className="text-[10.5px]">
+                  Status
+                </Label>
                 <div
                   role="group"
                   aria-labelledby="pu-status-label"
@@ -161,7 +163,9 @@ export function PurposesScreen() {
               </div>
 
               <div className="flex min-w-[180px] flex-1 flex-col gap-1.5">
-                <Label htmlFor="pu-search">Search</Label>
+                <Label htmlFor="pu-search" className="text-[10.5px]">
+                  Search
+                </Label>
                 <div className="relative">
                   <Search
                     className="pointer-events-none absolute left-3 top-1/2 h-4 w-4 -translate-y-1/2 text-faint"
@@ -195,26 +199,6 @@ export function PurposesScreen() {
               </div>
             </form>
           </Card>
-
-          {/* Inline-create combobox — the reusable control voucher forms consume (not in
-              the design mockup, but a real feature; kept below the filter). */}
-          {canCreate && (
-            <Card className="mt-4 p-4">
-              <Label className="mb-1.5 block text-[10.5px]">
-                Quick add / pick (used inline in voucher forms)
-              </Label>
-              <PurposeCombobox
-                projectId={projectId}
-                value={null}
-                canCreate={canCreate}
-                closedProject={closedProject}
-                onChange={(p) => {
-                  toast(`‘${p.name}’ selected.`, "success");
-                  query.refetch();
-                }}
-              />
-            </Card>
-          )}
 
           <Card className="mt-4 overflow-hidden p-0">
             {query.isLoading ? (
@@ -260,7 +244,7 @@ export function PurposesScreen() {
                     title="No purposes for this project yet."
                     description={
                       projectName
-                        ? `Add a purpose to scope spending on ${projectName} — or create one on the fly from a voucher's dropdown.`
+                        ? `Add a purpose to scope spending on ${projectName} — or create one on the fly from a voucher's dropdown below.`
                         : "Add a purpose to scope spending on this project."
                     }
                     action={
@@ -289,6 +273,65 @@ export function PurposesScreen() {
               />
             )}
           </Card>
+
+          {/* ============ INLINE-CREATE DROPDOWN (SHARED COMPONENT) ============
+              The same combobox voucher forms reuse to pick — or inline-create — a
+              purpose. Kept below the list, as in the design file. */}
+          {canCreate && (
+            <section className="mt-[26px]" data-testid="purpose-shared-component">
+              <div className="mb-1 flex items-center gap-2.5">
+                <span className="whitespace-nowrap text-[10.5px] font-bold uppercase tracking-[0.5px] text-accent-ink">
+                  Shared component
+                </span>
+                <span className="h-px flex-1 bg-border" aria-hidden />
+              </div>
+              <div className="mb-3.5">
+                <div className="text-[15.5px] font-bold text-foreground">
+                  Inline-create dropdown
+                </div>
+                <p className="mt-0.5 max-w-[74ch] text-[12.5px] leading-normal text-muted-foreground">
+                  The same combobox reused inside voucher forms to pick a purpose — or create a
+                  new reusable one on the fly. ARIA-wired; inline-create is{" "}
+                  <strong className="font-semibold text-foreground">idempotent</strong> — choosing
+                  Create on an existing name returns that purpose, never a duplicate.
+                </p>
+              </div>
+
+              {/* faux voucher card containing the dimension picker */}
+              <Card className="max-w-[560px] p-[18px]">
+                <div className="mb-3 flex items-center gap-2">
+                  <span className="text-[10px] font-semibold uppercase tracking-[0.4px] text-faint">
+                    Voucher · posting dimension
+                  </span>
+                  <span className="inline-flex h-5 items-center rounded-pill bg-accent-soft px-2 text-[10.5px] font-semibold text-accent-ink">
+                    Purpose
+                  </span>
+                </div>
+
+                <Label htmlFor="purpose-combobox" className="mb-1.5 block text-[11px]">
+                  Purpose
+                </Label>
+
+                <PurposeCombobox
+                  id="purpose-combobox"
+                  projectId={projectId}
+                  value={null}
+                  canCreate={canCreate}
+                  closedProject={closedProject}
+                  onChange={(p) => {
+                    toast(`‘${p.name}’ selected.`, "success");
+                    query.refetch();
+                  }}
+                />
+
+                <p className="mt-2.5 text-[11.5px] text-faint">
+                  Lists active purposes for{" "}
+                  <span className="text-muted-foreground">{projectName ?? "this project"}</span>.
+                  Works down to 360px on phones at site.
+                </p>
+              </Card>
+            </section>
+          )}
         </>
       )}
 
@@ -298,6 +341,7 @@ export function PurposesScreen() {
             modal.kind === "edit" ? { kind: "edit", purpose: modal.purpose } : { kind: "create" }
           }
           projectId={projectId}
+          projectName={projectName}
           onClose={() => setModal(null)}
           onSuccess={(m) => toast(m, "success")}
           onConflict={() => {

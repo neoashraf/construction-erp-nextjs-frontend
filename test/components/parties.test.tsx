@@ -16,6 +16,7 @@ import { type Role } from "@/lib/auth/roles";
 import { type Party } from "@/features/master-data/types";
 import { PartiesScreen } from "@/features/master-data/components/PartiesScreen";
 import { PartyDetailForm } from "@/features/master-data/components/PartyDetailForm";
+import { PartyFormSheet } from "@/features/master-data/components/PartyFormSheet";
 import { PartyStatusDialog } from "@/features/master-data/components/PartyStatusDialog";
 import * as api from "@/features/master-data/api/parties";
 
@@ -123,7 +124,8 @@ describe("PartiesScreen — list", () => {
     const table = await screen.findByTestId("parties-desktop");
     expect(within(table).getByText("Acme Traders")).toBeInTheDocument();
     expect(within(table).getByText("Customer")).toBeInTheDocument();
-    expect(within(table).getByText("+8801712345678")).toBeInTheDocument();
+    // Phone renders formatted under the name (+8801XXXXXXXXX → +880 1XXX-XXXXXX).
+    expect(within(table).getByText("+880 1712-345678")).toBeInTheDocument();
   });
 
   it("empty (no filters) shows 'No parties yet.' + New; filtered-empty shows Clear filters", async () => {
@@ -136,6 +138,26 @@ describe("PartiesScreen — list", () => {
     expect(screen.getByTestId("clear-filters")).toBeInTheDocument();
   });
 
+  it("clicking the Name header sorts rows and toggles direction (spec §5)", async () => {
+    const zed: Party = { ...PARTY, id: "p2", name: "Zed Corp" };
+    listMock.mockResolvedValue(page(zed, PARTY)); // Zed first from the API
+    renderList();
+    const table = await screen.findByTestId("parties-desktop");
+
+    // The name is the first cell's control in each row (a button for managers).
+    const names = () =>
+      screen
+        .getAllByTestId(/^party-row-/)
+        .map((r) => within(r).getAllByRole("button")[0]?.textContent);
+
+    // Default sort is Name asc → Acme before Zed.
+    expect(names()).toEqual(["Acme Traders", "Zed Corp"]);
+
+    // Click the Name header → toggles to desc → Zed before Acme.
+    await userEvent.click(within(table).getByRole("button", { name: /name/i }));
+    expect(names()).toEqual(["Zed Corp", "Acme Traders"]);
+  });
+
   it("role filter drives ?isCustomer (FR-MAS-024)", async () => {
     listMock.mockResolvedValue(page(PARTY));
     renderList();
@@ -144,6 +166,15 @@ describe("PartiesScreen — list", () => {
     await waitFor(() =>
       expect(listMock).toHaveBeenCalledWith(expect.objectContaining({ isSupplier: true })),
     );
+  });
+
+  it("New party opens the drawer in place (no navigation)", async () => {
+    listMock.mockResolvedValue(page());
+    renderList();
+    await screen.findByText("No parties yet.");
+    await userEvent.click(screen.getByTestId("new-party"));
+    const sheet = await screen.findByTestId("party-form-sheet");
+    expect(within(sheet).getByText("New party")).toBeInTheDocument();
   });
 
   it("error shows Retry", async () => {
@@ -273,6 +304,68 @@ describe("PartyDetailForm — validation + save", () => {
     );
     expect(screen.queryByTestId("party-save")).not.toBeInTheDocument();
     expect(screen.getByRole("button", { name: /back to parties/i })).toBeInTheDocument();
+  });
+});
+
+// ── Drawer (create/edit in place) ────────────────────────────────────────────
+describe("PartyFormSheet — drawer create/edit (FR-MAS-022/023)", () => {
+  const noop = () => {};
+
+  it("titles the drawer 'New party' on create", async () => {
+    renderNode(
+      <PartyFormSheet mode={{ kind: "create" }} onClose={noop} onSaved={noop} onReload={noop} />,
+    );
+    expect(await screen.findByText("New party")).toBeInTheDocument();
+  });
+
+  it("titles the drawer 'Edit party' on edit and prefills the name", async () => {
+    renderNode(
+      <PartyFormSheet
+        mode={{ kind: "edit", party: PARTY }}
+        onClose={noop}
+        onSaved={noop}
+        onReload={noop}
+      />,
+    );
+    expect(await screen.findByText("Edit party")).toBeInTheDocument();
+    expect(screen.getByLabelText(/^name/i)).toHaveValue("Acme Traders");
+  });
+
+  it("requires at least one role (group error) before it will create", async () => {
+    renderNode(
+      <PartyFormSheet mode={{ kind: "create" }} onClose={noop} onSaved={noop} onReload={noop} />,
+    );
+    await userEvent.type(screen.getByLabelText(/^name/i), "No Role Co");
+    await userEvent.type(screen.getByLabelText(/phone/i), "01712345678");
+    await userEvent.click(screen.getByTestId("party-save"));
+    expect(await screen.findByTestId("roles-error")).toHaveTextContent(
+      "Select at least one role (customer or supplier).",
+    );
+    expect(createMock).not.toHaveBeenCalled();
+  });
+
+  it("creates a party from the drawer, then calls onSaved + onClose", async () => {
+    createMock.mockResolvedValue({ id: "new" });
+    const onSaved = jest.fn();
+    const onClose = jest.fn();
+    renderNode(
+      <PartyFormSheet mode={{ kind: "create" }} onClose={onClose} onSaved={onSaved} onReload={noop} />,
+    );
+    await userEvent.type(screen.getByLabelText(/^name/i), "Acme Traders");
+    await userEvent.click(screen.getByRole("checkbox", { name: /customer/i }));
+    await userEvent.type(screen.getByLabelText(/phone/i), "01712345678");
+    await userEvent.click(screen.getByTestId("party-save"));
+    await waitFor(() =>
+      expect(createMock).toHaveBeenCalledWith(
+        expect.objectContaining({
+          name: "Acme Traders",
+          isCustomer: true,
+          phone: "+8801712345678",
+        }),
+      ),
+    );
+    expect(onSaved).toHaveBeenCalled();
+    expect(onClose).toHaveBeenCalled();
   });
 });
 

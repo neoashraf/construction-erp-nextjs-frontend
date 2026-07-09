@@ -126,6 +126,11 @@ export function PurposeCombobox({
   return (
     <div ref={rootRef} className="relative" data-testid="purpose-combobox">
       <div className="relative">
+        {/* lime posting-dimension dot (design) */}
+        <span
+          className="pointer-events-none absolute left-3 top-1/2 h-[7px] w-[7px] -translate-y-1/2 rounded-full bg-accent"
+          aria-hidden
+        />
         <Input
           role="combobox"
           aria-expanded={open}
@@ -135,7 +140,7 @@ export function PurposeCombobox({
           id={idProp}
           disabled={disabled}
           value={open ? text : (value?.name ?? "")}
-          placeholder={value ? value.name : "Select or create a purpose…"}
+          placeholder={value ? value.name : "Select or type a purpose"}
           onChange={(e) => {
             setText(e.target.value);
             setActive(0);
@@ -144,11 +149,11 @@ export function PurposeCombobox({
           }}
           onFocus={() => setOpen(true)}
           onKeyDown={onKeyDown}
-          className="pr-9"
+          className="h-10 pl-7 pr-9"
           data-testid="purpose-combobox-input"
         />
         <ChevronDown
-          className="pointer-events-none absolute right-3 top-1/2 h-4 w-4 -translate-y-1/2 text-muted-foreground"
+          className="pointer-events-none absolute right-3 top-1/2 h-4 w-4 -translate-y-1/2 text-faint"
           aria-hidden
         />
       </div>
@@ -158,7 +163,7 @@ export function PurposeCombobox({
           role="listbox"
           id={listId}
           aria-label="Purposes"
-          className="absolute z-50 mt-1 max-h-60 w-full overflow-auto rounded-lg border border-border-strong bg-surface p-1 shadow-md"
+          className="absolute z-50 mt-1 max-h-72 w-full overflow-auto rounded-lg border border-border-strong bg-surface p-1.5 shadow-md"
         >
           {query.isLoading ? (
             <li
@@ -190,13 +195,16 @@ export function PurposeCombobox({
                   onMouseEnter={() => setActive(i)}
                   onClick={() => selectExisting(p)}
                   className={cn(
-                    "flex cursor-pointer items-center justify-between rounded-token px-2.5 py-1.5 text-sm",
+                    "flex h-[38px] cursor-pointer items-center gap-2.5 rounded-token px-2.5 text-[13.5px]",
                     active === i && "bg-muted",
                   )}
                   data-testid={`purpose-option-${p.id}`}
                 >
-                  <span className="truncate">{p.name}</span>
-                  {value?.id === p.id && <Check className="h-4 w-4 text-accent-ink" aria-hidden />}
+                  <span className="h-1.5 w-1.5 flex-none rounded-full bg-success" aria-hidden />
+                  <span className="min-w-0 flex-1 truncate">{p.name}</span>
+                  {value?.id === p.id && (
+                    <Check className="h-4 w-4 flex-none text-accent-ink" aria-hidden />
+                  )}
                 </li>
               ))}
               {purposes.length === 0 && !showCreate && (
@@ -205,33 +213,53 @@ export function PurposeCombobox({
                 </li>
               )}
               {showCreate && (
-                <li
-                  id={`${listId}-opt-${purposes.length}`}
-                  role="option"
-                  aria-selected={false}
-                  aria-disabled={closedProject}
-                  onMouseEnter={() => setActive(purposes.length)}
-                  onClick={doCreate}
-                  className={cn(
-                    "flex cursor-pointer items-center gap-2 rounded-token px-2.5 py-1.5 text-sm",
-                    active === purposes.length && "bg-muted",
-                    closedProject && "cursor-not-allowed opacity-60",
+                <>
+                  {purposes.length > 0 && (
+                    <li role="presentation" className="mx-1.5 my-1 h-px bg-border" aria-hidden />
                   )}
-                  data-testid="purpose-create-option"
-                >
-                  {create.isPending ? (
-                    <Loader2 className="h-4 w-4 animate-spin text-accent-ink" aria-hidden />
-                  ) : (
-                    <Plus className="h-4 w-4 text-accent-ink" aria-hidden />
-                  )}
-                  <span>
-                    Create &lsquo;<span className="font-semibold">{trimmed}</span>&rsquo;
-                  </span>
-                </li>
+                  <li
+                    id={`${listId}-opt-${purposes.length}`}
+                    role="option"
+                    aria-selected={false}
+                    aria-disabled={closedProject}
+                    onMouseEnter={() => setActive(purposes.length)}
+                    onClick={doCreate}
+                    className={cn(
+                      "flex min-h-[38px] cursor-pointer items-center gap-2.5 rounded-token px-2.5 py-1.5 text-[13.5px]",
+                      active === purposes.length && "bg-accent-soft",
+                      closedProject && "cursor-not-allowed opacity-60",
+                    )}
+                    data-testid="purpose-create-option"
+                  >
+                    <span className="grid h-5 w-5 flex-none place-items-center rounded-md bg-accent text-accent-foreground">
+                      {create.isPending ? (
+                        <Loader2 className="h-3.5 w-3.5 animate-spin" aria-hidden />
+                      ) : (
+                        <Plus className="h-3.5 w-3.5" aria-hidden />
+                      )}
+                    </span>
+                    <span className="min-w-0 flex-1">
+                      Create{" "}
+                      <span className="font-bold text-accent-ink">
+                        &lsquo;{trimmed}&rsquo;
+                      </span>
+                    </span>
+                  </li>
+                </>
               )}
               {closedProject && showCreate && (
                 <li className="px-2.5 pb-1 pt-0.5 text-[11.5px] text-faint">
                   This project is closed — new purposes are blocked.
+                </li>
+              )}
+              {/* Idempotency cue (design): typing an existing name never duplicates —
+                  it selects the existing purpose. */}
+              {canCreate && trimmed !== "" && exactMatch && (
+                <li
+                  className="px-2.5 pb-1 pt-0.5 text-[11px] text-faint"
+                  data-testid="purpose-idempotent-hint"
+                >
+                  This purpose already exists — it will be selected, not duplicated.
                 </li>
               )}
               {createError && (
