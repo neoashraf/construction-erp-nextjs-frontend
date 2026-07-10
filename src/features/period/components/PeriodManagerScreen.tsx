@@ -4,6 +4,7 @@ import { useEffect, useState } from "react";
 import { CalendarRange } from "lucide-react";
 import { Card } from "@/components/ui/card";
 import { Button } from "@/components/ui/button";
+import { Breadcrumb } from "@/components/ui/breadcrumb";
 import { Skeleton } from "@/components/ui/skeleton";
 import { EmptyState } from "@/components/ui/empty-state";
 import { Alert } from "@/components/ui/alert";
@@ -189,10 +190,7 @@ export function PeriodManagerScreen() {
 
   return (
     <div className="mx-auto max-w-6xl">
-      <nav aria-label="Breadcrumb" className="mb-1.5 text-xs text-muted-foreground">
-        Accounting <span className="text-border-strong">/</span>{" "}
-        <span className="font-medium text-foreground">Periods</span>
-      </nav>
+      <Breadcrumb items={[{ label: "Accounting" }, { label: "Periods" }]} />
 
       <div className="flex flex-wrap items-start justify-between gap-4">
         <div>
