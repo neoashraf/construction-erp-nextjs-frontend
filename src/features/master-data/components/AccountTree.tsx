@@ -10,8 +10,9 @@ import {
 } from "@/components/ui/dropdown-menu";
 import { cn } from "@/lib/utils";
 import { formatMoney } from "@/lib/money";
+import { Badge } from "@/components/ui/badge";
 import { type Account, type AccountGroup, type AccountType } from "../types";
-import { TypeBadge, statementOf, TYPE_META } from "./TypeBadge";
+import { TypeBadge, statementOf, TYPE_META, TYPE_PILL } from "./TypeBadge";
 import { ACCOUNT_TYPE_LABEL } from "../schemas/chart-of-accounts.schema";
 
 export interface TreeCallbacks {
@@ -27,8 +28,6 @@ export interface TreeCallbacks {
   onDeactivate: (a: Account) => void;
   onReactivate: (a: Account) => void;
 }
-
-const GUIDE = "#E6E8EC";
 
 /** Column widths — mirror the design's tree header (Type · Status · Opening · kebab).
  *  Columns collapse below md; on phones the data folds under the name (design §4). */
@@ -50,10 +49,7 @@ function Rails({ depth }: { depth: number }) {
     <>
       {Array.from({ length: depth }, (_, i) => (
         <span key={i} className="relative w-[22px] flex-none" aria-hidden>
-          <span
-            className="absolute bottom-0 top-0 w-px"
-            style={{ left: 11, background: GUIDE }}
-          />
+          <span className="absolute bottom-0 top-0 w-px bg-border-strong" style={{ left: 11 }} />
         </span>
       ))}
     </>
@@ -62,21 +58,9 @@ function Rails({ depth }: { depth: number }) {
 
 function StatusPill({ active }: { active: boolean }) {
   return (
-    <span
-      className="inline-flex items-center gap-1.5 rounded-pill px-[9px] text-[11.5px] font-semibold"
-      style={{
-        height: 22,
-        background: active ? "#E3F5EC" : "#F1F3F5",
-        color: active ? "#15784F" : "#697079",
-      }}
-    >
-      <span
-        className="h-1.5 w-1.5 rounded-full"
-        style={{ background: active ? "#1FA46B" : "#9AA1AB" }}
-        aria-hidden
-      />
+    <Badge tone={active ? "success" : "neutral"} dot>
       {active ? "Active" : "Inactive"}
-    </span>
+    </Badge>
   );
 }
 
@@ -182,7 +166,7 @@ function GroupKebab({ g, cb }: { g: AccountGroup; cb: TreeCallbacks }) {
       <DropdownMenuTrigger
         aria-label={`Actions for group ${g.name}`}
         data-testid={`group-actions-${g.id}`}
-        className="grid h-7 w-7 place-items-center rounded-token text-faint outline-none hover:bg-[#EAEDF0] hover:text-foreground focus-visible:ring-2 focus-visible:ring-ring"
+        className="grid h-7 w-7 place-items-center rounded-token text-faint outline-none hover:bg-muted hover:text-foreground focus-visible:ring-2 focus-visible:ring-ring"
       >
         ⋯
       </DropdownMenuTrigger>
@@ -223,9 +207,9 @@ function GroupRow({
       {/* ───── DESKTOP (≥lg): columnar row ───── */}
       <div
         className={cn(
-          "relative hidden items-stretch border-b border-[#F1F3F5] lg:flex",
-          "hover:bg-[#F4F7FA]",
-          top ? "bg-[#FBFCFD]" : "bg-surface",
+          "relative hidden items-stretch border-b border-muted lg:flex",
+          "hover:bg-surface-2",
+          top ? "bg-surface-2" : "bg-surface",
         )}
         style={{ minHeight: minH }}
       >
@@ -248,7 +232,7 @@ function GroupRow({
               {g.name}
             </span>
             {top && (
-              <span className="flex h-[18px] flex-none items-center rounded-[5px] bg-[#EDEFF2] px-[7px] text-[10px] font-semibold tracking-[0.3px] text-muted-foreground">
+              <span className="flex h-[18px] flex-none items-center rounded-[5px] bg-muted px-[7px] text-[10px] font-semibold tracking-[0.3px] text-muted-foreground">
                 {statementOf(g.type)}
               </span>
             )}
@@ -284,12 +268,12 @@ function GroupRow({
             </span>
           </button>
           <TypeBadge type={g.type} size="sm" />
-          <span className="h-px flex-1 bg-[#EAEDF0]" aria-hidden />
+          <span className="h-px flex-1 bg-border" aria-hidden />
           <GroupKebab g={g} cb={cb} />
         </div>
       ) : (
         <div
-          className="relative flex items-center gap-2 border-y border-[#F1F3F5] bg-[#FBFCFD] py-2 pl-4 pr-3 lg:hidden"
+          className="relative flex items-center gap-2 border-y border-muted bg-surface-2 py-2 pl-4 pr-3 lg:hidden"
           style={{ paddingLeft: 16 + depth * 12 }}
         >
           <button
@@ -318,7 +302,7 @@ function AccountKebab({ a, cb }: { a: Account; cb: TreeCallbacks }) {
       <DropdownMenuTrigger
         aria-label={`Actions for account ${a.code}`}
         data-testid={`account-actions-${a.id}`}
-        className="grid h-7 w-7 place-items-center rounded-token text-faint outline-none hover:bg-[#EAEDF0] hover:text-foreground focus-visible:ring-2 focus-visible:ring-ring"
+        className="grid h-7 w-7 place-items-center rounded-token text-faint outline-none hover:bg-muted hover:text-foreground focus-visible:ring-2 focus-visible:ring-ring"
       >
         ⋯
       </DropdownMenuTrigger>
@@ -368,13 +352,13 @@ function AccountRow({
     >
       {/* ───── DESKTOP (≥lg): columnar row ───── */}
       <div
-        className="relative hidden items-stretch border-b border-[#F1F3F5] bg-surface hover:bg-surface-2 lg:flex"
+        className="relative hidden items-stretch border-b border-muted bg-surface hover:bg-surface-2 lg:flex"
         style={{ minHeight: minH }}
       >
         <div className="flex min-w-0 flex-1 items-stretch">
           <Rails depth={depth} />
           <span className="flex w-[22px] flex-none items-center justify-center" aria-hidden>
-            <span className="h-[5px] w-[5px] rounded-full bg-[#CBD2DA]" />
+            <span className="h-[5px] w-[5px] rounded-full bg-border-hover" />
           </span>
           <div
             className="flex min-w-0 flex-1 items-center gap-2.5 pr-3"
@@ -413,10 +397,12 @@ function AccountRow({
       </div>
 
       {/* ───── MOBILE (<lg): account card — code chip · name+meta · ৳ amount · ⋯ ───── */}
-      <div className="relative flex items-center gap-2.5 border-b border-[#F1F3F5] bg-surface py-2.5 pl-4 pr-2 lg:hidden">
+      <div className="relative flex items-center gap-2.5 border-b border-muted bg-surface py-2.5 pl-4 pr-2 lg:hidden">
         <span
-          className="grid h-9 w-9 flex-none place-items-center rounded-[9px] font-mono text-[11px] font-semibold"
-          style={{ background: meta.soft, color: meta.ink }}
+          className={cn(
+            "grid h-9 w-9 flex-none place-items-center rounded-[9px] font-mono text-[11px] font-semibold",
+            TYPE_PILL[meta.tone],
+          )}
           aria-hidden
         >
           {a.code}
@@ -441,7 +427,7 @@ function AccountRow({
 
 function EmptyRow({ depth }: { depth: number }) {
   return (
-    <div className="border-b border-[#F1F3F5] bg-surface">
+    <div className="border-b border-muted bg-surface">
       {/* desktop */}
       <div className="hidden items-stretch lg:flex" style={{ minHeight: 40 }}>
         <div className="flex min-w-0 flex-1 items-stretch">

@@ -9,8 +9,9 @@ import {
 } from "@/components/ui/dropdown-menu";
 import { cn } from "@/lib/utils";
 import { formatMoney } from "@/lib/money";
+import { Badge } from "@/components/ui/badge";
 import { type Account } from "../types";
-import { TypeBadge, TYPE_META } from "./TypeBadge";
+import { TypeBadge, TYPE_META, TYPE_PILL } from "./TypeBadge";
 import { ACCOUNT_TYPE_LABEL } from "../schemas/chart-of-accounts.schema";
 
 /**
@@ -28,21 +29,9 @@ const COL = {
 
 function StatusPill({ active }: { active: boolean }) {
   return (
-    <span
-      className="inline-flex items-center gap-1.5 rounded-pill px-[9px] text-[11.5px] font-semibold"
-      style={{
-        height: 22,
-        background: active ? "#E3F5EC" : "#F1F3F5",
-        color: active ? "#15784F" : "#697079",
-      }}
-    >
-      <span
-        className="h-1.5 w-1.5 rounded-full"
-        style={{ background: active ? "#1FA46B" : "#9AA1AB" }}
-        aria-hidden
-      />
+    <Badge tone={active ? "success" : "neutral"} dot>
       {active ? "Active" : "Inactive"}
-    </span>
+    </Badge>
   );
 }
 
@@ -62,7 +51,7 @@ function RowKebab({
       <DropdownMenuTrigger
         aria-label={`Actions for account ${a.code}`}
         data-testid={`flat-actions-${a.id}`}
-        className="grid h-7 w-7 place-items-center rounded-token text-faint outline-none hover:bg-[#EAEDF0] hover:text-foreground focus-visible:ring-2 focus-visible:ring-ring"
+        className="grid h-7 w-7 place-items-center rounded-token text-faint outline-none hover:bg-muted hover:text-foreground focus-visible:ring-2 focus-visible:ring-ring"
       >
         <MoreHorizontal className="h-4 w-4" aria-hidden />
       </DropdownMenuTrigger>
@@ -108,7 +97,7 @@ export function FlatAccountList({
         return (
           <div key={a.id} role="row" data-testid={`flat-account-${a.id}`}>
             {/* desktop columnar */}
-            <div className="hidden min-h-[44px] items-stretch border-b border-[#F1F3F5] bg-surface hover:bg-surface-2 lg:flex">
+            <div className="hidden min-h-[44px] items-stretch border-b border-muted bg-surface hover:bg-surface-2 lg:flex">
               <div className="flex min-w-0 flex-1 items-center gap-2.5 py-2 pl-[22px] pr-3">
                 <a
                   href="#"
@@ -149,10 +138,12 @@ export function FlatAccountList({
             </div>
 
             {/* mobile card */}
-            <div className="flex items-center gap-2.5 border-b border-[#F1F3F5] bg-surface py-2.5 pl-4 pr-2 lg:hidden">
+            <div className="flex items-center gap-2.5 border-b border-muted bg-surface py-2.5 pl-4 pr-2 lg:hidden">
               <span
-                className="grid h-9 w-9 flex-none place-items-center rounded-[9px] font-mono text-[11px] font-semibold"
-                style={{ background: meta.soft, color: meta.ink }}
+                className={cn(
+                  "grid h-9 w-9 flex-none place-items-center rounded-[9px] font-mono text-[11px] font-semibold",
+                  TYPE_PILL[meta.tone],
+                )}
                 aria-hidden
               >
                 {a.code}
