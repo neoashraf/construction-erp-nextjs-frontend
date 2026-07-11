@@ -10,7 +10,7 @@ services:
     env_file:
       - .env
     ports:
-      - "7002:3000" # LAN access only (no port forwarding to WAN)
+      - "7002:4000" # LAN access only (no port forwarding to WAN) — matches `next start -p 4000` in package.json
     networks:
       - ze-erp-net
 
