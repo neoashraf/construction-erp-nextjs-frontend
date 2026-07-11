@@ -1,10 +1,13 @@
-import { ComingSoon } from "@/components/shell/coming-soon";
+import { requireModuleAccess } from "@/lib/auth/guard-module-page";
+import { ProfitabilityScreen } from "@/features/cost-control/components/ProfitabilityScreen";
 
 /**
- * Placeholder route for the "Profitability" screen (nav-tree route /cost-control/profitability). The real
- * screen ships with its per-screen brief; until then this renders the shared
- * ComingSoon placeholder so the nav item navigates to a real page, not a dead link.
+ * Cost-centre profitability route (CC; FR-CC-009/010) — under the (app) shell + the
+ * `cost-control` module guard. Read-only revenue/cost/profit grouped by cost centre and/or
+ * project. Access is further narrowed IN the screen to Admin + Accounts Manager (the SRS
+ * does not list PM as a profitability consumer — spec §11); the server re-checks every read.
  */
-export default function CostControlProfitabilityPage() {
-  return <ComingSoon title="Profitability" />;
+export default async function CostControlProfitabilityPage() {
+  await requireModuleAccess("cost-control");
+  return <ProfitabilityScreen />;
 }
