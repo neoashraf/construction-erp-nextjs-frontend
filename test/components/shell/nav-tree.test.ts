@@ -120,10 +120,10 @@ describe("quick-create + alerts-bell gating (spec §5/§11)", () => {
     expect(showsAlertsBell("HR_MANAGER")).toBe(false);
   });
 
-  it("cost-control has no data-backed screen yet → bell degrades to plain (no live fetch)", () => {
-    // CC nav items are navigable (Coming-soon placeholders) but there's no CC alerts
-    // API, so the bell's fetch gate stays false until the real CC screen ships.
-    expect(costControlBuilt()).toBe(false);
+  it("cost-control is data-backed (FE-25 alerts screen shipped) → bell fires the live count fetch", () => {
+    // The Over-budget alerts screen + its `GET /api/cost-control/alerts` endpoint now exist,
+    // so the bell's fetch gate is on (it still degrades to a plain bell on error).
+    expect(costControlBuilt()).toBe(true);
   });
 });
 
