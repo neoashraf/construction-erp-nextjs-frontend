@@ -1,10 +1,13 @@
-import { ComingSoon } from "@/components/shell/coming-soon";
+import { requireModuleAccess } from "@/lib/auth/guard-module-page";
+import { StockLedgerScreen } from "@/features/inventory/components/StockLedgerScreen";
 
 /**
- * Placeholder route for the "Stock ledger" screen (nav-tree route /inventory/stock-ledger). The real
- * screen ships with its per-screen brief; until then this renders the shared
- * ComingSoon placeholder so the nav item navigates to a real page, not a dead link.
+ * Stock Ledger route (INV; FR-INV-001/004/006/021) — under the (app) shell + the
+ * `inventory` module guard. Read-only for all INV-scoped roles; the server scopes
+ * PM/Store Keeper to assigned projects' godowns and re-checks every read (`403`). There is
+ * no write endpoint here — balances change only by posting/reversing a voucher elsewhere.
  */
-export default function InventoryStockLedgerPage() {
-  return <ComingSoon title="Stock ledger" />;
+export default async function StockLedgerPage() {
+  await requireModuleAccess("inventory");
+  return <StockLedgerScreen />;
 }

@@ -166,13 +166,38 @@ const MOCK_USER_LIST = [
   { id: "u-farzana", name: "ফারজানা আক্তার" },
   { id: "u-ashraf", name: "Ashraful Alam" },
 ];
-const MOCK_STOCK_LEDGER = [
+const MOCK_STOCK_LEDGER: Array<{
+  godownId: string; itemId: string; quantityOnHand: string; totalValue: string; weightedAverageRate: string | null;
+}> = [
   { godownId: "gd-a", itemId: "it-cement", quantityOnHand: "1240.0000", totalValue: "672080.0000", weightedAverageRate: "542.0000" },
   { godownId: "gd-b", itemId: "it-cement", quantityOnHand: "300.0000", totalValue: "162600.0000", weightedAverageRate: "542.0000" },
   { godownId: "gd-a", itemId: "it-rebar", quantityOnHand: "18.0000", totalValue: "1764000.0000", weightedAverageRate: "98000.0000" },
   { godownId: "gd-a", itemId: "it-sand", quantityOnHand: "90.0000", totalValue: "3780.0000", weightedAverageRate: "42.0000" },
   { godownId: "gd-a", itemId: "it-brick", quantityOnHand: "5000.0000", totalValue: "62500.0000", weightedAverageRate: "12.5000" },
+  // Zero on hand → weightedAverageRate null (renders "—", never ৳0.0000) — spec §5/§13-10.
+  { godownId: "gd-b", itemId: "it-rebar", quantityOnHand: "0.0000", totalValue: "0.0000", weightedAverageRate: null },
 ];
+
+// Append-only movement history behind a balance (keyed `godownId:itemId`). Exercises every
+// source type + a reversal (additive mirror row, original untouched — FR-INV-020).
+interface MockMovement {
+  id: string; godownId: string; itemId: string; sourceType: "STOCK_JOURNAL" | "GRN" | "REQ_ISSUE"; sourceId: string | null;
+  direction: "IN" | "OUT"; quantity: string; rate: string; value: string;
+  balanceQtyAfter: string; balanceValueAfter: string; avgRateAfter: string;
+  isReversal: boolean; reversalOf: string | null; voucherDate: string; postedAt: string;
+}
+const MOCK_STOCK_MOVEMENTS: Record<string, MockMovement[]> = {
+  "gd-a:it-cement": [
+    { id: "mv-1", godownId: "gd-a", itemId: "it-cement", sourceType: "GRN", sourceId: "grn-201", direction: "IN", quantity: "1000.0000", rate: "540.0000", value: "540000.0000", balanceQtyAfter: "1000.0000", balanceValueAfter: "540000.0000", avgRateAfter: "540.0000", isReversal: false, reversalOf: null, voucherDate: "2026-06-01", postedAt: "2026-06-01T05:00:00Z" },
+    { id: "mv-2", godownId: "gd-a", itemId: "it-cement", sourceType: "STOCK_JOURNAL", sourceId: "sj-4", direction: "OUT", quantity: "200.0000", rate: "540.0000", value: "108000.0000", balanceQtyAfter: "800.0000", balanceValueAfter: "432000.0000", avgRateAfter: "540.0000", isReversal: false, reversalOf: null, voucherDate: "2026-06-10", postedAt: "2026-06-10T06:30:00Z" },
+    { id: "mv-3", godownId: "gd-a", itemId: "it-cement", sourceType: "GRN", sourceId: "grn-214", direction: "IN", quantity: "640.0000", rate: "545.0000", value: "348800.0000", balanceQtyAfter: "1440.0000", balanceValueAfter: "780800.0000", avgRateAfter: "542.2222", isReversal: false, reversalOf: null, voucherDate: "2026-06-18", postedAt: "2026-06-18T04:15:00Z" },
+    { id: "mv-4", godownId: "gd-a", itemId: "it-cement", sourceType: "REQ_ISSUE", sourceId: "req-330", direction: "OUT", quantity: "200.0000", rate: "542.2222", value: "108444.4400", balanceQtyAfter: "1240.0000", balanceValueAfter: "672355.5600", avgRateAfter: "542.2222", isReversal: false, reversalOf: null, voucherDate: "2026-06-28", postedAt: "2026-06-28T09:15:00Z" },
+    { id: "mv-5", godownId: "gd-a", itemId: "it-cement", sourceType: "STOCK_JOURNAL", sourceId: "sj-4", direction: "IN", quantity: "200.0000", rate: "542.2222", value: "108444.4400", balanceQtyAfter: "1440.0000", balanceValueAfter: "780800.0000", avgRateAfter: "542.2222", isReversal: true, reversalOf: "mv-4", voucherDate: "2026-06-29", postedAt: "2026-06-29T03:00:00Z" },
+  ],
+  "gd-a:it-rebar": [
+    { id: "mv-10", godownId: "gd-a", itemId: "it-rebar", sourceType: "GRN", sourceId: "grn-190", direction: "IN", quantity: "18.0000", rate: "98000.0000", value: "1764000.0000", balanceQtyAfter: "18.0000", balanceValueAfter: "1764000.0000", avgRateAfter: "98000.0000", isReversal: false, reversalOf: null, voucherDate: "2026-05-20", postedAt: "2026-05-20T05:00:00Z" },
+  ],
+};
 
 interface MockSjLine { lineNo: number; side: "OUT" | "IN"; godownId: string; itemId: string; quantity: string; rate: string | null; value: string | null; projectId: string; costCentreId: string; purposeId: string }
 interface MockSJ {
@@ -646,13 +671,41 @@ export async function mockNestjsFetch(req: MockReq): Promise<MockResult> {
     return { status: 200, body: pageEnvelope(MOCK_USER_LIST) };
   }
 
-  // ── Stock ledger balance (matched BEFORE /stock-journal/:id) ──
+  // ── Stock ledger reads (matched BEFORE /stock-journal/:id) ──
+  const godownProject = (gid: string): string | null => MOCK_GODOWNS.find((g) => g.id === gid)?.projectId ?? null;
+  const inScope = (projectId: string | null) =>
+    user.assignedProjectIds.length === 0 || (projectId ? user.assignedProjectIds.includes(projectId) : true);
+
   if (pathname === "/stock-journal/stock-ledger" && req.method === "GET") {
+    const godownId = params.get("godownId");
+    const itemId = params.get("itemId");
+    const projectId = params.get("projectId");
+    const asOf = params.get("asOfDate") ?? "2026-07-07";
+    if (projectId && !inScope(projectId)) {
+      return { status: 403, body: envelope("FORBIDDEN", "You can only view your assigned projects' godowns.") };
+    }
+    let rows = MOCK_STOCK_LEDGER.filter((r) => inScope(godownProject(r.godownId)));
+    if (godownId) rows = rows.filter((r) => r.godownId === godownId);
+    if (itemId) rows = rows.filter((r) => r.itemId === itemId);
+    if (projectId) rows = rows.filter((r) => godownProject(r.godownId) === projectId);
+    return { status: 200, body: pageEnvelope(rows.map((r) => ({ ...r, asOfDate: asOf }))) };
+  }
+
+  if (pathname === "/stock-journal/stock-ledger/movements" && req.method === "GET") {
     const godownId = params.get("godownId") ?? "";
     const itemId = params.get("itemId") ?? "";
-    const row = MOCK_STOCK_LEDGER.find((r) => r.godownId === godownId && r.itemId === itemId);
-    const data = row ? [{ ...row, asOfDate: "2026-07-07" }] : [];
-    return { status: 200, body: pageEnvelope(data) };
+    if (!godownId || !itemId) {
+      return { status: 400, body: envelope("VALIDATION_ERROR", "godownId and itemId are required.") };
+    }
+    if (!inScope(godownProject(godownId))) {
+      return { status: 403, body: envelope("FORBIDDEN", "You can only view your assigned projects' godowns.") };
+    }
+    let rows = MOCK_STOCK_MOVEMENTS[`${godownId}:${itemId}`] ?? [];
+    const from = params.get("dateFrom");
+    const to = params.get("dateTo");
+    if (from) rows = rows.filter((m) => m.voucherDate >= from);
+    if (to) rows = rows.filter((m) => m.voucherDate <= to);
+    return { status: 200, body: pageEnvelope(rows) };
   }
 
   // ── Stock Journal list + create ──
