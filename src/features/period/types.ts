@@ -17,8 +17,10 @@ export interface AccountingPeriod {
   status: PeriodStatus;
   /** ISO-8601 UTC; non-null only while `status = CLOSED`. */
   closedAt: string | null;
-  /** The acting user's display name; non-null only while `status = CLOSED`. */
+  /** The acting user's id (audit reference); non-null only while `status = CLOSED`. */
   closedBy: string | null;
+  /** The acting user's resolved display name; may be null when unresolved. */
+  closedByName: string | null;
   createdAt: string;
   updatedAt: string;
 }

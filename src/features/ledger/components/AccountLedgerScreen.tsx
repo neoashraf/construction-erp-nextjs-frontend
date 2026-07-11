@@ -11,6 +11,7 @@ import { cn } from "@/lib/utils";
 import { formatDate } from "@/lib/format";
 import { Breadcrumb as UiBreadcrumb } from "@/components/ui/breadcrumb";
 import { asApiError } from "@/lib/api/errors";
+import { useMasterLookups } from "@/lib/masters/lookups";
 import { useAccountLedger } from "../hooks/useAccountLedger";
 import { LedgerFilterBar, EMPTY_LINES_FILTER } from "./LedgerFilterBar";
 import { LedgerLinesTable } from "./LedgerLinesTable";
@@ -65,27 +66,16 @@ function hasAnyFilter(f: LinesFilterFormValues): boolean {
  * 403 permission-denied · offline. Accepts an inbound account/date scope via
  * `initialFilter` (from a Trial-balance drill).
  */
-/**
- * Demo scope so the screen opens in ACCOUNT-LEDGER mode (matching the design mockup:
- * account 1201, FY 2025–26 date range) instead of the empty drill-down prompt. Used
- * only when no `initialFilter` is supplied (e.g. a direct visit). A real account
- * picker / Trial-balance drill still overrides this via `initialFilter`.
- */
-const DEFAULT_LEDGER_SCOPE: Partial<LinesFilterFormValues> = {
-  accountId: "1201",
-  dateFrom: "2025-04-01",
-  dateTo: "2026-06-30",
-};
-
 export function AccountLedgerScreen({
   initialFilter,
 }: {
   initialFilter?: Partial<LinesFilterFormValues>;
 }) {
   const online = useOnline();
+  const names = useMasterLookups();
   const [applied, setApplied] = useState<LinesFilterFormValues>({
     ...EMPTY_LINES_FILTER,
-    ...(initialFilter ?? DEFAULT_LEDGER_SCOPE),
+    ...(initialFilter ?? {}),
   });
   const [page, setPage] = useState(1);
 
@@ -138,11 +128,19 @@ export function AccountLedgerScreen({
           className="mb-4 flex flex-wrap items-center gap-3"
           data-testid="ledger-scope"
         >
-          {/* selected account chip (id — name pickers are owned by MAS; see filter bar) */}
-          <span className="inline-flex h-[26px] items-center gap-2 rounded-token border border-accent/40 bg-accent-soft px-2.5">
+          {/* selected account chip: code + resolved name (Account Ledger.dc.html) */}
+          <span
+            className="inline-flex h-[26px] items-center gap-2 rounded-token border bg-accent-soft px-2.5"
+            style={{ borderColor: "#DCEBBF" }}
+          >
             <span className="font-mono text-[12px] font-semibold text-accent-ink">
               {applied.accountId}
             </span>
+            {names.accountName(applied.accountId) && (
+              <span className="text-[13px] font-semibold text-primary">
+                {names.accountName(applied.accountId)}
+              </span>
+            )}
           </span>
           {/* date scope */}
           <span className="text-[12.5px] text-muted-foreground">
@@ -218,6 +216,7 @@ export function AccountLedgerScreen({
               lines={lines}
               openingBalance={result?.openingBalance}
               accountLedgerMode={ledgerMode}
+              names={names}
             />
           )}
         </div>

@@ -1,16 +1,34 @@
 "use client";
 
 import { useState } from "react";
-import { useForm } from "react-hook-form";
+import { useForm, Controller } from "react-hook-form";
 import { zodResolver } from "@hookform/resolvers/zod";
 import { SlidersHorizontal } from "lucide-react";
 import { Card } from "@/components/ui/card";
 import { Input } from "@/components/ui/input";
 import { Select } from "@/components/ui/select";
+import { DatePickerInput } from "@/components/ui/date-picker";
 import { Label } from "@/components/ui/label";
 import { Button } from "@/components/ui/button";
+import { formatDate } from "@/lib/format";
+import { useAccountOptions } from "@/lib/masters/lookups";
 import { linesFilterSchema, type LinesFilterFormValues } from "../schemas/lines-filter.schema";
 import { VOUCHER_TYPES, voucherTypeLabel } from "../types";
+
+/** ISO YYYY-MM-DD ↔ DD/MM/YYYY for the shared DatePickerInput. Both directions are
+ * lenient — a partial/typed value round-trips unchanged so typing never throws. */
+function isoToDmy(iso: string): string {
+  if (!iso) return "";
+  try {
+    return formatDate(iso);
+  } catch {
+    return iso;
+  }
+}
+function dmyToIso(dmy: string): string {
+  const m = /^(\d{2})\/(\d{2})\/(\d{4})$/.exec(dmy.trim());
+  return m ? `${m[3]}-${m[2]}-${m[1]}` : dmy;
+}
 
 /**
  * Account-ledger / drill-down filter bar (spec §4/§7/§9; design file filter card). A
@@ -59,8 +77,10 @@ export function LedgerFilterBar({
   const [showMore, setShowMore] = useState(
     DIMENSION_FIELDS.some((f) => !!defaults[f.name]),
   );
+  const { accounts, isLoading: accountsLoading } = useAccountOptions();
   const {
     register,
+    control,
     handleSubmit,
     reset,
     watch,
@@ -91,37 +111,60 @@ export function LedgerFilterBar({
             <Label htmlFor="filter-account">
               Account <span className="text-destructive">*</span>
             </Label>
-            <Input
+            <Select
               id="filter-account"
-              className="font-mono"
-              placeholder="Select an account…"
               aria-describedby="filter-account-help"
+              disabled={accountsLoading && accounts.length === 0}
               {...register("accountId")}
-            />
+            >
+              <option value="">
+                {accountsLoading && accounts.length === 0 ? "Loading accounts…" : "Select an account…"}
+              </option>
+              {accounts.map((a) => (
+                <option key={a.id} value={a.id}>
+                  {a.code} — {a.name}
+                </option>
+              ))}
+            </Select>
           </div>
 
           {/* date from */}
           <div className="flex min-w-[130px] flex-col gap-1.5">
             <Label htmlFor="filter-date-from">Date from</Label>
-            <Input
-              id="filter-date-from"
-              type="date"
-              className="tabular-nums"
-              invalid={!!errors.dateFrom}
-              aria-describedby={errors.dateFrom ? "filter-date-error" : undefined}
-              {...register("dateFrom")}
+            <Controller
+              control={control}
+              name="dateFrom"
+              render={({ field }) => (
+                <DatePickerInput
+                  id="filter-date-from"
+                  value={isoToDmy(field.value ?? "")}
+                  onChange={(v) => field.onChange(dmyToIso(v))}
+                  onBlur={field.onBlur}
+                  name={field.name}
+                  invalid={!!errors.dateFrom}
+                  aria-describedby={errors.dateFrom ? "filter-date-error" : undefined}
+                />
+              )}
             />
           </div>
 
           {/* date to */}
           <div className="flex min-w-[130px] flex-col gap-1.5">
             <Label htmlFor="filter-date-to">Date to</Label>
-            <Input
-              id="filter-date-to"
-              type="date"
-              className="tabular-nums"
-              invalid={!!errors.dateFrom}
-              {...register("dateTo")}
+            <Controller
+              control={control}
+              name="dateTo"
+              render={({ field }) => (
+                <DatePickerInput
+                  id="filter-date-to"
+                  align="right"
+                  value={isoToDmy(field.value ?? "")}
+                  onChange={(v) => field.onChange(dmyToIso(v))}
+                  onBlur={field.onBlur}
+                  name={field.name}
+                  invalid={!!errors.dateFrom}
+                />
+              )}
             />
           </div>
 

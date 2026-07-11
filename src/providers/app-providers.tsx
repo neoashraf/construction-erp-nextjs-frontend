@@ -6,6 +6,7 @@ import { SessionProvider } from "./session-provider";
 import { CompanyFyProvider } from "./company-fy-provider";
 import { ThemeProvider } from "./theme-provider";
 import { ToastProvider } from "@/components/ui/toast";
+import { PointerEventsGuard } from "@/components/ui/pointer-events-guard";
 import { type SafeUser } from "@/lib/auth/session";
 
 /**
@@ -21,6 +22,7 @@ export function AppProviders({ user, children }: { user: SafeUser | null; childr
 
   return (
     <ThemeProvider>
+      <PointerEventsGuard />
       <QueryProvider>
         <SessionProvider user={user}>
           {user ? (

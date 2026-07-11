@@ -3,14 +3,16 @@
 import { useState } from "react";
 import { useForm } from "react-hook-form";
 import { zodResolver } from "@hookform/resolvers/zod";
+import { Plus } from "lucide-react";
 import { Input } from "@/components/ui/input";
+import { Textarea } from "@/components/ui/textarea";
 import { Label } from "@/components/ui/label";
 import { Button } from "@/components/ui/button";
-import { Badge } from "@/components/ui/badge";
 import { Skeleton } from "@/components/ui/skeleton";
 import { Alert } from "@/components/ui/alert";
 import { Dialog, DialogContent, DialogTitle, DialogDescription } from "@/components/ui/dialog";
 import { asApiError } from "@/lib/api/errors";
+import { cn } from "@/lib/utils";
 import { useToast } from "@/components/ui/toast";
 import { type Godown } from "../types";
 import { godownSchema, type GodownFormValues } from "../schemas/project.schema";
@@ -22,7 +24,8 @@ import {
   useReactivateGodown,
 } from "../hooks/useProjectGodowns";
 
-/** Godowns tab (FR-MAS-014/015/016/033). Add/edit; deactivate/reactivate; ≥1-for-inventory hint. */
+/** Godowns tab (FR-MAS-014/015/016/033; Projects.dc.html Godowns panel). Card + table;
+ * add/edit; deactivate/reactivate; ≥1-active-for-inventory hint in the header. */
 export function GodownsTab({
   projectId,
   canManage,
@@ -39,6 +42,7 @@ export function GodownsTab({
   const deactivate = useDeactivateGodown(projectId);
   const reactivate = useReactivateGodown(projectId);
   const [editing, setEditing] = useState<Godown | null>(null);
+  const [adding, setAdding] = useState(false);
   const [statusTarget, setStatusTarget] = useState<{
     godown: Godown;
     mode: "deactivate" | "reactivate";
@@ -59,6 +63,15 @@ export function GodownsTab({
     defaultValues: { name: "", location: "" },
   });
 
+  // Add-form shows when adding, editing, or (for a manager) when the list is empty.
+  const showForm = canManage && !closed && !query.isError && (adding || !!editing || godowns.length === 0);
+
+  function closeForm() {
+    reset({ name: "", location: "" });
+    setEditing(null);
+    setAdding(false);
+  }
+
   function onSubmit(values: GodownFormValues) {
     const onErr = (err: unknown) => {
       const e = asApiError(err);
@@ -75,8 +88,7 @@ export function GodownsTab({
     };
     const done = () => {
       toast("Godown saved.", "success");
-      reset({ name: "", location: "" });
-      setEditing(null);
+      closeForm();
     };
     if (editing) {
       update.mutate(
@@ -99,6 +111,7 @@ export function GodownsTab({
   }
 
   function edit(g: Godown) {
+    setAdding(false);
     setEditing(g);
     setValue("name", g.name);
     setValue("location", g.location ?? "");
@@ -130,109 +143,202 @@ export function GodownsTab({
     );
   }
 
-  return (
-    <div className="flex flex-col gap-4" data-testid="godowns-tab">
-      <Alert tone="info">A project needs at least one godown before it can hold inventory.</Alert>
-      {closed && <Alert tone="warning">This project is closed — godowns are read-only.</Alert>}
+  const canAdd = canManage && !closed;
 
-      {query.isLoading ? (
-        <div className="flex flex-col gap-2" data-testid="godowns-loading">
-          {[0, 1].map((i) => (
-            <Skeleton key={i} className="h-8 w-full" />
-          ))}
+  return (
+    <div data-testid="godowns-tab">
+      {closed && (
+        <div className="mb-3.5 flex items-center gap-2.5 rounded-[10px] border border-border-strong bg-muted px-3.5 py-3">
+          <span className="h-[7px] w-[7px] flex-none rounded-full bg-faint" aria-hidden />
+          <span className="text-[12.5px] text-muted-foreground">
+            This project is closed. You can&apos;t add budgets or godowns.
+          </span>
         </div>
-      ) : query.isError ? (
-        <Alert tone="destructive" title="Couldn't load godowns.">
-          <Button size="sm" onClick={() => query.refetch()} data-testid="godowns-retry">
-            Retry
-          </Button>
-        </Alert>
-      ) : godowns.length === 0 ? (
-        <p className="text-sm text-muted-foreground" data-testid="godowns-empty">
-          No godowns yet. Add at least one before this project can hold inventory.
-        </p>
-      ) : (
-        <ul className="flex flex-col divide-y divide-border" data-testid="godowns-list">
-          {godowns.map((g) => (
-            <li
-              key={g.id}
-              className="flex items-center justify-between py-2"
-              data-testid={`godown-${g.id}`}
-            >
-              <div className="min-w-0">
-                <div className="text-sm">{g.name}</div>
-                <div className="text-xs text-muted-foreground">{g.location || "—"}</div>
-              </div>
-              <div className="flex items-center gap-3">
-                {g.isActive ? (
-                  <Badge tone="success" dot aria-label="Active godown">
-                    Active
-                  </Badge>
-                ) : (
-                  <Badge tone="neutral" dot aria-label="Inactive godown">
-                    Inactive
-                  </Badge>
-                )}
-                {canManage && !closed && (
-                  <>
-                    <button
-                      type="button"
-                      onClick={() => edit(g)}
-                      className="text-xs font-semibold text-accent-ink hover:underline"
-                      data-testid={`godown-edit-${g.id}`}
-                    >
-                      Edit
-                    </button>
-                    <button
-                      type="button"
-                      onClick={() =>
-                        setStatusTarget({
-                          godown: g,
-                          mode: g.isActive ? "deactivate" : "reactivate",
-                        })
-                      }
-                      className="text-xs font-semibold text-muted-foreground hover:text-foreground"
-                      data-testid={`godown-toggle-${g.id}`}
-                    >
-                      {g.isActive ? "Deactivate" : "Reactivate"}
-                    </button>
-                  </>
-                )}
-              </div>
-            </li>
-          ))}
-        </ul>
       )}
 
-      {canManage && !closed && !query.isError && (
+      <div className="rounded-[11px] border border-border bg-surface shadow-sm">
+        {/* card header — the subtitle IS the ≥1-godown inventory hint */}
+        <div className="flex items-center justify-between gap-3 border-b border-border px-[18px] py-3.5">
+          <div className="flex items-baseline gap-[9px]">
+            <span className="text-[14px] font-bold text-foreground">Godowns</span>
+            <span className="text-[12px] text-faint">
+              project-scoped stores · ≥1 active required to transact inventory
+            </span>
+          </div>
+          {canAdd && (
+            <Button
+              size="sm"
+              onClick={() => {
+                setEditing(null);
+                setAdding(true);
+              }}
+              disabled={showForm}
+              data-testid="godown-add"
+            >
+              <Plus className="h-4 w-4" aria-hidden />
+              Add godown
+            </Button>
+          )}
+        </div>
+
+        {query.isLoading ? (
+          <div className="flex flex-col gap-2 p-4" data-testid="godowns-loading">
+            {[0, 1].map((i) => (
+              <Skeleton key={i} className="h-8 w-full" />
+            ))}
+          </div>
+        ) : query.isError ? (
+          <div className="p-4">
+            <Alert tone="destructive" title="Couldn't load godowns.">
+              <Button size="sm" onClick={() => query.refetch()} data-testid="godowns-retry">
+                Retry
+              </Button>
+            </Alert>
+          </div>
+        ) : godowns.length === 0 ? (
+          <div className="p-[30px]" data-testid="godowns-empty">
+            <div className="flex flex-col items-center rounded-[12px] border-[1.5px] border-dashed border-border-strong bg-surface-2 px-5 py-10 text-center">
+              <div className="grid h-12 w-12 place-items-center rounded-full bg-warning-soft text-[20px] text-warning-ink">
+                ▣
+              </div>
+              <div className="mt-3.5 text-[14.5px] font-semibold text-foreground">
+                No godowns yet. Add at least one before this project can hold inventory.
+              </div>
+              <div className="mt-1.5 text-[12.5px] text-muted-foreground">
+                Inventory vouchers need a project-scoped store to post against.
+              </div>
+            </div>
+          </div>
+        ) : (
+          <>
+            {/* table header */}
+            <div className="grid grid-cols-[1.1fr_1.4fr_0.7fr_130px] border-b border-border-strong bg-surface-2">
+              {["Name", "Location", "Status"].map((h) => (
+                <div
+                  key={h}
+                  className="flex h-[42px] items-center px-[18px] text-[11px] font-semibold uppercase tracking-[0.4px] text-muted-foreground"
+                >
+                  {h}
+                </div>
+              ))}
+              <div className="h-[42px]" />
+            </div>
+            {/* rows */}
+            {godowns.map((g) => (
+              <div
+                key={g.id}
+                className={cn(
+                  "grid min-h-[52px] grid-cols-[1.1fr_1.4fr_0.7fr_130px] items-center border-b border-border hover:bg-surface-2",
+                  !g.isActive && "opacity-60",
+                )}
+                data-testid={`godown-${g.id}`}
+              >
+                <div className="break-words px-[18px] py-2.5 text-[13.5px] font-semibold text-foreground">
+                  {g.name}
+                </div>
+                <div className="break-words px-[18px] py-2.5 text-[12.5px] text-muted-foreground">
+                  {g.location || "—"}
+                </div>
+                <div className="px-[18px] py-2.5">
+                  {g.isActive ? (
+                    <span
+                      className="inline-flex h-[22px] items-center gap-1.5 rounded-full bg-success-soft px-2.5"
+                      aria-label="Active godown"
+                    >
+                      <span className="h-1.5 w-1.5 rounded-full bg-success" aria-hidden />
+                      <span className="text-[11px] font-semibold text-success-ink">Active</span>
+                    </span>
+                  ) : (
+                    <span
+                      className="inline-flex h-[22px] items-center gap-1.5 rounded-full bg-muted px-2.5"
+                      aria-label="Inactive godown"
+                    >
+                      <span className="h-1.5 w-1.5 rounded-full bg-faint" aria-hidden />
+                      <span className="text-[11px] font-semibold text-muted-foreground">Inactive</span>
+                    </span>
+                  )}
+                </div>
+                <div className="flex items-center justify-end px-[18px] py-2.5">
+                  {canAdd && (
+                    <div className="flex items-center gap-1.5">
+                      <button
+                        type="button"
+                        onClick={() => edit(g)}
+                        data-testid={`godown-edit-${g.id}`}
+                        className="h-7 rounded-[7px] border border-border-strong bg-surface px-2.5 text-[12px] font-semibold text-foreground hover:bg-muted"
+                      >
+                        Edit
+                      </button>
+                      <button
+                        type="button"
+                        onClick={() =>
+                          setStatusTarget({
+                            godown: g,
+                            mode: g.isActive ? "deactivate" : "reactivate",
+                          })
+                        }
+                        data-testid={`godown-toggle-${g.id}`}
+                        className="h-7 rounded-[7px] border border-border-strong bg-surface px-2.5 text-[12px] font-semibold text-warning-ink hover:bg-muted"
+                      >
+                        {g.isActive ? "Deactivate" : "Reactivate"}
+                      </button>
+                    </div>
+                  )}
+                </div>
+              </div>
+            ))}
+          </>
+        )}
+      </div>
+
+      {/* lime-bordered inline add/edit form */}
+      {showForm && (
         <form
           onSubmit={handleSubmit(onSubmit)}
           noValidate
-          className="flex flex-wrap items-end gap-3 border-t border-border pt-4"
+          className="mt-3.5 rounded-[11px] border border-[#D8E8B0] bg-surface p-[18px] shadow-sm"
           data-testid="godown-form"
         >
-          <div className="w-48">
-            <Label htmlFor="godown-name" className="mb-1.5 block text-[10.5px]">
-              Name <span className="text-destructive">*</span>
-            </Label>
-            <Input
-              id="godown-name"
-              invalid={!!errors.name}
-              disabled={saving}
-              {...register("name")}
-            />
+          <div className="mb-3.5 text-[13px] font-bold text-foreground">
+            {editing ? "Edit godown" : "Add godown"}
           </div>
-          <div className="w-48">
-            <Label htmlFor="godown-loc" className="mb-1.5 block text-[10.5px]">
-              Location
-            </Label>
-            <Input id="godown-loc" disabled={saving} {...register("location")} />
+          <div className="flex flex-wrap gap-3.5">
+            <div className="min-w-0 flex-[1_1_260px]">
+              <Label htmlFor="godown-name" className="mb-1.5 block text-[11px]">
+                Name <span className="text-destructive">*</span>
+              </Label>
+              <Input
+                id="godown-name"
+                placeholder="Store name (unique per project)"
+                invalid={!!errors.name}
+                disabled={saving}
+                {...register("name")}
+              />
+              <p className="mt-1.5 text-[11px] text-faint">Must be unique within this project.</p>
+            </div>
+            <div className="min-w-0 flex-[1_1_300px]">
+              <Label htmlFor="godown-loc" className="mb-1.5 block text-[11px]">
+                Location
+              </Label>
+              <Textarea
+                id="godown-loc"
+                rows={2}
+                placeholder="ঠিকানা / location (Bangla supported)"
+                disabled={saving}
+                {...register("location")}
+              />
+            </div>
           </div>
-          <Button type="submit" size="md" disabled={saving} data-testid="godown-save">
-            {saving ? "Saving…" : editing ? "Update" : "Add godown"}
-          </Button>
+          <div className="mt-3.5 flex justify-end gap-2.5">
+            <Button type="button" variant="ghost" size="md" onClick={closeForm} disabled={saving}>
+              Cancel
+            </Button>
+            <Button type="submit" size="md" disabled={saving} data-testid="godown-save">
+              {saving ? "Saving…" : editing ? "Save godown" : "Add godown"}
+            </Button>
+          </div>
           {errors.name && (
-            <p className="w-full text-[11.5px] text-destructive-ink" data-testid="godown-error">
+            <p className="mt-2 text-[11.5px] text-destructive-ink" data-testid="godown-error">
               {errors.name.message}
             </p>
           )}
@@ -248,7 +354,7 @@ export function GodownsTab({
           </DialogTitle>
           <DialogDescription className="mt-2">
             {statusTarget?.mode === "deactivate"
-              ? "It stays on stock history but won't appear in new movement pickers."
+              ? "It stays on past stock movements but won't appear for new transactions."
               : "It will appear again in movement pickers."}
           </DialogDescription>
           <div className="mt-5 flex justify-end gap-2.5">

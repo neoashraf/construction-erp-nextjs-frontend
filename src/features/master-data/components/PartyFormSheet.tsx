@@ -329,7 +329,7 @@ export function PartyFormSheet({
                   <Input
                     id="pf-bin"
                     className="font-mono"
-                    placeholder="000000000-0000"
+                    placeholder="13-digit BIN"
                     invalid={!!errors.bin}
                     disabled={saving}
                     {...register("bin")}

@@ -222,6 +222,22 @@ describe("ProjectOverviewForm — validation + mapping", () => {
     renderNode(<ProjectOverviewForm mode={{ kind: "edit", project: PROJECT }} {...props} />);
     expect(await screen.findByLabelText(/project code/i)).toBeDisabled();
   });
+
+  it("disables the start-date field on edit (fixed at creation)", async () => {
+    renderNode(<ProjectOverviewForm mode={{ kind: "edit", project: PROJECT }} {...props} />);
+    expect(await screen.findByLabelText(/start date/i)).toBeDisabled();
+  });
+
+  it("edit save omits startDate from the PATCH (update DTO rejects it)", async () => {
+    updateMock.mockResolvedValue(PROJECT);
+    renderNode(<ProjectOverviewForm mode={{ kind: "edit", project: PROJECT }} {...props} />);
+    await screen.findByLabelText(/customer/i); // pickers loaded
+    await userEvent.click(screen.getByTestId("project-save"));
+    await waitFor(() => expect(updateMock).toHaveBeenCalled());
+    const [, input] = updateMock.mock.calls[0];
+    expect(input).not.toHaveProperty("startDate");
+    expect(input).toMatchObject({ version: 3, expectedEndDate: expect.any(String) });
+  });
 });
 
 describe("StatusActionButton — transitions (FR-MAS-006)", () => {

@@ -80,8 +80,11 @@ export function PeriodTable({
               <TableCell className="font-mono text-[12.5px] tabular-nums text-muted-foreground">
                 {period.closedAt ? formatDateTime(period.closedAt) : "—"}
               </TableCell>
-              <TableCell className="min-w-0 break-words text-foreground">
-                {period.closedBy ?? "—"}
+              <TableCell
+                className="min-w-0 break-words text-foreground"
+                title={period.closedBy ?? undefined}
+              >
+                {period.closedByName ?? period.closedBy ?? "—"}
               </TableCell>
               {showActionColumn && (
                 <TableCell className="text-right">

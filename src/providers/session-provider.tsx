@@ -11,6 +11,7 @@ import {
 } from "react";
 import { type SafeUser } from "@/lib/auth/session";
 import { navigateToForcedChange } from "@/lib/auth/forced-change";
+import { navigateToLoginExpired } from "@/lib/auth/session-lost";
 
 /**
  * Session context (skill §4/§7, ADR-0003 F7 · FE-21 FR-AUD-031/033). The safe
@@ -68,6 +69,15 @@ export function SessionProvider({
   useEffect(() => {
     if (user?.mustChangePassword) navigateToForcedChange();
   }, [user?.mustChangePassword]);
+
+  // Session lost while inside the app: we started authenticated (`initialUser`) but
+  // the live session dropped to null (refresh truly failed → BFF 401, cookies
+  // cleared). Send the user to login instead of stranding them on the shell
+  // skeleton (`!user → <ShellSkeleton/>`), which otherwise never resolves because
+  // the server-side redirect only fires on a full navigation, not SPA state.
+  useEffect(() => {
+    if (initialUser && !user) navigateToLoginExpired();
+  }, [initialUser, user]);
 
   const value = useMemo(() => ({ user, refreshSession }), [user, refreshSession]);
   return <SessionContext.Provider value={value}>{children}</SessionContext.Provider>;

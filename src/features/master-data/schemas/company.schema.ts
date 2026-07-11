@@ -2,12 +2,15 @@ import { z } from "zod";
 
 /**
  * Company identity + localization forms (spec §7; FR-MAS-004). Company name is
- * required; BIN/TIN are optional and format-only (SRS §16) — validated only when
- * present. Localization selects are all required (Phase-1: BDT / DD/MM/YYYY / bn-BD).
+ * required; BIN (13 digits) / TIN (12 digits) are optional (NBR, SRS §16) —
+ * validated only when present. Localization selects are all required (Phase-1:
+ * BDT / DD/MM/YYYY / bn-BD).
  */
 
-const BIN_RE = /^\d{9,13}$/;
-const TIN_RE = /^\d{10,12}$/;
+// Must match the backend value objects exactly: BIN is 13 digits, TIN is 12
+// digits (NBR). Looser client rules let bad input pass and fail on the server.
+const BIN_RE = /^\d{13}$/;
+const TIN_RE = /^\d{12}$/;
 
 /** Optional field that, when non-empty, must match `re`; empty/undefined passes. */
 function optionalFormat(re: RegExp, message: string) {
@@ -24,8 +27,8 @@ export const companyIdentitySchema = z.object({
     .string()
     .optional()
     .transform((v) => (v ?? "").trim()),
-  bin: optionalFormat(BIN_RE, "Enter a valid BIN."),
-  tin: optionalFormat(TIN_RE, "Enter a valid TIN."),
+  bin: optionalFormat(BIN_RE, "BIN must be exactly 13 digits."),
+  tin: optionalFormat(TIN_RE, "TIN must be exactly 12 digits."),
   address: z
     .string()
     .optional()

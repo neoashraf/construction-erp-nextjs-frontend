@@ -126,7 +126,7 @@ describe("CompanySettingsScreen — identity form", () => {
     await userEvent.clear(bin);
     await userEvent.type(bin, "12"); // too short
     await userEvent.click(screen.getByTestId("identity-card-save"));
-    expect(await screen.findByText("Enter a valid BIN.")).toBeInTheDocument();
+    expect(await screen.findByText("BIN must be exactly 13 digits.")).toBeInTheDocument();
     expect(patchMock).not.toHaveBeenCalled();
   });
 

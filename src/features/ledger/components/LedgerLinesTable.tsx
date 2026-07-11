@@ -14,6 +14,7 @@ import { cn } from "@/lib/utils";
 import { formatDate } from "@/lib/format";
 import { formatMoney } from "@/lib/money";
 import { type LedgerLine, voucherTypeLabel } from "../types";
+import { type MasterLookups } from "@/lib/masters/lookups";
 
 /**
  * Account-ledger / drill-down lines table (spec §4/§5/§10; design file grid).
@@ -26,8 +27,9 @@ import { type LedgerLine, voucherTypeLabel } from "../types";
  */
 
 // Columns differ by mode: account-ledger includes the Running-balance column.
-const GRID_LEDGER = "grid-cols-[0.85fr_1.1fr_2fr_1.2fr_1fr_1fr_1.1fr_44px]";
-const GRID_DRILL = "grid-cols-[0.85fr_1.1fr_2fr_1.2fr_1fr_1fr_44px]";
+// Widths match Account Ledger.dc.html gridCols.
+const GRID_LEDGER = "grid-cols-[0.82fr_1.32fr_2.15fr_1.1fr_0.95fr_0.95fr_1.08fr_44px]";
+const GRID_DRILL = "grid-cols-[0.82fr_1.32fr_2.15fr_1.1fr_0.95fr_0.95fr_44px]";
 
 function entryHref(entryId: string): string {
   return `/ledger/entry-viewer?id=${entryId}`;
@@ -37,11 +39,12 @@ function sourceHref(sourceType: string | null, sourceId: string | null): string 
   return `/vouchers/${sourceType.toLowerCase()}/${sourceId}`;
 }
 
-/** Dimension chips — only set dimensions shown; ids rendered until a name resolver lands. */
-function dimensionChips(line: LedgerLine): { k: string; v: string }[] {
+/** Dimension chips — only set dimensions shown. Project/cost-centre resolve to names
+ * via `names`; purpose/godown are project-scoped and fall back to their id. */
+function dimensionChips(line: LedgerLine, names: MasterLookups): { k: string; v: string }[] {
   const chips: { k: string; v: string }[] = [];
-  if (line.projectId) chips.push({ k: "PRJ", v: line.projectId });
-  if (line.costCentreId) chips.push({ k: "CC", v: line.costCentreId });
+  if (line.projectId) chips.push({ k: "PRJ", v: names.project(line.projectId) });
+  if (line.costCentreId) chips.push({ k: "CC", v: names.costCentre(line.costCentreId) });
   if (line.purposeId) chips.push({ k: "PUR", v: line.purposeId });
   if (line.godownId) chips.push({ k: "GDN", v: line.godownId });
   return chips;
@@ -51,10 +54,12 @@ export function LedgerLinesTable({
   lines,
   openingBalance,
   accountLedgerMode,
+  names,
 }: {
   lines: LedgerLine[];
   openingBalance?: string | null;
   accountLedgerMode: boolean;
+  names: MasterLookups;
 }) {
   const router = useRouter();
   const grid = accountLedgerMode ? GRID_LEDGER : GRID_DRILL;
@@ -69,12 +74,12 @@ export function LedgerLinesTable({
         data-testid="ledger-desktop"
       >
         <div role="row" className={cn("sticky top-0 z-[2] grid border-b border-border-strong bg-surface-2", grid)}>
-          <HeaderCell>Date</HeaderCell>
-          <HeaderCell>Entry no</HeaderCell>
+          <HeaderCell sort="active">Date</HeaderCell>
+          <HeaderCell sort="idle">Entry no</HeaderCell>
           <HeaderCell>Narration</HeaderCell>
           <HeaderCell>Party</HeaderCell>
-          <HeaderCell align="right">Debit ৳</HeaderCell>
-          <HeaderCell align="right">Credit ৳</HeaderCell>
+          <HeaderCell align="right" sort="idle">Debit ৳</HeaderCell>
+          <HeaderCell align="right" sort="idle">Credit ৳</HeaderCell>
           {accountLedgerMode && <HeaderCell align="right">Running balance ৳</HeaderCell>}
           <div role="columnheader" className="h-11" />
         </div>
@@ -83,7 +88,8 @@ export function LedgerLinesTable({
         {accountLedgerMode && openingBalance != null && (
           <div
             role="row"
-            className={cn("grid items-center border-b border-border bg-accent-soft/30", grid)}
+            style={{ backgroundColor: "#FCFDF8" }}
+            className={cn("grid min-h-[50px] items-center border-b border-border", grid)}
             data-testid="opening-balance-row"
           >
             <div className="px-4 py-2.5 text-[12.5px] tabular-nums text-faint">
@@ -109,7 +115,7 @@ export function LedgerLinesTable({
 
         {lines.map((line) => {
           const src = sourceHref(line.sourceType, line.sourceId);
-          const chips = dimensionChips(line);
+          const chips = dimensionChips(line, names);
           return (
             <div
               key={line.lineId}
@@ -123,8 +129,8 @@ export function LedgerLinesTable({
                 }
               }}
               className={cn(
-                "grid cursor-pointer items-center border-b border-border outline-none",
-                "focus:bg-accent-soft hover:bg-accent-soft/60",
+                "grid min-h-[56px] cursor-pointer items-center border-b border-border outline-none",
+                "focus:bg-accent-soft hover:bg-surface-2",
                 grid,
               )}
               data-testid={`ledger-row-${line.lineId}`}
@@ -177,8 +183,11 @@ export function LedgerLinesTable({
               {/* party */}
               <div className="min-w-0 px-4 py-2.5">
                 {line.partyId ? (
-                  <span className="block truncate text-[12.5px] text-foreground" title={line.partyId}>
-                    {line.partyId}
+                  <span
+                    className="block truncate text-[12.5px] text-foreground"
+                    title={names.party(line.partyId)}
+                  >
+                    {names.party(line.partyId)}
                   </span>
                 ) : (
                   <span className="text-[12.5px] text-faint">—</span>
@@ -287,12 +296,18 @@ export function LedgerLinesTable({
 
 function Money({ value, label }: { value: string; label: string }) {
   const isZero = value === "0" || Number(value) === 0;
+  // A zero debit/credit renders as a faint em-dash (Account Ledger.dc.html), since
+  // each posting line carries an amount on only ONE side.
+  if (isZero) {
+    return (
+      <span className="text-[13px] text-border-strong" aria-label={`${label} nil`}>
+        —
+      </span>
+    );
+  }
   return (
     <span
-      className={cn(
-        "font-mono text-[13px] font-semibold tabular-nums",
-        isZero ? "text-faint" : "text-foreground",
-      )}
+      className="font-mono text-[13px] font-semibold tabular-nums text-foreground"
       aria-label={`${label} ${formatMoney(value)}`}
     >
       {formatMoney(value, { withSymbol: false })}
@@ -300,16 +315,37 @@ function Money({ value, label }: { value: string; label: string }) {
   );
 }
 
-function HeaderCell({ children, align }: { children: React.ReactNode; align?: "right" }) {
+/** Two-caret sort affordance (Account Ledger.dc.html header). "active" = the sorted
+ * column (top caret dark); "idle" = sortable but not active (both carets faint). */
+function SortCarets({ state }: { state: "active" | "idle" }) {
+  return (
+    <span className="ml-1 flex flex-col text-[8px] leading-[0.6]" aria-hidden>
+      <span className={state === "active" ? "text-foreground" : "text-border-strong"}>▲</span>
+      <span className="text-border-strong">▼</span>
+    </span>
+  );
+}
+
+function HeaderCell({
+  children,
+  align,
+  sort,
+}: {
+  children: React.ReactNode;
+  align?: "right";
+  sort?: "active" | "idle";
+}) {
   return (
     <div
       role="columnheader"
       className={cn(
-        "flex h-11 items-center px-4 text-[11px] font-semibold uppercase tracking-[0.4px] text-muted-foreground",
+        "flex h-11 items-center px-4 text-[11px] font-semibold uppercase tracking-[0.4px]",
+        sort === "active" ? "text-foreground" : "text-muted-foreground",
         align === "right" && "justify-end",
       )}
     >
       {children}
+      {sort && <SortCarets state={sort} />}
     </div>
   );
 }

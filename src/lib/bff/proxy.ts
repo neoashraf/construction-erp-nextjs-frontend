@@ -11,8 +11,9 @@ import { ACCESS_COOKIE, REFRESH_COOKIE } from "@/lib/auth/session";
  * that is NOT one of the dedicated auth handlers, it:
  *  1. attaches the bearer from the httpOnly access cookie,
  *  2. forwards to NestJS,
- *  3. on a `TOKEN_EXPIRED` 401, calls /auth/refresh (refresh cookie), ROTATES the
- *     cookies, and RETRIES the original request once,
+ *  3. on a `TOKEN_EXPIRED` 401 — OR when the access cookie has already expired out
+ *     of the browser but the refresh cookie remains — calls /auth/refresh, ROTATES
+ *     the cookies, and RETRIES the original request once,
  *  4. on refresh failure, CLEARS cookies and signals re-login (401 INVALID_CREDENTIALS).
  * State-changing methods are CSRF-checked (double-submit).
  */
@@ -29,6 +30,42 @@ function buildResponse(status: number, body: unknown): NextResponse {
 /** Forward one request to NestJS with the given bearer. */
 async function forward(upstreamPath: string, method: string, json: unknown, bearer?: string) {
   return callUpstream({ path: upstreamPath, method, json, bearer });
+}
+
+/**
+ * Redeem the refresh token for a fresh access token, then RETRY the original
+ * request once and rotate the auth cookies onto the response. Used both when the
+ * access cookie has already expired out of the browser (its maxAge = the short
+ * access TTL) AND when NestJS reports `TOKEN_EXPIRED` — in either case a valid
+ * refresh cookie (7-day) should silently renew the session rather than log out.
+ * Returns a 401 (cookies cleared) only when the refresh itself is rejected.
+ */
+async function refreshAndRetry(
+  fullPath: string,
+  method: string,
+  json: unknown,
+  refreshToken: string,
+): Promise<NextResponse> {
+  const refreshed = await callUpstream({
+    path: "/auth/refresh",
+    method: "POST",
+    json: { refreshToken },
+  });
+
+  if (refreshed.status !== 200) {
+    // Refresh genuinely failed (expired/revoked) → end the session.
+    const res = errorResponse(401, "INVALID_CREDENTIALS", "Session expired, please log in again");
+    clearAuthCookies(res);
+    return res;
+  }
+
+  const { data } = refreshed.body as {
+    data: { accessToken: string; expiresIn: number; refreshToken?: string };
+  };
+  const upstream = await forward(fullPath, method, json, data.accessToken);
+  const res = buildResponse(upstream.status, upstream.body);
+  rotateAccessCookie(res, data.accessToken, data.expiresIn, data.refreshToken);
+  return res;
 }
 
 /**
@@ -58,39 +95,26 @@ export async function handleProxy(req: NextRequest, segments: string[]): Promise
   const accessToken = req.cookies.get(ACCESS_COOKIE)?.value;
   const refreshToken = req.cookies.get(REFRESH_COOKIE)?.value;
 
+  // Access cookie already expired out of the browser (its maxAge equals the short
+  // access TTL) but the 7-day refresh cookie is still here → renew silently rather
+  // than log out. This is the common "left the tab a while" case — WITHOUT this the
+  // session dies at the access-TTL (~15 min) even though refresh is valid for days.
   if (!accessToken) {
+    if (refreshToken) {
+      return refreshAndRetry(fullPath, req.method, json, refreshToken);
+    }
+    // No access AND no refresh → genuinely unauthenticated.
     const res = errorResponse(401, "UNAUTHORIZED", "Not authenticated");
     clearAuthCookies(res);
     return res;
   }
 
   // First attempt.
-  let upstream = await forward(fullPath, req.method, json, accessToken);
+  const upstream = await forward(fullPath, req.method, json, accessToken);
 
-  // Refresh-on-401 (only for an expired access token, and only if we have a refresh token).
+  // Refresh-on-401: the access token was sent but NestJS says it expired.
   if (upstream.status === 401 && upstreamErrorCode(upstream.body) === "TOKEN_EXPIRED" && refreshToken) {
-    const refreshed = await callUpstream({
-      path: "/auth/refresh",
-      method: "POST",
-      json: { refreshToken },
-    });
-
-    if (refreshed.status !== 200) {
-      // Refresh failed → clear cookies, signal re-login.
-      const res = errorResponse(401, "INVALID_CREDENTIALS", "Session expired, please log in again");
-      clearAuthCookies(res);
-      return res;
-    }
-
-    const { data } = refreshed.body as {
-      data: { accessToken: string; expiresIn: number; refreshToken?: string };
-    };
-    // Retry the original request once with the new access token.
-    upstream = await forward(fullPath, req.method, json, data.accessToken);
-
-    const res = buildResponse(upstream.status, upstream.body);
-    rotateAccessCookie(res, data.accessToken, data.expiresIn, data.refreshToken);
-    return res;
+    return refreshAndRetry(fullPath, req.method, json, refreshToken);
   }
 
   // A FORBIDDEN-deactivated (account turned off) → clear cookies so the UI logs out.

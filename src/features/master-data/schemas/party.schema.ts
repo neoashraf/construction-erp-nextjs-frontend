@@ -4,13 +4,17 @@ import { isNonNegativeMoney, parseMoney } from "@/lib/money";
 
 /**
  * Create/edit party form (spec §7; FR-MAS-023). Name required; at least one role
- * (customer/supplier) required as a group; phone required E.164 (+880); TIN/BIN
- * format-only (SRS §16); email format; payment-terms days ≥ 0; opening balance ≥ 0.
+ * (customer/supplier) required as a group; phone required E.164 (+880); TIN 12
+ * digits / BIN 13 digits (NBR, SRS §16); email format; payment-terms days ≥ 0;
+ * opening balance ≥ 0.
  * Values are strings in the form; converted on submit.
  */
 
-const TIN_RE = /^\d{10,12}$/;
-const BIN_RE = /^\d{9,13}$/;
+// Must match the backend value objects exactly: TIN is 12 digits, BIN is 13
+// digits (NBR). Keeping these looser than the server let bad input pass client
+// validation and fail on POST.
+const TIN_RE = /^\d{12}$/;
+const BIN_RE = /^\d{13}$/;
 
 function normalizablePhone(v: string): boolean {
   try {
@@ -34,8 +38,8 @@ export const partySchema = z
     name: z.string().trim().min(1, "Party name is required."),
     isCustomer: z.boolean(),
     isSupplier: z.boolean(),
-    tin: optionalFormat(TIN_RE, "Enter a valid TIN."),
-    bin: optionalFormat(BIN_RE, "Enter a valid BIN."),
+    tin: optionalFormat(TIN_RE, "TIN must be exactly 12 digits."),
+    bin: optionalFormat(BIN_RE, "BIN must be exactly 13 digits."),
     address: z
       .string()
       .optional()

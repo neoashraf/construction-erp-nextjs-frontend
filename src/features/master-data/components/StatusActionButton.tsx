@@ -30,7 +30,7 @@ function actionsFor(status: ProjectStatus, isAdmin: boolean): ActionDef[] {
         { action: "hold", label: "Put on hold", done: "Project put on hold." },
         {
           action: "close",
-          label: "Close",
+          label: "Close project",
           done: "Project closed.",
           destructive: true,
           confirm: CLOSE_CONFIRM,
@@ -41,7 +41,7 @@ function actionsFor(status: ProjectStatus, isAdmin: boolean): ActionDef[] {
         { action: "resume", label: "Resume", done: "Project resumed." },
         {
           action: "close",
-          label: "Close",
+          label: "Close project",
           done: "Project closed.",
           destructive: true,
           confirm: CLOSE_CONFIRM,
@@ -127,6 +127,12 @@ export function StatusActionButton({
           disabled={isPending}
           onClick={() => (a.confirm ? setConfirming(a) : run(a))}
           data-testid={`status-${a.action}`}
+          // Destructive outline (Projects.dc.html): red text + red-tinted border.
+          className={
+            a.destructive
+              ? "border-destructive-soft text-destructive-ink hover:bg-destructive-soft"
+              : undefined
+          }
         >
           {a.label}
         </Button>

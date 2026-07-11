@@ -40,6 +40,7 @@ export function ProjectOverviewForm({
   const isEdit = mode.kind === "edit";
   const editing = isEdit ? mode.project : null;
   const codeLocked = isEdit; // referenced-code immutability; server is authoritative (IMMUTABLE_PROJECT_CODE)
+  const startDateLocked = isEdit; // start date is set at creation; the update DTO rejects it
   const create = useCreateProject();
   const update = useUpdateProject();
   const saving = create.isPending || update.isPending;
@@ -120,22 +121,27 @@ export function ProjectOverviewForm({
   }
 
   function onSubmit(values: ProjectFormValues) {
-    const payload = {
+    const common = {
       name: values.name.trim(),
       location: values.location || null,
       customerId: values.customerId,
       projectManagerId: values.projectManagerId,
-      startDate: toApiDate(values.startDate),
       expectedEndDate: toApiDate(values.expectedEndDate),
     };
     if (editing) {
+      // startDate is fixed at creation — the update DTO rejects it (whitelist),
+      // so it's deliberately omitted from the PATCH.
       update.mutate(
-        { id: editing.id, input: { ...payload, version: editing.version } },
+        { id: editing.id, input: { ...common, version: editing.version } },
         { onSuccess: onUpdated, onError: mapError },
       );
     } else {
       create.mutate(
-        { projectCode: values.projectCode.trim(), ...payload },
+        {
+          projectCode: values.projectCode.trim(),
+          ...common,
+          startDate: toApiDate(values.startDate),
+        },
         { onSuccess: (res) => onCreated(res.id), onError: mapError },
       );
     }
@@ -242,15 +248,20 @@ export function ProjectOverviewForm({
                     onBlur={field.onBlur}
                     name={field.name}
                     invalid={!!errors.startDate}
-                    disabled={disabled}
+                    // Start date is fixed at creation (server rejects changes) — lock it in edit.
+                    disabled={disabled || startDateLocked}
                   />
                 )}
               />
-              {errors.startDate && (
+              {errors.startDate ? (
                 <p className="mt-1.5 text-[11.5px] text-destructive-ink">
                   {errors.startDate.message}
                 </p>
-              )}
+              ) : startDateLocked ? (
+                <p className="mt-1.5 text-[11.5px] text-faint">
+                  Start date can&apos;t change once created.
+                </p>
+              ) : null}
             </div>
             <div>
               <Label htmlFor="pj-end" className="mb-1.5 block text-[10.5px]">

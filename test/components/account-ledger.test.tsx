@@ -103,21 +103,29 @@ const LEDGER_SCOPE = { accountId: "1201", dateFrom: "2025-04-01", dateTo: "2026-
 beforeEach(() => listMock.mockReset());
 
 describe("AccountLedgerScreen — no-account prompt (spec §6)", () => {
-  it("shows 'Select an account' once the account filter is cleared", async () => {
-    // The screen now opens in account-ledger mode by default (demo scope); clearing
-    // the filter returns to the empty drill-down prompt (spec §6 no-account state).
+  it("opens on the 'Select an account' prompt when no scope is supplied", async () => {
+    // With no inbound scope the screen starts empty — the user picks an account
+    // from the filter dropdown (spec §6 no-account state). It does NOT auto-load.
     listMock.mockResolvedValue(ledgerPage([LINE1], "1840000.0000"));
     renderScreen();
+    expect(screen.getByText("Select an account to view its ledger.")).toBeInTheDocument();
+    expect(listMock).not.toHaveBeenCalled();
+  });
+
+  it("stays on the prompt after Clear filters", async () => {
+    listMock.mockResolvedValue(ledgerPage([LINE1], "1840000.0000"));
+    renderScreen("ACCOUNTS_TEAM", LEDGER_SCOPE);
+    await screen.findByTestId("ledger-scope");
     await userEvent.click(screen.getByTestId("ledger-clear"));
     expect(screen.getByText("Select an account to view its ledger.")).toBeInTheDocument();
   });
 });
 
-describe("AccountLedgerScreen — default load (design mockup: account selected)", () => {
-  it("opens in account-ledger mode with the scope header, titled 'Account ledger'", async () => {
+describe("AccountLedgerScreen — inbound scope (Trial-balance drill)", () => {
+  it("opens in account-ledger mode with the scope header when given account + dates", async () => {
     listMock.mockResolvedValue(ledgerPage([LINE1], "1840000.0000"));
-    renderScreen();
-    expect(screen.getByTestId("ledger-title")).toHaveTextContent("Account ledger");
+    renderScreen("ACCOUNTS_TEAM", LEDGER_SCOPE);
+    expect(await screen.findByTestId("ledger-title")).toHaveTextContent("Account ledger");
     expect(screen.getByTestId("ledger-scope")).toBeInTheDocument();
     await waitFor(() => expect(listMock).toHaveBeenCalled());
   });

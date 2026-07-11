@@ -56,6 +56,7 @@ function period(overrides: Partial<AccountingPeriod> = {}): AccountingPeriod {
     status: "OPEN",
     closedAt: null,
     closedBy: null,
+    closedByName: null,
     createdAt: "2025-07-01T00:00:00Z",
     updatedAt: "2025-07-01T00:00:00Z",
     ...overrides,
@@ -72,7 +73,8 @@ function twoOpenOneClosed(): AccountingPeriod[] {
       endDate: "2025-08-31",
       status: "CLOSED",
       closedAt: "2025-09-03T10:14:00Z",
-      closedBy: "Ashraf Uddin",
+      closedBy: "u-ashraf",
+      closedByName: "Ashraf Uddin",
     }),
     period({ id: "p3", name: "Sep 2025", startDate: "2025-09-01", endDate: "2025-09-30" }),
   ];
@@ -83,7 +85,8 @@ function allClosed(): AccountingPeriod[] {
     ...p,
     status: "CLOSED",
     closedAt: "2026-01-01T00:00:00Z",
-    closedBy: "Ashraf Uddin",
+    closedBy: "u-ashraf",
+    closedByName: "Ashraf Uddin",
   }));
 }
 
@@ -262,7 +265,7 @@ describe("PeriodManagerScreen — close action", () => {
 
   it("Confirm calls POST close and shows the success toast, dialog closes", async () => {
     listPeriodsMock.mockResolvedValue(twoOpenOneClosed());
-    closeMock.mockResolvedValue(period({ id: "p1", status: "CLOSED", closedAt: "2025-08-01T00:00:00Z", closedBy: "Ashraf Uddin" }));
+    closeMock.mockResolvedValue(period({ id: "p1", status: "CLOSED", closedAt: "2025-08-01T00:00:00Z", closedBy: "u-ashraf", closedByName: null }));
     const u = userEvent.setup();
     renderScreen("ADMIN");
     await screen.findByTestId("period-table");

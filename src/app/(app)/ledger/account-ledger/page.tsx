@@ -16,13 +16,12 @@ export default async function AccountLedgerPage({
   await requireModuleAccess("ledger");
   const sp = await searchParams;
   const one = (v: string | string[] | undefined) => (Array.isArray(v) ? v[0] : v) ?? "";
-  return (
-    <AccountLedgerScreen
-      initialFilter={{
-        accountId: one(sp.accountId),
-        dateFrom: one(sp.dateFrom),
-        dateTo: one(sp.dateTo),
-      }}
-    />
-  );
+  // Only pass an inbound scope when the drill actually supplied one (e.g. from a
+  // Trial-balance drill); otherwise let the screen open on the account picker prompt
+  // rather than an empty, meaningless filter.
+  const accountId = one(sp.accountId);
+  const initialFilter = accountId
+    ? { accountId, dateFrom: one(sp.dateFrom), dateTo: one(sp.dateTo) }
+    : undefined;
+  return <AccountLedgerScreen initialFilter={initialFilter} />;
 }
