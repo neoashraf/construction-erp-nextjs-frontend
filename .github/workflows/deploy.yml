@@ -24,9 +24,7 @@ jobs:
 
       - run: npm ci
       - run: npm run typecheck
-      - name: Lint (non-blocking — design-token violations tracked as tech debt)
-        run: npm run lint
-        continue-on-error: true
+      - run: npm run lint
       - run: npm test
 
   deploy:

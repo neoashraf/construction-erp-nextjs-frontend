@@ -46,6 +46,7 @@ const config: Config = {
           foreground: "var(--color-accent-foreground)",
           ink: "var(--color-accent-ink)",
           soft: "var(--color-accent-soft)",
+          border: "var(--color-accent-border)",
         },
         sidebar: {
           DEFAULT: "var(--color-sidebar)",
