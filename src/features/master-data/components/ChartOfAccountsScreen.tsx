@@ -24,7 +24,7 @@ import { FlatAccountList } from "./FlatAccountList";
 import { GroupModal } from "./GroupModal";
 import { AccountModal } from "./AccountModal";
 import { AccountStatusDialog } from "./AccountStatusDialog";
-import { TYPE_META } from "./TypeBadge";
+import { TYPE_META, TYPE_DOT } from "./TypeBadge";
 
 type GroupModalState = { kind: "create"; parentGroupId?: string } | { kind: "edit"; group: AccountGroup } | null;
 type AccountModalState = { kind: "create"; groupId?: string } | { kind: "edit"; account: Account } | null;
@@ -156,11 +156,13 @@ export function ChartOfAccountsScreen() {
               <DropdownMenuTrigger
                 aria-label="Filter by type"
                 data-testid="coa-type-filter"
-                className="flex h-9 w-[186px] items-center gap-2 rounded-token border border-border-strong bg-surface px-3 text-left text-[13.5px] font-medium text-foreground transition-colors hover:border-[#CBD2DA] focus:outline-none focus-visible:ring-2 focus-visible:ring-ring"
+                className="flex h-9 w-[186px] items-center gap-2 rounded-token border border-border-strong bg-surface px-3 text-left text-[13.5px] font-medium text-foreground transition-colors hover:border-border-hover focus:outline-none focus-visible:ring-2 focus-visible:ring-ring"
               >
                 <span
-                  className="h-2 w-2 flex-none rounded-full border border-border-strong"
-                  style={{ background: typeFilter === "" ? "#FFFFFF" : TYPE_META[typeFilter].base }}
+                  className={cn(
+                    "h-2 w-2 flex-none rounded-full border border-border-strong",
+                    typeFilter === "" ? "bg-surface" : TYPE_DOT[TYPE_META[typeFilter].tone],
+                  )}
                   aria-hidden
                 />
                 <span className="flex-1">
@@ -171,7 +173,7 @@ export function ChartOfAccountsScreen() {
               <DropdownMenuContent align="start" className="w-[186px]">
                 <TypeFilterItem
                   label="All types"
-                  dot="#FFFFFF"
+                  dotClass="bg-surface"
                   selected={typeFilter === ""}
                   onSelect={() => setTypeFilter("")}
                 />
@@ -179,7 +181,7 @@ export function ChartOfAccountsScreen() {
                   <TypeFilterItem
                     key={t}
                     label={TYPE_META[t].label}
-                    dot={TYPE_META[t].base}
+                    dotClass={TYPE_DOT[TYPE_META[t].tone]}
                     selected={typeFilter === t}
                     onSelect={() => setTypeFilter(t)}
                   />
@@ -265,16 +267,16 @@ export function ChartOfAccountsScreen() {
             {[30, 46, 62, 54, 58, 40, 50, 26].map((w, i) => (
               <div
                 key={i}
-                className="flex min-h-[40px] items-center gap-3 border-b border-[#F1F3F5] px-[22px]"
+                className="flex min-h-[40px] items-center gap-3 border-b border-muted px-[22px]"
               >
-                <span className="h-3 w-3 flex-none rounded-sm bg-[#EAECEF]" />
+                <span className="h-3 w-3 flex-none rounded-sm bg-muted" />
                 <Skeleton className="h-3" style={{ width: `${w}%` }} />
               </div>
             ))}
           </div>
         ) : isError ? (
           <div className="p-8">
-            <div className="flex flex-col items-center rounded-card border border-[#F3C9CB] bg-[#FDF4F4] px-5 py-11 text-center">
+            <div className="flex flex-col items-center rounded-card border border-destructive-soft bg-destructive-soft px-5 py-11 text-center">
               <div className="grid h-[52px] w-[52px] place-items-center rounded-full bg-destructive-soft text-[22px] font-bold text-destructive-ink">
                 !
               </div>
@@ -411,20 +413,19 @@ export function ChartOfAccountsScreen() {
 
 function TypeFilterItem({
   label,
-  dot,
+  dotClass,
   selected,
   onSelect,
 }: {
   label: string;
-  dot: string;
+  dotClass: string;
   selected: boolean;
   onSelect: () => void;
 }) {
   return (
     <DropdownMenuItem onSelect={onSelect} className="h-8 gap-2.5">
       <span
-        className="h-2 w-2 flex-none rounded-full border border-border-strong"
-        style={{ background: dot }}
+        className={cn("h-2 w-2 flex-none rounded-full border border-border-strong", dotClass)}
         aria-hidden
       />
       <span className="flex-1">{label}</span>
