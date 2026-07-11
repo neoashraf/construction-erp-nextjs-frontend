@@ -144,6 +144,67 @@ const MOCK_PROFITABILITY_BY_PROJECT = [
   { projectId: "proj-c", revenue: "310000000.0000", cost: "240000000.0000", profit: "70000000.0000" },
 ];
 
+// ── Inventory sample (dev/preview only) ──
+interface MockGodown { id: string; code: string; name: string; projectId: string; isActive: boolean }
+const MOCK_GODOWNS: MockGodown[] = [
+  { id: "gd-a", code: "G-Site-A", name: "Site A store", projectId: "proj-a", isActive: true },
+  { id: "gd-b", code: "G-Site-B", name: "Site B store", projectId: "proj-a", isActive: true },
+  { id: "gd-c", code: "G-Central", name: "Central warehouse", projectId: "proj-b", isActive: true },
+  { id: "gd-d", code: "G-Yard", name: "Yard — Savar", projectId: "proj-c", isActive: true },
+];
+interface MockItem { id: string; code: string; name: string; uom: string; isActive: boolean }
+const MOCK_ITEMS: MockItem[] = [
+  { id: "it-cement", code: "IT-01", name: "Cement — 50kg bag (Shah Cement)", uom: "bag", isActive: true },
+  { id: "it-rebar", code: "IT-02", name: "Rebar 12mm", uom: "ton", isActive: true },
+  { id: "it-sand", code: "IT-03", name: "বালু — Sand", uom: "cft", isActive: true },
+  { id: "it-brick", code: "IT-04", name: "ইট — Brick", uom: "pcs", isActive: true },
+  { id: "it-fuel", code: "IT-05", name: "Fuel — Diesel", uom: "ltr", isActive: false },
+];
+const MOCK_USER_LIST = [
+  { id: "00000000-0000-0000-0000-000000000001", name: "Admin User" },
+  { id: "u-rafiq", name: "Rafiqul Islam" },
+  { id: "u-farzana", name: "ফারজানা আক্তার" },
+  { id: "u-ashraf", name: "Ashraful Alam" },
+];
+const MOCK_STOCK_LEDGER = [
+  { godownId: "gd-a", itemId: "it-cement", quantityOnHand: "1240.0000", totalValue: "672080.0000", weightedAverageRate: "542.0000" },
+  { godownId: "gd-b", itemId: "it-cement", quantityOnHand: "300.0000", totalValue: "162600.0000", weightedAverageRate: "542.0000" },
+  { godownId: "gd-a", itemId: "it-rebar", quantityOnHand: "18.0000", totalValue: "1764000.0000", weightedAverageRate: "98000.0000" },
+  { godownId: "gd-a", itemId: "it-sand", quantityOnHand: "90.0000", totalValue: "3780.0000", weightedAverageRate: "42.0000" },
+  { godownId: "gd-a", itemId: "it-brick", quantityOnHand: "5000.0000", totalValue: "62500.0000", weightedAverageRate: "12.5000" },
+];
+
+interface MockSjLine { lineNo: number; side: "OUT" | "IN"; godownId: string; itemId: string; quantity: string; rate: string | null; value: string | null; projectId: string; costCentreId: string; purposeId: string }
+interface MockSJ {
+  id: string; entryNo: string | null; voucherDate: string; mode: "TRANSFER" | "ISSUE" | "ADJUSTMENT"; status: "DRAFT" | "APPROVED" | "POSTED" | "CANCELLED";
+  fromGodownId: string | null; toGodownId: string | null; itemId: string; quantity: string; rate: string | null; value: string | null;
+  projectId: string | null; costCentreId: string | null; purposeId: string | null; issuedById: string | null; receivedById: string | null;
+  approvedById: string | null; approvedAt: string | null; negativeStockAuthorisedById: string | null; negativeStockReason: string | null;
+  journalEntryId: string | null; narration: string | null; postedAt: string | null; postedById: string | null; version: number; lines: MockSjLine[];
+}
+let sjSeq = 100;
+let sjNumberSeq = 12;
+function seedSj(p: Partial<MockSJ> & Pick<MockSJ, "id" | "mode" | "status" | "itemId" | "quantity" | "fromGodownId">): MockSJ {
+  const posted = p.status === "POSTED" || p.status === "CANCELLED";
+  return {
+    entryNo: null, voucherDate: "2026-06-20", toGodownId: null, rate: null, value: null,
+    projectId: "proj-a", costCentreId: "cc-mat", purposeId: "pp-1", issuedById: "u-rafiq", receivedById: "u-farzana",
+    approvedById: posted || p.status === "APPROVED" ? "u-ashraf" : null, approvedAt: posted || p.status === "APPROVED" ? "2026-06-20T09:12:00Z" : null,
+    negativeStockAuthorisedById: null, negativeStockReason: null, journalEntryId: null, narration: "Day 20 slab pour",
+    postedAt: posted ? "2026-06-20T09:15:00Z" : null, postedById: posted ? "u-rafiq" : null, version: 1,
+    lines: [{ lineNo: 1, side: "OUT", godownId: p.fromGodownId ?? "gd-a", itemId: p.itemId, quantity: p.quantity, rate: p.rate ?? null, value: p.value ?? null, projectId: "proj-a", costCentreId: "cc-mat", purposeId: "pp-1" }],
+    ...p,
+  } as MockSJ;
+}
+const MOCK_STOCK_JOURNALS: MockSJ[] = [
+  seedSj({ id: "sj-1", entryNo: "SJ/2526/0012", voucherDate: "2026-07-06", mode: "TRANSFER", status: "POSTED", fromGodownId: "gd-a", toGodownId: "gd-b", itemId: "it-rebar", quantity: "8.5000", rate: "98500.0000", value: "837250.0000", journalEntryId: null }),
+  seedSj({ id: "sj-2", voucherDate: "2026-07-07", mode: "ISSUE", status: "DRAFT", fromGodownId: "gd-a", itemId: "it-cement", quantity: "50.0000" }),
+  seedSj({ id: "sj-3", entryNo: "SJ/2526/0011", voucherDate: "2026-07-05", mode: "ADJUSTMENT", status: "POSTED", fromGodownId: "gd-a", itemId: "it-sand", quantity: "120.0000", rate: "42.0000", value: "5040.0000", journalEntryId: "je-11" }),
+  seedSj({ id: "sj-4", entryNo: "SJ/2526/0010", voucherDate: "2026-06-28", mode: "ISSUE", status: "POSTED", fromGodownId: "gd-a", itemId: "it-cement", quantity: "200.0000", rate: "542.0000", value: "108400.0000", journalEntryId: "je-10" }),
+  seedSj({ id: "sj-5", voucherDate: "2026-07-05", mode: "ISSUE", status: "APPROVED", fromGodownId: "gd-a", itemId: "it-cement", quantity: "180.0000" }),
+  seedSj({ id: "sj-6", entryNo: "SJ/2526/0008", voucherDate: "2026-06-25", mode: "ISSUE", status: "CANCELLED", fromGodownId: "gd-a", itemId: "it-sand", quantity: "300.0000", rate: "42.0000", value: "12600.0000" }),
+];
+
 const MOCK_PURPOSES: MockPurpose[] = [
   { id: "pp-1", projectId: "proj-a", name: "Material Purchase", isActive: true, version: 1 },
   { id: "pp-2", projectId: "proj-a", name: "Labour Payment", isActive: true, version: 1 },
@@ -569,6 +630,139 @@ export async function mockNestjsFetch(req: MockReq): Promise<MockResult> {
       target.name = String((body as { name?: unknown }).name ?? target.name).trim();
       target.version += 1;
       return { status: 200, body: success(target) };
+    }
+  }
+
+  // ── Inventory master lookups ──
+  if (pathname === "/masters/godowns" && req.method === "GET") {
+    const projectId = params.get("projectId");
+    const rows = projectId ? MOCK_GODOWNS.filter((g) => g.projectId === projectId) : MOCK_GODOWNS;
+    return { status: 200, body: pageEnvelope(rows) };
+  }
+  if (pathname === "/masters/items" && req.method === "GET") {
+    return { status: 200, body: pageEnvelope(MOCK_ITEMS) };
+  }
+  if (pathname === "/users" && req.method === "GET") {
+    return { status: 200, body: pageEnvelope(MOCK_USER_LIST) };
+  }
+
+  // ── Stock ledger balance (matched BEFORE /stock-journal/:id) ──
+  if (pathname === "/stock-journal/stock-ledger" && req.method === "GET") {
+    const godownId = params.get("godownId") ?? "";
+    const itemId = params.get("itemId") ?? "";
+    const row = MOCK_STOCK_LEDGER.find((r) => r.godownId === godownId && r.itemId === itemId);
+    const data = row ? [{ ...row, asOfDate: "2026-07-07" }] : [];
+    return { status: 200, body: pageEnvelope(data) };
+  }
+
+  // ── Stock Journal list + create ──
+  const scopeOk = (projectId: string | null) =>
+    user.assignedProjectIds.length === 0 || (projectId ? user.assignedProjectIds.includes(projectId) : true);
+
+  if (pathname === "/stock-journal" && req.method === "GET") {
+    const statusF = params.get("status");
+    const modeF = params.get("mode");
+    const projectF = params.get("projectId");
+    const godownF = params.get("godownId");
+    const itemF = params.get("itemId");
+    let rows = MOCK_STOCK_JOURNALS.filter((j) => scopeOk(j.projectId));
+    if (statusF) rows = rows.filter((j) => statusF.split(",").includes(j.status));
+    if (modeF) rows = rows.filter((j) => modeF.split(",").includes(j.mode));
+    if (projectF) rows = rows.filter((j) => j.projectId === projectF);
+    if (godownF) rows = rows.filter((j) => j.fromGodownId === godownF || j.toGodownId === godownF);
+    if (itemF) rows = rows.filter((j) => j.itemId === itemF);
+    return { status: 200, body: pageEnvelope(rows) };
+  }
+
+  if (pathname === "/stock-journal" && req.method === "POST") {
+    const b = body as Record<string, unknown>;
+    const lines = (Array.isArray(b.lines) ? b.lines : []) as Array<Record<string, string>>;
+    const out = lines.find((l) => l.side === "OUT") ?? {};
+    const inn = lines.find((l) => l.side === "IN");
+    if (b.mode === "TRANSFER" && out.godownId && inn?.godownId && out.godownId === inn.godownId) {
+      return { status: 400, body: envelope("SAME_GODOWN_TRANSFER", "Source and destination can't be the same godown.") };
+    }
+    const id = `sj-${(sjSeq += 1)}`;
+    const nj: MockSJ = {
+      id, entryNo: null, voucherDate: String(b.voucherDate ?? ""), mode: b.mode as MockSJ["mode"], status: "DRAFT",
+      fromGodownId: out.godownId ?? null, toGodownId: inn?.godownId ?? null, itemId: String(b.itemId ?? ""), quantity: String(b.quantity ?? "0"),
+      rate: null, value: null, projectId: out.projectId ?? null, costCentreId: out.costCentreId ?? null, purposeId: out.purposeId ?? null,
+      issuedById: (b.issuedById as string) ?? null, receivedById: (b.receivedById as string) ?? null, approvedById: null, approvedAt: null,
+      negativeStockAuthorisedById: null, negativeStockReason: null, journalEntryId: null, narration: (b.narration as string) ?? null,
+      postedAt: null, postedById: null, version: 1,
+      lines: lines.map((l, i) => ({ lineNo: i + 1, side: l.side as "OUT" | "IN", godownId: l.godownId ?? "", itemId: String(b.itemId ?? ""), quantity: String(b.quantity ?? "0"), rate: null, value: null, projectId: l.projectId ?? "", costCentreId: l.costCentreId ?? "", purposeId: l.purposeId ?? "" })),
+    };
+    MOCK_STOCK_JOURNALS.unshift(nj);
+    return { status: 201, body: success(nj) };
+  }
+
+  // ── Stock Journal /:id [/(approve|post|reverse)] ──
+  const sjm = /^\/stock-journal\/([^/]+)(?:\/(approve|post|reverse))?$/.exec(pathname ?? "");
+  if (sjm) {
+    const id = sjm[1]!;
+    const action = sjm[2];
+    const j = MOCK_STOCK_JOURNALS.find((x) => x.id === id);
+    if (!j) return { status: 404, body: envelope("NOT_FOUND", "Stock Journal not found") };
+    if (!scopeOk(j.projectId)) return { status: 403, body: envelope("FORBIDDEN", "You don't have access to this Stock Journal.") };
+    const b = body as Record<string, unknown>;
+
+    if (req.method === "GET" && !action) return { status: 200, body: success(j) };
+
+    if (req.method === "PATCH" && !action) {
+      if (j.status !== "DRAFT") return { status: 409, body: envelope("VOUCHER_POSTED_IMMUTABLE", "Posted Stock Journals can't be edited.") };
+      const lines = (Array.isArray(b.lines) ? b.lines : j.lines) as Array<Record<string, string>>;
+      const out = lines.find((l) => l.side === "OUT") ?? {};
+      const inn = lines.find((l) => l.side === "IN");
+      if (b.mode === "TRANSFER" && out.godownId && inn?.godownId && out.godownId === inn.godownId) {
+        return { status: 400, body: envelope("SAME_GODOWN_TRANSFER", "Source and destination can't be the same godown.") };
+      }
+      Object.assign(j, {
+        voucherDate: b.voucherDate ?? j.voucherDate, mode: b.mode ?? j.mode, itemId: b.itemId ?? j.itemId, quantity: b.quantity ?? j.quantity,
+        issuedById: b.issuedById ?? j.issuedById, receivedById: b.receivedById ?? j.receivedById, narration: b.narration ?? j.narration,
+        fromGodownId: out.godownId ?? j.fromGodownId, toGodownId: inn?.godownId ?? null, projectId: out.projectId ?? j.projectId,
+        costCentreId: out.costCentreId ?? j.costCentreId, purposeId: out.purposeId ?? j.purposeId, version: j.version + 1,
+      });
+      return { status: 200, body: success(j) };
+    }
+
+    if (req.method === "DELETE" && !action) {
+      if (j.status !== "DRAFT") return { status: 409, body: envelope("VOUCHER_POSTED_IMMUTABLE", "Posted Stock Journals can't be deleted.") };
+      const idx = MOCK_STOCK_JOURNALS.indexOf(j);
+      MOCK_STOCK_JOURNALS.splice(idx, 1);
+      return { status: 204, body: null };
+    }
+
+    if (req.method === "POST" && action === "approve") {
+      if (j.status !== "DRAFT") return { status: 409, body: envelope("INVALID_STOCK_JOURNAL_TRANSITION", "Only a draft can be approved.") };
+      j.status = "APPROVED"; j.approvedById = user.id; j.approvedAt = new Date().toISOString(); j.version += 1;
+      return { status: 200, body: success(j) };
+    }
+
+    if (req.method === "POST" && action === "post") {
+      if (j.status !== "APPROVED") return { status: 409, body: envelope("STOCK_JOURNAL_NOT_APPROVED", "This Stock Journal must be approved before it can be posted.") };
+      const bal = MOCK_STOCK_LEDGER.find((r) => r.godownId === j.fromGodownId && r.itemId === j.itemId);
+      const onHand = bal ? Number(bal.quantityOnHand) : 0;
+      const allow = b.allowNegativeStock === true;
+      if (Number(j.quantity) > onHand) {
+        if (!allow || user.role !== "ADMIN") {
+          return { status: 409, body: envelope("NEGATIVE_STOCK_BLOCKED", "This would take the item below zero. You don't have authorisation to allow negative stock.") };
+        }
+        j.negativeStockAuthorisedById = user.id; j.negativeStockReason = (b.negativeStockReason as string) ?? null;
+      }
+      const rate = bal?.weightedAverageRate ?? "0.0000";
+      j.status = "POSTED"; j.postedAt = new Date().toISOString(); j.postedById = user.id;
+      j.rate = rate; j.value = (Number(rate) * Number(j.quantity)).toFixed(4);
+      if (j.mode === "TRANSFER") { j.entryNo = null; j.journalEntryId = null; } // value-neutral
+      else { j.entryNo = `SJ/2526/${String((sjNumberSeq += 1)).padStart(4, "0")}`; j.journalEntryId = `je-${j.id}`; }
+      j.version += 1;
+      return { status: 200, body: success(j) };
+    }
+
+    if (req.method === "POST" && action === "reverse") {
+      if (j.status === "CANCELLED") return { status: 409, body: envelope("ALREADY_REVERSED", "This Stock Journal has already been reversed.") };
+      if (j.status !== "POSTED") return { status: 409, body: envelope("INVALID_STOCK_JOURNAL_TRANSITION", "Only a posted journal can be reversed.") };
+      j.status = "CANCELLED"; j.version += 1;
+      return { status: 200, body: success(j) };
     }
   }
 
