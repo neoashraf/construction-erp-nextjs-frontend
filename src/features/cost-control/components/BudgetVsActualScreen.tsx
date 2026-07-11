@@ -66,13 +66,27 @@ function toApiQuery(form: BudgetVsActualFilterFormValues, page: number): BudgetV
  * two empty variants · partial (unresolved name) · error+retry · 403 project-scope ·
  * offline. No mutating action — CC never writes.
  */
-export function BudgetVsActualScreen() {
+export function BudgetVsActualScreen({
+  initialContext,
+}: {
+  /** Deep-link seed (e.g. the Over-budget alerts "View in Budget vs Actual" drill) — pre-fills
+   *  the fixed selector and auto-applies. Absent → the normal pick-context gate (no auto-fetch). */
+  initialContext?: { projectId?: string; costCentreId?: string };
+} = {}) {
   const user = useAuthenticatedUser();
   const online = useOnline();
   const canEditBudget = hasGrant(user, "master_data.projects", "UPDATE");
 
-  const [mode, setMode] = useState<ViewMode>("project");
-  const [applied, setApplied] = useState<BudgetVsActualFilterFormValues>(emptyFilter("project", ""));
+  const seedProjectId = initialContext?.projectId ?? "";
+  const seedCostCentreId = initialContext?.costCentreId ?? "";
+  const seedMode: ViewMode = seedProjectId ? "project" : seedCostCentreId ? "cost_centre" : "project";
+
+  const [mode, setMode] = useState<ViewMode>(seedMode);
+  const [applied, setApplied] = useState<BudgetVsActualFilterFormValues>(() => {
+    if (seedProjectId) return { ...emptyFilter("project", ""), projectId: seedProjectId };
+    if (seedCostCentreId) return { ...emptyFilter("cost_centre", ""), costCentreId: seedCostCentreId };
+    return emptyFilter("project", "");
+  });
   const [page, setPage] = useState(1);
 
   const projectsQuery = useProjectOptions();

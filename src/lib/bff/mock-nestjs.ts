@@ -361,6 +361,28 @@ export async function mockNestjsFetch(req: MockReq): Promise<MockResult> {
     return { status: 200, body: pageEnvelope(rows) };
   }
 
+  // GET /cost-control/alerts — the current OVER/APPROACHING (project, cost centre) pairs,
+  // lifetime-cumulative + live (FR-CC-011/012/016). Same row shape as budget-vs-actual.
+  if (pathname === "/cost-control/alerts" && req.method === "GET") {
+    const projectId = params.get("projectId") ?? "";
+    const statusCsv = params.get("status");
+    const wanted = statusCsv ? new Set(statusCsv.split(",")) : new Set(["OVER", "APPROACHING"]);
+    // PM scope: reject an unassigned project filter (FR-CC-016).
+    if (projectId && user.assignedProjectIds.length > 0 && !user.assignedProjectIds.includes(projectId)) {
+      return { status: 403, body: envelope("FORBIDDEN", "You don't have access to this project.") };
+    }
+    const scopedProject = projectId || user.assignedProjectIds[0] || "proj-a";
+    let rows = MOCK_BVA_ROWS.filter((r) => r.status === "OVER" || r.status === "APPROACHING").map((r) => ({
+      projectId: scopedProject,
+      ...r,
+    }));
+    rows = rows.filter((r) => wanted.has(r.status));
+    // Sort OVER before APPROACHING, then utilisation descending (spec §5).
+    const rank = (s: string) => (s === "OVER" ? 0 : 1);
+    rows.sort((a, b) => rank(a.status) - rank(b.status) || Number(b.utilisationPct) - Number(a.utilisationPct));
+    return { status: 200, body: pageEnvelope(rows) };
+  }
+
   // /masters/parties[/:id[/(deactivate|reactivate)]]
   const partyMatch = /^\/masters\/parties(?:\/([^/]+)(?:\/(deactivate|reactivate))?)?$/.exec(
     pathname ?? "",
