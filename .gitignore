@@ -33,3 +33,6 @@ yarn-error.log*
 .vscode/*
 !.vscode/extensions.json
 *.tsbuildinfo
+
+# rendered design-file reference shots (render-design-file.mjs)
+.design-shots/

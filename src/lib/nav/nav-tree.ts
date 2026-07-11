@@ -486,13 +486,13 @@ export function showsAlertsBell(viewerLike: ViewerLike): boolean {
 
 /**
  * Whether the Cost-control module has a REAL, data-backed screen yet — this gates the
- * live `GET /api/cost-control/alerts` fetch behind the bell. The CC nav items are now
- * navigable, but they resolve to Coming-soon *placeholders* with no backing endpoint,
- * so this stays `false` until the actual CC alerts screen + API ship. Keeping it false
- * means the bell degrades to a plain bell instead of firing a fetch that must fail.
+ * live `GET /api/cost-control/alerts` fetch behind the bell. `true` since FE-25 shipped
+ * the Over-budget alerts screen + its backing endpoint (the CC backend sibling is Done):
+ * the bell now fires the live count fetch and renders the badge from `meta.total`, still
+ * degrading silently to a plain bell on error (alerts-bell.tsx).
  */
 export function costControlBuilt(): boolean {
-  return false;
+  return true;
 }
 
 /**

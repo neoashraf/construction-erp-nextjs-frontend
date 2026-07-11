@@ -27,6 +27,7 @@ const config: Config = {
         faint: "var(--color-faint)",
         border: "var(--color-border)",
         "border-strong": "var(--color-border-strong)",
+        "border-hover": "var(--color-border-hover)",
         input: "var(--color-input)",
         ring: "var(--color-ring)",
         muted: {
@@ -85,6 +86,7 @@ const config: Config = {
         violet: {
           DEFAULT: "var(--color-violet)",
           soft: "var(--color-violet-soft)",
+          ink: "var(--color-violet-ink)",
         },
         teal: {
           DEFAULT: "var(--color-teal)",

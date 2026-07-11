@@ -64,6 +64,7 @@
   --color-faint: #9aa1ab; /* tertiary/placeholder ONLY — not AA body text */
   --color-border: #eceef1; /* hairline dividers, card borders */
   --color-border-strong: #e1e4e9; /* input borders, stronger separation */
+  --color-border-hover: #cbd2da; /* input/control border on hover (design-system §"Input") */
   --color-input: #e1e4e9;
   --color-ring: #1c2c4c; /* focus ring (navy, AA-visible) */
 
@@ -101,6 +102,7 @@
   /* Named categorical hues (chips, nav module icons, category bars). */
   --color-violet: #7c5cf6;
   --color-violet-soft: #efebfe;
+  --color-violet-ink: #5b3fd0; /* violet-coloured text on violet-soft (AA) — e.g. Equity account-type pill */
   --color-teal: #12a8a8;
   --color-teal-soft: #e3f5f5;
 
@@ -166,8 +168,10 @@
   --color-faint: #6b7a95;
   --color-border: #233351;
   --color-border-strong: #2c3e60;
+  --color-border-hover: #3a4d72;
   --color-input: #2c3e60;
   --color-ring: #a3ce3c;
+  --color-violet-ink: #b9a6f7;
 
   --color-success-soft: #11271e;
   --color-success-ink: #4fd49b;

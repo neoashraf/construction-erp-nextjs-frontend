@@ -32,7 +32,7 @@ const DEBOUNCE_MS = 350;
 
 /**
  * Filter micro-label, matched to the design file exactly: 10.5px / weight 600 /
- * 0.4px tracking / uppercase / muted (#697079). The shared `Label` primitive is a
+ * 0.4px tracking / uppercase / muted-foreground. The shared `Label` primitive is a
  * hair larger (12px, wider tracking); overriding here keeps this bar pixel-true to
  * the mock without changing the app-wide primitive.
  */

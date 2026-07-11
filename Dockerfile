@@ -11,6 +11,12 @@ RUN npm ci
 
 COPY . .
 
+# NEXT_PUBLIC_* vars are inlined into the client bundle at build time, so
+# they must be passed in as a build arg (see docker-compose.yml) rather
+# than only being in the runtime .env.
+ARG NEXT_PUBLIC_APP_URL
+ENV NEXT_PUBLIC_APP_URL=$NEXT_PUBLIC_APP_URL
+
 RUN npm run build
 
 # ==========================
