@@ -69,6 +69,48 @@ export interface StockLedgerRow {
   asOfDate: string;
 }
 
+export interface StockLedgerPage {
+  data: StockLedgerRow[];
+  page: number;
+  pageSize: number;
+  total: number;
+}
+
+export type StockMovementDirection = "IN" | "OUT";
+export type StockMovementSourceType = "STOCK_JOURNAL" | "GRN" | "REQ_ISSUE";
+
+/**
+ * One append-only movement behind a `(godown, item)` balance (API contract 07 §
+ * `GET …/stock-ledger/movements`; FR-INV-004/006/021). `balance*After`/`avgRateAfter` are
+ * the running snapshot right after this movement; a reversal is an additive mirror row
+ * (`isReversal`), never an edit of the original (FR-INV-020).
+ */
+export interface StockMovement {
+  id: string;
+  godownId: string;
+  itemId: string;
+  sourceType: StockMovementSourceType;
+  sourceId: string | null;
+  direction: StockMovementDirection;
+  quantity: string;
+  rate: string;
+  value: string;
+  balanceQtyAfter: string;
+  balanceValueAfter: string;
+  avgRateAfter: string;
+  isReversal: boolean;
+  reversalOf: string | null;
+  voucherDate: string; // YYYY-MM-DD
+  postedAt: string; // ISO-8601 UTC
+}
+
+export interface StockMovementPage {
+  data: StockMovement[];
+  page: number;
+  pageSize: number;
+  total: number;
+}
+
 /** Read-only picker options (MAS/AUD lookups; company implicit from the JWT). */
 export interface GodownOption {
   id: string;
