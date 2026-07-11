@@ -39,7 +39,7 @@ jobs:
       - name: Load server env file
         shell: bash
         run: |
-          SERVER_ENV="/root/zakir-erp/frontend/.env"
+          SERVER_ENV="/root/zakir-erp/ze-erp-nextjs-frontend/.env"
 
           if [ -f "$SERVER_ENV" ]; then
             cp "$SERVER_ENV" .env
