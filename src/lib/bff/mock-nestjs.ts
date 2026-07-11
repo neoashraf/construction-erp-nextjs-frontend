@@ -93,6 +93,41 @@ const MOCK_PROJECTS: MockProject[] = [
   { id: "proj-b", projectCode: "TW-A", name: "Tower-A — Gulshan", status: "ACTIVE", isActive: true, version: 1 },
   { id: "proj-c", projectCode: "RD-12", name: "Road-12 — Savar", status: "ACTIVE", isActive: true, version: 1 },
 ];
+
+// ── Cost-control sample data (dev/preview only) ──
+const MOCK_COST_CENTRES = [
+  { id: "cc-mat", code: "CC-01", name: "Materials — Cement & Steel", isActive: true },
+  { id: "cc-lab", code: "CC-02", name: "শ্রমিক মজুরি — Site Labour", isActive: true },
+  { id: "cc-fuel", code: "CC-03", name: "Fuel & Lubricants", isActive: true },
+  { id: "cc-sub", code: "CC-04", name: "Subcontractor Works", isActive: true },
+  { id: "cc-tmp", code: "CC-05", name: "অস্থায়ী কাজ — Temporary works", isActive: false },
+  { id: "cc-equip", code: "CC-06", name: "Equipment Rental & Hire", isActive: true },
+  { id: "cc-survey", code: "CC-07", name: "Survey & Testing", isActive: true },
+  { id: "cc-transport", code: "CC-08", name: "Transport & Logistics", isActive: true },
+  { id: "cc-overhead", code: "CC-09", name: "Site Overheads", isActive: true },
+  { id: "cc-safety", code: "CC-10", name: "Safety & Compliance", isActive: true },
+  { id: "cc-power", code: "CC-11", name: "Utilities & Site Power", isActive: true },
+];
+
+const MOCK_FINANCIAL_YEARS = [
+  { id: "fy-2025-26", label: "FY 2025–26", isActive: true },
+  { id: "fy-2024-25", label: "FY 2024–25", isActive: false },
+];
+
+/** Budget-vs-actual rows for Bridge-04 (proj-a) — mirrors the design sample. */
+const MOCK_BVA_ROWS = [
+  { costCentreId: "cc-mat", budgetedAmount: "1200000000.0000", actualCost: "1296000000.0000", variance: "-96000000.0000", utilisationPct: "108.0000", status: "OVER" },
+  { costCentreId: "cc-lab", budgetedAmount: "450000000.0000", actualCost: "418500000.0000", variance: "31500000.0000", utilisationPct: "93.0000", status: "APPROACHING" },
+  { costCentreId: "cc-fuel", budgetedAmount: "120000000.0000", actualCost: "111000000.0000", variance: "9000000.0000", utilisationPct: "92.5000", status: "APPROACHING" },
+  { costCentreId: "cc-sub", budgetedAmount: "900000000.0000", actualCost: "612000000.0000", variance: "288000000.0000", utilisationPct: "68.0000", status: "OK" },
+  { costCentreId: "cc-tmp", budgetedAmount: "80000000.0000", actualCost: "54400000.0000", variance: "25600000.0000", utilisationPct: "68.0000", status: "OK" },
+  { costCentreId: "cc-equip", budgetedAmount: "300000000.0000", actualCost: "195000000.0000", variance: "105000000.0000", utilisationPct: "65.0000", status: "OK" },
+  { costCentreId: "cc-survey", budgetedAmount: "50000000.0000", actualCost: "31000000.0000", variance: "19000000.0000", utilisationPct: "62.0000", status: "OK" },
+  { costCentreId: "cc-transport", budgetedAmount: "150000000.0000", actualCost: "88500000.0000", variance: "61500000.0000", utilisationPct: "59.0000", status: "OK" },
+  { costCentreId: "cc-overhead", budgetedAmount: "180000000.0000", actualCost: "97200000.0000", variance: "82800000.0000", utilisationPct: "54.0000", status: "OK" },
+  { costCentreId: "cc-safety", budgetedAmount: "60000000.0000", actualCost: "25800000.0000", variance: "34200000.0000", utilisationPct: "43.0000", status: "OK" },
+  { costCentreId: "cc-power", budgetedAmount: null, actualCost: "12000000.0000", variance: null, utilisationPct: null, status: "UNBUDGETED" },
+];
 const MOCK_PURPOSES: MockPurpose[] = [
   { id: "pp-1", projectId: "proj-a", name: "Material Purchase", isActive: true, version: 1 },
   { id: "pp-2", projectId: "proj-a", name: "Labour Payment", isActive: true, version: 1 },
@@ -292,6 +327,38 @@ export async function mockNestjsFetch(req: MockReq): Promise<MockResult> {
         ? MOCK_PROJECTS.filter((p) => user.assignedProjectIds.includes(p.id))
         : MOCK_PROJECTS;
     return { status: 200, body: pageEnvelope(scoped) };
+  }
+
+  // GET /masters/cost-centres — company-global list (active + inactive-with-history).
+  if (pathname === "/masters/cost-centres" && req.method === "GET") {
+    return { status: 200, body: pageEnvelope(MOCK_COST_CENTRES) };
+  }
+
+  // GET /masters/financial-years — the company's financial years.
+  if (pathname === "/masters/financial-years" && req.method === "GET") {
+    return { status: 200, body: pageEnvelope(MOCK_FINANCIAL_YEARS) };
+  }
+
+  // GET /cost-control/budget-vs-actual — read projection over LED + MAS budgets.
+  if (pathname === "/cost-control/budget-vs-actual" && req.method === "GET") {
+    const projectId = params.get("projectId") ?? "";
+    const costCentreId = params.get("costCentreId") ?? "";
+    const statusCsv = params.get("status");
+    const wanted = statusCsv ? new Set(statusCsv.split(",")) : null;
+    // PM scope: reject an unassigned project (FR-CC-016).
+    if (projectId && user.assignedProjectIds.length > 0 && !user.assignedProjectIds.includes(projectId)) {
+      return { status: 403, body: envelope("FORBIDDEN", "You don't have access to this project.") };
+    }
+    let rows: Array<Record<string, unknown>> = [];
+    if (projectId) {
+      rows = MOCK_BVA_ROWS.map((r) => ({ projectId, ...r }));
+    } else if (costCentreId) {
+      // one cost centre across projects (a small cross-project sample).
+      const base = MOCK_BVA_ROWS.find((r) => r.costCentreId === costCentreId) ?? MOCK_BVA_ROWS[3];
+      rows = MOCK_PROJECTS.slice(0, 2).map((p) => ({ projectId: p.id, ...base, costCentreId }));
+    }
+    if (wanted) rows = rows.filter((r) => wanted.has(r.status as string));
+    return { status: 200, body: pageEnvelope(rows) };
   }
 
   // /masters/parties[/:id[/(deactivate|reactivate)]]
