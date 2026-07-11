@@ -88,8 +88,7 @@ export function LedgerLinesTable({
         {accountLedgerMode && openingBalance != null && (
           <div
             role="row"
-            style={{ backgroundColor: "#FCFDF8" }}
-            className={cn("grid min-h-[50px] items-center border-b border-border", grid)}
+            className={cn("grid min-h-[50px] items-center border-b border-border bg-accent-soft/40", grid)}
             data-testid="opening-balance-row"
           >
             <div className="px-4 py-2.5 text-[12.5px] tabular-nums text-faint">
