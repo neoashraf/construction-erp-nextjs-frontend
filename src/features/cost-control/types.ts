@@ -27,6 +27,30 @@ export interface BudgetVsActualPage {
   total: number;
 }
 
+/** Profitability grouping (API `groupBy`; FR-CC-009). */
+export type ProfitGroupBy = "cost_centre" | "project" | "project_cost_centre";
+
+/**
+ * One profitability row (API contract 06 § Profitability). `revenue = Σ(credit−debit)`
+ * on INCOME accounts; `cost = Σ(debit−credit)` on EXPENSE accounts; `profit = revenue −
+ * cost` — all `Decimal(18,4)` BDT strings. Grouping columns not in `groupBy` are `null`.
+ * No status/budget concept applies here (FR-CC-009 defines only revenue/cost/profit).
+ */
+export interface ProfitabilityRow {
+  projectId: string | null;
+  costCentreId: string | null;
+  revenue: string;
+  cost: string;
+  profit: string;
+}
+
+export interface ProfitabilityPage {
+  data: ProfitabilityRow[];
+  page: number;
+  pageSize: number;
+  total: number;
+}
+
 /** Selector options (read-only MAS lookups; company implicit from the JWT). */
 export interface ProjectOption {
   id: string;

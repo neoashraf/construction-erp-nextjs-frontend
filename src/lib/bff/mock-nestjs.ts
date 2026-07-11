@@ -128,6 +128,22 @@ const MOCK_BVA_ROWS = [
   { costCentreId: "cc-safety", budgetedAmount: "60000000.0000", actualCost: "25800000.0000", variance: "34200000.0000", utilisationPct: "43.0000", status: "OK" },
   { costCentreId: "cc-power", budgetedAmount: null, actualCost: "12000000.0000", variance: null, utilisationPct: null, status: "UNBUDGETED" },
 ];
+/** Profitability rows by cost centre (dev/preview) — one loss row (cc-mat) + an inactive CC. */
+const MOCK_PROFITABILITY = [
+  { costCentreId: "cc-mat", revenue: "480000000.0000", cost: "618000000.0000", profit: "-138000000.0000" },
+  { costCentreId: "cc-lab", revenue: "320000000.0000", cost: "176000000.0000", profit: "144000000.0000" },
+  { costCentreId: "cc-tmp", revenue: "82000000.0000", cost: "67600000.0000", profit: "14400000.0000" },
+  { costCentreId: "cc-sub", revenue: "960000000.0000", cost: "772000000.0000", profit: "188000000.0000" },
+  { costCentreId: "cc-equip", revenue: "220000000.0000", cost: "195000000.0000", profit: "25000000.0000" },
+  { costCentreId: "cc-transport", revenue: "150000000.0000", cost: "88500000.0000", profit: "61500000.0000" },
+];
+/** Profitability rows by project (dev/preview) — proj-b runs at a loss. */
+const MOCK_PROFITABILITY_BY_PROJECT = [
+  { projectId: "proj-a", revenue: "1400000000.0000", cost: "1230000000.0000", profit: "170000000.0000" },
+  { projectId: "proj-b", revenue: "620000000.0000", cost: "705000000.0000", profit: "-85000000.0000" },
+  { projectId: "proj-c", revenue: "310000000.0000", cost: "240000000.0000", profit: "70000000.0000" },
+];
+
 const MOCK_PURPOSES: MockPurpose[] = [
   { id: "pp-1", projectId: "proj-a", name: "Material Purchase", isActive: true, version: 1 },
   { id: "pp-2", projectId: "proj-a", name: "Labour Payment", isActive: true, version: 1 },
@@ -380,6 +396,33 @@ export async function mockNestjsFetch(req: MockReq): Promise<MockResult> {
     // Sort OVER before APPROACHING, then utilisation descending (spec §5).
     const rank = (s: string) => (s === "OVER" ? 0 : 1);
     rows.sort((a, b) => rank(a.status) - rank(b.status) || Number(b.utilisationPct) - Number(a.utilisationPct));
+    return { status: 200, body: pageEnvelope(rows) };
+  }
+
+  // GET /cost-control/profitability — revenue/cost/profit grouped by cost centre and/or
+  // project, a query over the ledger (FR-CC-009). No status/budget concept here.
+  if (pathname === "/cost-control/profitability" && req.method === "GET") {
+    const groupBy = params.get("groupBy") ?? "cost_centre";
+    const projectId = params.get("projectId") ?? "";
+    const costCentreId = params.get("costCentreId") ?? "";
+    const dateFrom = params.get("dateFrom");
+    const dateTo = params.get("dateTo");
+    if (dateFrom && dateTo && dateFrom > dateTo) {
+      return { status: 400, body: envelope("VALIDATION_ERROR", "'Date from' must be before 'Date to'.") };
+    }
+    if (projectId && user.assignedProjectIds.length > 0 && !user.assignedProjectIds.includes(projectId)) {
+      return { status: 403, body: envelope("FORBIDDEN", "You don't have access to this project.") };
+    }
+    let rows: Array<Record<string, unknown>>;
+    if (groupBy === "project") {
+      rows = MOCK_PROFITABILITY_BY_PROJECT.map((r) => ({ costCentreId: null, ...r }));
+    } else if (groupBy === "project_cost_centre") {
+      rows = MOCK_PROFITABILITY.slice(0, 4).map((r) => ({ projectId: projectId || "proj-a", ...r }));
+    } else {
+      rows = MOCK_PROFITABILITY.map((r) => ({ projectId: null, ...r }));
+    }
+    if (costCentreId) rows = rows.filter((r) => r.costCentreId === costCentreId);
+    if (projectId && groupBy !== "cost_centre") rows = rows.filter((r) => r.projectId === projectId);
     return { status: 200, body: pageEnvelope(rows) };
   }
 
