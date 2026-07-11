@@ -4,8 +4,16 @@ services:
     build:
       context: .
       dockerfile: Dockerfile
+      args:
+        NEXT_PUBLIC_APP_URL: http://192.168.0.150:7002
     restart: unless-stopped
     env_file:
       - .env
     ports:
-      - "7002:3000"
+      - "7002:3000" # LAN access only (no port forwarding to WAN)
+    networks:
+      - ze-erp-net
+
+networks:
+  ze-erp-net:
+    external: true
