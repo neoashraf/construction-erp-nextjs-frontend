@@ -1,10 +1,13 @@
-import { ComingSoon } from "@/components/shell/coming-soon";
+import { requireModuleAccess } from "@/lib/auth/guard-module-page";
+import { IpcList } from "@/features/sales-ipc/components/IpcList";
 
 /**
- * Placeholder route for the "IPCs" screen (nav-tree route /sales/ipcs). The real
- * screen ships with its per-screen brief; until then this renders the shared
- * ComingSoon placeholder so the nav item navigates to a real page, not a dead link.
+ * IPC list route (SAL; FR-SAL-015/-016) — under the (app) shell + the `sales` module guard
+ * (`sales.ipcs:READ`). Read for Accounts + Admin (company-wide) and Project Manager (assigned
+ * projects, scoped server-side). The "New IPC" CTA is gated per-actor inside the screen; the
+ * server re-checks every action regardless.
  */
-export default function SalesIpcsPage() {
-  return <ComingSoon title="IPCs" />;
+export default async function SalesIpcsPage() {
+  await requireModuleAccess("sales");
+  return <IpcList />;
 }
