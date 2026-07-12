@@ -103,14 +103,17 @@ describe("visibleTreeForRole — permission-driven (FR-AUD-032)", () => {
 });
 
 describe("quick-create + alerts bell + palette (spec §11)", () => {
-  it("quick-create keys on (resource, CREATE) — and stays empty while targets are unbuilt", () => {
+  it("quick-create keys on (resource, CREATE) — the built Requisition target renders for a granted actor", () => {
     const viewer: NavViewer = {
       role: "SITE_ENGINEER",
       permissions: [grant("requisitions.list", "CREATE")],
     };
-    // All Phase-1 targets ship built:false — granted or not, nothing renders yet.
-    expect(quickCreateForRole(viewer)).toHaveLength(0);
-    expect(quickCreateForRole("ADMIN")).toHaveLength(0);
+    // The Requisition entry form (FE-29) is built; a (requisitions.list, CREATE) grant surfaces it.
+    expect(quickCreateForRole(viewer).map((t) => t.route)).toContain("/requisitions/new");
+    expect(quickCreateForRole("ADMIN").map((t) => t.route)).toContain("/requisitions/new");
+    // A viewer WITHOUT the create grant sees no quick-create target.
+    const noGrant: NavViewer = { role: "SITE_ENGINEER", permissions: [grant("requisitions.list", "READ")] };
+    expect(quickCreateForRole(noGrant)).toHaveLength(0);
   });
 
   it("alerts bell renders iff the set holds cost_control.alerts:READ (fallback: CC roles)", () => {

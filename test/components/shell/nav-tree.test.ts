@@ -105,10 +105,14 @@ describe("nav tree — item retention + direct links", () => {
 });
 
 describe("quick-create + alerts-bell gating (spec §5/§11)", () => {
-  it("quick-create lists only built && role-permitted targets (none built in Phase-1 v2)", () => {
-    // All voucher editors ship later → every role's quick-create is empty for now.
-    expect(quickCreateForRole("ADMIN")).toHaveLength(0);
-    expect(quickCreateForRole("SITE_ENGINEER")).toHaveLength(0);
+  it("quick-create lists only built && role-permitted targets (Requisition is built as of FE-29)", () => {
+    // The Requisition entry form (FE-29) is the first built quick-create target.
+    const admin = quickCreateForRole("ADMIN");
+    expect(admin.map((t) => t.route)).toContain("/requisitions/new");
+    const se = quickCreateForRole("SITE_ENGINEER");
+    expect(se.map((t) => t.route)).toContain("/requisitions/new");
+    // Every listed target is built + role-permitted.
+    expect(admin.every((t) => t.built)).toBe(true);
   });
 
   it("alerts bell shows for CC actors only (Accounts, Admin, PM)", () => {

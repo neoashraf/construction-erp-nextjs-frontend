@@ -460,7 +460,7 @@ export const QUICK_CREATE: readonly QuickCreateTarget[] = [
   { label: "Contra voucher", route: "/contra-journal/vouchers/new?type=contra", resource: "contra_journal.vouchers", action: "CREATE", roles: ["ACCOUNTS_TEAM", "ADMIN"], built: false },
   { label: "Journal voucher", route: "/contra-journal/vouchers/new?type=journal", resource: "contra_journal.vouchers", action: "CREATE", roles: ["ACCOUNTS_TEAM", "ADMIN"], built: false },
   { label: "Stock journal", route: "/inventory/stock-journals/new", resource: "inventory.stock_journals", action: "CREATE", roles: ["STORE_KEEPER", "ADMIN"], built: false },
-  { label: "Requisition", route: "/requisitions/new", resource: "requisitions.list", action: "CREATE", roles: ["PROJECT_MANAGER", "SITE_ENGINEER"], built: false },
+  { label: "Requisition", route: "/requisitions/new", resource: "requisitions.list", action: "CREATE", roles: ["PROJECT_MANAGER", "SITE_ENGINEER"], built: true },
   { label: "Attendance entry", route: "/hr/attendance/new", resource: "hr.attendance", action: "CREATE", roles: ["HR_MANAGER", "SITE_ENGINEER"], built: false },
   { label: "Salary sheet", route: "/hr/salary-sheets/new", resource: "hr.salary_sheets", action: "CREATE", roles: ["HR_MANAGER"], built: false },
 ];

@@ -71,6 +71,8 @@ export const MODULES = [
   "period",
   "audit",
   "cost-control",
+  "inventory",
+  "requisitions",
 ] as const;
 
 export type ModuleKey = (typeof MODULES)[number];
@@ -83,12 +85,12 @@ export type ModuleKey = (typeof MODULES)[number];
  * NOTE: deliberately conservative; per-screen briefs refine grants as needed.
  */
 const ROLE_MODULES: Record<Role, readonly ModuleKey[]> = {
-  ADMIN: ["master-data", "ledger", "numbering", "period", "audit", "cost-control"],
-  ACCOUNTS_TEAM: ["master-data", "ledger", "numbering", "period", "cost-control"],
-  ACCOUNTS_MANAGER: ["master-data", "ledger", "numbering", "period", "cost-control"],
-  PROJECT_MANAGER: ["ledger", "cost-control"],
-  SITE_ENGINEER: [],
-  STORE_KEEPER: [],
+  ADMIN: ["master-data", "ledger", "numbering", "period", "audit", "cost-control", "inventory", "requisitions"],
+  ACCOUNTS_TEAM: ["master-data", "ledger", "numbering", "period", "cost-control", "inventory", "requisitions"],
+  ACCOUNTS_MANAGER: ["master-data", "ledger", "numbering", "period", "cost-control", "inventory", "requisitions"],
+  PROJECT_MANAGER: ["ledger", "cost-control", "inventory", "requisitions"],
+  SITE_ENGINEER: ["requisitions"],
+  STORE_KEEPER: ["inventory", "requisitions"],
   HR_MANAGER: [],
 };
 
@@ -107,6 +109,8 @@ export const MODULE_RESOURCE_PREFIX: Record<ModuleKey, readonly string[]> = {
   period: ["periods"],
   audit: ["audit."],
   "cost-control": ["cost_control."],
+  inventory: ["inventory."],
+  requisitions: ["requisitions."],
 };
 
 /** True when the effective set holds any READ grant inside the module (FE-21). */
@@ -168,6 +172,8 @@ export function moduleLabel(module: ModuleKey): string {
     period: "Periods",
     audit: "Audit & Access",
     "cost-control": "Cost Control",
+    inventory: "Inventory",
+    requisitions: "Requisitions",
   };
   return labels[module];
 }
