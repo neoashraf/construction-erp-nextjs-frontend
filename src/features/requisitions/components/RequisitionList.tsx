@@ -39,7 +39,16 @@ function outstanding(r: Requisition): string | null {
  * (or "Draft"); status + priority are pill+dot badges; money right-aligned + tabular. A row
  * opens its detail — the DRAFT entry form or (past-DRAFT) the read-only viewer.
  */
-export function RequisitionList({ rows, maps }: { rows: Requisition[]; maps: ReqNameMaps }) {
+export function RequisitionList({
+  rows,
+  maps,
+  basePath = "/requisitions",
+}: {
+  rows: Requisition[];
+  maps: ReqNameMaps;
+  /** Route a row opens; the approvals worklist points rows at `/requisitions/approvals`. */
+  basePath?: string;
+}) {
   const router = useRouter();
   return (
     <div data-testid="req-list">
@@ -70,11 +79,11 @@ export function RequisitionList({ rows, maps }: { rows: Requisition[]; maps: Req
                 data-testid={`req-row-${r.status}`}
                 className="grid cursor-pointer items-center gap-2 border-b border-muted px-4 hover:bg-surface-2"
                 style={{ gridTemplateColumns: GRID }}
-                onClick={() => router.push(`/requisitions/${r.id}`)}
+                onClick={() => router.push(`${basePath}/${r.id}`)}
               >
                 <div className="min-w-0 py-3">
                   <Link
-                    href={`/requisitions/${r.id}`}
+                    href={`${basePath}/${r.id}`}
                     className="font-semibold text-accent-ink hover:underline"
                     data-testid="req-open"
                     onClick={(e) => e.stopPropagation()}
@@ -109,7 +118,7 @@ export function RequisitionList({ rows, maps }: { rows: Requisition[]; maps: Req
           return (
             <Link
               key={r.id}
-              href={`/requisitions/${r.id}`}
+              href={`${basePath}/${r.id}`}
               data-testid={`req-card-${r.status}`}
               className="border-b border-muted px-4 py-3 hover:bg-surface-2"
             >

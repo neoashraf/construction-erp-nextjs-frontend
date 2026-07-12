@@ -4,6 +4,7 @@ import { readCsrfToken } from "@/lib/auth/csrf-client";
 import {
   type BudgetStatus,
   type Requisition,
+  type RequisitionApproval,
   type RequisitionPage,
   type RequisitionPriority,
 } from "../types";
@@ -105,6 +106,46 @@ export async function deleteRequisition(id: string, version: number): Promise<vo
 
 export async function submitRequisition(id: string, version: number): Promise<Requisition> {
   const res = await apiClient.post<{ data: Requisition }>(`${BASE}/${id}/submit`, { version }, csrf());
+  return res.data;
+}
+
+/**
+ * Approve a SUBMITTED requisition (API contract 09 `POST /:id/approve`; FR-REQ-008). Pure
+ * workflow — writes NO ledger line, moves NO stock (SRS §4/§6). `note` is optional context
+ * recorded with the `RequisitionApproval`. Server-confirmed (no optimistic flip); the tier +
+ * project-scope authority are re-validated server-side (`APPROVAL_BEYOND_AUTHORITY`).
+ */
+export async function approveRequisition(
+  id: string,
+  input: { note?: string | null; version: number },
+): Promise<Requisition> {
+  const res = await apiClient.post<{ data: Requisition }>(
+    `${BASE}/${id}/approve`,
+    { note: input.note ?? undefined, version: input.version },
+    csrf(),
+  );
+  return res.data;
+}
+
+/**
+ * Reject a SUBMITTED requisition with a mandatory non-empty reason (API contract 09
+ * `POST /:id/reject`; FR-REQ-008). Returns it to the requester (`REJECTED`). Posts nothing.
+ */
+export async function rejectRequisition(
+  id: string,
+  input: { reason: string; version: number },
+): Promise<Requisition> {
+  const res = await apiClient.post<{ data: Requisition }>(
+    `${BASE}/${id}/reject`,
+    { reason: input.reason, version: input.version },
+    csrf(),
+  );
+  return res.data;
+}
+
+/** The approval history for a requisition (API contract 09 `GET /:id/approvals`; FR-REQ-008). */
+export async function listRequisitionApprovals(id: string): Promise<RequisitionApproval[]> {
+  const res = await apiClient.get<{ data: RequisitionApproval[] }>(`${BASE}/${id}/approvals`);
   return res.data;
 }
 
