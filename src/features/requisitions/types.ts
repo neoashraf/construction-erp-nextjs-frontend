@@ -77,6 +77,66 @@ export interface RequisitionApproval {
 /** CC advisory budget check result (FR-CC-014) — never blocks submit. */
 export type BudgetStatus = "OK" | "APPROACHING" | "OVER";
 
+/**
+ * One line of a posted issue result (API contract 09 `POST /:id/issue`; FR-REQ-013/-014).
+ * `rate`/`value` are the **server-computed** weighted-average at the moment of issue — never
+ * client-sent. `stockMovementId` drills into the INV movement history.
+ */
+export interface RequisitionIssueLineResult {
+  requisitionLineId: string;
+  stockMovementId: string;
+  issuedQuantity: string;
+  rate: string;
+  value: string;
+}
+
+/**
+ * A posted issue event (API contract 09 `POST /:id/issue` result + `GET /:id/issues`;
+ * FR-REQ-013…-019). `entryNo` is the gapless `STOCK_JOURNAL` number of the consumption entry;
+ * `issuedValue = Σ line.value` = the posted `Dr material expense / Cr inventory` amount.
+ * `reversedAt`/`reversedById` are non-null once the issue has been reversed (append-only).
+ */
+export interface RequisitionIssue {
+  requisitionId: string;
+  requisitionIssueId: string;
+  issueNo: number;
+  journalEntryId: string;
+  entryNo: string;
+  issuedValue: string;
+  fromGodownId: string;
+  lines: RequisitionIssueLineResult[];
+  requisitionStatus: RequisitionStatus;
+  issuedAt: string; // ISO-8601 UTC
+  reversedAt?: string | null;
+  reversedById?: string | null;
+}
+
+/** One outstanding line (API contract 09 `GET /:id/outstanding`; FR-REQ-018/-021). */
+export interface RequisitionOutstandingLine {
+  requisitionLineId: string;
+  itemId: string;
+  requestedQuantity: string;
+  issuedQuantity: string;
+  balanceQuantity: string;
+  uom: string;
+}
+
+/** The outstanding-balance projection (API contract 09 `GET /:id/outstanding`; FR-REQ-021). */
+export interface RequisitionOutstanding {
+  requisitionId: string;
+  status: RequisitionStatus;
+  lines: RequisitionOutstandingLine[];
+  totalOutstandingValueIndicative: string;
+}
+
+/** The INV on-hand read behind a per-line stock badge (REQ-local; `weightedAverageRate` null at 0). */
+export interface OnHand {
+  godownId: string;
+  itemId: string;
+  quantityOnHand: string;
+  weightedAverageRate: string | null;
+}
+
 /** Read-only picker options (MAS/AUD lookups; company implicit from the JWT). */
 export interface ProjectOption {
   id: string;

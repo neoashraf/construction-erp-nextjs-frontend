@@ -1,10 +1,13 @@
-import { ComingSoon } from "@/components/shell/coming-soon";
+import { requireModuleAccess } from "@/lib/auth/guard-module-page";
+import { IssuesWorklistScreen } from "@/features/requisitions/components/IssuesWorklistScreen";
 
 /**
- * Placeholder route for the "Issues" screen (nav-tree route /requisitions/issues). The real
- * screen ships with its per-screen brief; until then this renders the shared
- * ComingSoon placeholder so the nav item navigates to a real page, not a dead link.
+ * Requisition issues worklist route (REQ; FR-REQ-012…-023) — under the (app) shell + the
+ * `requisitions` module guard, resource `requisitions.issues`. The fulfilment queue of
+ * APPROVED/PARTIALLY_ISSUED requisitions; rows open the issue detail. Non-viewers get the
+ * permission-denied view inside the screen; the server re-checks the exact grant.
  */
-export default function RequisitionsIssuesPage() {
-  return <ComingSoon title="Issues" />;
+export default async function RequisitionIssuesPage() {
+  await requireModuleAccess("requisitions");
+  return <IssuesWorklistScreen />;
 }
