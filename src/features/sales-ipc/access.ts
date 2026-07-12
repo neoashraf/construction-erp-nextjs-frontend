@@ -38,3 +38,16 @@ export function canPostIpc(user: Viewer): boolean {
 export function canCancelIpc(user: Viewer): boolean {
   return allow(user, "CANCEL", ["ACCOUNTS_MANAGER", "ACCOUNTS_TEAM"]);
 }
+
+/**
+ * Release retention on the IPC-register screen (spec §11; API `sales:release-retention`).
+ * Resource `sales.ipc_register` has NO write action code in the current catalogue — the
+ * Release action is a genuine write (flagged to the AUD/design owner per the brief). Until
+ * clarified we role-map fallback to Accounts + Admin (PM: no Release button rendered, spec
+ * §11); the server re-checks the release regardless (`403 FORBIDDEN` handled gracefully).
+ */
+export const IPC_REGISTER_RESOURCE = "sales.ipc_register";
+export function canReleaseRetention(user: Viewer): boolean {
+  if (user.role === "ADMIN") return true;
+  return roleMatches(["ACCOUNTS_MANAGER", "ACCOUNTS_TEAM"], user.role);
+}

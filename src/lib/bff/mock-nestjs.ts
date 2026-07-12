@@ -472,6 +472,14 @@ const MOCK_IPCS: MockIpc[] = [
 let ipcSeq = 100;
 let ipcNumberSeq = 9; // next gapless IPC/2526/00xx allocated at post (0004..0009 already used)
 
+/**
+ * Posted retention releases (fe-ipc-register-retention). Module-scoped so state persists
+ * across requests in the single-process mock backend — used by both `/release-retention`
+ * (write) and the register `retainedHeld` computation (read).
+ */
+interface MockRelease { id: string; ipcId: string; releaseDate: string; releasedAmount: string; entryNo: string; status: "POSTED"; postedAt: string; postedBy: string; }
+const MOCK_RELEASES: MockRelease[] = [];
+
 function ipcResource(i: MockIpc) {
   const currentlyDue = ipcCurrentlyDue(i);
   return {
@@ -1135,6 +1143,121 @@ export async function mockNestjsFetch(req: MockReq): Promise<MockResult> {
     }
     MOCK_IPCS.unshift(draft);
     return { status: 201, body: success({ id: draft.id }) };
+  }
+
+  // ── SAL register + retention releases (fe-ipc-register-retention) ──
+  //
+  // `retentionHeldAmount` = gross − released; the register's `totals.retainedHeld` = Σ per
+  // posted IPC. `MOCK_RELEASES` is declared at module scope above so state persists across
+  // requests (a per-request local was the earlier bug that made releases invisible on refetch).
+  const releasedTotal = (ipcId: string) =>
+    MOCK_RELEASES.filter((r) => r.ipcId === ipcId).reduce((sum, r) => sum + Number(r.releasedAmount), 0);
+  const ipcHeldNet = (i: MockIpc) => {
+    if (i.status !== "POSTED") return "0.0000";
+    return (Number(i.retentionAmount) - releasedTotal(i.id)).toFixed(4);
+  };
+
+  const registerMatch = /^\/sales\/projects\/([^/]+)\/register$/.exec(pathname ?? "");
+  if (registerMatch && req.method === "GET") {
+    const projectId = registerMatch[1]!;
+    const project = MOCK_PROJECTS.find((p) => p.id === projectId);
+    if (!project) return { status: 404, body: envelope("NOT_FOUND", "Project not found") };
+    if (!scopeOk(project.id)) return { status: 403, body: envelope("FORBIDDEN", "You don't have access to this project's register.") };
+    const posted = MOCK_IPCS
+      .filter((i) => i.projectId === projectId && i.status === "POSTED")
+      .slice()
+      .sort((a, b) => a.ipcSeqNo - b.ipcSeqNo);
+    let cumC = 0, cumD = 0, cumR = 0, cumA = 0, cumRec = 0;
+    const rows = posted.map((i) => {
+      const cert = Number(i.certifiedAmount);
+      const due = Number(ipcCurrentlyDue(i));
+      const ret = Number(i.retentionAmount);
+      const adv = Number(i.advanceRecoveredAmount);
+      // Mock: no receipts wired — the last row for proj-a surfaces a "Pending sync" partial
+      // (null receivedAmount) to exercise the state matrix; the rest resolve to "0.0000".
+      const isPending = i.id === "ipc-7";
+      const rec = isPending ? null : 0;
+      cumC += cert; cumD += due; cumR += ret; cumA += adv;
+      if (rec !== null) cumRec += rec;
+      return {
+        ipcId: i.id,
+        ipcSeqNo: i.ipcSeqNo,
+        ipcDate: i.ipcDate,
+        entryNo: i.entryNo!,
+        certifiedAmount: cert.toFixed(4),
+        currentlyDueAmount: due.toFixed(4),
+        retentionAmount: ret.toFixed(4),
+        advanceRecoveredAmount: adv.toFixed(4),
+        receivedAmount: rec === null ? null : rec.toFixed(4),
+        outstandingAmount: (due - (rec ?? 0)).toFixed(4),
+        cumCertified: cumC.toFixed(4),
+        cumBilledDue: cumD.toFixed(4),
+        cumRetainedHeld: cumR.toFixed(4),
+        cumAdvanceRecovered: cumA.toFixed(4),
+        cumReceived: rec === null ? null : cumRec.toFixed(4),
+      };
+    });
+    const heldNet = posted.reduce((sum, i) => sum + Number(ipcHeldNet(i)), 0);
+    const totals = {
+      certified: cumC.toFixed(4),
+      billedDue: cumD.toFixed(4),
+      retainedHeld: heldNet.toFixed(4),
+      advanceRecovered: cumA.toFixed(4),
+      received: cumRec.toFixed(4),
+      outstanding: (cumD - cumRec).toFixed(4),
+    };
+    return { status: 200, body: success({ rows, totals }) };
+  }
+
+  const releaseMatch = /^\/sales\/ipc\/([^/]+)\/(release-retention|retention-releases)$/.exec(pathname ?? "");
+  if (releaseMatch) {
+    const id = releaseMatch[1]!;
+    const kind = releaseMatch[2]!;
+    const ipc = MOCK_IPCS.find((i) => i.id === id);
+    if (!ipc) return { status: 404, body: envelope("NOT_FOUND", "IPC not found") };
+    if (!scopeOk(ipc.projectId)) return { status: 403, body: envelope("FORBIDDEN", "You don't have access to this IPC.") };
+
+    if (kind === "retention-releases" && req.method === "GET") {
+      return { status: 200, body: success(MOCK_RELEASES.filter((r) => r.ipcId === id)) };
+    }
+
+    if (kind === "release-retention" && req.method === "POST") {
+      if (ipc.status !== "POSTED") {
+        return { status: 409, body: envelope("VOUCHER_NOT_POSTED", "This IPC isn't posted yet — retention can only be released from a posted IPC.") };
+      }
+      const project = MOCK_PROJECTS.find((p) => p.id === ipc.projectId);
+      if (project?.status === "CLOSED") {
+        return { status: 409, body: envelope("PROJECT_CLOSED", "This project is closed — release isn't allowed.") };
+      }
+      const b = body as { releaseDate?: string; releasedAmount?: string; narration?: string };
+      if (!b.releaseDate || !/^\d{4}-\d{2}-\d{2}$/.test(b.releaseDate)) {
+        return { status: 400, body: envelope("VALIDATION_ERROR", "Enter a valid release date.") };
+      }
+      const held = Number(ipcHeldNet(ipc));
+      const requested = b.releasedAmount != null && String(b.releasedAmount).trim() !== "" ? Number(b.releasedAmount) : held;
+      if (requested <= 0) {
+        return { status: 400, body: envelope("VALIDATION_ERROR", "Enter an amount greater than zero.") };
+      }
+      if (requested > held + 1e-6) {
+        return { status: 409, body: envelope("OVER_RELEASE", `You can't release more than the retention held (৳${held.toFixed(4)}).`) };
+      }
+      const entryNo = `IPC/2526/${String((ipcNumberSeq += 1)).padStart(4, "0")}`;
+      const release: MockRelease = {
+        id: `rel-${MOCK_RELEASES.length + 1}`,
+        ipcId: id,
+        releaseDate: b.releaseDate,
+        releasedAmount: requested.toFixed(4),
+        entryNo,
+        status: "POSTED",
+        postedAt: new Date().toISOString(),
+        postedBy: user.id,
+      };
+      MOCK_RELEASES.push(release);
+      return {
+        status: 201,
+        body: success({ id: release.id, ipcId: id, entryNo, releasedAmount: release.releasedAmount, status: "POSTED" }),
+      };
+    }
   }
 
   const ipcMatch = /^\/sales\/ipc\/([^/]+)(?:\/(post|cancel|repost))?$/.exec(pathname ?? "");
