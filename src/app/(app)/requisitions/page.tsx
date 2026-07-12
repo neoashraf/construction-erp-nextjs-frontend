@@ -1,10 +1,12 @@
-import { ComingSoon } from "@/components/shell/coming-soon";
+import { requireModuleAccess } from "@/lib/auth/guard-module-page";
+import { RequisitionListScreen } from "@/features/requisitions/components/RequisitionListScreen";
 
 /**
- * Placeholder route for the "Requisitions" screen (nav-tree route /requisitions). The real
- * screen ships with its per-screen brief; until then this renders the shared
- * ComingSoon placeholder so the nav item navigates to a real page, not a dead link.
+ * Requisition list route (REQ; FR-REQ-021/-022) — under the (app) shell + the `requisitions`
+ * module guard. Read for all REQ-scoped roles; the server scopes PM/Site Engineer/Store
+ * Keeper to assigned projects. The "New requisition" CTA is gated per-actor inside the screen.
  */
-export default function RequisitionsPage() {
-  return <ComingSoon title="Requisitions" />;
+export default async function RequisitionsPage() {
+  await requireModuleAccess("requisitions");
+  return <RequisitionListScreen />;
 }

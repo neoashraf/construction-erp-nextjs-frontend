@@ -230,6 +230,87 @@ const MOCK_STOCK_JOURNALS: MockSJ[] = [
   seedSj({ id: "sj-6", entryNo: "SJ/2526/0008", voucherDate: "2026-06-25", mode: "ISSUE", status: "CANCELLED", fromGodownId: "gd-a", itemId: "it-sand", quantity: "300.0000", rate: "42.0000", value: "12600.0000" }),
 ];
 
+// ── Requisition sample (dev/preview only) ──
+interface MockReqLine {
+  id: string; lineNo: number; itemId: string; requestedQuantity: string;
+  issuedQuantity: string; balanceQuantity: string; indicativeRate: string | null; uom: string;
+}
+interface MockRequisition {
+  id: string; requisitionNo: string | null; projectId: string; costCentreId: string; purposeId: string;
+  fromGodownId: string | null; requiredDate: string; priority: "LOW" | "NORMAL" | "HIGH" | "URGENT";
+  status: "DRAFT" | "SUBMITTED" | "APPROVED" | "REJECTED" | "PARTIALLY_ISSUED" | "ISSUED" | "CLOSED";
+  estimatedValue: string | null; approvalTier: "PM" | "ACCOUNTS" | null; submittedAt: string | null;
+  submittedById: string | null; closedAt: string | null; closedReason: string | null;
+  narration: string | null; lines: MockReqLine[]; version: number;
+}
+/** Indicative rate for an item at a godown (falls back to any-godown last-known). */
+function reqIndicativeRate(itemId: string, godownId: string | null): string | null {
+  const at = godownId ? MOCK_STOCK_LEDGER.find((r) => r.itemId === itemId && r.godownId === godownId) : undefined;
+  const any = at ?? MOCK_STOCK_LEDGER.find((r) => r.itemId === itemId);
+  return any?.weightedAverageRate ?? null;
+}
+function reqUom(itemId: string): string {
+  return MOCK_ITEMS.find((i) => i.id === itemId)?.uom ?? "";
+}
+function mkLine(id: string, lineNo: number, itemId: string, requested: string, issued: string, godownId: string | null): MockReqLine {
+  const rate = reqIndicativeRate(itemId, godownId);
+  const bal = (Number(requested) - Number(issued)).toFixed(4);
+  return { id, lineNo, itemId, requestedQuantity: `${Number(requested).toFixed(4)}`, issuedQuantity: `${Number(issued).toFixed(4)}`, balanceQuantity: bal, indicativeRate: rate, uom: reqUom(itemId) };
+}
+function reqEstimate(lines: MockReqLine[]): string {
+  let sum = 0;
+  for (const l of lines) if (l.indicativeRate) sum += Number(l.requestedQuantity) * Number(l.indicativeRate);
+  return sum.toFixed(4);
+}
+let reqSeq = 200;
+let reqNoSeq = 42;
+const MOCK_REQUISITIONS: MockRequisition[] = [
+  {
+    id: "req-1", requisitionNo: null, projectId: "proj-a", costCentreId: "cc-mat", purposeId: "pp-1",
+    fromGodownId: "gd-a", requiredDate: "2026-07-20", priority: "NORMAL", status: "DRAFT",
+    estimatedValue: null, approvalTier: null, submittedAt: null, submittedById: null, closedAt: null, closedReason: null,
+    narration: "Slab pour materials", version: 1,
+    lines: [mkLine("rl-1", 1, "it-cement", "100", "0", "gd-a"), mkLine("rl-2", 2, "it-rebar", "2", "0", "gd-a")],
+  },
+  {
+    id: "req-2", requisitionNo: "REQ/2526/0042", projectId: "proj-a", costCentreId: "cc-mat", purposeId: "pp-1",
+    fromGodownId: "gd-a", requiredDate: "2026-07-18", priority: "HIGH", status: "SUBMITTED",
+    estimatedValue: null, approvalTier: "PM", submittedAt: "2026-07-10T08:00:00Z", submittedById: "u-rafiq",
+    closedAt: null, closedReason: null, narration: "Column casting — block C", version: 2,
+    lines: [mkLine("rl-3", 1, "it-cement", "80", "0", "gd-a"), mkLine("rl-4", 2, "it-sand", "300", "0", "gd-a")],
+  },
+  {
+    id: "req-3", requisitionNo: "REQ/2526/0041", projectId: "proj-a", costCentreId: "cc-fuel", purposeId: "pp-1",
+    fromGodownId: "gd-a", requiredDate: "2026-07-15", priority: "URGENT", status: "APPROVED",
+    estimatedValue: null, approvalTier: "PM", submittedAt: "2026-07-08T08:00:00Z", submittedById: "u-farzana",
+    closedAt: null, closedReason: null, narration: null, version: 3,
+    lines: [mkLine("rl-5", 1, "it-brick", "5000", "0", "gd-a")],
+  },
+  {
+    id: "req-4", requisitionNo: "REQ/2526/0040", projectId: "proj-a", costCentreId: "cc-mat", purposeId: "pp-1",
+    fromGodownId: "gd-a", requiredDate: "2026-07-12", priority: "NORMAL", status: "PARTIALLY_ISSUED",
+    estimatedValue: null, approvalTier: "PM", submittedAt: "2026-07-05T08:00:00Z", submittedById: "u-rafiq",
+    closedAt: null, closedReason: null, narration: "Ongoing pour", version: 5,
+    lines: [mkLine("rl-6", 1, "it-cement", "200", "120", "gd-a")],
+  },
+  {
+    id: "req-5", requisitionNo: "REQ/2526/0039", projectId: "proj-a", costCentreId: "cc-sub", purposeId: "pp-1",
+    fromGodownId: null, requiredDate: "2026-07-09", priority: "LOW", status: "REJECTED",
+    estimatedValue: null, approvalTier: "ACCOUNTS", submittedAt: "2026-07-02T08:00:00Z", submittedById: "u-farzana",
+    closedAt: null, closedReason: null, narration: "Over threshold — rejected", version: 3,
+    lines: [mkLine("rl-7", 1, "it-rebar", "40", "0", null)],
+  },
+  {
+    id: "req-6", requisitionNo: "REQ/2526/0038", projectId: "proj-a", costCentreId: "cc-mat", purposeId: "pp-1",
+    fromGodownId: "gd-a", requiredDate: "2026-07-06", priority: "NORMAL", status: "ISSUED",
+    estimatedValue: null, approvalTier: "PM", submittedAt: "2026-06-30T08:00:00Z", submittedById: "u-rafiq",
+    closedAt: null, closedReason: null, narration: null, version: 6,
+    lines: [mkLine("rl-8", 1, "it-sand", "300", "300", "gd-a")],
+  },
+];
+// Seed submitted+ estimates.
+for (const r of MOCK_REQUISITIONS) if (r.status !== "DRAFT") r.estimatedValue = reqEstimate(r.lines);
+
 const MOCK_PURPOSES: MockPurpose[] = [
   { id: "pp-1", projectId: "proj-a", name: "Material Purchase", isActive: true, version: 1 },
   { id: "pp-2", projectId: "proj-a", name: "Labour Payment", isActive: true, version: 1 },
@@ -816,6 +897,112 @@ export async function mockNestjsFetch(req: MockReq): Promise<MockResult> {
       if (j.status !== "POSTED") return { status: 409, body: envelope("INVALID_STOCK_JOURNAL_TRANSITION", "Only a posted journal can be reversed.") };
       j.status = "CANCELLED"; j.version += 1;
       return { status: 200, body: success(j) };
+    }
+  }
+
+  // ── CC advisory budget check (never blocks; FR-CC-014) ──
+  if (pathname === "/cost-control/budget-check" && req.method === "POST") {
+    const v = Number((body as { estimatedValue?: string }).estimatedValue ?? "0");
+    const status = v > 4_000_000 ? "OVER" : v > 2_500_000 ? "APPROACHING" : "OK";
+    return { status: 200, body: success({ status }) };
+  }
+
+  // ── Requisition list + create ──
+  if (pathname === "/requisition" && req.method === "GET") {
+    const statusF = params.get("status");
+    const priorityF = params.get("priority");
+    const projectF = params.get("projectId");
+    const ccF = params.get("costCentreId");
+    const byF = params.get("submittedById");
+    const outF = params.get("hasOutstanding");
+    let rows = MOCK_REQUISITIONS.filter((r) => scopeOk(r.projectId));
+    if (statusF) rows = rows.filter((r) => statusF.split(",").includes(r.status));
+    if (priorityF) rows = rows.filter((r) => priorityF.split(",").includes(r.priority));
+    if (projectF) rows = rows.filter((r) => r.projectId === projectF);
+    if (ccF) rows = rows.filter((r) => r.costCentreId === ccF);
+    if (byF) rows = rows.filter((r) => r.submittedById === byF);
+    if (outF === "true") rows = rows.filter((r) => r.lines.some((l) => Number(l.balanceQuantity) > 0));
+    return { status: 200, body: pageEnvelope(rows) };
+  }
+
+  if (pathname === "/requisition" && req.method === "POST") {
+    const b = body as Record<string, unknown>;
+    const projectId = String(b.projectId ?? "");
+    const purposeId = String(b.purposeId ?? "");
+    const purpose = MOCK_PURPOSES.find((p) => p.id === purposeId);
+    if (purpose && purpose.projectId !== projectId) {
+      return { status: 400, body: envelope("CROSS_PROJECT_DIMENSION", "This purpose doesn't belong to the selected project.") };
+    }
+    const bodyLines = (Array.isArray(b.lines) ? b.lines : []) as Array<{ itemId: string; requestedQuantity: string }>;
+    const inactive = bodyLines.find((l) => MOCK_ITEMS.find((i) => i.id === l.itemId)?.isActive === false);
+    if (inactive) return { status: 400, body: envelope("INACTIVE_MASTER_REFERENCE", "This item is inactive.") };
+    const godownId = (b.fromGodownId as string) ?? null;
+    const id = `req-${(reqSeq += 1)}`;
+    const nr: MockRequisition = {
+      id, requisitionNo: null, projectId, costCentreId: String(b.costCentreId ?? ""), purposeId,
+      fromGodownId: godownId, requiredDate: String(b.requiredDate ?? ""), priority: (b.priority as MockRequisition["priority"]) ?? "NORMAL",
+      status: "DRAFT", estimatedValue: null, approvalTier: null, submittedAt: null, submittedById: null,
+      closedAt: null, closedReason: null, narration: (b.narration as string) ?? null, version: 1,
+      lines: bodyLines.map((l, i) => mkLine(`rl-${id}-${i}`, i + 1, l.itemId, l.requestedQuantity, "0", godownId)),
+    };
+    MOCK_REQUISITIONS.unshift(nr);
+    return { status: 201, body: success({ id }) };
+  }
+
+  // ── Requisition /:id [/submit] ──
+  const rm = /^\/requisition\/([^/]+)(?:\/(submit))?$/.exec(pathname ?? "");
+  if (rm) {
+    const id = rm[1]!;
+    const action = rm[2];
+    const r = MOCK_REQUISITIONS.find((x) => x.id === id);
+    if (!r) return { status: 404, body: envelope("NOT_FOUND", "Requisition not found") };
+    if (!scopeOk(r.projectId)) return { status: 403, body: envelope("FORBIDDEN", "You don't have access to this requisition.") };
+    const b = body as Record<string, unknown>;
+
+    if (req.method === "GET" && !action) return { status: 200, body: success(r) };
+
+    if (req.method === "PATCH") {
+      if (r.status !== "DRAFT") return { status: 409, body: envelope("VOUCHER_POSTED_IMMUTABLE", "This requisition has been submitted and can't be edited here.") };
+      const purposeId = b.purposeId !== undefined ? String(b.purposeId) : r.purposeId;
+      const projectId = b.projectId !== undefined ? String(b.projectId) : r.projectId;
+      const purpose = MOCK_PURPOSES.find((p) => p.id === purposeId);
+      if (purpose && purpose.projectId !== projectId) {
+        return { status: 400, body: envelope("CROSS_PROJECT_DIMENSION", "This purpose doesn't belong to the selected project.") };
+      }
+      if (b.projectId !== undefined) r.projectId = projectId;
+      if (b.costCentreId !== undefined) r.costCentreId = String(b.costCentreId);
+      if (b.purposeId !== undefined) r.purposeId = purposeId;
+      if (b.fromGodownId !== undefined) r.fromGodownId = (b.fromGodownId as string) ?? null;
+      if (b.requiredDate !== undefined) r.requiredDate = String(b.requiredDate);
+      if (b.priority !== undefined) r.priority = b.priority as MockRequisition["priority"];
+      if (b.narration !== undefined) r.narration = (b.narration as string) ?? null;
+      if (Array.isArray(b.lines)) {
+        const bl = b.lines as Array<{ itemId: string; requestedQuantity: string }>;
+        const inactive = bl.find((l) => MOCK_ITEMS.find((i) => i.id === l.itemId)?.isActive === false);
+        if (inactive) return { status: 400, body: envelope("INACTIVE_MASTER_REFERENCE", "This item is inactive.") };
+        r.lines = bl.map((l, i) => mkLine(`rl-${id}-${i}`, i + 1, l.itemId, l.requestedQuantity, "0", r.fromGodownId));
+      }
+      r.version += 1;
+      return { status: 200, body: success(r) };
+    }
+
+    if (req.method === "DELETE") {
+      if (r.status !== "DRAFT") return { status: 409, body: envelope("VOUCHER_POSTED_IMMUTABLE", "Only a draft can be deleted.") };
+      MOCK_REQUISITIONS.splice(MOCK_REQUISITIONS.indexOf(r), 1);
+      return { status: 204, body: null };
+    }
+
+    if (req.method === "POST" && action === "submit") {
+      if (r.status !== "DRAFT") return { status: 409, body: envelope("INVALID_REQUISITION_TRANSITION", "This requisition can no longer be submitted.") };
+      const est = reqEstimate(r.lines);
+      r.status = "SUBMITTED";
+      r.requisitionNo = `REQ/2526/${String((reqNoSeq += 1)).padStart(4, "0")}`;
+      r.estimatedValue = est;
+      r.approvalTier = Number(est) > 2_500_000 ? "ACCOUNTS" : "PM";
+      r.submittedAt = "2026-07-12T09:00:00Z";
+      r.submittedById = user.id;
+      r.version += 1;
+      return { status: 200, body: success(r) };
     }
   }
 

@@ -7,11 +7,13 @@ import {
 } from "@/lib/auth/project-scope";
 
 describe("roles & capability map", () => {
-  it("Admin reaches every Tier-1 module; an empty-grant role reaches none", () => {
+  it("Admin reaches every Tier-1 module; Site Engineer reaches only requisitions", () => {
     expect(canAccessModule("ADMIN", "audit")).toBe(true);
     expect(modulesForRole("ADMIN")).toContain("ledger");
     expect(canAccessModule("SITE_ENGINEER", "audit")).toBe(false);
-    expect(modulesForRole("SITE_ENGINEER")).toHaveLength(0);
+    // Site Engineer is a request-only role — reaches the Requisitions module (FE-29), nothing else.
+    expect(modulesForRole("SITE_ENGINEER")).toEqual(["requisitions"]);
+    expect(canAccessModule("SITE_ENGINEER", "requisitions")).toBe(true);
   });
 
   it("PM reaches ledger but not audit", () => {
