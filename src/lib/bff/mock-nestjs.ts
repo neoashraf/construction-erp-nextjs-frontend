@@ -65,6 +65,12 @@ interface MockProject {
   status: string;
   isActive: boolean;
   version: number;
+  // SAL IPC editor reads the resolved customer + remaining mobilization advance off the project
+  // option (fe-ipc-editor) so it can preview them the instant a project is chosen.
+  customerId: string;
+  customerName: string;
+  remainingAdvance: string;
+  hasMobilizationAdvance: boolean;
 }
 interface MockPurpose {
   id: string;
@@ -89,9 +95,9 @@ interface MockParty {
   version: number;
 }
 const MOCK_PROJECTS: MockProject[] = [
-  { id: "proj-a", projectCode: "BR-04", name: "Bridge-04 — Buriganga", status: "ACTIVE", isActive: true, version: 1 },
-  { id: "proj-b", projectCode: "TW-A", name: "Tower-A — Gulshan", status: "ACTIVE", isActive: true, version: 1 },
-  { id: "proj-c", projectCode: "RD-12", name: "Road-12 — Savar", status: "ACTIVE", isActive: true, version: 1 },
+  { id: "proj-a", projectCode: "BR-04", name: "Bridge-04 — Buriganga", status: "ACTIVE", isActive: true, version: 1, customerId: "pa-8", customerName: "National Housing Authority", remainingAdvance: "800000.0000", hasMobilizationAdvance: true },
+  { id: "proj-b", projectCode: "TW-A", name: "Tower-A — Gulshan", status: "ACTIVE", isActive: true, version: 1, customerId: "pa-4", customerName: "Tower-A Developments Ltd.", remainingAdvance: "5000000.0000", hasMobilizationAdvance: true },
+  { id: "proj-c", projectCode: "RD-12", name: "Road-12 — Savar", status: "ACTIVE", isActive: true, version: 1, customerId: "pa-7", customerName: "করিম এন্টারপ্রাইজ", remainingAdvance: "0.0000", hasMobilizationAdvance: false },
 ];
 
 // ── Cost-control sample data (dev/preview only) ──
@@ -384,6 +390,122 @@ const MOCK_PARTIES: MockParty[] = [
   { id: "pa-10", name: "Zenith Interiors", isCustomer: true, isSupplier: true, tin: "220033445566", bin: "001122334-0606", address: null, phone: "+8801600224466", email: null, paymentTermsDays: 30, openingBalance: "0.0000", isActive: true, version: 1 },
 ];
 let mockPartySeq = 800;
+
+// ── Sales / IPC sample (dev/preview only) — the fe-ipc-editor voucher store ──
+interface MockIpc {
+  id: string;
+  projectId: string;
+  customerId: string;
+  ipcSeqNo: number;
+  ipcDate: string;
+  billDate: string;
+  dueDate: string;
+  workCompletedPct: string;
+  certifiedAmount: string;
+  costCentreId: string;
+  purposeId: string;
+  outputVatAmount: string;
+  aitTdsAmount: string;
+  retentionAmount: string;
+  advanceRecoveredAmount: string;
+  retentionRatePct: string;
+  advanceRatePct: string;
+  narration: string | null;
+  status: "DRAFT" | "POSTED" | "CANCELLED";
+  entryNo: string | null;
+  journalEntryId: string | null;
+  reversalEntryNo: string | null;
+  postedAt: string | null;
+  postedBy: string | null;
+  version: number;
+}
+const IPC_VAT_RATE = 0.075;
+const IPC_RETENTION_RATE = 0.1;
+const IPC_ADVANCE_RATE = 0.15;
+
+function ipcCurrentlyDue(i: Pick<MockIpc, "certifiedAmount" | "outputVatAmount" | "retentionAmount" | "advanceRecoveredAmount" | "aitTdsAmount">): string {
+  const raw =
+    Number(i.certifiedAmount) + Number(i.outputVatAmount) - Number(i.retentionAmount) - Number(i.advanceRecoveredAmount) - Number(i.aitTdsAmount);
+  return (raw < 0 ? 0 : raw).toFixed(4);
+}
+function mkIpc(o: Partial<MockIpc> & Pick<MockIpc, "id" | "projectId" | "customerId" | "ipcSeqNo" | "certifiedAmount">): MockIpc {
+  const certified = o.certifiedAmount;
+  const vat = o.outputVatAmount ?? (Number(certified) * IPC_VAT_RATE).toFixed(4);
+  const retention = o.retentionAmount ?? (Number(certified) * IPC_RETENTION_RATE).toFixed(4);
+  const advance = o.advanceRecoveredAmount ?? (Number(certified) * IPC_ADVANCE_RATE).toFixed(4);
+  return {
+    id: o.id,
+    projectId: o.projectId,
+    customerId: o.customerId,
+    ipcSeqNo: o.ipcSeqNo,
+    ipcDate: o.ipcDate ?? "2026-07-12",
+    billDate: o.billDate ?? "2026-07-12",
+    dueDate: o.dueDate ?? "2026-08-11",
+    workCompletedPct: o.workCompletedPct ?? "45.0000",
+    certifiedAmount: certified,
+    costCentreId: o.costCentreId ?? "cc-mat",
+    purposeId: o.purposeId ?? "pp-1",
+    outputVatAmount: vat,
+    aitTdsAmount: o.aitTdsAmount ?? "0.0000",
+    retentionAmount: retention,
+    advanceRecoveredAmount: advance,
+    retentionRatePct: o.retentionRatePct ?? "10.0000",
+    advanceRatePct: o.advanceRatePct ?? "15.0000",
+    narration: o.narration ?? null,
+    status: o.status ?? "DRAFT",
+    entryNo: o.entryNo ?? null,
+    journalEntryId: o.journalEntryId ?? null,
+    reversalEntryNo: o.reversalEntryNo ?? null,
+    postedAt: o.postedAt ?? null,
+    postedBy: o.postedBy ?? null,
+    version: o.version ?? 1,
+  };
+}
+const MOCK_IPCS: MockIpc[] = [
+  mkIpc({ id: "ipc-7", projectId: "proj-a", customerId: "pa-8", ipcSeqNo: 7, ipcDate: "2026-07-12", certifiedAmount: "1000000.0000", outputVatAmount: "75000.0000", aitTdsAmount: "50000.0000", retentionAmount: "100000.0000", advanceRecoveredAmount: "150000.0000", narration: "৪৫% অগ্রগতি — সুপারস্ট্রাকচার পর্যায়।", status: "POSTED", entryNo: "IPC/2526/0007", journalEntryId: "je-ipc-7", postedAt: "2026-07-12T05:30:00Z", postedBy: "00000000-0000-0000-0000-000000000001", version: 2 }),
+  mkIpc({ id: "ipc-draft", projectId: "proj-b", customerId: "pa-4", ipcSeqNo: 1, ipcDate: "2026-07-11", certifiedAmount: "2400000.0000", status: "DRAFT" }),
+  mkIpc({ id: "ipc-6", projectId: "proj-a", customerId: "pa-8", ipcSeqNo: 6, ipcDate: "2026-07-05", certifiedAmount: "1500000.0000", aitTdsAmount: "75000.0000", retentionAmount: "150000.0000", advanceRecoveredAmount: "225000.0000", status: "POSTED", entryNo: "IPC/2526/0006", journalEntryId: "je-ipc-6", postedAt: "2026-07-05T05:30:00Z", postedBy: "00000000-0000-0000-0000-000000000001", version: 2 }),
+  mkIpc({ id: "ipc-5", projectId: "proj-a", customerId: "pa-8", ipcSeqNo: 5, ipcDate: "2026-06-28", certifiedAmount: "800000.0000", aitTdsAmount: "40000.0000", retentionAmount: "80000.0000", advanceRecoveredAmount: "120000.0000", status: "POSTED", entryNo: "IPC/2526/0005", journalEntryId: "je-ipc-5", postedAt: "2026-06-28T05:30:00Z", postedBy: "00000000-0000-0000-0000-000000000001", version: 2 }),
+  mkIpc({ id: "ipc-4", projectId: "proj-b", customerId: "pa-4", ipcSeqNo: 4, ipcDate: "2026-06-20", certifiedAmount: "1200000.0000", aitTdsAmount: "60000.0000", retentionAmount: "120000.0000", advanceRecoveredAmount: "180000.0000", status: "CANCELLED", entryNo: "IPC/2526/0004", journalEntryId: "je-ipc-4", reversalEntryNo: "IPC/2526/0009", postedAt: "2026-06-20T05:30:00Z", postedBy: "00000000-0000-0000-0000-000000000001", version: 3 }),
+  mkIpc({ id: "ipc-3", projectId: "proj-c", customerId: "pa-7", ipcSeqNo: 3, ipcDate: "2026-07-10", certifiedAmount: "650000.0000", aitTdsAmount: "0.0000", retentionAmount: "65000.0000", advanceRecoveredAmount: "0.0000", status: "DRAFT" }),
+];
+let ipcSeq = 100;
+let ipcNumberSeq = 9; // next gapless IPC/2526/00xx allocated at post (0004..0009 already used)
+
+function ipcResource(i: MockIpc) {
+  const currentlyDue = ipcCurrentlyDue(i);
+  return {
+    ...i,
+    currentlyDueAmount: currentlyDue,
+    outstandingAmount: i.status === "CANCELLED" ? "0.0000" : currentlyDue,
+    retentionHeldAmount: i.status === "CANCELLED" ? "0.0000" : i.retentionAmount,
+    linkage:
+      i.status === "DRAFT"
+        ? null
+        : {
+            hasHistory: i.status === "CANCELLED",
+            currentEntryNo: i.entryNo,
+            originalEntryNo: i.entryNo,
+            entries: [],
+          },
+  };
+}
+function ipcSummary(i: MockIpc) {
+  return {
+    id: i.id,
+    ipcSeqNo: i.ipcSeqNo,
+    entryNo: i.entryNo,
+    projectId: i.projectId,
+    customerId: i.customerId,
+    ipcDate: i.ipcDate,
+    certifiedAmount: i.certifiedAmount,
+    currentlyDueAmount: ipcCurrentlyDue(i),
+    outstandingAmount: i.status === "CANCELLED" ? "0.0000" : ipcCurrentlyDue(i),
+    retentionHeldAmount: i.status === "CANCELLED" ? "0.0000" : i.retentionAmount,
+    advanceRecoveredAmount: i.advanceRecoveredAmount,
+    status: i.status,
+  };
+}
 
 const ACCESS_TTL_MS = 15 * 60 * 1000;
 
@@ -949,6 +1071,165 @@ export async function mockNestjsFetch(req: MockReq): Promise<MockResult> {
     const v = Number((body as { estimatedValue?: string }).estimatedValue ?? "0");
     const status = v > 4_000_000 ? "OVER" : v > 2_500_000 ? "APPROACHING" : "OK";
     return { status: 200, body: success({ status }) };
+  }
+
+  // ── Sales / IPC (fe-ipc-editor) — voucher lifecycle ──
+  if (pathname === "/sales/ipc" && req.method === "GET") {
+    let rows = MOCK_IPCS.filter((i) => scopeOk(i.projectId));
+    const projectId = params.get("projectId");
+    const customerId = params.get("customerId");
+    const statusCsv = params.get("status");
+    const entryNo = params.get("entryNo");
+    const dateFrom = params.get("dateFrom");
+    const dateTo = params.get("dateTo");
+    if (projectId) rows = rows.filter((i) => i.projectId === projectId);
+    if (customerId) rows = rows.filter((i) => i.customerId === customerId);
+    if (statusCsv) {
+      const wanted = new Set(statusCsv.split(","));
+      rows = rows.filter((i) => wanted.has(i.status));
+    }
+    if (entryNo) rows = rows.filter((i) => i.entryNo === entryNo);
+    if (dateFrom) rows = rows.filter((i) => i.ipcDate >= dateFrom);
+    if (dateTo) rows = rows.filter((i) => i.ipcDate <= dateTo);
+    rows = rows.slice().sort((a, b) => (a.ipcDate < b.ipcDate ? 1 : -1)); // newest-first
+    return { status: 200, body: pageEnvelope(rows.map(ipcSummary)) };
+  }
+
+  if (pathname === "/sales/ipc" && req.method === "POST") {
+    const b = body as Partial<MockIpc> & { version?: number };
+    const project = MOCK_PROJECTS.find((p) => p.id === b.projectId);
+    if (!project) return { status: 404, body: envelope("NOT_FOUND", "Project not found") };
+    if (!scopeOk(project.id)) return { status: 403, body: envelope("FORBIDDEN", "You don't have access to this project.") };
+    if (project.status === "CLOSED") return { status: 409, body: envelope("PROJECT_CLOSED", "This project is closed and can't accept new IPCs.") };
+    const seqNo = Number(b.ipcSeqNo ?? 0);
+    if (Number(b.certifiedAmount ?? 0) <= 0) return { status: 400, body: envelope("VALIDATION_ERROR", "Certified amount must be greater than zero.") };
+    if ((b.dueDate ?? "") < (b.billDate ?? "")) return { status: 400, body: envelope("VALIDATION_ERROR", "Due date can't be before the bill date.") };
+    if (MOCK_IPCS.some((i) => i.projectId === project.id && i.ipcSeqNo === seqNo)) {
+      return { status: 409, body: envelope("DUPLICATE_IPC_SEQ_NO", `This project already has IPC #${seqNo}.`) };
+    }
+    if (Number(b.advanceRecoveredAmount ?? 0) > Number(project.remainingAdvance)) {
+      return { status: 409, body: envelope("ADVANCE_EXCEEDS_REMAINING", "Advance recovered exceeds the remaining project advance.") };
+    }
+    const draft = mkIpc({
+      id: `ipc-${(ipcSeq += 1)}`,
+      projectId: project.id,
+      customerId: project.customerId,
+      ipcSeqNo: seqNo,
+      ipcDate: b.ipcDate,
+      billDate: b.billDate,
+      dueDate: b.dueDate,
+      workCompletedPct: b.workCompletedPct,
+      certifiedAmount: String(b.certifiedAmount),
+      costCentreId: b.costCentreId,
+      purposeId: b.purposeId,
+      outputVatAmount: b.outputVatAmount,
+      aitTdsAmount: b.aitTdsAmount,
+      retentionAmount: b.retentionAmount,
+      advanceRecoveredAmount: b.advanceRecoveredAmount,
+      narration: b.narration ?? null,
+      status: "DRAFT",
+    });
+    if (Number(ipcCurrentlyDue(draft)) === 0 && Number(draft.certifiedAmount) > 0 &&
+      Number(draft.certifiedAmount) + Number(draft.outputVatAmount) - Number(draft.retentionAmount) - Number(draft.advanceRecoveredAmount) - Number(draft.aitTdsAmount) < 0) {
+      return { status: 400, body: envelope("CURRENTLY_DUE_NEGATIVE", "These figures make the currently-due amount negative.") };
+    }
+    MOCK_IPCS.unshift(draft);
+    return { status: 201, body: success({ id: draft.id }) };
+  }
+
+  const ipcMatch = /^\/sales\/ipc\/([^/]+)(?:\/(post|cancel|repost))?$/.exec(pathname ?? "");
+  if (ipcMatch) {
+    const id = ipcMatch[1]!;
+    const action = ipcMatch[2];
+    const ipc = MOCK_IPCS.find((i) => i.id === id);
+    if (!ipc) return { status: 404, body: envelope("NOT_FOUND", "IPC not found") };
+    if (!scopeOk(ipc.projectId)) return { status: 403, body: envelope("FORBIDDEN", "You don't have access to this IPC.") };
+    const b = body as Partial<MockIpc> & { version?: number; reason?: string };
+
+    if (req.method === "GET" && !action) {
+      return { status: 200, body: success(ipcResource(ipc)) };
+    }
+
+    if (req.method === "PATCH" && !action) {
+      if (ipc.status !== "DRAFT") return { status: 409, body: envelope("VOUCHER_POSTED_IMMUTABLE", "This IPC has been posted and can no longer be edited.") };
+      if (b.version !== undefined && b.version !== ipc.version) return { status: 409, body: envelope("OPTIMISTIC_LOCK_CONFLICT", "This IPC was just changed by someone else.") };
+      const project = MOCK_PROJECTS.find((p) => p.id === (b.projectId ?? ipc.projectId));
+      if (b.ipcSeqNo !== undefined && MOCK_IPCS.some((i) => i.id !== ipc.id && i.projectId === (b.projectId ?? ipc.projectId) && i.ipcSeqNo === Number(b.ipcSeqNo))) {
+        return { status: 409, body: envelope("DUPLICATE_IPC_SEQ_NO", `This project already has IPC #${Number(b.ipcSeqNo)}.`) };
+      }
+      Object.assign(ipc, {
+        projectId: b.projectId ?? ipc.projectId,
+        customerId: project?.customerId ?? ipc.customerId,
+        ipcSeqNo: b.ipcSeqNo !== undefined ? Number(b.ipcSeqNo) : ipc.ipcSeqNo,
+        ipcDate: b.ipcDate ?? ipc.ipcDate,
+        billDate: b.billDate ?? ipc.billDate,
+        dueDate: b.dueDate ?? ipc.dueDate,
+        workCompletedPct: b.workCompletedPct ?? ipc.workCompletedPct,
+        certifiedAmount: b.certifiedAmount != null ? String(b.certifiedAmount) : ipc.certifiedAmount,
+        costCentreId: b.costCentreId ?? ipc.costCentreId,
+        purposeId: b.purposeId ?? ipc.purposeId,
+        outputVatAmount: b.outputVatAmount ?? ipc.outputVatAmount,
+        aitTdsAmount: b.aitTdsAmount ?? ipc.aitTdsAmount,
+        retentionAmount: b.retentionAmount ?? ipc.retentionAmount,
+        advanceRecoveredAmount: b.advanceRecoveredAmount ?? ipc.advanceRecoveredAmount,
+        narration: b.narration !== undefined ? b.narration : ipc.narration,
+        version: ipc.version + 1,
+      });
+      return { status: 200, body: success(ipcResource(ipc)) };
+    }
+
+    if (req.method === "DELETE" && !action) {
+      if (ipc.status !== "DRAFT") return { status: 409, body: envelope("VOUCHER_POSTED_IMMUTABLE", "Only a draft IPC can be discarded.") };
+      MOCK_IPCS.splice(MOCK_IPCS.indexOf(ipc), 1);
+      return { status: 204, body: null };
+    }
+
+    if (req.method === "POST" && action === "post") {
+      if (ipc.status !== "DRAFT") return { status: 409, body: envelope("VOUCHER_POSTED_IMMUTABLE", "This IPC has already been posted.") };
+      if (b.version !== undefined && b.version !== ipc.version) return { status: 409, body: envelope("OPTIMISTIC_LOCK_CONFLICT", "This IPC was just changed by someone else.") };
+      const entryNo = `IPC/2526/${String((ipcNumberSeq += 1)).padStart(4, "0")}`;
+      Object.assign(ipc, {
+        status: "POSTED",
+        entryNo,
+        journalEntryId: `je-${ipc.id}`,
+        postedAt: new Date().toISOString(),
+        postedBy: user.id,
+        version: ipc.version + 1,
+      });
+      return { status: 200, body: success({ id: ipc.id, entryNo, journalEntryId: ipc.journalEntryId, status: "POSTED", currentlyDueAmount: ipcCurrentlyDue(ipc) }) };
+    }
+
+    if (req.method === "POST" && action === "cancel") {
+      if (ipc.status === "DRAFT") return { status: 409, body: envelope("VOUCHER_NOT_POSTED", "This IPC isn't posted, so it can't be cancelled.") };
+      if (ipc.status === "CANCELLED") return { status: 409, body: envelope("ALREADY_REVERSED", "This IPC has already been cancelled.") };
+      if (!String(b.reason ?? "").trim()) return { status: 400, body: envelope("VALIDATION_ERROR", "Enter a reason for cancelling this IPC.") };
+      const reversalEntryNo = `IPC/2526/${String((ipcNumberSeq += 1)).padStart(4, "0")}`;
+      Object.assign(ipc, { status: "CANCELLED", reversalEntryNo, version: ipc.version + 1 });
+      return { status: 200, body: success({ id: ipc.id, status: "CANCELLED", reversalEntryId: `je-${ipc.id}-rev`, reversalEntryNo }) };
+    }
+
+    if (req.method === "POST" && action === "repost") {
+      if (ipc.status === "DRAFT") return { status: 409, body: envelope("VOUCHER_NOT_POSTED", "This IPC isn't posted, so it can't be reposted.") };
+      if (ipc.status === "CANCELLED") return { status: 409, body: envelope("ALREADY_REVERSED", "This IPC has already been cancelled.") };
+      if (!String(b.reason ?? "").trim()) return { status: 400, body: envelope("VALIDATION_ERROR", "Enter a reason for correcting this IPC.") };
+      const reversalEntryNo = `IPC/2526/${String((ipcNumberSeq += 1)).padStart(4, "0")}`;
+      const entryNo = `IPC/2526/${String((ipcNumberSeq += 1)).padStart(4, "0")}`;
+      Object.assign(ipc, {
+        certifiedAmount: b.certifiedAmount != null ? String(b.certifiedAmount) : ipc.certifiedAmount,
+        workCompletedPct: b.workCompletedPct ?? ipc.workCompletedPct,
+        outputVatAmount: b.outputVatAmount ?? ipc.outputVatAmount,
+        aitTdsAmount: b.aitTdsAmount ?? ipc.aitTdsAmount,
+        retentionAmount: b.retentionAmount ?? ipc.retentionAmount,
+        advanceRecoveredAmount: b.advanceRecoveredAmount ?? ipc.advanceRecoveredAmount,
+        narration: b.narration !== undefined ? b.narration : ipc.narration,
+        status: "POSTED",
+        entryNo,
+        reversalEntryNo,
+        journalEntryId: `je-${ipc.id}-v2`,
+        version: ipc.version + 1,
+      });
+      return { status: 200, body: success({ id: ipc.id, status: "POSTED", entryNo, reversalEntryNo, currentlyDueAmount: ipcCurrentlyDue(ipc) }) };
+    }
   }
 
   // ── Requisition list + create ──

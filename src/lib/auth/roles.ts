@@ -73,6 +73,7 @@ export const MODULES = [
   "cost-control",
   "inventory",
   "requisitions",
+  "sales",
 ] as const;
 
 export type ModuleKey = (typeof MODULES)[number];
@@ -85,10 +86,10 @@ export type ModuleKey = (typeof MODULES)[number];
  * NOTE: deliberately conservative; per-screen briefs refine grants as needed.
  */
 const ROLE_MODULES: Record<Role, readonly ModuleKey[]> = {
-  ADMIN: ["master-data", "ledger", "numbering", "period", "audit", "cost-control", "inventory", "requisitions"],
-  ACCOUNTS_TEAM: ["master-data", "ledger", "numbering", "period", "cost-control", "inventory", "requisitions"],
-  ACCOUNTS_MANAGER: ["master-data", "ledger", "numbering", "period", "cost-control", "inventory", "requisitions"],
-  PROJECT_MANAGER: ["ledger", "cost-control", "inventory", "requisitions"],
+  ADMIN: ["master-data", "ledger", "numbering", "period", "audit", "cost-control", "inventory", "requisitions", "sales"],
+  ACCOUNTS_TEAM: ["master-data", "ledger", "numbering", "period", "cost-control", "inventory", "requisitions", "sales"],
+  ACCOUNTS_MANAGER: ["master-data", "ledger", "numbering", "period", "cost-control", "inventory", "requisitions", "sales"],
+  PROJECT_MANAGER: ["ledger", "cost-control", "inventory", "requisitions", "sales"],
   SITE_ENGINEER: ["requisitions"],
   STORE_KEEPER: ["inventory", "requisitions"],
   HR_MANAGER: [],
@@ -111,6 +112,7 @@ export const MODULE_RESOURCE_PREFIX: Record<ModuleKey, readonly string[]> = {
   "cost-control": ["cost_control."],
   inventory: ["inventory."],
   requisitions: ["requisitions."],
+  sales: ["sales."],
 };
 
 /** True when the effective set holds any READ grant inside the module (FE-21). */
@@ -174,6 +176,7 @@ export function moduleLabel(module: ModuleKey): string {
     "cost-control": "Cost Control",
     inventory: "Inventory",
     requisitions: "Requisitions",
+    sales: "Sales / IPC",
   };
   return labels[module];
 }
