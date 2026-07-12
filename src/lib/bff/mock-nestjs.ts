@@ -696,6 +696,60 @@ export async function mockNestjsFetch(req: MockReq): Promise<MockResult> {
     return { status: 200, body: pageEnvelope(MOCK_FINANCIAL_YEARS) };
   }
 
+  // GET /masters/companies/:id — the single company profile (Mushak print BIN/TIN source).
+  const companyMatch = /^\/masters\/companies(?:\/([^/]+))?$/.exec(pathname ?? "");
+  if (companyMatch && req.method === "GET") {
+    return {
+      status: 200,
+      body: success({
+        id: user.companyId,
+        name: "Zakir Enterprise",
+        legalName: "Zakir Enterprise Ltd.",
+        bin: "004123456-0203",
+        tin: "512345678901",
+        address: "House 42, Road 11, Banani, Dhaka-1213, Bangladesh",
+      }),
+    };
+  }
+
+  // GET /ledger/entries/:id — the posted journal entry with balanced lines (SAL IPC viewer
+  // reads this via `sales-ipc/api/ledger.ts` for the ledger-lines panel). Guarded by
+  // `ledger.journal_entries:READ`; PMs get 403 (brief G3). Synthesises a canonical
+  // AR + Retention + Advance + AIT (Dr) / Revenue + Output VAT (Cr) split from the IPC.
+  const entryMatch = /^\/ledger\/entries\/([^/]+)$/.exec(pathname ?? "");
+  if (entryMatch && req.method === "GET") {
+    if (user.role === "PROJECT_MANAGER") {
+      return { status: 403, body: envelope("FORBIDDEN", "You don't have access to the ledger detail for this IPC.") };
+    }
+    const entryId = entryMatch[1]!;
+    const ipc = MOCK_IPCS.find((i) => i.journalEntryId === entryId || `je-${i.id}` === entryId || `je-${i.id}-v2` === entryId);
+    if (!ipc) return { status: 404, body: envelope("NOT_FOUND", "Journal entry not found") };
+    const zero = "0.0000";
+    const lines = [
+      { id: `${entryId}-l1`, lineNo: 1, accountId: "1200", projectId: null, costCentreId: null, purposeId: null, godownId: null, partyId: ipc.customerId, debit: ipcCurrentlyDue(ipc), credit: zero, narration: null },
+      { id: `${entryId}-l2`, lineNo: 2, accountId: "1210", projectId: null, costCentreId: null, purposeId: null, godownId: null, partyId: ipc.customerId, debit: ipc.retentionAmount, credit: zero, narration: null },
+      { id: `${entryId}-l3`, lineNo: 3, accountId: "1310", projectId: null, costCentreId: null, purposeId: null, godownId: null, partyId: ipc.customerId, debit: ipc.advanceRecoveredAmount, credit: zero, narration: null },
+      { id: `${entryId}-l4`, lineNo: 4, accountId: "1450", projectId: null, costCentreId: null, purposeId: null, godownId: null, partyId: null, debit: ipc.aitTdsAmount, credit: zero, narration: null },
+      { id: `${entryId}-l5`, lineNo: 5, accountId: "4100", projectId: ipc.projectId, costCentreId: ipc.costCentreId, purposeId: ipc.purposeId, godownId: null, partyId: null, debit: zero, credit: ipc.certifiedAmount, narration: null },
+      { id: `${entryId}-l6`, lineNo: 6, accountId: "2310", projectId: ipc.projectId, costCentreId: ipc.costCentreId, purposeId: ipc.purposeId, godownId: null, partyId: null, debit: zero, credit: ipc.outputVatAmount, narration: null },
+    ];
+    const totalDr = lines.reduce((s, l) => s + Number(l.debit), 0).toFixed(4);
+    const totalCr = lines.reduce((s, l) => s + Number(l.credit), 0).toFixed(4);
+    return {
+      status: 200,
+      body: {
+        id: entryId,
+        entryNo: ipc.entryNo ?? "",
+        voucherType: "SALES_IPC",
+        voucherDate: ipc.ipcDate,
+        postedAt: ipc.postedAt ?? new Date().toISOString(),
+        totalDebit: totalDr,
+        totalCredit: totalCr,
+        lines,
+      },
+    };
+  }
+
   // GET /cost-control/budget-vs-actual — read projection over LED + MAS budgets.
   if (pathname === "/cost-control/budget-vs-actual" && req.method === "GET") {
     const projectId = params.get("projectId") ?? "";
@@ -911,6 +965,28 @@ export async function mockNestjsFetch(req: MockReq): Promise<MockResult> {
       target.version += 1;
       return { status: 200, body: success(target) };
     }
+  }
+
+  // GET /masters/accounts — chart-of-accounts list (Mushak print + IPC viewer + LED entry
+  // viewer feed off this via `lib/masters/lookups`). A small seeded slice covering the
+  // canonical IPC posting lines (1200 AR, 1210 Retention Receivable, 1310 Advance Recovered,
+  // 1450 AIT/TDS Receivable, 4100 Sales Revenue, 2310 Output VAT Payable) plus a couple of
+  // cash/expense accounts that other Done screens reference. Same envelope shape as parties.
+  if (pathname === "/masters/accounts" && req.method === "GET") {
+    return {
+      status: 200,
+      body: pageEnvelope([
+        { id: "1200", code: "1200", name: "Accounts Receivable", accountType: "ASSET", isActive: true },
+        { id: "1210", code: "1210", name: "Retention Receivable", accountType: "ASSET", isActive: true },
+        { id: "1310", code: "1310", name: "Advance to Contractor (recovery)", accountType: "ASSET", isActive: true },
+        { id: "1450", code: "1450", name: "AIT / TDS Receivable", accountType: "ASSET", isActive: true },
+        { id: "4100", code: "4100", name: "Contract Revenue", accountType: "REVENUE", isActive: true },
+        { id: "2310", code: "2310", name: "Output VAT Payable", accountType: "LIABILITY", isActive: true },
+        { id: "1010", code: "1010", name: "Cash in Hand", accountType: "ASSET", isActive: true },
+        { id: "1020", code: "1020", name: "Bank — Operating", accountType: "ASSET", isActive: true },
+        { id: "5100", code: "5100", name: "Material Expense", accountType: "EXPENSE", isActive: true },
+      ]),
+    };
   }
 
   // ── Inventory master lookups ──
