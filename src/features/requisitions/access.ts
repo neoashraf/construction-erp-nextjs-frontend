@@ -33,3 +33,19 @@ export function canWriteRequisition(user: Viewer): boolean {
 export function canSubmitRequisition(user: Viewer): boolean {
   return allow(user, "UPDATE", ["PROJECT_MANAGER", "SITE_ENGINEER"]);
 }
+
+/**
+ * The Approvals worklist / review screen resource (nav-tree `requisitions.approvals`,
+ * also-actions **A J** = APPROVE, REJECT). READ visibility here is broader than the decision
+ * authority: PM, Accounts and Store Keeper can all *view* the review detail (Store Keeper to
+ * anticipate an issue), but only PM/Accounts (per tier) may decide. Site Engineer + HR are
+ * excluded — a direct hit gets the permission-denied view, and the server re-checks (`403`).
+ */
+export const REQ_APPROVALS_RESOURCE = "requisitions.approvals";
+
+/** May the viewer open the approvals worklist / review a requisition at all (READ, spec §11)? */
+export function canReviewRequisitions(user: Viewer): boolean {
+  if (user.role === "ADMIN") return true;
+  if (user.permissions) return hasGrant(user as never, REQ_APPROVALS_RESOURCE, "READ");
+  return roleMatches(["PROJECT_MANAGER", "ACCOUNTS_MANAGER", "ACCOUNTS_TEAM", "STORE_KEEPER"], user.role);
+}

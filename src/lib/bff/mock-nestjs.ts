@@ -311,6 +311,13 @@ const MOCK_REQUISITIONS: MockRequisition[] = [
 // Seed submitted+ estimates.
 for (const r of MOCK_REQUISITIONS) if (r.status !== "DRAFT") r.estimatedValue = reqEstimate(r.lines);
 
+interface MockReqApproval {
+  id: string; requisitionId: string; decision: "APPROVED" | "REJECTED"; tier: "PM" | "ACCOUNTS";
+  thresholdEvaluated: string | null; estimatedValueAtReview: string | null; reason: string | null;
+  decidedById: string; decidedAt: string;
+}
+const MOCK_REQ_APPROVALS: MockReqApproval[] = [];
+
 const MOCK_PURPOSES: MockPurpose[] = [
   { id: "pp-1", projectId: "proj-a", name: "Material Purchase", isActive: true, version: 1 },
   { id: "pp-2", projectId: "proj-a", name: "Labour Payment", isActive: true, version: 1 },
@@ -949,8 +956,8 @@ export async function mockNestjsFetch(req: MockReq): Promise<MockResult> {
     return { status: 201, body: success({ id }) };
   }
 
-  // ── Requisition /:id [/submit] ──
-  const rm = /^\/requisition\/([^/]+)(?:\/(submit))?$/.exec(pathname ?? "");
+  // ── Requisition /:id [/submit|approve|reject|approvals] ──
+  const rm = /^\/requisition\/([^/]+)(?:\/(submit|approve|reject|approvals))?$/.exec(pathname ?? "");
   if (rm) {
     const id = rm[1]!;
     const action = rm[2];
@@ -1002,6 +1009,47 @@ export async function mockNestjsFetch(req: MockReq): Promise<MockResult> {
       r.submittedAt = "2026-07-12T09:00:00Z";
       r.submittedById = user.id;
       r.version += 1;
+      return { status: 200, body: success(r) };
+    }
+
+    // Approval history (FR-REQ-008).
+    if (req.method === "GET" && action === "approvals") {
+      return { status: 200, body: success(MOCK_REQ_APPROVALS.filter((a) => a.requisitionId === id)) };
+    }
+
+    // Escalate-by-default authority gate (FR-REQ-010/-011): a PM may decide only a PM-tier
+    // requisition; an ACCOUNTS-tier (escalated) one needs Accounts; Admin decides anything.
+    const canDecideTier =
+      user.role === "ADMIN" ||
+      (r.approvalTier === "ACCOUNTS"
+        ? user.role === "ACCOUNTS_MANAGER" || user.role === "ACCOUNTS_TEAM"
+        : user.role === "PROJECT_MANAGER");
+
+    if (req.method === "POST" && action === "approve") {
+      if (r.status !== "SUBMITTED") return { status: 409, body: envelope("REQUISITION_NOT_SUBMITTED", "This requisition has already been decided.") };
+      if (!canDecideTier) return { status: 403, body: envelope("APPROVAL_BEYOND_AUTHORITY", "This requisition is above your approval limit.") };
+      r.status = "APPROVED";
+      r.version += 1;
+      MOCK_REQ_APPROVALS.push({
+        id: `ra-${MOCK_REQ_APPROVALS.length + 1}`, requisitionId: id, decision: "APPROVED",
+        tier: r.approvalTier ?? "PM", thresholdEvaluated: r.approvalTier === "ACCOUNTS" ? "2500000.0000" : "500000.0000",
+        estimatedValueAtReview: r.estimatedValue, reason: (b.note as string) ?? null, decidedById: user.id, decidedAt: new Date().toISOString(),
+      });
+      return { status: 200, body: success(r) };
+    }
+
+    if (req.method === "POST" && action === "reject") {
+      if (r.status !== "SUBMITTED") return { status: 409, body: envelope("REQUISITION_NOT_SUBMITTED", "This requisition has already been decided.") };
+      if (!canDecideTier) return { status: 403, body: envelope("APPROVAL_BEYOND_AUTHORITY", "This requisition is above your approval limit.") };
+      const reason = String(b.reason ?? "").trim();
+      if (!reason) return { status: 400, body: envelope("MISSING_REJECT_REASON", "Enter a reason for rejecting this requisition.") };
+      r.status = "REJECTED";
+      r.version += 1;
+      MOCK_REQ_APPROVALS.push({
+        id: `ra-${MOCK_REQ_APPROVALS.length + 1}`, requisitionId: id, decision: "REJECTED",
+        tier: r.approvalTier ?? "PM", thresholdEvaluated: r.approvalTier === "ACCOUNTS" ? "2500000.0000" : "500000.0000",
+        estimatedValueAtReview: r.estimatedValue, reason, decidedById: user.id, decidedAt: new Date().toISOString(),
+      });
       return { status: 200, body: success(r) };
     }
   }

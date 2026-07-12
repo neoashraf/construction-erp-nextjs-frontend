@@ -58,6 +58,22 @@ export interface RequisitionPage {
   total: number;
 }
 
+/**
+ * One approval-history row (API contract 09 `GET /:id/approvals`; FR-REQ-008). Records a
+ * single approve/reject decision with the tier + threshold it was evaluated against.
+ * `reason` carries the reject reason (or an optional approve note). Shared with -issue's trail.
+ */
+export interface RequisitionApproval {
+  id: string;
+  decision: "APPROVED" | "REJECTED";
+  tier: ApprovalTier;
+  thresholdEvaluated: string | null;
+  estimatedValueAtReview: string | null;
+  reason: string | null;
+  decidedById: string;
+  decidedAt: string; // ISO-8601 UTC
+}
+
 /** CC advisory budget check result (FR-CC-014) — never blocks submit. */
 export type BudgetStatus = "OK" | "APPROACHING" | "OVER";
 

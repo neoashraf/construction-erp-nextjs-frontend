@@ -1,10 +1,13 @@
-import { ComingSoon } from "@/components/shell/coming-soon";
+import { requireModuleAccess } from "@/lib/auth/guard-module-page";
+import { ApprovalsWorklistScreen } from "@/features/requisitions/components/ApprovalsWorklistScreen";
 
 /**
- * Placeholder route for the "Approvals" screen (nav-tree route /requisitions/approvals). The real
- * screen ships with its per-screen brief; until then this renders the shared
- * ComingSoon placeholder so the nav item navigates to a real page, not a dead link.
+ * Requisition approvals worklist route (REQ; FR-REQ-008…-011) — under the (app) shell + the
+ * `requisitions` module guard, resource `requisitions.approvals`. The review queue of
+ * SUBMITTED requisitions; rows open the decision detail. Non-approver roles get the
+ * permission-denied view inside the screen; the server re-checks the exact grant.
  */
-export default function RequisitionsApprovalsPage() {
-  return <ComingSoon title="Approvals" />;
+export default async function RequisitionApprovalsPage() {
+  await requireModuleAccess("requisitions");
+  return <ApprovalsWorklistScreen />;
 }
