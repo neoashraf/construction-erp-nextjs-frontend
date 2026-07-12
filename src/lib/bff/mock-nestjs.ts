@@ -307,6 +307,16 @@ const MOCK_REQUISITIONS: MockRequisition[] = [
     closedAt: null, closedReason: null, narration: null, version: 6,
     lines: [mkLine("rl-8", 1, "it-sand", "300", "300", "gd-a")],
   },
+  {
+    // APPROVED with a rebar line whose balance (20) exceeds gd-a on-hand (18) — the negative-stock
+    // override path (fe-requisition-issue e2e). requiredDate is latest so it never displaces the
+    // happy-path row at the top of the issues worklist.
+    id: "req-7", requisitionNo: "REQ/2526/0044", projectId: "proj-a", costCentreId: "cc-mat", purposeId: "pp-1",
+    fromGodownId: "gd-a", requiredDate: "2026-07-30", priority: "HIGH", status: "APPROVED",
+    estimatedValue: null, approvalTier: "PM", submittedAt: "2026-07-11T08:00:00Z", submittedById: "u-rafiq",
+    closedAt: null, closedReason: null, narration: "Rebar top-up for the deck lift", version: 2,
+    lines: [mkLine("rl-9", 1, "it-rebar", "20", "0", "gd-a")],
+  },
 ];
 // Seed submitted+ estimates.
 for (const r of MOCK_REQUISITIONS) if (r.status !== "DRAFT") r.estimatedValue = reqEstimate(r.lines);
@@ -317,6 +327,33 @@ interface MockReqApproval {
   decidedById: string; decidedAt: string;
 }
 const MOCK_REQ_APPROVALS: MockReqApproval[] = [];
+
+interface MockReqIssueLine {
+  requisitionLineId: string; stockMovementId: string; issuedQuantity: string; rate: string; value: string;
+}
+interface MockReqIssue {
+  requisitionId: string; requisitionIssueId: string; issueNo: number; journalEntryId: string; entryNo: string;
+  issuedValue: string; fromGodownId: string; lines: MockReqIssueLine[]; requisitionStatus: MockRequisition["status"];
+  issuedAt: string; reversedAt: string | null; reversedById: string | null;
+}
+const MOCK_REQ_ISSUES: MockReqIssue[] = [];
+let reqIssueSeq = 30;
+let reqIssueNoSeq = 0;
+
+/** On-hand for a `(godown, item)` from the stock-ledger projection (0 when unknown). */
+function reqOnHand(godownId: string, itemId: string): number {
+  const row = MOCK_STOCK_LEDGER.find((r) => r.godownId === godownId && r.itemId === itemId);
+  return row ? Number(row.quantityOnHand) : 0;
+}
+/** Outstanding total indicative value = Σ(balance × indicative rate). */
+function reqOutstandingValue(r: MockRequisition): string {
+  let sum = 0;
+  for (const l of r.lines) {
+    const rate = reqIndicativeRate(l.itemId, r.fromGodownId);
+    if (rate) sum += Number(l.balanceQuantity) * Number(rate);
+  }
+  return sum.toFixed(4);
+}
 
 const MOCK_PURPOSES: MockPurpose[] = [
   { id: "pp-1", projectId: "proj-a", name: "Material Purchase", isActive: true, version: 1 },
@@ -956,8 +993,35 @@ export async function mockNestjsFetch(req: MockReq): Promise<MockResult> {
     return { status: 201, body: success({ id }) };
   }
 
-  // ── Requisition /:id [/submit|approve|reject|approvals] ──
-  const rm = /^\/requisition\/([^/]+)(?:\/(submit|approve|reject|approvals))?$/.exec(pathname ?? "");
+  // ── Requisition /:id/issues/:issueId/reverse (FR-REQ-017) ──
+  const rev = /^\/requisition\/([^/]+)\/issues\/([^/]+)\/reverse$/.exec(pathname ?? "");
+  if (rev && req.method === "POST") {
+    const [, reqId, issueId] = rev;
+    const r = MOCK_REQUISITIONS.find((x) => x.id === reqId);
+    if (!r) return { status: 404, body: envelope("NOT_FOUND", "Requisition not found") };
+    const iss = MOCK_REQ_ISSUES.find((i) => i.requisitionIssueId === issueId && i.requisitionId === reqId);
+    if (!iss) return { status: 404, body: envelope("NOT_FOUND", "Issue not found") };
+    if (iss.reversedAt) return { status: 409, body: envelope("ALREADY_REVERSED", "This issue has already been reversed.") };
+    const b = body as Record<string, unknown>;
+    if (!String(b.reason ?? "").trim()) return { status: 400, body: envelope("VALIDATION_ERROR", "Enter a reason for reversing this issue.") };
+    // Restore each line's balance.
+    for (const il of iss.lines) {
+      const line = r.lines.find((l) => l.id === il.requisitionLineId);
+      if (line) {
+        line.issuedQuantity = (Number(line.issuedQuantity) - Number(il.issuedQuantity)).toFixed(4);
+        line.balanceQuantity = (Number(line.requestedQuantity) - Number(line.issuedQuantity)).toFixed(4);
+      }
+    }
+    iss.reversedAt = new Date().toISOString();
+    iss.reversedById = user.id;
+    const anyIssued = r.lines.some((l) => Number(l.issuedQuantity) > 0);
+    r.status = anyIssued ? "PARTIALLY_ISSUED" : "APPROVED";
+    r.version += 1;
+    return { status: 200, body: success(r) };
+  }
+
+  // ── Requisition /:id [/submit|approve|reject|approvals|issue|close|outstanding|issues] ──
+  const rm = /^\/requisition\/([^/]+)(?:\/(submit|approve|reject|approvals|issue|close|outstanding|issues))?$/.exec(pathname ?? "");
   if (rm) {
     const id = rm[1]!;
     const action = rm[2];
@@ -1050,6 +1114,84 @@ export async function mockNestjsFetch(req: MockReq): Promise<MockResult> {
         tier: r.approvalTier ?? "PM", thresholdEvaluated: r.approvalTier === "ACCOUNTS" ? "2500000.0000" : "500000.0000",
         estimatedValueAtReview: r.estimatedValue, reason, decidedById: user.id, decidedAt: new Date().toISOString(),
       });
+      return { status: 200, body: success(r) };
+    }
+
+    // Outstanding balance (FR-REQ-021).
+    if (req.method === "GET" && action === "outstanding") {
+      return {
+        status: 200,
+        body: success({
+          requisitionId: id,
+          status: r.status,
+          lines: r.lines.map((l) => ({
+            requisitionLineId: l.id, itemId: l.itemId, requestedQuantity: l.requestedQuantity,
+            issuedQuantity: l.issuedQuantity, balanceQuantity: l.balanceQuantity, uom: l.uom,
+          })),
+          totalOutstandingValueIndicative: reqOutstandingValue(r),
+        }),
+      };
+    }
+
+    // Issue history (FR-REQ-013…-019).
+    if (req.method === "GET" && action === "issues") {
+      return { status: 200, body: success(MOCK_REQ_ISSUES.filter((i) => i.requisitionId === id)) };
+    }
+
+    // Issue material — atomic stock deduct + consumption post (FR-REQ-012…-016).
+    if (req.method === "POST" && action === "issue") {
+      if (r.status !== "APPROVED" && r.status !== "PARTIALLY_ISSUED") {
+        return { status: 409, body: envelope("REQUISITION_NOT_APPROVED", "This requisition can no longer be issued.") };
+      }
+      const fromGodown = String(b.fromGodownId ?? "");
+      const allowNeg = b.allowNegativeStock === true;
+      const bodyLines = (Array.isArray(b.lines) ? b.lines : []) as Array<{ requisitionLineId: string; issueQuantity: string; godownId?: string }>;
+      const resultLines: MockReqIssueLine[] = [];
+      let issuedValue = 0;
+      for (const bl of bodyLines) {
+        const line = r.lines.find((l) => l.id === bl.requisitionLineId);
+        if (!line) return { status: 400, body: envelope("VALIDATION_ERROR", "Unknown requisition line.") };
+        const qty = Number(bl.issueQuantity);
+        if (qty <= 0 || qty > Number(line.balanceQuantity)) {
+          return { status: 400, body: envelope("ISSUE_EXCEEDS_BALANCE", `This exceeds the outstanding balance (${line.balanceQuantity}).`) };
+        }
+        const godown = bl.godownId ?? fromGodown;
+        if (!allowNeg && user.role !== "ADMIN" && qty > reqOnHand(godown, line.itemId)) {
+          return { status: 409, body: envelope("NEGATIVE_STOCK_BLOCKED", "Not enough stock on hand.") };
+        }
+        const rate = reqIndicativeRate(line.itemId, godown) ?? "0.0000";
+        const value = qty * Number(rate);
+        issuedValue += value;
+        resultLines.push({ requisitionLineId: line.id, stockMovementId: `mv-req-${reqIssueSeq}-${resultLines.length}`, issuedQuantity: qty.toFixed(4), rate, value: value.toFixed(4) });
+        line.issuedQuantity = (Number(line.issuedQuantity) + qty).toFixed(4);
+        line.balanceQuantity = (Number(line.requestedQuantity) - Number(line.issuedQuantity)).toFixed(4);
+      }
+      const fullyIssued = r.lines.every((l) => Number(l.balanceQuantity) <= 0);
+      r.status = fullyIssued ? "ISSUED" : "PARTIALLY_ISSUED";
+      r.version += 1;
+      const issue: MockReqIssue = {
+        requisitionId: id, requisitionIssueId: `ri-${(reqIssueSeq += 1)}`, issueNo: (reqIssueNoSeq += 1),
+        journalEntryId: `je-${reqIssueSeq}`, entryNo: `SJ/2526/${String(reqIssueSeq).padStart(4, "0")}`,
+        issuedValue: issuedValue.toFixed(4), fromGodownId: fromGodown, lines: resultLines,
+        requisitionStatus: r.status, issuedAt: new Date().toISOString(), reversedAt: null, reversedById: null,
+      };
+      MOCK_REQ_ISSUES.push(issue);
+      return { status: 200, body: success(issue) };
+    }
+
+    // Manual close — abandon the outstanding balance (FR-REQ-020).
+    if (req.method === "POST" && action === "close") {
+      if (r.status !== "APPROVED" && r.status !== "PARTIALLY_ISSUED") {
+        return { status: 409, body: envelope("NO_OUTSTANDING_BALANCE", "There's no outstanding balance left to close.") };
+      }
+      const totalBalance = r.lines.reduce((s, l) => s + Number(l.balanceQuantity), 0);
+      if (totalBalance <= 0) return { status: 409, body: envelope("NO_OUTSTANDING_BALANCE", "There's no outstanding balance left to close.") };
+      const reason = String(b.reason ?? "").trim();
+      if (!reason) return { status: 400, body: envelope("VALIDATION_ERROR", "Enter a reason for closing this requisition.") };
+      r.status = "CLOSED";
+      r.closedAt = new Date().toISOString();
+      r.closedReason = reason;
+      r.version += 1;
       return { status: 200, body: success(r) };
     }
   }

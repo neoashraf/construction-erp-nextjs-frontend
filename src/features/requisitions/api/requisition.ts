@@ -3,8 +3,11 @@ import { DEFAULT_PAGE_SIZE } from "@/lib/api/pagination";
 import { readCsrfToken } from "@/lib/auth/csrf-client";
 import {
   type BudgetStatus,
+  type OnHand,
   type Requisition,
   type RequisitionApproval,
+  type RequisitionIssue,
+  type RequisitionOutstanding,
   type RequisitionPage,
   type RequisitionPriority,
 } from "../types";
@@ -147,6 +150,111 @@ export async function rejectRequisition(
 export async function listRequisitionApprovals(id: string): Promise<RequisitionApproval[]> {
   const res = await apiClient.get<{ data: RequisitionApproval[] }>(`${BASE}/${id}/approvals`);
   return res.data;
+}
+
+/** One line of the atomic issue call — the requisition line, its quantity, + an optional godown override. */
+export interface IssueLineInput {
+  requisitionLineId: string;
+  issueQuantity: string;
+  godownId?: string | null;
+}
+
+export interface IssueInput {
+  fromGodownId: string;
+  lines: IssueLineInput[];
+  allowNegativeStock?: boolean;
+  negativeStockReason?: string | null;
+  version: number;
+}
+
+/**
+ * Issue material (full/partial) against an APPROVED/PARTIALLY_ISSUED requisition (API contract
+ * 09 `POST /:id/issue`; FR-REQ-012…-019). **One atomic call** — every line with a quantity
+ * moves stock (INV `issueOut`) and posts the `Dr material expense / Cr inventory` consumption
+ * (LED `PostingService`, gapless `STOCK_JOURNAL`) server-side, or nothing does. `rate`/`value`
+ * are server-computed (the current weighted average), never client-sent (FR-REQ-013).
+ */
+export async function issueRequisition(id: string, input: IssueInput): Promise<RequisitionIssue> {
+  const res = await apiClient.post<{ data: RequisitionIssue }>(
+    `${BASE}/${id}/issue`,
+    {
+      fromGodownId: input.fromGodownId,
+      lines: input.lines.map((l) => ({
+        requisitionLineId: l.requisitionLineId,
+        issueQuantity: l.issueQuantity,
+        ...(l.godownId ? { godownId: l.godownId } : {}),
+      })),
+      allowNegativeStock: input.allowNegativeStock ?? false,
+      negativeStockReason: input.negativeStockReason ?? null,
+      version: input.version,
+    },
+    csrf(),
+  );
+  return res.data;
+}
+
+/**
+ * Reverse a posted issue (API contract 09 `POST /:id/issues/:issueId/reverse`; FR-REQ-017).
+ * INV writes a mirror movement + LED reverses the consumption entry; the line balance is
+ * restored and the status may revert. The original issue is never edited (append-only).
+ */
+export async function reverseRequisitionIssue(
+  id: string,
+  issueId: string,
+  input: { reason: string; version: number },
+): Promise<Requisition> {
+  const res = await apiClient.post<{ data: Requisition }>(
+    `${BASE}/${id}/issues/${issueId}/reverse`,
+    { reason: input.reason, version: input.version },
+    csrf(),
+  );
+  return res.data;
+}
+
+/**
+ * Manually close an APPROVED/PARTIALLY_ISSUED requisition with outstanding balance (API
+ * contract 09 `POST /:id/close`; FR-REQ-020). The unfulfilled balance is abandoned — posts
+ * nothing (an un-issued balance was never on the ledger).
+ */
+export async function closeRequisition(
+  id: string,
+  input: { reason: string; version: number },
+): Promise<Requisition> {
+  const res = await apiClient.post<{ data: Requisition }>(
+    `${BASE}/${id}/close`,
+    { reason: input.reason, version: input.version },
+    csrf(),
+  );
+  return res.data;
+}
+
+/** The issue history — each issue event + its reversal marker (API contract 09 `GET /:id/issues`). */
+export async function listRequisitionIssues(id: string): Promise<RequisitionIssue[]> {
+  const res = await apiClient.get<{ data: RequisitionIssue[] }>(`${BASE}/${id}/issues`);
+  return res.data;
+}
+
+/** The outstanding balance per line + total (API contract 09 `GET /:id/outstanding`; FR-REQ-021). */
+export async function getRequisitionOutstanding(id: string): Promise<RequisitionOutstanding> {
+  const res = await apiClient.get<{ data: RequisitionOutstanding }>(`${BASE}/${id}/outstanding`);
+  return res.data;
+}
+
+/**
+ * The current on-hand for a `(godown, item)` behind the issue-form badge (FR-REQ-016). Read
+ * directly from the INV stock-ledger projection — REQ owns this thin binding rather than
+ * importing `features/inventory` (import boundary; same precedent as `getIndicativeRate`).
+ * Returns `null` when nothing is on hand / the pair is unknown.
+ */
+export async function getOnHand(godownId: string, itemId: string): Promise<OnHand | null> {
+  const p = new URLSearchParams({ godownId, itemId, page: "1", pageSize: "1" });
+  const res = await apiClient.get<{
+    data: Array<{ godownId: string; itemId: string; quantityOnHand: string; weightedAverageRate: string | null }>;
+  }>(`/stock-journal/stock-ledger?${p.toString()}`);
+  const row = res.data[0];
+  return row
+    ? { godownId: row.godownId, itemId: row.itemId, quantityOnHand: row.quantityOnHand, weightedAverageRate: row.weightedAverageRate }
+    : null;
 }
 
 /**
