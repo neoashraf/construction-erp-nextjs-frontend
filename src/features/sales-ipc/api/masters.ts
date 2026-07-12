@@ -40,6 +40,20 @@ export async function listPurposeOptions(projectId: string): Promise<PurposeOpti
   return res.data;
 }
 
+/**
+ * Financial-year options for the register's optional FY filter (fe-ipc-register-retention).
+ * Thin local binding to `/masters/financial-years` rather than importing another feature
+ * (skill §2.4). Company implicit from the JWT.
+ */
+export interface FinancialYearOption {
+  id: string;
+  label: string;
+}
+export async function listFinancialYearOptions(): Promise<FinancialYearOption[]> {
+  const res = await apiClient.get<{ data: FinancialYearOption[] }>("/masters/financial-years");
+  return res.data.map((fy) => ({ id: fy.id, label: fy.label }));
+}
+
 /** Inline-create a purpose under a project (reuses the MAS Purpose endpoint; FR-SAL-002). */
 export async function createPurpose(projectId: string, name: string): Promise<PurposeOption> {
   const res = await apiClient.post<{ data: PurposeOption }>(

@@ -118,3 +118,53 @@ export interface PurposeOption {
   projectId: string;
   isActive: boolean;
 }
+
+/**
+ * IPC register row (contract 10 § "Project IPC register (read)") — one posted IPC on the
+ * chosen project with per-IPC figures + running cumulative totals. All figures are server-
+ * computed queries (never client-derived running balances). `receivedAmount`/`cumReceived`
+ * may be null while REC hasn't resolved a receipt for this row — surfaced as a
+ * "Receipts pending sync" partial state (spec §6).
+ */
+export interface IpcRegisterRow {
+  ipcId: string;
+  ipcSeqNo: number;
+  ipcDate: string;
+  entryNo: string;
+  certifiedAmount: string;
+  currentlyDueAmount: string;
+  retentionAmount: string;
+  advanceRecoveredAmount: string;
+  receivedAmount: string | null;
+  outstandingAmount: string;
+  cumCertified: string;
+  cumBilledDue: string;
+  cumRetainedHeld: string;
+  cumAdvanceRecovered: string;
+  cumReceived: string | null;
+}
+
+export interface IpcRegisterTotals {
+  certified: string;
+  billedDue: string;
+  retainedHeld: string;
+  advanceRecovered: string;
+  received: string;
+  outstanding: string;
+}
+
+export interface IpcRegister {
+  rows: IpcRegisterRow[];
+  totals: IpcRegisterTotals;
+}
+
+/** One posted retention release against an IPC (contract 10 § "Retention Release"). */
+export interface RetentionRelease {
+  id: string;
+  releaseDate: string;
+  releasedAmount: string;
+  entryNo: string;
+  status: "POSTED";
+  postedAt: string;
+  postedBy: string;
+}

@@ -5,6 +5,7 @@ import {
   createPurpose,
   listCostCentreOptions,
   listCustomerOptions,
+  listFinancialYearOptions,
   listProjectOptions,
   listPurposeOptions,
 } from "../api/masters";
@@ -39,6 +40,16 @@ export function usePurposeOptions(projectId: string) {
     queryKey: queryKeys.list("sales-ipc", "purpose-options", scope, { projectId }),
     queryFn: () => listPurposeOptions(projectId),
     enabled: !!projectId,
+    staleTime: STALE,
+  });
+}
+
+/** FY options for the register's optional FY filter (fe-ipc-register-retention). */
+export function useFinancialYearOptions() {
+  const scope = useScope();
+  return useQuery({
+    queryKey: queryKeys.list("sales-ipc", "fy-options", scope),
+    queryFn: listFinancialYearOptions,
     staleTime: STALE,
   });
 }
