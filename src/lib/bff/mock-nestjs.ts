@@ -1676,5 +1676,284 @@ export async function mockNestjsFetch(req: MockReq): Promise<MockResult> {
     }
   }
 
+  // ── HR / Employees (fe-employee-master) ─────────────────────────────────────
+  // Company-global master; project scope does not apply (Employee master is company-wide,
+  // API contract 12 § common note). Every read masks `bankAccountName`/`bankAccountNo` to
+  // `•••• {last4}` (NFR-002); a `?reveal=true` GET returns the raw values ONLY for the
+  // HR_MANAGER / ADMIN write scope and is audited server-side. Deactivate/Reactivate flip
+  // status without deleting history (FR-HR-003). Reassign appends an EmployeeAssignment row
+  // (append-only — FR-HR-002).
+  interface MockEmployee {
+    id: string;
+    employeeCode: string;
+    name: string;
+    designation: string | null;
+    defaultProjectId: string | null;
+    department: string | null;
+    workBase: "HEAD_OFFICE" | "SITE";
+    wageType: "MONTHLY" | "DAILY";
+    wageAmount: string;
+    bankName: string | null;
+    bankAccountName: string | null;
+    bankAccountNo: string | null;
+    pfApplicable: boolean;
+    gratuityApplicable: boolean;
+    wppfApplicable: boolean;
+    tin: string | null;
+    joiningDate: string;
+    status: "ACTIVE" | "INACTIVE";
+    hasReferences: boolean;
+    version: number;
+  }
+  interface MockAssignment {
+    id: string;
+    employeeId: string;
+    projectId: string;
+    effectiveDate: string;
+    note: string | null;
+  }
+
+  const g = globalThis as unknown as { __ZE_MOCK_HR__?: { employees: MockEmployee[]; assignments: MockAssignment[]; seq: number } };
+  if (!g.__ZE_MOCK_HR__) {
+    const mkEmp = (o: Partial<MockEmployee> & Pick<MockEmployee, "id" | "employeeCode" | "name" | "workBase" | "wageType" | "wageAmount" | "joiningDate">): MockEmployee => ({
+      designation: null, defaultProjectId: null, department: null,
+      bankName: null, bankAccountName: null, bankAccountNo: null,
+      pfApplicable: false, gratuityApplicable: false, wppfApplicable: false,
+      tin: null, status: "ACTIVE", hasReferences: false, version: 1,
+      ...o,
+    });
+    const employees: MockEmployee[] = [
+      mkEmp({ id: "emp-1", employeeCode: "EMP-001", name: "মোঃ রফিকুল ইসলাম", designation: "Site Accountant", defaultProjectId: "proj-a", department: "Accounts", workBase: "SITE", wageType: "MONTHLY", wageAmount: "45000.0000", bankName: "Dutch-Bangla Bank", bankAccountName: "Md Rafiqul Islam", bankAccountNo: "1234567890", pfApplicable: true, gratuityApplicable: true, tin: "123456789012", joiningDate: "2024-03-01", hasReferences: true, version: 3 }),
+      mkEmp({ id: "emp-2", employeeCode: "EMP-002", name: "Farzana Akter", designation: "Site Engineer", defaultProjectId: "proj-a", department: "Engineering", workBase: "SITE", wageType: "MONTHLY", wageAmount: "60000.0000", bankName: "BRAC Bank", bankAccountName: "Farzana Akter", bankAccountNo: "9988771234", pfApplicable: true, gratuityApplicable: true, tin: "223344556677", joiningDate: "2023-06-15", version: 2 }),
+      mkEmp({ id: "emp-3", employeeCode: "EMP-003", name: "Ashraful Alam", designation: "Project Coordinator", defaultProjectId: "proj-b", department: "Operations", workBase: "HEAD_OFFICE", wageType: "MONTHLY", wageAmount: "72000.0000", bankName: "City Bank", bankAccountName: "Ashraful Alam", bankAccountNo: "5566779988", pfApplicable: true, gratuityApplicable: true, joiningDate: "2022-11-01", version: 4 }),
+      mkEmp({ id: "emp-4", employeeCode: "EMP-004", name: "Nusrat Jahan", designation: "HR Assistant", department: "HR", workBase: "HEAD_OFFICE", wageType: "MONTHLY", wageAmount: "38000.0000", bankName: "Dutch-Bangla Bank", bankAccountName: "Nusrat Jahan", bankAccountNo: "1122334455", joiningDate: "2025-01-10", version: 1 }),
+      mkEmp({ id: "emp-5", employeeCode: "EMP-005", name: "Kamal Hossain", designation: "Storekeeper", defaultProjectId: "proj-c", department: "Store", workBase: "SITE", wageType: "DAILY", wageAmount: "1200.0000", joiningDate: "2024-08-20", status: "INACTIVE", version: 2 }),
+      mkEmp({ id: "emp-6", employeeCode: "EMP-006", name: "Salma Begum", designation: "Accounts Officer", defaultProjectId: null, department: "Accounts", workBase: "HEAD_OFFICE", wageType: "MONTHLY", wageAmount: "42000.0000", bankName: "Prime Bank", bankAccountName: "Salma Begum", bankAccountNo: "7788994455", tin: "998877665544", joiningDate: "2024-05-05", version: 1 }),
+    ];
+    const assignments: MockAssignment[] = [
+      { id: "asg-1", employeeId: "emp-1", projectId: "proj-a", effectiveDate: "2024-03-01", note: "Initial assignment" },
+      { id: "asg-2", employeeId: "emp-2", projectId: "proj-a", effectiveDate: "2023-06-15", note: "Initial assignment" },
+      { id: "asg-3", employeeId: "emp-3", projectId: "proj-b", effectiveDate: "2022-11-01", note: "Initial assignment" },
+      { id: "asg-4", employeeId: "emp-5", projectId: "proj-c", effectiveDate: "2024-08-20", note: "Initial assignment" },
+      { id: "asg-5", employeeId: "emp-6", projectId: null as unknown as string, effectiveDate: "2024-05-05", note: "Initial assignment" },
+    ].filter((a) => a.projectId != null);
+    g.__ZE_MOCK_HR__ = { employees, assignments, seq: 100 };
+  }
+  const HR = g.__ZE_MOCK_HR__;
+
+  function maskBank(e: MockEmployee): { bankAccountName: string | null; bankAccountNo: string | null; bankMasked: boolean } {
+    if (!e.bankAccountNo && !e.bankAccountName) return { bankAccountName: null, bankAccountNo: null, bankMasked: true };
+    const last4 = (v: string | null) => (v && v.length >= 4 ? `•••• ${v.slice(-4)}` : v);
+    return { bankAccountName: last4(e.bankAccountName), bankAccountNo: last4(e.bankAccountNo), bankMasked: true };
+  }
+  function employeeResource(e: MockEmployee, reveal: boolean) {
+    if (reveal) {
+      return {
+        id: e.id, employeeCode: e.employeeCode, name: e.name, designation: e.designation,
+        defaultProjectId: e.defaultProjectId, department: e.department, workBase: e.workBase,
+        wageType: e.wageType, wageAmount: e.wageAmount, bankName: e.bankName,
+        bankAccountName: e.bankAccountName, bankAccountNo: e.bankAccountNo, bankMasked: false,
+        pfApplicable: e.pfApplicable, gratuityApplicable: e.gratuityApplicable, wppfApplicable: e.wppfApplicable,
+        tin: e.tin, joiningDate: e.joiningDate, status: e.status, hasReferences: e.hasReferences, version: e.version,
+      };
+    }
+    const mask = maskBank(e);
+    return {
+      id: e.id, employeeCode: e.employeeCode, name: e.name, designation: e.designation,
+      defaultProjectId: e.defaultProjectId, department: e.department, workBase: e.workBase,
+      wageType: e.wageType, wageAmount: e.wageAmount, bankName: e.bankName,
+      bankAccountName: mask.bankAccountName, bankAccountNo: mask.bankAccountNo, bankMasked: mask.bankMasked,
+      pfApplicable: e.pfApplicable, gratuityApplicable: e.gratuityApplicable, wppfApplicable: e.wppfApplicable,
+      tin: e.tin, joiningDate: e.joiningDate, status: e.status, hasReferences: e.hasReferences, version: e.version,
+    };
+  }
+  function employeeSummary(e: MockEmployee) {
+    return {
+      id: e.id, employeeCode: e.employeeCode, name: e.name, designation: e.designation,
+      defaultProjectId: e.defaultProjectId, workBase: e.workBase, wageType: e.wageType,
+      wageAmount: e.wageAmount, status: e.status, hasReferences: e.hasReferences,
+    };
+  }
+  const hrUserRole = user?.role;
+  function hrCanWrite() {
+    return hrUserRole === "ADMIN" || hrUserRole === "HR_MANAGER";
+  }
+
+  // GET /hr/employees — list
+  if (pathname === "/hr/employees" && req.method === "GET") {
+    let rows = HR.employees.slice();
+    const status = params.get("status");
+    const projectId = params.get("defaultProjectId");
+    const wageType = params.get("wageType");
+    const q = (params.get("q") ?? "").trim().toLowerCase();
+    if (status) rows = rows.filter((e) => status.split(",").includes(e.status));
+    if (projectId) rows = rows.filter((e) => e.defaultProjectId === projectId);
+    if (wageType) rows = rows.filter((e) => e.wageType === wageType);
+    if (q) rows = rows.filter((e) => e.employeeCode.toLowerCase().includes(q) || e.name.toLowerCase().includes(q));
+    return { status: 200, body: pageEnvelope(rows.map(employeeSummary)) };
+  }
+
+  // POST /hr/employees — create
+  if (pathname === "/hr/employees" && req.method === "POST") {
+    if (!hrCanWrite()) return { status: 403, body: envelope("FORBIDDEN", "You don't have permission to create employees.") };
+    const b = body as Partial<MockEmployee>;
+    if (!b.employeeCode || String(b.employeeCode).trim() === "") return { status: 400, body: envelope("VALIDATION_ERROR", "Enter an employee code.") };
+    if (!b.name || String(b.name).trim() === "") return { status: 400, body: envelope("VALIDATION_ERROR", "Enter the employee's name.") };
+    if (!b.workBase) return { status: 400, body: envelope("VALIDATION_ERROR", "Select a work base.") };
+    if (!b.wageType) return { status: 400, body: envelope("VALIDATION_ERROR", "Select a wage type.") };
+    if (!b.joiningDate) return { status: 400, body: envelope("VALIDATION_ERROR", "Enter a joining date.") };
+    if (Number(b.wageAmount ?? "0") < 0) return { status: 400, body: envelope("VALIDATION_ERROR", "Enter a wage amount of ৳0 or more.") };
+    if (b.tin && !/^\d{12}$/.test(String(b.tin))) return { status: 400, body: envelope("VALIDATION_ERROR", "Enter a valid TIN.") };
+    if (HR.employees.some((e) => e.employeeCode === b.employeeCode)) {
+      return { status: 409, body: envelope("DUPLICATE_CODE", "This employee code is already in use.") };
+    }
+    if (b.defaultProjectId && !MOCK_PROJECTS.some((p) => p.id === b.defaultProjectId)) {
+      return { status: 400, body: envelope("CROSS_COMPANY_REFERENCE", "That project belongs to a different company.") };
+    }
+    const now = new Date().toISOString().slice(0, 10);
+    const emp: MockEmployee = {
+      id: `emp-new-${(HR.seq += 1)}`,
+      employeeCode: String(b.employeeCode).trim(),
+      name: String(b.name).trim(),
+      designation: b.designation ?? null,
+      defaultProjectId: b.defaultProjectId ?? null,
+      department: b.department ?? null,
+      workBase: b.workBase,
+      wageType: b.wageType,
+      wageAmount: String(b.wageAmount ?? "0"),
+      bankName: b.bankName ?? null,
+      bankAccountName: b.bankAccountName ?? null,
+      bankAccountNo: b.bankAccountNo ?? null,
+      pfApplicable: b.pfApplicable ?? false,
+      gratuityApplicable: b.gratuityApplicable ?? false,
+      wppfApplicable: b.wppfApplicable ?? false,
+      tin: b.tin ?? null,
+      joiningDate: String(b.joiningDate ?? now),
+      status: "ACTIVE",
+      hasReferences: false,
+      version: 1,
+    };
+    HR.employees.unshift(emp);
+    if (emp.defaultProjectId) {
+      HR.assignments.unshift({
+        id: `asg-new-${HR.seq}`,
+        employeeId: emp.id,
+        projectId: emp.defaultProjectId,
+        effectiveDate: emp.joiningDate,
+        note: "Initial assignment",
+      });
+    }
+    return { status: 201, body: success({ id: emp.id }) };
+  }
+
+  // /hr/employees/:id + subactions
+  const empMatch = /^\/hr\/employees\/([^/]+)(?:\/(reassign|deactivate|reactivate|assignments))?$/.exec(pathname ?? "");
+  if (empMatch) {
+    const id = empMatch[1]!;
+    const action = empMatch[2];
+    const emp = HR.employees.find((e) => e.id === id);
+    if (!emp) return { status: 404, body: envelope("NOT_FOUND", "Employee not found.") };
+    const b = body as Partial<MockEmployee> & { version?: number; projectId?: string; effectiveDate?: string; note?: string | null };
+
+    if (req.method === "GET" && !action) {
+      const reveal = params.get("reveal") === "true";
+      if (reveal && !hrCanWrite()) {
+        return { status: 403, body: envelope("FORBIDDEN", "You don't have permission to reveal bank details.") };
+      }
+      return { status: 200, body: success(employeeResource(emp, reveal)) };
+    }
+
+    if (req.method === "GET" && action === "assignments") {
+      const rows = HR.assignments.filter((a) => a.employeeId === id).slice().sort((a, b) => (a.effectiveDate < b.effectiveDate ? 1 : -1));
+      return { status: 200, body: success(rows) };
+    }
+
+    if (req.method === "PATCH" && !action) {
+      if (!hrCanWrite()) return { status: 403, body: envelope("FORBIDDEN", "You don't have permission to edit employees.") };
+      if (typeof b.version !== "number" || b.version !== emp.version) {
+        return { status: 409, body: envelope("OPTIMISTIC_LOCK_CONFLICT", "This employee was just changed by someone else. Reload and try again.") };
+      }
+      if ((b as { employeeCode?: string }).employeeCode && (b as { employeeCode?: string }).employeeCode !== emp.employeeCode) {
+        if (emp.hasReferences) {
+          return { status: 409, body: envelope("IMMUTABLE_EMPLOYEE_CODE", "This employee code can't be changed — it's already used in attendance or salary.") };
+        }
+      }
+      if (b.defaultProjectId && !MOCK_PROJECTS.some((p) => p.id === b.defaultProjectId)) {
+        return { status: 400, body: envelope("CROSS_COMPANY_REFERENCE", "That project belongs to a different company.") };
+      }
+      if (b.wageAmount !== undefined && Number(b.wageAmount) < 0) {
+        return { status: 400, body: envelope("VALIDATION_ERROR", "Enter a wage amount of ৳0 or more.") };
+      }
+      if (b.tin && !/^\d{12}$/.test(String(b.tin))) {
+        return { status: 400, body: envelope("VALIDATION_ERROR", "Enter a valid TIN.") };
+      }
+      Object.assign(emp, {
+        name: b.name ?? emp.name,
+        designation: b.designation === undefined ? emp.designation : b.designation,
+        defaultProjectId: b.defaultProjectId === undefined ? emp.defaultProjectId : b.defaultProjectId,
+        department: b.department === undefined ? emp.department : b.department,
+        workBase: b.workBase ?? emp.workBase,
+        wageType: b.wageType ?? emp.wageType,
+        wageAmount: b.wageAmount ?? emp.wageAmount,
+        bankName: b.bankName === undefined ? emp.bankName : b.bankName,
+        bankAccountName: b.bankAccountName === undefined ? emp.bankAccountName : b.bankAccountName,
+        bankAccountNo: b.bankAccountNo === undefined ? emp.bankAccountNo : b.bankAccountNo,
+        pfApplicable: b.pfApplicable ?? emp.pfApplicable,
+        gratuityApplicable: b.gratuityApplicable ?? emp.gratuityApplicable,
+        wppfApplicable: b.wppfApplicable ?? emp.wppfApplicable,
+        tin: b.tin === undefined ? emp.tin : b.tin,
+        version: emp.version + 1,
+      });
+      return { status: 200, body: success(employeeResource(emp, false)) };
+    }
+
+    if (req.method === "POST" && action === "reassign") {
+      if (!hrCanWrite()) return { status: 403, body: envelope("FORBIDDEN", "You don't have permission to reassign employees.") };
+      if (typeof b.version !== "number" || b.version !== emp.version) {
+        return { status: 409, body: envelope("OPTIMISTIC_LOCK_CONFLICT", "This employee was just changed by someone else. Reload and try again.") };
+      }
+      const projectId = String(b.projectId ?? "");
+      const effectiveDate = String(b.effectiveDate ?? "");
+      if (!projectId) return { status: 400, body: envelope("VALIDATION_ERROR", "Select a project.") };
+      if (!MOCK_PROJECTS.some((p) => p.id === projectId)) {
+        return { status: 400, body: envelope("CROSS_COMPANY_REFERENCE", "That project belongs to a different company.") };
+      }
+      if (!effectiveDate) return { status: 400, body: envelope("VALIDATION_ERROR", "Enter an effective date.") };
+      if (effectiveDate < emp.joiningDate) {
+        return { status: 400, body: envelope("VALIDATION_ERROR", "Effective date can't be before the joining date.") };
+      }
+      HR.assignments.unshift({
+        id: `asg-new-${(HR.seq += 1)}`,
+        employeeId: emp.id,
+        projectId,
+        effectiveDate,
+        note: b.note ?? null,
+      });
+      emp.defaultProjectId = projectId;
+      emp.version += 1;
+      return { status: 200, body: success(employeeResource(emp, false)) };
+    }
+
+    if (req.method === "POST" && action === "deactivate") {
+      if (!hrCanWrite()) return { status: 403, body: envelope("FORBIDDEN", "You don't have permission.") };
+      if (typeof b.version !== "number" || b.version !== emp.version) {
+        return { status: 409, body: envelope("OPTIMISTIC_LOCK_CONFLICT", "This employee was just changed by someone else. Reload and try again.") };
+      }
+      emp.status = "INACTIVE";
+      emp.version += 1;
+      return { status: 200, body: success(employeeResource(emp, false)) };
+    }
+
+    if (req.method === "POST" && action === "reactivate") {
+      if (!hrCanWrite()) return { status: 403, body: envelope("FORBIDDEN", "You don't have permission.") };
+      if (typeof b.version !== "number" || b.version !== emp.version) {
+        return { status: 409, body: envelope("OPTIMISTIC_LOCK_CONFLICT", "This employee was just changed by someone else. Reload and try again.") };
+      }
+      emp.status = "ACTIVE";
+      emp.version += 1;
+      return { status: 200, body: success(employeeResource(emp, false)) };
+    }
+  }
+
   return { status: 200, body: success({ ok: true, path: req.path }) };
 }

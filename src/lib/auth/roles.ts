@@ -74,6 +74,7 @@ export const MODULES = [
   "inventory",
   "requisitions",
   "sales",
+  "hr",
 ] as const;
 
 export type ModuleKey = (typeof MODULES)[number];
@@ -86,13 +87,13 @@ export type ModuleKey = (typeof MODULES)[number];
  * NOTE: deliberately conservative; per-screen briefs refine grants as needed.
  */
 const ROLE_MODULES: Record<Role, readonly ModuleKey[]> = {
-  ADMIN: ["master-data", "ledger", "numbering", "period", "audit", "cost-control", "inventory", "requisitions", "sales"],
-  ACCOUNTS_TEAM: ["master-data", "ledger", "numbering", "period", "cost-control", "inventory", "requisitions", "sales"],
-  ACCOUNTS_MANAGER: ["master-data", "ledger", "numbering", "period", "cost-control", "inventory", "requisitions", "sales"],
+  ADMIN: ["master-data", "ledger", "numbering", "period", "audit", "cost-control", "inventory", "requisitions", "sales", "hr"],
+  ACCOUNTS_TEAM: ["master-data", "ledger", "numbering", "period", "cost-control", "inventory", "requisitions", "sales", "hr"],
+  ACCOUNTS_MANAGER: ["master-data", "ledger", "numbering", "period", "cost-control", "inventory", "requisitions", "sales", "hr"],
   PROJECT_MANAGER: ["ledger", "cost-control", "inventory", "requisitions", "sales"],
   SITE_ENGINEER: ["requisitions"],
   STORE_KEEPER: ["inventory", "requisitions"],
-  HR_MANAGER: [],
+  HR_MANAGER: ["hr"],
 };
 
 /** Roles that are NOT project-scoped (see all projects). The rest are scoped. */
@@ -113,6 +114,7 @@ export const MODULE_RESOURCE_PREFIX: Record<ModuleKey, readonly string[]> = {
   inventory: ["inventory."],
   requisitions: ["requisitions."],
   sales: ["sales."],
+  hr: ["hr."],
 };
 
 /** True when the effective set holds any READ grant inside the module (FE-21). */
@@ -177,6 +179,7 @@ export function moduleLabel(module: ModuleKey): string {
     inventory: "Inventory",
     requisitions: "Requisitions",
     sales: "Sales / IPC",
+    hr: "HR & Payroll",
   };
   return labels[module];
 }
