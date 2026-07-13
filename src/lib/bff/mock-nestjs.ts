@@ -95,9 +95,42 @@ interface MockParty {
   version: number;
 }
 const MOCK_PROJECTS: MockProject[] = [
-  { id: "proj-a", projectCode: "BR-04", name: "Bridge-04 — Buriganga", status: "ACTIVE", isActive: true, version: 1, customerId: "pa-8", customerName: "National Housing Authority", remainingAdvance: "800000.0000", hasMobilizationAdvance: true },
-  { id: "proj-b", projectCode: "TW-A", name: "Tower-A — Gulshan", status: "ACTIVE", isActive: true, version: 1, customerId: "pa-4", customerName: "Tower-A Developments Ltd.", remainingAdvance: "5000000.0000", hasMobilizationAdvance: true },
-  { id: "proj-c", projectCode: "RD-12", name: "Road-12 — Savar", status: "ACTIVE", isActive: true, version: 1, customerId: "pa-7", customerName: "করিম এন্টারপ্রাইজ", remainingAdvance: "0.0000", hasMobilizationAdvance: false },
+  {
+    id: "proj-a",
+    projectCode: "BR-04",
+    name: "Bridge-04 — Buriganga",
+    status: "ACTIVE",
+    isActive: true,
+    version: 1,
+    customerId: "pa-8",
+    customerName: "National Housing Authority",
+    remainingAdvance: "800000.0000",
+    hasMobilizationAdvance: true,
+  },
+  {
+    id: "proj-b",
+    projectCode: "TW-A",
+    name: "Tower-A — Gulshan",
+    status: "ACTIVE",
+    isActive: true,
+    version: 1,
+    customerId: "pa-4",
+    customerName: "Tower-A Developments Ltd.",
+    remainingAdvance: "5000000.0000",
+    hasMobilizationAdvance: true,
+  },
+  {
+    id: "proj-c",
+    projectCode: "RD-12",
+    name: "Road-12 — Savar",
+    status: "ACTIVE",
+    isActive: true,
+    version: 1,
+    customerId: "pa-7",
+    customerName: "করিম এন্টারপ্রাইজ",
+    remainingAdvance: "0.0000",
+    hasMobilizationAdvance: false,
+  },
 ];
 
 // ── Cost-control sample data (dev/preview only) ──
@@ -122,45 +155,185 @@ const MOCK_FINANCIAL_YEARS = [
 
 /** Budget-vs-actual rows for Bridge-04 (proj-a) — mirrors the design sample. */
 const MOCK_BVA_ROWS = [
-  { costCentreId: "cc-mat", budgetedAmount: "1200000000.0000", actualCost: "1296000000.0000", variance: "-96000000.0000", utilisationPct: "108.0000", status: "OVER" },
-  { costCentreId: "cc-lab", budgetedAmount: "450000000.0000", actualCost: "418500000.0000", variance: "31500000.0000", utilisationPct: "93.0000", status: "APPROACHING" },
-  { costCentreId: "cc-fuel", budgetedAmount: "120000000.0000", actualCost: "111000000.0000", variance: "9000000.0000", utilisationPct: "92.5000", status: "APPROACHING" },
-  { costCentreId: "cc-sub", budgetedAmount: "900000000.0000", actualCost: "612000000.0000", variance: "288000000.0000", utilisationPct: "68.0000", status: "OK" },
-  { costCentreId: "cc-tmp", budgetedAmount: "80000000.0000", actualCost: "54400000.0000", variance: "25600000.0000", utilisationPct: "68.0000", status: "OK" },
-  { costCentreId: "cc-equip", budgetedAmount: "300000000.0000", actualCost: "195000000.0000", variance: "105000000.0000", utilisationPct: "65.0000", status: "OK" },
-  { costCentreId: "cc-survey", budgetedAmount: "50000000.0000", actualCost: "31000000.0000", variance: "19000000.0000", utilisationPct: "62.0000", status: "OK" },
-  { costCentreId: "cc-transport", budgetedAmount: "150000000.0000", actualCost: "88500000.0000", variance: "61500000.0000", utilisationPct: "59.0000", status: "OK" },
-  { costCentreId: "cc-overhead", budgetedAmount: "180000000.0000", actualCost: "97200000.0000", variance: "82800000.0000", utilisationPct: "54.0000", status: "OK" },
-  { costCentreId: "cc-safety", budgetedAmount: "60000000.0000", actualCost: "25800000.0000", variance: "34200000.0000", utilisationPct: "43.0000", status: "OK" },
-  { costCentreId: "cc-power", budgetedAmount: null, actualCost: "12000000.0000", variance: null, utilisationPct: null, status: "UNBUDGETED" },
+  {
+    costCentreId: "cc-mat",
+    budgetedAmount: "1200000000.0000",
+    actualCost: "1296000000.0000",
+    variance: "-96000000.0000",
+    utilisationPct: "108.0000",
+    status: "OVER",
+  },
+  {
+    costCentreId: "cc-lab",
+    budgetedAmount: "450000000.0000",
+    actualCost: "418500000.0000",
+    variance: "31500000.0000",
+    utilisationPct: "93.0000",
+    status: "APPROACHING",
+  },
+  {
+    costCentreId: "cc-fuel",
+    budgetedAmount: "120000000.0000",
+    actualCost: "111000000.0000",
+    variance: "9000000.0000",
+    utilisationPct: "92.5000",
+    status: "APPROACHING",
+  },
+  {
+    costCentreId: "cc-sub",
+    budgetedAmount: "900000000.0000",
+    actualCost: "612000000.0000",
+    variance: "288000000.0000",
+    utilisationPct: "68.0000",
+    status: "OK",
+  },
+  {
+    costCentreId: "cc-tmp",
+    budgetedAmount: "80000000.0000",
+    actualCost: "54400000.0000",
+    variance: "25600000.0000",
+    utilisationPct: "68.0000",
+    status: "OK",
+  },
+  {
+    costCentreId: "cc-equip",
+    budgetedAmount: "300000000.0000",
+    actualCost: "195000000.0000",
+    variance: "105000000.0000",
+    utilisationPct: "65.0000",
+    status: "OK",
+  },
+  {
+    costCentreId: "cc-survey",
+    budgetedAmount: "50000000.0000",
+    actualCost: "31000000.0000",
+    variance: "19000000.0000",
+    utilisationPct: "62.0000",
+    status: "OK",
+  },
+  {
+    costCentreId: "cc-transport",
+    budgetedAmount: "150000000.0000",
+    actualCost: "88500000.0000",
+    variance: "61500000.0000",
+    utilisationPct: "59.0000",
+    status: "OK",
+  },
+  {
+    costCentreId: "cc-overhead",
+    budgetedAmount: "180000000.0000",
+    actualCost: "97200000.0000",
+    variance: "82800000.0000",
+    utilisationPct: "54.0000",
+    status: "OK",
+  },
+  {
+    costCentreId: "cc-safety",
+    budgetedAmount: "60000000.0000",
+    actualCost: "25800000.0000",
+    variance: "34200000.0000",
+    utilisationPct: "43.0000",
+    status: "OK",
+  },
+  {
+    costCentreId: "cc-power",
+    budgetedAmount: null,
+    actualCost: "12000000.0000",
+    variance: null,
+    utilisationPct: null,
+    status: "UNBUDGETED",
+  },
 ];
 /** Profitability rows by cost centre (dev/preview) — one loss row (cc-mat) + an inactive CC. */
 const MOCK_PROFITABILITY = [
-  { costCentreId: "cc-mat", revenue: "480000000.0000", cost: "618000000.0000", profit: "-138000000.0000" },
-  { costCentreId: "cc-lab", revenue: "320000000.0000", cost: "176000000.0000", profit: "144000000.0000" },
-  { costCentreId: "cc-tmp", revenue: "82000000.0000", cost: "67600000.0000", profit: "14400000.0000" },
-  { costCentreId: "cc-sub", revenue: "960000000.0000", cost: "772000000.0000", profit: "188000000.0000" },
-  { costCentreId: "cc-equip", revenue: "220000000.0000", cost: "195000000.0000", profit: "25000000.0000" },
-  { costCentreId: "cc-transport", revenue: "150000000.0000", cost: "88500000.0000", profit: "61500000.0000" },
+  {
+    costCentreId: "cc-mat",
+    revenue: "480000000.0000",
+    cost: "618000000.0000",
+    profit: "-138000000.0000",
+  },
+  {
+    costCentreId: "cc-lab",
+    revenue: "320000000.0000",
+    cost: "176000000.0000",
+    profit: "144000000.0000",
+  },
+  {
+    costCentreId: "cc-tmp",
+    revenue: "82000000.0000",
+    cost: "67600000.0000",
+    profit: "14400000.0000",
+  },
+  {
+    costCentreId: "cc-sub",
+    revenue: "960000000.0000",
+    cost: "772000000.0000",
+    profit: "188000000.0000",
+  },
+  {
+    costCentreId: "cc-equip",
+    revenue: "220000000.0000",
+    cost: "195000000.0000",
+    profit: "25000000.0000",
+  },
+  {
+    costCentreId: "cc-transport",
+    revenue: "150000000.0000",
+    cost: "88500000.0000",
+    profit: "61500000.0000",
+  },
 ];
 /** Profitability rows by project (dev/preview) — proj-b runs at a loss. */
 const MOCK_PROFITABILITY_BY_PROJECT = [
-  { projectId: "proj-a", revenue: "1400000000.0000", cost: "1230000000.0000", profit: "170000000.0000" },
-  { projectId: "proj-b", revenue: "620000000.0000", cost: "705000000.0000", profit: "-85000000.0000" },
-  { projectId: "proj-c", revenue: "310000000.0000", cost: "240000000.0000", profit: "70000000.0000" },
+  {
+    projectId: "proj-a",
+    revenue: "1400000000.0000",
+    cost: "1230000000.0000",
+    profit: "170000000.0000",
+  },
+  {
+    projectId: "proj-b",
+    revenue: "620000000.0000",
+    cost: "705000000.0000",
+    profit: "-85000000.0000",
+  },
+  {
+    projectId: "proj-c",
+    revenue: "310000000.0000",
+    cost: "240000000.0000",
+    profit: "70000000.0000",
+  },
 ];
 
 // ── Inventory sample (dev/preview only) ──
-interface MockGodown { id: string; code: string; name: string; projectId: string; isActive: boolean }
+interface MockGodown {
+  id: string;
+  code: string;
+  name: string;
+  projectId: string;
+  isActive: boolean;
+}
 const MOCK_GODOWNS: MockGodown[] = [
   { id: "gd-a", code: "G-Site-A", name: "Site A store", projectId: "proj-a", isActive: true },
   { id: "gd-b", code: "G-Site-B", name: "Site B store", projectId: "proj-a", isActive: true },
   { id: "gd-c", code: "G-Central", name: "Central warehouse", projectId: "proj-b", isActive: true },
   { id: "gd-d", code: "G-Yard", name: "Yard — Savar", projectId: "proj-c", isActive: true },
 ];
-interface MockItem { id: string; code: string; name: string; uom: string; isActive: boolean }
+interface MockItem {
+  id: string;
+  code: string;
+  name: string;
+  uom: string;
+  isActive: boolean;
+}
 const MOCK_ITEMS: MockItem[] = [
-  { id: "it-cement", code: "IT-01", name: "Cement — 50kg bag (Shah Cement)", uom: "bag", isActive: true },
+  {
+    id: "it-cement",
+    code: "IT-01",
+    name: "Cement — 50kg bag (Shah Cement)",
+    uom: "bag",
+    isActive: true,
+  },
   { id: "it-rebar", code: "IT-02", name: "Rebar 12mm", uom: "ton", isActive: true },
   { id: "it-sand", code: "IT-03", name: "বালু — Sand", uom: "cft", isActive: true },
   { id: "it-brick", code: "IT-04", name: "ইট — Brick", uom: "pcs", isActive: true },
@@ -173,174 +346,609 @@ const MOCK_USER_LIST = [
   { id: "u-ashraf", name: "Ashraful Alam" },
 ];
 const MOCK_STOCK_LEDGER: Array<{
-  godownId: string; itemId: string; quantityOnHand: string; totalValue: string; weightedAverageRate: string | null;
+  godownId: string;
+  itemId: string;
+  quantityOnHand: string;
+  totalValue: string;
+  weightedAverageRate: string | null;
 }> = [
-  { godownId: "gd-a", itemId: "it-cement", quantityOnHand: "1240.0000", totalValue: "672080.0000", weightedAverageRate: "542.0000" },
-  { godownId: "gd-b", itemId: "it-cement", quantityOnHand: "300.0000", totalValue: "162600.0000", weightedAverageRate: "542.0000" },
-  { godownId: "gd-a", itemId: "it-rebar", quantityOnHand: "18.0000", totalValue: "1764000.0000", weightedAverageRate: "98000.0000" },
-  { godownId: "gd-a", itemId: "it-sand", quantityOnHand: "90.0000", totalValue: "3780.0000", weightedAverageRate: "42.0000" },
-  { godownId: "gd-a", itemId: "it-brick", quantityOnHand: "5000.0000", totalValue: "62500.0000", weightedAverageRate: "12.5000" },
+  {
+    godownId: "gd-a",
+    itemId: "it-cement",
+    quantityOnHand: "1240.0000",
+    totalValue: "672080.0000",
+    weightedAverageRate: "542.0000",
+  },
+  {
+    godownId: "gd-b",
+    itemId: "it-cement",
+    quantityOnHand: "300.0000",
+    totalValue: "162600.0000",
+    weightedAverageRate: "542.0000",
+  },
+  {
+    godownId: "gd-a",
+    itemId: "it-rebar",
+    quantityOnHand: "18.0000",
+    totalValue: "1764000.0000",
+    weightedAverageRate: "98000.0000",
+  },
+  {
+    godownId: "gd-a",
+    itemId: "it-sand",
+    quantityOnHand: "90.0000",
+    totalValue: "3780.0000",
+    weightedAverageRate: "42.0000",
+  },
+  {
+    godownId: "gd-a",
+    itemId: "it-brick",
+    quantityOnHand: "5000.0000",
+    totalValue: "62500.0000",
+    weightedAverageRate: "12.5000",
+  },
   // Zero on hand → weightedAverageRate null (renders "—", never ৳0.0000) — spec §5/§13-10.
-  { godownId: "gd-b", itemId: "it-rebar", quantityOnHand: "0.0000", totalValue: "0.0000", weightedAverageRate: null },
+  {
+    godownId: "gd-b",
+    itemId: "it-rebar",
+    quantityOnHand: "0.0000",
+    totalValue: "0.0000",
+    weightedAverageRate: null,
+  },
 ];
 
 // Append-only movement history behind a balance (keyed `godownId:itemId`). Exercises every
 // source type + a reversal (additive mirror row, original untouched — FR-INV-020).
 interface MockMovement {
-  id: string; godownId: string; itemId: string; sourceType: "STOCK_JOURNAL" | "GRN" | "REQ_ISSUE"; sourceId: string | null;
-  direction: "IN" | "OUT"; quantity: string; rate: string; value: string;
-  balanceQtyAfter: string; balanceValueAfter: string; avgRateAfter: string;
-  isReversal: boolean; reversalOf: string | null; voucherDate: string; postedAt: string;
+  id: string;
+  godownId: string;
+  itemId: string;
+  sourceType: "STOCK_JOURNAL" | "GRN" | "REQ_ISSUE";
+  sourceId: string | null;
+  direction: "IN" | "OUT";
+  quantity: string;
+  rate: string;
+  value: string;
+  balanceQtyAfter: string;
+  balanceValueAfter: string;
+  avgRateAfter: string;
+  isReversal: boolean;
+  reversalOf: string | null;
+  voucherDate: string;
+  postedAt: string;
 }
 const MOCK_STOCK_MOVEMENTS: Record<string, MockMovement[]> = {
   "gd-a:it-cement": [
-    { id: "mv-1", godownId: "gd-a", itemId: "it-cement", sourceType: "GRN", sourceId: "grn-201", direction: "IN", quantity: "1000.0000", rate: "540.0000", value: "540000.0000", balanceQtyAfter: "1000.0000", balanceValueAfter: "540000.0000", avgRateAfter: "540.0000", isReversal: false, reversalOf: null, voucherDate: "2026-06-01", postedAt: "2026-06-01T05:00:00Z" },
-    { id: "mv-2", godownId: "gd-a", itemId: "it-cement", sourceType: "STOCK_JOURNAL", sourceId: "sj-4", direction: "OUT", quantity: "200.0000", rate: "540.0000", value: "108000.0000", balanceQtyAfter: "800.0000", balanceValueAfter: "432000.0000", avgRateAfter: "540.0000", isReversal: false, reversalOf: null, voucherDate: "2026-06-10", postedAt: "2026-06-10T06:30:00Z" },
-    { id: "mv-3", godownId: "gd-a", itemId: "it-cement", sourceType: "GRN", sourceId: "grn-214", direction: "IN", quantity: "640.0000", rate: "545.0000", value: "348800.0000", balanceQtyAfter: "1440.0000", balanceValueAfter: "780800.0000", avgRateAfter: "542.2222", isReversal: false, reversalOf: null, voucherDate: "2026-06-18", postedAt: "2026-06-18T04:15:00Z" },
-    { id: "mv-4", godownId: "gd-a", itemId: "it-cement", sourceType: "REQ_ISSUE", sourceId: "req-330", direction: "OUT", quantity: "200.0000", rate: "542.2222", value: "108444.4400", balanceQtyAfter: "1240.0000", balanceValueAfter: "672355.5600", avgRateAfter: "542.2222", isReversal: false, reversalOf: null, voucherDate: "2026-06-28", postedAt: "2026-06-28T09:15:00Z" },
-    { id: "mv-5", godownId: "gd-a", itemId: "it-cement", sourceType: "STOCK_JOURNAL", sourceId: "sj-4", direction: "IN", quantity: "200.0000", rate: "542.2222", value: "108444.4400", balanceQtyAfter: "1440.0000", balanceValueAfter: "780800.0000", avgRateAfter: "542.2222", isReversal: true, reversalOf: "mv-4", voucherDate: "2026-06-29", postedAt: "2026-06-29T03:00:00Z" },
+    {
+      id: "mv-1",
+      godownId: "gd-a",
+      itemId: "it-cement",
+      sourceType: "GRN",
+      sourceId: "grn-201",
+      direction: "IN",
+      quantity: "1000.0000",
+      rate: "540.0000",
+      value: "540000.0000",
+      balanceQtyAfter: "1000.0000",
+      balanceValueAfter: "540000.0000",
+      avgRateAfter: "540.0000",
+      isReversal: false,
+      reversalOf: null,
+      voucherDate: "2026-06-01",
+      postedAt: "2026-06-01T05:00:00Z",
+    },
+    {
+      id: "mv-2",
+      godownId: "gd-a",
+      itemId: "it-cement",
+      sourceType: "STOCK_JOURNAL",
+      sourceId: "sj-4",
+      direction: "OUT",
+      quantity: "200.0000",
+      rate: "540.0000",
+      value: "108000.0000",
+      balanceQtyAfter: "800.0000",
+      balanceValueAfter: "432000.0000",
+      avgRateAfter: "540.0000",
+      isReversal: false,
+      reversalOf: null,
+      voucherDate: "2026-06-10",
+      postedAt: "2026-06-10T06:30:00Z",
+    },
+    {
+      id: "mv-3",
+      godownId: "gd-a",
+      itemId: "it-cement",
+      sourceType: "GRN",
+      sourceId: "grn-214",
+      direction: "IN",
+      quantity: "640.0000",
+      rate: "545.0000",
+      value: "348800.0000",
+      balanceQtyAfter: "1440.0000",
+      balanceValueAfter: "780800.0000",
+      avgRateAfter: "542.2222",
+      isReversal: false,
+      reversalOf: null,
+      voucherDate: "2026-06-18",
+      postedAt: "2026-06-18T04:15:00Z",
+    },
+    {
+      id: "mv-4",
+      godownId: "gd-a",
+      itemId: "it-cement",
+      sourceType: "REQ_ISSUE",
+      sourceId: "req-330",
+      direction: "OUT",
+      quantity: "200.0000",
+      rate: "542.2222",
+      value: "108444.4400",
+      balanceQtyAfter: "1240.0000",
+      balanceValueAfter: "672355.5600",
+      avgRateAfter: "542.2222",
+      isReversal: false,
+      reversalOf: null,
+      voucherDate: "2026-06-28",
+      postedAt: "2026-06-28T09:15:00Z",
+    },
+    {
+      id: "mv-5",
+      godownId: "gd-a",
+      itemId: "it-cement",
+      sourceType: "STOCK_JOURNAL",
+      sourceId: "sj-4",
+      direction: "IN",
+      quantity: "200.0000",
+      rate: "542.2222",
+      value: "108444.4400",
+      balanceQtyAfter: "1440.0000",
+      balanceValueAfter: "780800.0000",
+      avgRateAfter: "542.2222",
+      isReversal: true,
+      reversalOf: "mv-4",
+      voucherDate: "2026-06-29",
+      postedAt: "2026-06-29T03:00:00Z",
+    },
   ],
   "gd-a:it-rebar": [
-    { id: "mv-10", godownId: "gd-a", itemId: "it-rebar", sourceType: "GRN", sourceId: "grn-190", direction: "IN", quantity: "18.0000", rate: "98000.0000", value: "1764000.0000", balanceQtyAfter: "18.0000", balanceValueAfter: "1764000.0000", avgRateAfter: "98000.0000", isReversal: false, reversalOf: null, voucherDate: "2026-05-20", postedAt: "2026-05-20T05:00:00Z" },
+    {
+      id: "mv-10",
+      godownId: "gd-a",
+      itemId: "it-rebar",
+      sourceType: "GRN",
+      sourceId: "grn-190",
+      direction: "IN",
+      quantity: "18.0000",
+      rate: "98000.0000",
+      value: "1764000.0000",
+      balanceQtyAfter: "18.0000",
+      balanceValueAfter: "1764000.0000",
+      avgRateAfter: "98000.0000",
+      isReversal: false,
+      reversalOf: null,
+      voucherDate: "2026-05-20",
+      postedAt: "2026-05-20T05:00:00Z",
+    },
   ],
 };
 
-interface MockSjLine { lineNo: number; side: "OUT" | "IN"; godownId: string; itemId: string; quantity: string; rate: string | null; value: string | null; projectId: string; costCentreId: string; purposeId: string }
+interface MockSjLine {
+  lineNo: number;
+  side: "OUT" | "IN";
+  godownId: string;
+  itemId: string;
+  quantity: string;
+  rate: string | null;
+  value: string | null;
+  projectId: string;
+  costCentreId: string;
+  purposeId: string;
+}
 interface MockSJ {
-  id: string; entryNo: string | null; voucherDate: string; mode: "TRANSFER" | "ISSUE" | "ADJUSTMENT"; status: "DRAFT" | "APPROVED" | "POSTED" | "CANCELLED";
-  fromGodownId: string | null; toGodownId: string | null; itemId: string; quantity: string; rate: string | null; value: string | null;
-  projectId: string | null; costCentreId: string | null; purposeId: string | null; issuedById: string | null; receivedById: string | null;
-  approvedById: string | null; approvedAt: string | null; negativeStockAuthorisedById: string | null; negativeStockReason: string | null;
-  journalEntryId: string | null; narration: string | null; postedAt: string | null; postedById: string | null; version: number; lines: MockSjLine[];
+  id: string;
+  entryNo: string | null;
+  voucherDate: string;
+  mode: "TRANSFER" | "ISSUE" | "ADJUSTMENT";
+  status: "DRAFT" | "APPROVED" | "POSTED" | "CANCELLED";
+  fromGodownId: string | null;
+  toGodownId: string | null;
+  itemId: string;
+  quantity: string;
+  rate: string | null;
+  value: string | null;
+  projectId: string | null;
+  costCentreId: string | null;
+  purposeId: string | null;
+  issuedById: string | null;
+  receivedById: string | null;
+  approvedById: string | null;
+  approvedAt: string | null;
+  negativeStockAuthorisedById: string | null;
+  negativeStockReason: string | null;
+  journalEntryId: string | null;
+  narration: string | null;
+  postedAt: string | null;
+  postedById: string | null;
+  version: number;
+  lines: MockSjLine[];
 }
 let sjSeq = 100;
 let sjNumberSeq = 12;
-function seedSj(p: Partial<MockSJ> & Pick<MockSJ, "id" | "mode" | "status" | "itemId" | "quantity" | "fromGodownId">): MockSJ {
+function seedSj(
+  p: Partial<MockSJ> &
+    Pick<MockSJ, "id" | "mode" | "status" | "itemId" | "quantity" | "fromGodownId">,
+): MockSJ {
   const posted = p.status === "POSTED" || p.status === "CANCELLED";
   return {
-    entryNo: null, voucherDate: "2026-06-20", toGodownId: null, rate: null, value: null,
-    projectId: "proj-a", costCentreId: "cc-mat", purposeId: "pp-1", issuedById: "u-rafiq", receivedById: "u-farzana",
-    approvedById: posted || p.status === "APPROVED" ? "u-ashraf" : null, approvedAt: posted || p.status === "APPROVED" ? "2026-06-20T09:12:00Z" : null,
-    negativeStockAuthorisedById: null, negativeStockReason: null, journalEntryId: null, narration: "Day 20 slab pour",
-    postedAt: posted ? "2026-06-20T09:15:00Z" : null, postedById: posted ? "u-rafiq" : null, version: 1,
-    lines: [{ lineNo: 1, side: "OUT", godownId: p.fromGodownId ?? "gd-a", itemId: p.itemId, quantity: p.quantity, rate: p.rate ?? null, value: p.value ?? null, projectId: "proj-a", costCentreId: "cc-mat", purposeId: "pp-1" }],
+    entryNo: null,
+    voucherDate: "2026-06-20",
+    toGodownId: null,
+    rate: null,
+    value: null,
+    projectId: "proj-a",
+    costCentreId: "cc-mat",
+    purposeId: "pp-1",
+    issuedById: "u-rafiq",
+    receivedById: "u-farzana",
+    approvedById: posted || p.status === "APPROVED" ? "u-ashraf" : null,
+    approvedAt: posted || p.status === "APPROVED" ? "2026-06-20T09:12:00Z" : null,
+    negativeStockAuthorisedById: null,
+    negativeStockReason: null,
+    journalEntryId: null,
+    narration: "Day 20 slab pour",
+    postedAt: posted ? "2026-06-20T09:15:00Z" : null,
+    postedById: posted ? "u-rafiq" : null,
+    version: 1,
+    lines: [
+      {
+        lineNo: 1,
+        side: "OUT",
+        godownId: p.fromGodownId ?? "gd-a",
+        itemId: p.itemId,
+        quantity: p.quantity,
+        rate: p.rate ?? null,
+        value: p.value ?? null,
+        projectId: "proj-a",
+        costCentreId: "cc-mat",
+        purposeId: "pp-1",
+      },
+    ],
     ...p,
   } as MockSJ;
 }
 const MOCK_STOCK_JOURNALS: MockSJ[] = [
-  seedSj({ id: "sj-1", entryNo: "SJ/2526/0012", voucherDate: "2026-07-06", mode: "TRANSFER", status: "POSTED", fromGodownId: "gd-a", toGodownId: "gd-b", itemId: "it-rebar", quantity: "8.5000", rate: "98500.0000", value: "837250.0000", journalEntryId: null }),
-  seedSj({ id: "sj-2", voucherDate: "2026-07-07", mode: "ISSUE", status: "DRAFT", fromGodownId: "gd-a", itemId: "it-cement", quantity: "50.0000" }),
-  seedSj({ id: "sj-3", entryNo: "SJ/2526/0011", voucherDate: "2026-07-05", mode: "ADJUSTMENT", status: "POSTED", fromGodownId: "gd-a", itemId: "it-sand", quantity: "120.0000", rate: "42.0000", value: "5040.0000", journalEntryId: "je-11" }),
-  seedSj({ id: "sj-4", entryNo: "SJ/2526/0010", voucherDate: "2026-06-28", mode: "ISSUE", status: "POSTED", fromGodownId: "gd-a", itemId: "it-cement", quantity: "200.0000", rate: "542.0000", value: "108400.0000", journalEntryId: "je-10" }),
-  seedSj({ id: "sj-5", voucherDate: "2026-07-05", mode: "ISSUE", status: "APPROVED", fromGodownId: "gd-a", itemId: "it-cement", quantity: "180.0000" }),
-  seedSj({ id: "sj-6", entryNo: "SJ/2526/0008", voucherDate: "2026-06-25", mode: "ISSUE", status: "CANCELLED", fromGodownId: "gd-a", itemId: "it-sand", quantity: "300.0000", rate: "42.0000", value: "12600.0000" }),
+  seedSj({
+    id: "sj-1",
+    entryNo: "SJ/2526/0012",
+    voucherDate: "2026-07-06",
+    mode: "TRANSFER",
+    status: "POSTED",
+    fromGodownId: "gd-a",
+    toGodownId: "gd-b",
+    itemId: "it-rebar",
+    quantity: "8.5000",
+    rate: "98500.0000",
+    value: "837250.0000",
+    journalEntryId: null,
+  }),
+  seedSj({
+    id: "sj-2",
+    voucherDate: "2026-07-07",
+    mode: "ISSUE",
+    status: "DRAFT",
+    fromGodownId: "gd-a",
+    itemId: "it-cement",
+    quantity: "50.0000",
+  }),
+  seedSj({
+    id: "sj-3",
+    entryNo: "SJ/2526/0011",
+    voucherDate: "2026-07-05",
+    mode: "ADJUSTMENT",
+    status: "POSTED",
+    fromGodownId: "gd-a",
+    itemId: "it-sand",
+    quantity: "120.0000",
+    rate: "42.0000",
+    value: "5040.0000",
+    journalEntryId: "je-11",
+  }),
+  seedSj({
+    id: "sj-4",
+    entryNo: "SJ/2526/0010",
+    voucherDate: "2026-06-28",
+    mode: "ISSUE",
+    status: "POSTED",
+    fromGodownId: "gd-a",
+    itemId: "it-cement",
+    quantity: "200.0000",
+    rate: "542.0000",
+    value: "108400.0000",
+    journalEntryId: "je-10",
+  }),
+  seedSj({
+    id: "sj-5",
+    voucherDate: "2026-07-05",
+    mode: "ISSUE",
+    status: "APPROVED",
+    fromGodownId: "gd-a",
+    itemId: "it-cement",
+    quantity: "180.0000",
+  }),
+  seedSj({
+    id: "sj-6",
+    entryNo: "SJ/2526/0008",
+    voucherDate: "2026-06-25",
+    mode: "ISSUE",
+    status: "CANCELLED",
+    fromGodownId: "gd-a",
+    itemId: "it-sand",
+    quantity: "300.0000",
+    rate: "42.0000",
+    value: "12600.0000",
+  }),
 ];
 
 // ── Requisition sample (dev/preview only) ──
 interface MockReqLine {
-  id: string; lineNo: number; itemId: string; requestedQuantity: string;
-  issuedQuantity: string; balanceQuantity: string; indicativeRate: string | null; uom: string;
+  id: string;
+  lineNo: number;
+  itemId: string;
+  requestedQuantity: string;
+  issuedQuantity: string;
+  balanceQuantity: string;
+  indicativeRate: string | null;
+  uom: string;
 }
 interface MockRequisition {
-  id: string; requisitionNo: string | null; projectId: string; costCentreId: string; purposeId: string;
-  fromGodownId: string | null; requiredDate: string; priority: "LOW" | "NORMAL" | "HIGH" | "URGENT";
-  status: "DRAFT" | "SUBMITTED" | "APPROVED" | "REJECTED" | "PARTIALLY_ISSUED" | "ISSUED" | "CLOSED";
-  estimatedValue: string | null; approvalTier: "PM" | "ACCOUNTS" | null; submittedAt: string | null;
-  submittedById: string | null; closedAt: string | null; closedReason: string | null;
-  narration: string | null; lines: MockReqLine[]; version: number;
+  id: string;
+  requisitionNo: string | null;
+  projectId: string;
+  costCentreId: string;
+  purposeId: string;
+  fromGodownId: string | null;
+  requiredDate: string;
+  priority: "LOW" | "NORMAL" | "HIGH" | "URGENT";
+  status:
+    "DRAFT" | "SUBMITTED" | "APPROVED" | "REJECTED" | "PARTIALLY_ISSUED" | "ISSUED" | "CLOSED";
+  estimatedValue: string | null;
+  approvalTier: "PM" | "ACCOUNTS" | null;
+  submittedAt: string | null;
+  submittedById: string | null;
+  closedAt: string | null;
+  closedReason: string | null;
+  narration: string | null;
+  lines: MockReqLine[];
+  version: number;
 }
 /** Indicative rate for an item at a godown (falls back to any-godown last-known). */
 function reqIndicativeRate(itemId: string, godownId: string | null): string | null {
-  const at = godownId ? MOCK_STOCK_LEDGER.find((r) => r.itemId === itemId && r.godownId === godownId) : undefined;
+  const at = godownId
+    ? MOCK_STOCK_LEDGER.find((r) => r.itemId === itemId && r.godownId === godownId)
+    : undefined;
   const any = at ?? MOCK_STOCK_LEDGER.find((r) => r.itemId === itemId);
   return any?.weightedAverageRate ?? null;
 }
 function reqUom(itemId: string): string {
   return MOCK_ITEMS.find((i) => i.id === itemId)?.uom ?? "";
 }
-function mkLine(id: string, lineNo: number, itemId: string, requested: string, issued: string, godownId: string | null): MockReqLine {
+function mkLine(
+  id: string,
+  lineNo: number,
+  itemId: string,
+  requested: string,
+  issued: string,
+  godownId: string | null,
+): MockReqLine {
   const rate = reqIndicativeRate(itemId, godownId);
   const bal = (Number(requested) - Number(issued)).toFixed(4);
-  return { id, lineNo, itemId, requestedQuantity: `${Number(requested).toFixed(4)}`, issuedQuantity: `${Number(issued).toFixed(4)}`, balanceQuantity: bal, indicativeRate: rate, uom: reqUom(itemId) };
+  return {
+    id,
+    lineNo,
+    itemId,
+    requestedQuantity: `${Number(requested).toFixed(4)}`,
+    issuedQuantity: `${Number(issued).toFixed(4)}`,
+    balanceQuantity: bal,
+    indicativeRate: rate,
+    uom: reqUom(itemId),
+  };
 }
 function reqEstimate(lines: MockReqLine[]): string {
   let sum = 0;
-  for (const l of lines) if (l.indicativeRate) sum += Number(l.requestedQuantity) * Number(l.indicativeRate);
+  for (const l of lines)
+    if (l.indicativeRate) sum += Number(l.requestedQuantity) * Number(l.indicativeRate);
   return sum.toFixed(4);
 }
 let reqSeq = 200;
 let reqNoSeq = 42;
 const MOCK_REQUISITIONS: MockRequisition[] = [
   {
-    id: "req-1", requisitionNo: null, projectId: "proj-a", costCentreId: "cc-mat", purposeId: "pp-1",
-    fromGodownId: "gd-a", requiredDate: "2026-07-20", priority: "NORMAL", status: "DRAFT",
-    estimatedValue: null, approvalTier: null, submittedAt: null, submittedById: null, closedAt: null, closedReason: null,
-    narration: "Slab pour materials", version: 1,
-    lines: [mkLine("rl-1", 1, "it-cement", "100", "0", "gd-a"), mkLine("rl-2", 2, "it-rebar", "2", "0", "gd-a")],
+    id: "req-1",
+    requisitionNo: null,
+    projectId: "proj-a",
+    costCentreId: "cc-mat",
+    purposeId: "pp-1",
+    fromGodownId: "gd-a",
+    requiredDate: "2026-07-20",
+    priority: "NORMAL",
+    status: "DRAFT",
+    estimatedValue: null,
+    approvalTier: null,
+    submittedAt: null,
+    submittedById: null,
+    closedAt: null,
+    closedReason: null,
+    narration: "Slab pour materials",
+    version: 1,
+    lines: [
+      mkLine("rl-1", 1, "it-cement", "100", "0", "gd-a"),
+      mkLine("rl-2", 2, "it-rebar", "2", "0", "gd-a"),
+    ],
   },
   {
-    id: "req-2", requisitionNo: "REQ/2526/0042", projectId: "proj-a", costCentreId: "cc-mat", purposeId: "pp-1",
-    fromGodownId: "gd-a", requiredDate: "2026-07-18", priority: "HIGH", status: "SUBMITTED",
-    estimatedValue: null, approvalTier: "PM", submittedAt: "2026-07-10T08:00:00Z", submittedById: "u-rafiq",
-    closedAt: null, closedReason: null, narration: "Column casting — block C", version: 2,
-    lines: [mkLine("rl-3", 1, "it-cement", "80", "0", "gd-a"), mkLine("rl-4", 2, "it-sand", "300", "0", "gd-a")],
+    id: "req-2",
+    requisitionNo: "REQ/2526/0042",
+    projectId: "proj-a",
+    costCentreId: "cc-mat",
+    purposeId: "pp-1",
+    fromGodownId: "gd-a",
+    requiredDate: "2026-07-18",
+    priority: "HIGH",
+    status: "SUBMITTED",
+    estimatedValue: null,
+    approvalTier: "PM",
+    submittedAt: "2026-07-10T08:00:00Z",
+    submittedById: "u-rafiq",
+    closedAt: null,
+    closedReason: null,
+    narration: "Column casting — block C",
+    version: 2,
+    lines: [
+      mkLine("rl-3", 1, "it-cement", "80", "0", "gd-a"),
+      mkLine("rl-4", 2, "it-sand", "300", "0", "gd-a"),
+    ],
   },
   {
-    id: "req-3", requisitionNo: "REQ/2526/0041", projectId: "proj-a", costCentreId: "cc-fuel", purposeId: "pp-1",
-    fromGodownId: "gd-a", requiredDate: "2026-07-15", priority: "URGENT", status: "APPROVED",
-    estimatedValue: null, approvalTier: "PM", submittedAt: "2026-07-08T08:00:00Z", submittedById: "u-farzana",
-    closedAt: null, closedReason: null, narration: null, version: 3,
+    id: "req-3",
+    requisitionNo: "REQ/2526/0041",
+    projectId: "proj-a",
+    costCentreId: "cc-fuel",
+    purposeId: "pp-1",
+    fromGodownId: "gd-a",
+    requiredDate: "2026-07-15",
+    priority: "URGENT",
+    status: "APPROVED",
+    estimatedValue: null,
+    approvalTier: "PM",
+    submittedAt: "2026-07-08T08:00:00Z",
+    submittedById: "u-farzana",
+    closedAt: null,
+    closedReason: null,
+    narration: null,
+    version: 3,
     lines: [mkLine("rl-5", 1, "it-brick", "5000", "0", "gd-a")],
   },
   {
-    id: "req-4", requisitionNo: "REQ/2526/0040", projectId: "proj-a", costCentreId: "cc-mat", purposeId: "pp-1",
-    fromGodownId: "gd-a", requiredDate: "2026-07-12", priority: "NORMAL", status: "PARTIALLY_ISSUED",
-    estimatedValue: null, approvalTier: "PM", submittedAt: "2026-07-05T08:00:00Z", submittedById: "u-rafiq",
-    closedAt: null, closedReason: null, narration: "Ongoing pour", version: 5,
+    id: "req-4",
+    requisitionNo: "REQ/2526/0040",
+    projectId: "proj-a",
+    costCentreId: "cc-mat",
+    purposeId: "pp-1",
+    fromGodownId: "gd-a",
+    requiredDate: "2026-07-12",
+    priority: "NORMAL",
+    status: "PARTIALLY_ISSUED",
+    estimatedValue: null,
+    approvalTier: "PM",
+    submittedAt: "2026-07-05T08:00:00Z",
+    submittedById: "u-rafiq",
+    closedAt: null,
+    closedReason: null,
+    narration: "Ongoing pour",
+    version: 5,
     lines: [mkLine("rl-6", 1, "it-cement", "200", "120", "gd-a")],
   },
   {
-    id: "req-5", requisitionNo: "REQ/2526/0039", projectId: "proj-a", costCentreId: "cc-sub", purposeId: "pp-1",
-    fromGodownId: null, requiredDate: "2026-07-09", priority: "LOW", status: "REJECTED",
-    estimatedValue: null, approvalTier: "ACCOUNTS", submittedAt: "2026-07-02T08:00:00Z", submittedById: "u-farzana",
-    closedAt: null, closedReason: null, narration: "Over threshold — rejected", version: 3,
+    id: "req-5",
+    requisitionNo: "REQ/2526/0039",
+    projectId: "proj-a",
+    costCentreId: "cc-sub",
+    purposeId: "pp-1",
+    fromGodownId: null,
+    requiredDate: "2026-07-09",
+    priority: "LOW",
+    status: "REJECTED",
+    estimatedValue: null,
+    approvalTier: "ACCOUNTS",
+    submittedAt: "2026-07-02T08:00:00Z",
+    submittedById: "u-farzana",
+    closedAt: null,
+    closedReason: null,
+    narration: "Over threshold — rejected",
+    version: 3,
     lines: [mkLine("rl-7", 1, "it-rebar", "40", "0", null)],
   },
   {
-    id: "req-6", requisitionNo: "REQ/2526/0038", projectId: "proj-a", costCentreId: "cc-mat", purposeId: "pp-1",
-    fromGodownId: "gd-a", requiredDate: "2026-07-06", priority: "NORMAL", status: "ISSUED",
-    estimatedValue: null, approvalTier: "PM", submittedAt: "2026-06-30T08:00:00Z", submittedById: "u-rafiq",
-    closedAt: null, closedReason: null, narration: null, version: 6,
+    id: "req-6",
+    requisitionNo: "REQ/2526/0038",
+    projectId: "proj-a",
+    costCentreId: "cc-mat",
+    purposeId: "pp-1",
+    fromGodownId: "gd-a",
+    requiredDate: "2026-07-06",
+    priority: "NORMAL",
+    status: "ISSUED",
+    estimatedValue: null,
+    approvalTier: "PM",
+    submittedAt: "2026-06-30T08:00:00Z",
+    submittedById: "u-rafiq",
+    closedAt: null,
+    closedReason: null,
+    narration: null,
+    version: 6,
     lines: [mkLine("rl-8", 1, "it-sand", "300", "300", "gd-a")],
   },
   {
     // APPROVED with a rebar line whose balance (20) exceeds gd-a on-hand (18) — the negative-stock
     // override path (fe-requisition-issue e2e). requiredDate is latest so it never displaces the
     // happy-path row at the top of the issues worklist.
-    id: "req-7", requisitionNo: "REQ/2526/0044", projectId: "proj-a", costCentreId: "cc-mat", purposeId: "pp-1",
-    fromGodownId: "gd-a", requiredDate: "2026-07-30", priority: "HIGH", status: "APPROVED",
-    estimatedValue: null, approvalTier: "PM", submittedAt: "2026-07-11T08:00:00Z", submittedById: "u-rafiq",
-    closedAt: null, closedReason: null, narration: "Rebar top-up for the deck lift", version: 2,
+    id: "req-7",
+    requisitionNo: "REQ/2526/0044",
+    projectId: "proj-a",
+    costCentreId: "cc-mat",
+    purposeId: "pp-1",
+    fromGodownId: "gd-a",
+    requiredDate: "2026-07-30",
+    priority: "HIGH",
+    status: "APPROVED",
+    estimatedValue: null,
+    approvalTier: "PM",
+    submittedAt: "2026-07-11T08:00:00Z",
+    submittedById: "u-rafiq",
+    closedAt: null,
+    closedReason: null,
+    narration: "Rebar top-up for the deck lift",
+    version: 2,
     lines: [mkLine("rl-9", 1, "it-rebar", "20", "0", "gd-a")],
   },
 ];
 // Seed submitted+ estimates.
-for (const r of MOCK_REQUISITIONS) if (r.status !== "DRAFT") r.estimatedValue = reqEstimate(r.lines);
+for (const r of MOCK_REQUISITIONS)
+  if (r.status !== "DRAFT") r.estimatedValue = reqEstimate(r.lines);
 
 interface MockReqApproval {
-  id: string; requisitionId: string; decision: "APPROVED" | "REJECTED"; tier: "PM" | "ACCOUNTS";
-  thresholdEvaluated: string | null; estimatedValueAtReview: string | null; reason: string | null;
-  decidedById: string; decidedAt: string;
+  id: string;
+  requisitionId: string;
+  decision: "APPROVED" | "REJECTED";
+  tier: "PM" | "ACCOUNTS";
+  thresholdEvaluated: string | null;
+  estimatedValueAtReview: string | null;
+  reason: string | null;
+  decidedById: string;
+  decidedAt: string;
 }
 const MOCK_REQ_APPROVALS: MockReqApproval[] = [];
 
 interface MockReqIssueLine {
-  requisitionLineId: string; stockMovementId: string; issuedQuantity: string; rate: string; value: string;
+  requisitionLineId: string;
+  stockMovementId: string;
+  issuedQuantity: string;
+  rate: string;
+  value: string;
 }
 interface MockReqIssue {
-  requisitionId: string; requisitionIssueId: string; issueNo: number; journalEntryId: string; entryNo: string;
-  issuedValue: string; fromGodownId: string; lines: MockReqIssueLine[]; requisitionStatus: MockRequisition["status"];
-  issuedAt: string; reversedAt: string | null; reversedById: string | null;
+  requisitionId: string;
+  requisitionIssueId: string;
+  issueNo: number;
+  journalEntryId: string;
+  entryNo: string;
+  issuedValue: string;
+  fromGodownId: string;
+  lines: MockReqIssueLine[];
+  requisitionStatus: MockRequisition["status"];
+  issuedAt: string;
+  reversedAt: string | null;
+  reversedById: string | null;
 }
 const MOCK_REQ_ISSUES: MockReqIssue[] = [];
 let reqIssueSeq = 30;
@@ -367,10 +975,28 @@ const MOCK_PURPOSES: MockPurpose[] = [
   { id: "pp-3", projectId: "proj-a", name: "Equipment Rental", isActive: true, version: 1 },
   { id: "pp-4", projectId: "proj-a", name: "Site Office", isActive: true, version: 1 },
   { id: "pp-5", projectId: "proj-a", name: "Transport & Carrying", isActive: true, version: 1 },
-  { id: "pp-6", projectId: "proj-a", name: "Mobilization Advance · গতিশীলতা অগ্রিম", isActive: true, version: 1 },
+  {
+    id: "pp-6",
+    projectId: "proj-a",
+    name: "Mobilization Advance · গতিশীলতা অগ্রিম",
+    isActive: true,
+    version: 1,
+  },
   { id: "pp-7", projectId: "proj-a", name: "Subcontractor Payment", isActive: true, version: 1 },
-  { id: "pp-8", projectId: "proj-a", name: "Safety Equipment · নিরাপত্তা সরঞ্জাম", isActive: true, version: 1 },
-  { id: "pp-9", projectId: "proj-a", name: "Temporary Fencing (legacy)", isActive: false, version: 1 },
+  {
+    id: "pp-8",
+    projectId: "proj-a",
+    name: "Safety Equipment · নিরাপত্তা সরঞ্জাম",
+    isActive: true,
+    version: 1,
+  },
+  {
+    id: "pp-9",
+    projectId: "proj-a",
+    name: "Temporary Fencing (legacy)",
+    isActive: false,
+    version: 1,
+  },
   { id: "pp-10", projectId: "proj-b", name: "Finishing Works", isActive: true, version: 1 },
   { id: "pp-11", projectId: "proj-b", name: "Lift & MEP", isActive: true, version: 1 },
 ];
@@ -378,16 +1004,156 @@ let mockPurposeSeq = 500;
 
 // Mirrors the Parties design-file sample so the list renders populated against the mock.
 const MOCK_PARTIES: MockParty[] = [
-  { id: "pa-1", name: "ABC Cement Co.", isCustomer: true, isSupplier: true, tin: "123456789012", bin: "001234567-0101", address: "Plot 7, Tejgaon I/A, Dhaka 1208", phone: "+8801712345678", email: "accounts@abccement.com.bd", paymentTermsDays: 30, openingBalance: "0.0000", isActive: true, version: 1 },
-  { id: "pa-2", name: "Shah Cement Ltd.", isCustomer: false, isSupplier: true, tin: "556677889900", bin: "004455667-0202", address: null, phone: "+8801811223344", email: null, paymentTermsDays: 15, openingBalance: "0.0000", isActive: true, version: 1 },
-  { id: "pa-3", name: "মেঘনা স্টিল মিলস", isCustomer: false, isSupplier: true, tin: "778899001122", bin: null, address: null, phone: "+8801999887766", email: null, paymentTermsDays: 45, openingBalance: "0.0000", isActive: true, version: 1 },
-  { id: "pa-4", name: "Tower-A Developments Ltd.", isCustomer: true, isSupplier: false, tin: "334455667788", bin: "009988776-0303", address: "Gulshan Avenue, Dhaka 1212", phone: "+8801712009988", email: "finance@tower-a.com", paymentTermsDays: 0, openingBalance: "0.0000", isActive: true, version: 1 },
-  { id: "pa-5", name: "M/s Rahman Traders", isCustomer: false, isSupplier: true, tin: null, bin: null, address: null, phone: "+8801677554433", email: null, paymentTermsDays: 7, openingBalance: "0.0000", isActive: false, version: 1 },
-  { id: "pa-6", name: "Bashundhara Group", isCustomer: false, isSupplier: true, tin: "990011223344", bin: "003322110-0404", address: null, phone: "+8801511990022", email: null, paymentTermsDays: 30, openingBalance: "0.0000", isActive: true, version: 1 },
-  { id: "pa-7", name: "করিম এন্টারপ্রাইজ", isCustomer: true, isSupplier: false, tin: "445566778899", bin: null, address: "১২/বি, নিউ মার্কেট, ঢাকা ১২০৫", phone: "+8801733221100", email: null, paymentTermsDays: 60, openingBalance: "0.0000", isActive: true, version: 1 },
-  { id: "pa-8", name: "National Housing Authority", isCustomer: true, isSupplier: false, tin: "112233445566", bin: "006677889-0505", address: null, phone: "+8801866003311", email: null, paymentTermsDays: 90, openingBalance: "0.0000", isActive: true, version: 1 },
-  { id: "pa-9", name: "Padma Aggregates Ltd.", isCustomer: false, isSupplier: true, tin: "667788990011", bin: null, address: null, phone: "+8801799112233", email: null, paymentTermsDays: 14, openingBalance: "0.0000", isActive: false, version: 1 },
-  { id: "pa-10", name: "Zenith Interiors", isCustomer: true, isSupplier: true, tin: "220033445566", bin: "001122334-0606", address: null, phone: "+8801600224466", email: null, paymentTermsDays: 30, openingBalance: "0.0000", isActive: true, version: 1 },
+  {
+    id: "pa-1",
+    name: "ABC Cement Co.",
+    isCustomer: true,
+    isSupplier: true,
+    tin: "123456789012",
+    bin: "001234567-0101",
+    address: "Plot 7, Tejgaon I/A, Dhaka 1208",
+    phone: "+8801712345678",
+    email: "accounts@abccement.com.bd",
+    paymentTermsDays: 30,
+    openingBalance: "0.0000",
+    isActive: true,
+    version: 1,
+  },
+  {
+    id: "pa-2",
+    name: "Shah Cement Ltd.",
+    isCustomer: false,
+    isSupplier: true,
+    tin: "556677889900",
+    bin: "004455667-0202",
+    address: null,
+    phone: "+8801811223344",
+    email: null,
+    paymentTermsDays: 15,
+    openingBalance: "0.0000",
+    isActive: true,
+    version: 1,
+  },
+  {
+    id: "pa-3",
+    name: "মেঘনা স্টিল মিলস",
+    isCustomer: false,
+    isSupplier: true,
+    tin: "778899001122",
+    bin: null,
+    address: null,
+    phone: "+8801999887766",
+    email: null,
+    paymentTermsDays: 45,
+    openingBalance: "0.0000",
+    isActive: true,
+    version: 1,
+  },
+  {
+    id: "pa-4",
+    name: "Tower-A Developments Ltd.",
+    isCustomer: true,
+    isSupplier: false,
+    tin: "334455667788",
+    bin: "009988776-0303",
+    address: "Gulshan Avenue, Dhaka 1212",
+    phone: "+8801712009988",
+    email: "finance@tower-a.com",
+    paymentTermsDays: 0,
+    openingBalance: "0.0000",
+    isActive: true,
+    version: 1,
+  },
+  {
+    id: "pa-5",
+    name: "M/s Rahman Traders",
+    isCustomer: false,
+    isSupplier: true,
+    tin: null,
+    bin: null,
+    address: null,
+    phone: "+8801677554433",
+    email: null,
+    paymentTermsDays: 7,
+    openingBalance: "0.0000",
+    isActive: false,
+    version: 1,
+  },
+  {
+    id: "pa-6",
+    name: "Bashundhara Group",
+    isCustomer: false,
+    isSupplier: true,
+    tin: "990011223344",
+    bin: "003322110-0404",
+    address: null,
+    phone: "+8801511990022",
+    email: null,
+    paymentTermsDays: 30,
+    openingBalance: "0.0000",
+    isActive: true,
+    version: 1,
+  },
+  {
+    id: "pa-7",
+    name: "করিম এন্টারপ্রাইজ",
+    isCustomer: true,
+    isSupplier: false,
+    tin: "445566778899",
+    bin: null,
+    address: "১২/বি, নিউ মার্কেট, ঢাকা ১২০৫",
+    phone: "+8801733221100",
+    email: null,
+    paymentTermsDays: 60,
+    openingBalance: "0.0000",
+    isActive: true,
+    version: 1,
+  },
+  {
+    id: "pa-8",
+    name: "National Housing Authority",
+    isCustomer: true,
+    isSupplier: false,
+    tin: "112233445566",
+    bin: "006677889-0505",
+    address: null,
+    phone: "+8801866003311",
+    email: null,
+    paymentTermsDays: 90,
+    openingBalance: "0.0000",
+    isActive: true,
+    version: 1,
+  },
+  {
+    id: "pa-9",
+    name: "Padma Aggregates Ltd.",
+    isCustomer: false,
+    isSupplier: true,
+    tin: "667788990011",
+    bin: null,
+    address: null,
+    phone: "+8801799112233",
+    email: null,
+    paymentTermsDays: 14,
+    openingBalance: "0.0000",
+    isActive: false,
+    version: 1,
+  },
+  {
+    id: "pa-10",
+    name: "Zenith Interiors",
+    isCustomer: true,
+    isSupplier: true,
+    tin: "220033445566",
+    bin: "001122334-0606",
+    address: null,
+    phone: "+8801600224466",
+    email: null,
+    paymentTermsDays: 30,
+    openingBalance: "0.0000",
+    isActive: true,
+    version: 1,
+  },
 ];
 let mockPartySeq = 800;
 
@@ -451,7 +1217,18 @@ const MOCK_POS: MockPo[] = [
     approvedBy: "u-admin",
     approvedAt: "2026-07-08T10:00:00Z",
     lines: [
-      { lineNo: 1, itemId: "it-cement", orderedQty: "100.0000", rate: "500.0000", lineAmount: "50000.0000", godownId: "gd-a", costCentreId: "cc-mat", purposeId: "pp-1", billedQty: "0.0000", receivedQty: "0.0000" },
+      {
+        lineNo: 1,
+        itemId: "it-cement",
+        orderedQty: "100.0000",
+        rate: "500.0000",
+        lineAmount: "50000.0000",
+        godownId: "gd-a",
+        costCentreId: "cc-mat",
+        purposeId: "pp-1",
+        billedQty: "0.0000",
+        receivedQty: "0.0000",
+      },
     ],
   }),
   mkPo({
@@ -462,7 +1239,16 @@ const MOCK_POS: MockPo[] = [
     poDate: "2026-07-09",
     status: "DRAFT",
     lines: [
-      { lineNo: 1, itemId: "it-cement", orderedQty: "50.0000", rate: "540.0000", lineAmount: "27000.0000", godownId: "gd-a", costCentreId: "cc-mat", purposeId: "pp-1" },
+      {
+        lineNo: 1,
+        itemId: "it-cement",
+        orderedQty: "50.0000",
+        rate: "540.0000",
+        lineAmount: "27000.0000",
+        godownId: "gd-a",
+        costCentreId: "cc-mat",
+        purposeId: "pp-1",
+      },
     ],
   }),
   mkPo({
@@ -473,7 +1259,16 @@ const MOCK_POS: MockPo[] = [
     poDate: "2026-06-25",
     status: "CANCELLED",
     lines: [
-      { lineNo: 1, itemId: "it-cement", orderedQty: "10.0000", rate: "520.0000", lineAmount: "5200.0000", godownId: "gd-c", costCentreId: "cc-mat", purposeId: "pp-1" },
+      {
+        lineNo: 1,
+        itemId: "it-cement",
+        orderedQty: "10.0000",
+        rate: "520.0000",
+        lineAmount: "5200.0000",
+        godownId: "gd-c",
+        costCentreId: "cc-mat",
+        purposeId: "pp-1",
+      },
     ],
   }),
 ];
@@ -534,8 +1329,8 @@ function normalizeBillLine(l: MockBillLine, idx: number): MockBillLine {
   const lineAmount = (qty * rate).toFixed(4);
   return {
     lineNo: idx + 1,
-    itemId: l.isStockLine ? l.itemId ?? null : null,
-    expenseAccountId: !l.isStockLine ? l.expenseAccountId ?? null : null,
+    itemId: l.isStockLine ? (l.itemId ?? null) : null,
+    expenseAccountId: !l.isStockLine ? (l.expenseAccountId ?? null) : null,
     isStockLine: !!l.isStockLine,
     billedQty: String(l.billedQty || (l.isStockLine ? "0" : "1")),
     rate: String(l.rate ?? "0"),
@@ -543,10 +1338,10 @@ function normalizeBillLine(l: MockBillLine, idx: number): MockBillLine {
     vatInputAmount: String(l.vatInputAmount ?? "0"),
     tdsAmount: String(l.tdsAmount ?? "0"),
     aitAmount: String(l.aitAmount ?? "0"),
-    godownId: l.isStockLine ? l.godownId ?? null : null,
+    godownId: l.isStockLine ? (l.godownId ?? null) : null,
     costCentreId: l.costCentreId,
     purposeId: l.purposeId,
-    receivedQty: l.isStockLine ? l.receivedQty ?? "0.0000" : undefined,
+    receivedQty: l.isStockLine ? (l.receivedQty ?? "0.0000") : undefined,
     matchStatus: l.matchStatus,
   };
 }
@@ -567,7 +1362,10 @@ function recomputeBill(b: MockBill): void {
   b.aitAmount = ait.toFixed(4);
   b.netPayableAmount = (gross + vat - tds - ait).toFixed(4);
 }
-function mkBill(p: Partial<MockBill> & Pick<MockBill, "id" | "projectId" | "supplierId" | "billDate" | "dueDate" | "lines">): MockBill {
+function mkBill(
+  p: Partial<MockBill> &
+    Pick<MockBill, "id" | "projectId" | "supplierId" | "billDate" | "dueDate" | "lines">,
+): MockBill {
   const bill: MockBill = {
     purchaseOrderId: null,
     supplierInvoiceRef: null,
@@ -801,7 +1599,9 @@ interface MockGrn {
   postedAt: string | null;
   version: number;
 }
-function mkGrn(p: Partial<MockGrn> & Pick<MockGrn, "id" | "projectId" | "supplierId" | "receiptDate" | "lines">): MockGrn {
+function mkGrn(
+  p: Partial<MockGrn> & Pick<MockGrn, "id" | "projectId" | "supplierId" | "receiptDate" | "lines">,
+): MockGrn {
   return {
     purchaseOrderId: null,
     purchaseBillId: null,
@@ -894,14 +1694,20 @@ function poResource(o: MockPo) {
  * OK/APPROACHING/OVER/UNBUDGETED so the badges have something interesting to render.
  * Never blocks a Save/Approve.
  */
-function poBudgetWarnings(o: MockPo): Array<{ projectId: string; costCentreId: string; status: string }> {
+function poBudgetWarnings(
+  o: MockPo,
+): Array<{ projectId: string; costCentreId: string; status: string }> {
   const cycle = ["OK", "APPROACHING", "OVER", "UNBUDGETED"] as const;
   const seen = new Set<string>();
   const out: Array<{ projectId: string; costCentreId: string; status: string }> = [];
   o.lines.forEach((l, i) => {
     if (seen.has(l.costCentreId)) return;
     seen.add(l.costCentreId);
-    out.push({ projectId: o.projectId, costCentreId: l.costCentreId, status: cycle[i % cycle.length]! });
+    out.push({
+      projectId: o.projectId,
+      costCentreId: l.costCentreId,
+      status: cycle[i % cycle.length]!,
+    });
   });
   return out;
 }
@@ -938,12 +1744,28 @@ const IPC_VAT_RATE = 0.075;
 const IPC_RETENTION_RATE = 0.1;
 const IPC_ADVANCE_RATE = 0.15;
 
-function ipcCurrentlyDue(i: Pick<MockIpc, "certifiedAmount" | "outputVatAmount" | "retentionAmount" | "advanceRecoveredAmount" | "aitTdsAmount">): string {
+function ipcCurrentlyDue(
+  i: Pick<
+    MockIpc,
+    | "certifiedAmount"
+    | "outputVatAmount"
+    | "retentionAmount"
+    | "advanceRecoveredAmount"
+    | "aitTdsAmount"
+  >,
+): string {
   const raw =
-    Number(i.certifiedAmount) + Number(i.outputVatAmount) - Number(i.retentionAmount) - Number(i.advanceRecoveredAmount) - Number(i.aitTdsAmount);
+    Number(i.certifiedAmount) +
+    Number(i.outputVatAmount) -
+    Number(i.retentionAmount) -
+    Number(i.advanceRecoveredAmount) -
+    Number(i.aitTdsAmount);
   return (raw < 0 ? 0 : raw).toFixed(4);
 }
-function mkIpc(o: Partial<MockIpc> & Pick<MockIpc, "id" | "projectId" | "customerId" | "ipcSeqNo" | "certifiedAmount">): MockIpc {
+function mkIpc(
+  o: Partial<MockIpc> &
+    Pick<MockIpc, "id" | "projectId" | "customerId" | "ipcSeqNo" | "certifiedAmount">,
+): MockIpc {
   const certified = o.certifiedAmount;
   const vat = o.outputVatAmount ?? (Number(certified) * IPC_VAT_RATE).toFixed(4);
   const retention = o.retentionAmount ?? (Number(certified) * IPC_RETENTION_RATE).toFixed(4);
@@ -977,12 +1799,98 @@ function mkIpc(o: Partial<MockIpc> & Pick<MockIpc, "id" | "projectId" | "custome
   };
 }
 const MOCK_IPCS: MockIpc[] = [
-  mkIpc({ id: "ipc-7", projectId: "proj-a", customerId: "pa-8", ipcSeqNo: 7, ipcDate: "2026-07-12", certifiedAmount: "1000000.0000", outputVatAmount: "75000.0000", aitTdsAmount: "50000.0000", retentionAmount: "100000.0000", advanceRecoveredAmount: "150000.0000", narration: "৪৫% অগ্রগতি — সুপারস্ট্রাকচার পর্যায়।", status: "POSTED", entryNo: "IPC/2526/0007", journalEntryId: "je-ipc-7", postedAt: "2026-07-12T05:30:00Z", postedBy: "00000000-0000-0000-0000-000000000001", version: 2 }),
-  mkIpc({ id: "ipc-draft", projectId: "proj-b", customerId: "pa-4", ipcSeqNo: 1, ipcDate: "2026-07-11", certifiedAmount: "2400000.0000", status: "DRAFT" }),
-  mkIpc({ id: "ipc-6", projectId: "proj-a", customerId: "pa-8", ipcSeqNo: 6, ipcDate: "2026-07-05", certifiedAmount: "1500000.0000", aitTdsAmount: "75000.0000", retentionAmount: "150000.0000", advanceRecoveredAmount: "225000.0000", status: "POSTED", entryNo: "IPC/2526/0006", journalEntryId: "je-ipc-6", postedAt: "2026-07-05T05:30:00Z", postedBy: "00000000-0000-0000-0000-000000000001", version: 2 }),
-  mkIpc({ id: "ipc-5", projectId: "proj-a", customerId: "pa-8", ipcSeqNo: 5, ipcDate: "2026-06-28", certifiedAmount: "800000.0000", aitTdsAmount: "40000.0000", retentionAmount: "80000.0000", advanceRecoveredAmount: "120000.0000", status: "POSTED", entryNo: "IPC/2526/0005", journalEntryId: "je-ipc-5", postedAt: "2026-06-28T05:30:00Z", postedBy: "00000000-0000-0000-0000-000000000001", version: 2 }),
-  mkIpc({ id: "ipc-4", projectId: "proj-b", customerId: "pa-4", ipcSeqNo: 4, ipcDate: "2026-06-20", certifiedAmount: "1200000.0000", aitTdsAmount: "60000.0000", retentionAmount: "120000.0000", advanceRecoveredAmount: "180000.0000", status: "CANCELLED", entryNo: "IPC/2526/0004", journalEntryId: "je-ipc-4", reversalEntryNo: "IPC/2526/0009", postedAt: "2026-06-20T05:30:00Z", postedBy: "00000000-0000-0000-0000-000000000001", version: 3 }),
-  mkIpc({ id: "ipc-3", projectId: "proj-c", customerId: "pa-7", ipcSeqNo: 3, ipcDate: "2026-07-10", certifiedAmount: "650000.0000", aitTdsAmount: "0.0000", retentionAmount: "65000.0000", advanceRecoveredAmount: "0.0000", status: "DRAFT" }),
+  mkIpc({
+    id: "ipc-7",
+    projectId: "proj-a",
+    customerId: "pa-8",
+    ipcSeqNo: 7,
+    ipcDate: "2026-07-12",
+    certifiedAmount: "1000000.0000",
+    outputVatAmount: "75000.0000",
+    aitTdsAmount: "50000.0000",
+    retentionAmount: "100000.0000",
+    advanceRecoveredAmount: "150000.0000",
+    narration: "৪৫% অগ্রগতি — সুপারস্ট্রাকচার পর্যায়।",
+    status: "POSTED",
+    entryNo: "IPC/2526/0007",
+    journalEntryId: "je-ipc-7",
+    postedAt: "2026-07-12T05:30:00Z",
+    postedBy: "00000000-0000-0000-0000-000000000001",
+    version: 2,
+  }),
+  mkIpc({
+    id: "ipc-draft",
+    projectId: "proj-b",
+    customerId: "pa-4",
+    ipcSeqNo: 1,
+    ipcDate: "2026-07-11",
+    certifiedAmount: "2400000.0000",
+    status: "DRAFT",
+  }),
+  mkIpc({
+    id: "ipc-6",
+    projectId: "proj-a",
+    customerId: "pa-8",
+    ipcSeqNo: 6,
+    ipcDate: "2026-07-05",
+    certifiedAmount: "1500000.0000",
+    aitTdsAmount: "75000.0000",
+    retentionAmount: "150000.0000",
+    advanceRecoveredAmount: "225000.0000",
+    status: "POSTED",
+    entryNo: "IPC/2526/0006",
+    journalEntryId: "je-ipc-6",
+    postedAt: "2026-07-05T05:30:00Z",
+    postedBy: "00000000-0000-0000-0000-000000000001",
+    version: 2,
+  }),
+  mkIpc({
+    id: "ipc-5",
+    projectId: "proj-a",
+    customerId: "pa-8",
+    ipcSeqNo: 5,
+    ipcDate: "2026-06-28",
+    certifiedAmount: "800000.0000",
+    aitTdsAmount: "40000.0000",
+    retentionAmount: "80000.0000",
+    advanceRecoveredAmount: "120000.0000",
+    status: "POSTED",
+    entryNo: "IPC/2526/0005",
+    journalEntryId: "je-ipc-5",
+    postedAt: "2026-06-28T05:30:00Z",
+    postedBy: "00000000-0000-0000-0000-000000000001",
+    version: 2,
+  }),
+  mkIpc({
+    id: "ipc-4",
+    projectId: "proj-b",
+    customerId: "pa-4",
+    ipcSeqNo: 4,
+    ipcDate: "2026-06-20",
+    certifiedAmount: "1200000.0000",
+    aitTdsAmount: "60000.0000",
+    retentionAmount: "120000.0000",
+    advanceRecoveredAmount: "180000.0000",
+    status: "CANCELLED",
+    entryNo: "IPC/2526/0004",
+    journalEntryId: "je-ipc-4",
+    reversalEntryNo: "IPC/2526/0009",
+    postedAt: "2026-06-20T05:30:00Z",
+    postedBy: "00000000-0000-0000-0000-000000000001",
+    version: 3,
+  }),
+  mkIpc({
+    id: "ipc-3",
+    projectId: "proj-c",
+    customerId: "pa-7",
+    ipcSeqNo: 3,
+    ipcDate: "2026-07-10",
+    certifiedAmount: "650000.0000",
+    aitTdsAmount: "0.0000",
+    retentionAmount: "65000.0000",
+    advanceRecoveredAmount: "0.0000",
+    status: "DRAFT",
+  }),
 ];
 let ipcSeq = 100;
 let ipcNumberSeq = 9; // next gapless IPC/2526/00xx allocated at post (0004..0009 already used)
@@ -992,8 +1900,155 @@ let ipcNumberSeq = 9; // next gapless IPC/2526/00xx allocated at post (0004..000
  * across requests in the single-process mock backend — used by both `/release-retention`
  * (write) and the register `retainedHeld` computation (read).
  */
-interface MockRelease { id: string; ipcId: string; releaseDate: string; releasedAmount: string; entryNo: string; status: "POSTED"; postedAt: string; postedBy: string; }
+interface MockRelease {
+  id: string;
+  ipcId: string;
+  releaseDate: string;
+  releasedAmount: string;
+  entryNo: string;
+  status: "POSTED";
+  postedAt: string;
+  postedBy: string;
+}
 const MOCK_RELEASES: MockRelease[] = [];
+
+// ── Receipts sample (fe-receipt-list, dev/preview only) ──────────────────────────
+// A read-only collection register — both IPC-linked (references a POSTED IPC,
+// reduces its outstanding) and general/non-project receipts, one `RECEIPT` number
+// space per FY. `entryNo` is null while DRAFT (FR-REC-013). Party ids reuse the
+// shared MOCK_PARTIES pool; IPC-linked rows reference the posted IPCs above.
+interface MockReceipt {
+  id: string;
+  receiptType: "IPC_LINKED" | "GENERAL";
+  receiptDate: string;
+  paymentMode: "CASH" | "MFS" | "BANK_TRANSFER" | "CHEQUE";
+  partyId: string;
+  projectId: string | null;
+  ipcId: string | null;
+  amountSettled: string;
+  taxDeductedAtSource: string;
+  status: "DRAFT" | "POSTED" | "CANCELLED";
+  entryNo: string | null;
+}
+const MOCK_RECEIPTS: MockReceipt[] = [
+  {
+    id: "rec-1",
+    receiptType: "IPC_LINKED",
+    receiptDate: "2026-07-10",
+    paymentMode: "BANK_TRANSFER",
+    partyId: "pa-8",
+    projectId: "proj-a",
+    ipcId: "ipc-6",
+    amountSettled: "1162500.0000",
+    taxDeductedAtSource: "58125.0000",
+    status: "POSTED",
+    entryNo: "RCT/2526/0048",
+  },
+  {
+    id: "rec-2",
+    receiptType: "GENERAL",
+    receiptDate: "2026-07-08",
+    paymentMode: "MFS",
+    partyId: "pa-1",
+    projectId: null,
+    ipcId: null,
+    amountSettled: "240000.0000",
+    taxDeductedAtSource: "0.0000",
+    status: "POSTED",
+    entryNo: "RCT/2526/0047",
+  },
+  {
+    id: "rec-3",
+    receiptType: "IPC_LINKED",
+    receiptDate: "2026-07-07",
+    paymentMode: "CHEQUE",
+    partyId: "pa-8",
+    projectId: "proj-a",
+    ipcId: "ipc-6",
+    amountSettled: "775000.0000",
+    taxDeductedAtSource: "38750.0000",
+    status: "DRAFT",
+    entryNo: null,
+  },
+  {
+    id: "rec-4",
+    receiptType: "IPC_LINKED",
+    receiptDate: "2026-07-05",
+    paymentMode: "BANK_TRANSFER",
+    partyId: "pa-8",
+    projectId: "proj-a",
+    ipcId: "ipc-5",
+    amountSettled: "500000.0000",
+    taxDeductedAtSource: "25000.0000",
+    status: "POSTED",
+    entryNo: "RCT/2526/0046",
+  },
+  {
+    id: "rec-5",
+    receiptType: "GENERAL",
+    receiptDate: "2026-07-03",
+    paymentMode: "CASH",
+    partyId: "pa-7",
+    projectId: null,
+    ipcId: null,
+    amountSettled: "120000.0000",
+    taxDeductedAtSource: "0.0000",
+    status: "POSTED",
+    entryNo: "RCT/2526/0045",
+  },
+  {
+    id: "rec-6",
+    receiptType: "IPC_LINKED",
+    receiptDate: "2026-07-01",
+    paymentMode: "BANK_TRANSFER",
+    partyId: "pa-8",
+    projectId: "proj-a",
+    ipcId: "ipc-6",
+    amountSettled: "930000.0000",
+    taxDeductedAtSource: "46500.0000",
+    status: "CANCELLED",
+    entryNo: "RCT/2526/0044",
+  },
+  {
+    id: "rec-7",
+    receiptType: "GENERAL",
+    receiptDate: "2026-06-28",
+    paymentMode: "CHEQUE",
+    partyId: "pa-10",
+    projectId: null,
+    ipcId: null,
+    amountSettled: "350000.0000",
+    taxDeductedAtSource: "0.0000",
+    status: "POSTED",
+    entryNo: "RCT/2526/0043",
+  },
+  {
+    id: "rec-8",
+    receiptType: "GENERAL",
+    receiptDate: "2026-06-25",
+    paymentMode: "CASH",
+    partyId: "pa-nonexistent",
+    projectId: "proj-b",
+    ipcId: null,
+    amountSettled: "85000.0000",
+    taxDeductedAtSource: "0.0000",
+    status: "POSTED",
+    entryNo: "RCT/2526/0041",
+  },
+  {
+    id: "rec-9",
+    receiptType: "GENERAL",
+    receiptDate: "2026-06-20",
+    paymentMode: "BANK_TRANSFER",
+    partyId: "pa-4",
+    projectId: "proj-b",
+    ipcId: null,
+    amountSettled: "200000.0000",
+    taxDeductedAtSource: "0.0000",
+    status: "POSTED",
+    entryNo: "RCT/2526/0040",
+  },
+];
 
 function ipcResource(i: MockIpc) {
   const currentlyDue = ipcCurrentlyDue(i);
@@ -1130,10 +2185,14 @@ export async function mockNestjsFetch(req: MockReq): Promise<MockResult> {
     const refreshToken = String(body.refreshToken ?? "");
     const parsed = readRefresh(refreshToken);
     if (!parsed || revokedJtis.has(parsed.jti)) {
-      return { status: 401, body: envelope("INVALID_CREDENTIALS", "Refresh token invalid or revoked") };
+      return {
+        status: 401,
+        body: envelope("INVALID_CREDENTIALS", "Refresh token invalid or revoked"),
+      };
     }
     const user = USERS[parsed.userKey];
-    if (!user) return { status: 401, body: envelope("INVALID_CREDENTIALS", "Refresh token invalid") };
+    if (!user)
+      return { status: 401, body: envelope("INVALID_CREDENTIALS", "Refresh token invalid") };
     if (!user.isActive) return { status: 403, body: envelope("FORBIDDEN", "Account deactivated") };
     // Rotate: revoke the old jti, mint a fresh access + refresh.
     revokedJtis.add(parsed.jti);
@@ -1160,7 +2219,8 @@ export async function mockNestjsFetch(req: MockReq): Promise<MockResult> {
     if (!req.bearer) return { status: 401, body: envelope("UNAUTHORIZED", "Missing token") };
     const access = readAccess(req.bearer);
     if (!access) return { status: 401, body: envelope("UNAUTHORIZED", "Malformed token") };
-    if (access.expired) return { status: 401, body: envelope("TOKEN_EXPIRED", "Access token expired") };
+    if (access.expired)
+      return { status: 401, body: envelope("TOKEN_EXPIRED", "Access token expired") };
     const current = String(body.currentPassword ?? "");
     const user = USERS[access.userKey];
     if (!user || user.password !== current) {
@@ -1173,7 +2233,8 @@ export async function mockNestjsFetch(req: MockReq): Promise<MockResult> {
   if (!req.bearer) return { status: 401, body: envelope("UNAUTHORIZED", "Missing access token") };
   const access = readAccess(req.bearer);
   if (!access) return { status: 401, body: envelope("UNAUTHORIZED", "Malformed access token") };
-  if (access.expired) return { status: 401, body: envelope("TOKEN_EXPIRED", "Access token expired") };
+  if (access.expired)
+    return { status: 401, body: envelope("TOKEN_EXPIRED", "Access token expired") };
   const user = USERS[access.userKey];
   if (!user) return { status: 401, body: envelope("UNAUTHORIZED", "Unknown subject") };
   if (!user.isActive) return { status: 403, body: envelope("FORBIDDEN", "Account deactivated") };
@@ -1189,7 +2250,12 @@ export async function mockNestjsFetch(req: MockReq): Promise<MockResult> {
   const params = new URLSearchParams(rawQuery);
   const pageEnvelope = (rows: unknown[]) => ({
     data: rows,
-    meta: { requestId: `mock-${jtiCounterSeed}`, page: 1, pageSize: rows.length || 25, total: rows.length },
+    meta: {
+      requestId: `mock-${jtiCounterSeed}`,
+      page: 1,
+      pageSize: rows.length || 25,
+      total: rows.length,
+    },
   });
 
   // GET /masters/projects — list (PM sees only assigned projects; Admin sees all).
@@ -1234,10 +2300,16 @@ export async function mockNestjsFetch(req: MockReq): Promise<MockResult> {
   const entryMatch = /^\/ledger\/entries\/([^/]+)$/.exec(pathname ?? "");
   if (entryMatch && req.method === "GET") {
     if (user.role === "PROJECT_MANAGER") {
-      return { status: 403, body: envelope("FORBIDDEN", "You don't have access to the ledger detail for this IPC.") };
+      return {
+        status: 403,
+        body: envelope("FORBIDDEN", "You don't have access to the ledger detail for this IPC."),
+      };
     }
     const entryId = entryMatch[1]!;
-    const ipc = MOCK_IPCS.find((i) => i.journalEntryId === entryId || `je-${i.id}` === entryId || `je-${i.id}-v2` === entryId);
+    const ipc = MOCK_IPCS.find(
+      (i) =>
+        i.journalEntryId === entryId || `je-${i.id}` === entryId || `je-${i.id}-v2` === entryId,
+    );
     if (!ipc) {
       // Bill viewer's balanced-lines panel reads the same LED endpoint (fe-purchase-bills).
       const bill = MOCK_BILLS.find((b) => b.journalEntryId === entryId);
@@ -1246,12 +2318,84 @@ export async function mockNestjsFetch(req: MockReq): Promise<MockResult> {
     }
     const zero = "0.0000";
     const lines = [
-      { id: `${entryId}-l1`, lineNo: 1, accountId: "1200", projectId: null, costCentreId: null, purposeId: null, godownId: null, partyId: ipc.customerId, debit: ipcCurrentlyDue(ipc), credit: zero, narration: null },
-      { id: `${entryId}-l2`, lineNo: 2, accountId: "1210", projectId: null, costCentreId: null, purposeId: null, godownId: null, partyId: ipc.customerId, debit: ipc.retentionAmount, credit: zero, narration: null },
-      { id: `${entryId}-l3`, lineNo: 3, accountId: "1310", projectId: null, costCentreId: null, purposeId: null, godownId: null, partyId: ipc.customerId, debit: ipc.advanceRecoveredAmount, credit: zero, narration: null },
-      { id: `${entryId}-l4`, lineNo: 4, accountId: "1450", projectId: null, costCentreId: null, purposeId: null, godownId: null, partyId: null, debit: ipc.aitTdsAmount, credit: zero, narration: null },
-      { id: `${entryId}-l5`, lineNo: 5, accountId: "4100", projectId: ipc.projectId, costCentreId: ipc.costCentreId, purposeId: ipc.purposeId, godownId: null, partyId: null, debit: zero, credit: ipc.certifiedAmount, narration: null },
-      { id: `${entryId}-l6`, lineNo: 6, accountId: "2310", projectId: ipc.projectId, costCentreId: ipc.costCentreId, purposeId: ipc.purposeId, godownId: null, partyId: null, debit: zero, credit: ipc.outputVatAmount, narration: null },
+      {
+        id: `${entryId}-l1`,
+        lineNo: 1,
+        accountId: "1200",
+        projectId: null,
+        costCentreId: null,
+        purposeId: null,
+        godownId: null,
+        partyId: ipc.customerId,
+        debit: ipcCurrentlyDue(ipc),
+        credit: zero,
+        narration: null,
+      },
+      {
+        id: `${entryId}-l2`,
+        lineNo: 2,
+        accountId: "1210",
+        projectId: null,
+        costCentreId: null,
+        purposeId: null,
+        godownId: null,
+        partyId: ipc.customerId,
+        debit: ipc.retentionAmount,
+        credit: zero,
+        narration: null,
+      },
+      {
+        id: `${entryId}-l3`,
+        lineNo: 3,
+        accountId: "1310",
+        projectId: null,
+        costCentreId: null,
+        purposeId: null,
+        godownId: null,
+        partyId: ipc.customerId,
+        debit: ipc.advanceRecoveredAmount,
+        credit: zero,
+        narration: null,
+      },
+      {
+        id: `${entryId}-l4`,
+        lineNo: 4,
+        accountId: "1450",
+        projectId: null,
+        costCentreId: null,
+        purposeId: null,
+        godownId: null,
+        partyId: null,
+        debit: ipc.aitTdsAmount,
+        credit: zero,
+        narration: null,
+      },
+      {
+        id: `${entryId}-l5`,
+        lineNo: 5,
+        accountId: "4100",
+        projectId: ipc.projectId,
+        costCentreId: ipc.costCentreId,
+        purposeId: ipc.purposeId,
+        godownId: null,
+        partyId: null,
+        debit: zero,
+        credit: ipc.certifiedAmount,
+        narration: null,
+      },
+      {
+        id: `${entryId}-l6`,
+        lineNo: 6,
+        accountId: "2310",
+        projectId: ipc.projectId,
+        costCentreId: ipc.costCentreId,
+        purposeId: ipc.purposeId,
+        godownId: null,
+        partyId: null,
+        debit: zero,
+        credit: ipc.outputVatAmount,
+        narration: null,
+      },
     ];
     const totalDr = lines.reduce((s, l) => s + Number(l.debit), 0).toFixed(4);
     const totalCr = lines.reduce((s, l) => s + Number(l.credit), 0).toFixed(4);
@@ -1277,7 +2421,11 @@ export async function mockNestjsFetch(req: MockReq): Promise<MockResult> {
     const statusCsv = params.get("status");
     const wanted = statusCsv ? new Set(statusCsv.split(",")) : null;
     // PM scope: reject an unassigned project (FR-CC-016).
-    if (projectId && user.assignedProjectIds.length > 0 && !user.assignedProjectIds.includes(projectId)) {
+    if (
+      projectId &&
+      user.assignedProjectIds.length > 0 &&
+      !user.assignedProjectIds.includes(projectId)
+    ) {
       return { status: 403, body: envelope("FORBIDDEN", "You don't have access to this project.") };
     }
     let rows: Array<Record<string, unknown>> = [];
@@ -1299,18 +2447,27 @@ export async function mockNestjsFetch(req: MockReq): Promise<MockResult> {
     const statusCsv = params.get("status");
     const wanted = statusCsv ? new Set(statusCsv.split(",")) : new Set(["OVER", "APPROACHING"]);
     // PM scope: reject an unassigned project filter (FR-CC-016).
-    if (projectId && user.assignedProjectIds.length > 0 && !user.assignedProjectIds.includes(projectId)) {
+    if (
+      projectId &&
+      user.assignedProjectIds.length > 0 &&
+      !user.assignedProjectIds.includes(projectId)
+    ) {
       return { status: 403, body: envelope("FORBIDDEN", "You don't have access to this project.") };
     }
     const scopedProject = projectId || user.assignedProjectIds[0] || "proj-a";
-    let rows = MOCK_BVA_ROWS.filter((r) => r.status === "OVER" || r.status === "APPROACHING").map((r) => ({
-      projectId: scopedProject,
-      ...r,
-    }));
+    let rows = MOCK_BVA_ROWS.filter((r) => r.status === "OVER" || r.status === "APPROACHING").map(
+      (r) => ({
+        projectId: scopedProject,
+        ...r,
+      }),
+    );
     rows = rows.filter((r) => wanted.has(r.status));
     // Sort OVER before APPROACHING, then utilisation descending (spec §5).
     const rank = (s: string) => (s === "OVER" ? 0 : 1);
-    rows.sort((a, b) => rank(a.status) - rank(b.status) || Number(b.utilisationPct) - Number(a.utilisationPct));
+    rows.sort(
+      (a, b) =>
+        rank(a.status) - rank(b.status) || Number(b.utilisationPct) - Number(a.utilisationPct),
+    );
     return { status: 200, body: pageEnvelope(rows) };
   }
 
@@ -1323,21 +2480,32 @@ export async function mockNestjsFetch(req: MockReq): Promise<MockResult> {
     const dateFrom = params.get("dateFrom");
     const dateTo = params.get("dateTo");
     if (dateFrom && dateTo && dateFrom > dateTo) {
-      return { status: 400, body: envelope("VALIDATION_ERROR", "'Date from' must be before 'Date to'.") };
+      return {
+        status: 400,
+        body: envelope("VALIDATION_ERROR", "'Date from' must be before 'Date to'."),
+      };
     }
-    if (projectId && user.assignedProjectIds.length > 0 && !user.assignedProjectIds.includes(projectId)) {
+    if (
+      projectId &&
+      user.assignedProjectIds.length > 0 &&
+      !user.assignedProjectIds.includes(projectId)
+    ) {
       return { status: 403, body: envelope("FORBIDDEN", "You don't have access to this project.") };
     }
     let rows: Array<Record<string, unknown>>;
     if (groupBy === "project") {
       rows = MOCK_PROFITABILITY_BY_PROJECT.map((r) => ({ costCentreId: null, ...r }));
     } else if (groupBy === "project_cost_centre") {
-      rows = MOCK_PROFITABILITY.slice(0, 4).map((r) => ({ projectId: projectId || "proj-a", ...r }));
+      rows = MOCK_PROFITABILITY.slice(0, 4).map((r) => ({
+        projectId: projectId || "proj-a",
+        ...r,
+      }));
     } else {
       rows = MOCK_PROFITABILITY.map((r) => ({ projectId: null, ...r }));
     }
     if (costCentreId) rows = rows.filter((r) => r.costCentreId === costCentreId);
-    if (projectId && groupBy !== "cost_centre") rows = rows.filter((r) => r.projectId === projectId);
+    if (projectId && groupBy !== "cost_centre")
+      rows = rows.filter((r) => r.projectId === projectId);
     return { status: 200, body: pageEnvelope(rows) };
   }
 
@@ -1417,8 +2585,7 @@ export async function mockNestjsFetch(req: MockReq): Promise<MockResult> {
         email: b.email !== undefined ? b.email : target.email,
         paymentTermsDays:
           b.paymentTermsDays !== undefined ? b.paymentTermsDays : target.paymentTermsDays,
-        openingBalance:
-          b.openingBalance !== undefined ? b.openingBalance : target.openingBalance,
+        openingBalance: b.openingBalance !== undefined ? b.openingBalance : target.openingBalance,
         version: target.version + 1,
       });
       return { status: 200, body: success(target) };
@@ -1496,15 +2663,63 @@ export async function mockNestjsFetch(req: MockReq): Promise<MockResult> {
     return {
       status: 200,
       body: pageEnvelope([
-        { id: "1200", code: "1200", name: "Accounts Receivable", accountType: "ASSET", isActive: true },
-        { id: "1210", code: "1210", name: "Retention Receivable", accountType: "ASSET", isActive: true },
-        { id: "1310", code: "1310", name: "Advance to Contractor (recovery)", accountType: "ASSET", isActive: true },
-        { id: "1450", code: "1450", name: "AIT / TDS Receivable", accountType: "ASSET", isActive: true },
-        { id: "4100", code: "4100", name: "Contract Revenue", accountType: "REVENUE", isActive: true },
-        { id: "2310", code: "2310", name: "Output VAT Payable", accountType: "LIABILITY", isActive: true },
+        {
+          id: "1200",
+          code: "1200",
+          name: "Accounts Receivable",
+          accountType: "ASSET",
+          isActive: true,
+        },
+        {
+          id: "1210",
+          code: "1210",
+          name: "Retention Receivable",
+          accountType: "ASSET",
+          isActive: true,
+        },
+        {
+          id: "1310",
+          code: "1310",
+          name: "Advance to Contractor (recovery)",
+          accountType: "ASSET",
+          isActive: true,
+        },
+        {
+          id: "1450",
+          code: "1450",
+          name: "AIT / TDS Receivable",
+          accountType: "ASSET",
+          isActive: true,
+        },
+        {
+          id: "4100",
+          code: "4100",
+          name: "Contract Revenue",
+          accountType: "REVENUE",
+          isActive: true,
+        },
+        {
+          id: "2310",
+          code: "2310",
+          name: "Output VAT Payable",
+          accountType: "LIABILITY",
+          isActive: true,
+        },
         { id: "1010", code: "1010", name: "Cash in Hand", accountType: "ASSET", isActive: true },
-        { id: "1020", code: "1020", name: "Bank — Operating", accountType: "ASSET", isActive: true },
-        { id: "5100", code: "5100", name: "Material Expense", accountType: "EXPENSE", isActive: true },
+        {
+          id: "1020",
+          code: "1020",
+          name: "Bank — Operating",
+          accountType: "ASSET",
+          isActive: true,
+        },
+        {
+          id: "5100",
+          code: "5100",
+          name: "Material Expense",
+          accountType: "EXPENSE",
+          isActive: true,
+        },
       ]),
     };
   }
@@ -1523,9 +2738,11 @@ export async function mockNestjsFetch(req: MockReq): Promise<MockResult> {
   }
 
   // ── Stock ledger reads (matched BEFORE /stock-journal/:id) ──
-  const godownProject = (gid: string): string | null => MOCK_GODOWNS.find((g) => g.id === gid)?.projectId ?? null;
+  const godownProject = (gid: string): string | null =>
+    MOCK_GODOWNS.find((g) => g.id === gid)?.projectId ?? null;
   const inScope = (projectId: string | null) =>
-    user.assignedProjectIds.length === 0 || (projectId ? user.assignedProjectIds.includes(projectId) : true);
+    user.assignedProjectIds.length === 0 ||
+    (projectId ? user.assignedProjectIds.includes(projectId) : true);
 
   if (pathname === "/stock-journal/stock-ledger" && req.method === "GET") {
     const godownId = params.get("godownId");
@@ -1533,7 +2750,10 @@ export async function mockNestjsFetch(req: MockReq): Promise<MockResult> {
     const projectId = params.get("projectId");
     const asOf = params.get("asOfDate") ?? "2026-07-07";
     if (projectId && !inScope(projectId)) {
-      return { status: 403, body: envelope("FORBIDDEN", "You can only view your assigned projects' godowns.") };
+      return {
+        status: 403,
+        body: envelope("FORBIDDEN", "You can only view your assigned projects' godowns."),
+      };
     }
     let rows = MOCK_STOCK_LEDGER.filter((r) => inScope(godownProject(r.godownId)));
     if (godownId) rows = rows.filter((r) => r.godownId === godownId);
@@ -1546,10 +2766,16 @@ export async function mockNestjsFetch(req: MockReq): Promise<MockResult> {
     const godownId = params.get("godownId") ?? "";
     const itemId = params.get("itemId") ?? "";
     if (!godownId || !itemId) {
-      return { status: 400, body: envelope("VALIDATION_ERROR", "godownId and itemId are required.") };
+      return {
+        status: 400,
+        body: envelope("VALIDATION_ERROR", "godownId and itemId are required."),
+      };
     }
     if (!inScope(godownProject(godownId))) {
-      return { status: 403, body: envelope("FORBIDDEN", "You can only view your assigned projects' godowns.") };
+      return {
+        status: 403,
+        body: envelope("FORBIDDEN", "You can only view your assigned projects' godowns."),
+      };
     }
     let rows = MOCK_STOCK_MOVEMENTS[`${godownId}:${itemId}`] ?? [];
     const from = params.get("dateFrom");
@@ -1561,7 +2787,8 @@ export async function mockNestjsFetch(req: MockReq): Promise<MockResult> {
 
   // ── Stock Journal list + create ──
   const scopeOk = (projectId: string | null) =>
-    user.assignedProjectIds.length === 0 || (projectId ? user.assignedProjectIds.includes(projectId) : true);
+    user.assignedProjectIds.length === 0 ||
+    (projectId ? user.assignedProjectIds.includes(projectId) : true);
 
   if (pathname === "/stock-journal" && req.method === "GET") {
     const statusF = params.get("status");
@@ -1584,17 +2811,50 @@ export async function mockNestjsFetch(req: MockReq): Promise<MockResult> {
     const out = lines.find((l) => l.side === "OUT") ?? {};
     const inn = lines.find((l) => l.side === "IN");
     if (b.mode === "TRANSFER" && out.godownId && inn?.godownId && out.godownId === inn.godownId) {
-      return { status: 400, body: envelope("SAME_GODOWN_TRANSFER", "Source and destination can't be the same godown.") };
+      return {
+        status: 400,
+        body: envelope("SAME_GODOWN_TRANSFER", "Source and destination can't be the same godown."),
+      };
     }
     const id = `sj-${(sjSeq += 1)}`;
     const nj: MockSJ = {
-      id, entryNo: null, voucherDate: String(b.voucherDate ?? ""), mode: b.mode as MockSJ["mode"], status: "DRAFT",
-      fromGodownId: out.godownId ?? null, toGodownId: inn?.godownId ?? null, itemId: String(b.itemId ?? ""), quantity: String(b.quantity ?? "0"),
-      rate: null, value: null, projectId: out.projectId ?? null, costCentreId: out.costCentreId ?? null, purposeId: out.purposeId ?? null,
-      issuedById: (b.issuedById as string) ?? null, receivedById: (b.receivedById as string) ?? null, approvedById: null, approvedAt: null,
-      negativeStockAuthorisedById: null, negativeStockReason: null, journalEntryId: null, narration: (b.narration as string) ?? null,
-      postedAt: null, postedById: null, version: 1,
-      lines: lines.map((l, i) => ({ lineNo: i + 1, side: l.side as "OUT" | "IN", godownId: l.godownId ?? "", itemId: String(b.itemId ?? ""), quantity: String(b.quantity ?? "0"), rate: null, value: null, projectId: l.projectId ?? "", costCentreId: l.costCentreId ?? "", purposeId: l.purposeId ?? "" })),
+      id,
+      entryNo: null,
+      voucherDate: String(b.voucherDate ?? ""),
+      mode: b.mode as MockSJ["mode"],
+      status: "DRAFT",
+      fromGodownId: out.godownId ?? null,
+      toGodownId: inn?.godownId ?? null,
+      itemId: String(b.itemId ?? ""),
+      quantity: String(b.quantity ?? "0"),
+      rate: null,
+      value: null,
+      projectId: out.projectId ?? null,
+      costCentreId: out.costCentreId ?? null,
+      purposeId: out.purposeId ?? null,
+      issuedById: (b.issuedById as string) ?? null,
+      receivedById: (b.receivedById as string) ?? null,
+      approvedById: null,
+      approvedAt: null,
+      negativeStockAuthorisedById: null,
+      negativeStockReason: null,
+      journalEntryId: null,
+      narration: (b.narration as string) ?? null,
+      postedAt: null,
+      postedById: null,
+      version: 1,
+      lines: lines.map((l, i) => ({
+        lineNo: i + 1,
+        side: l.side as "OUT" | "IN",
+        godownId: l.godownId ?? "",
+        itemId: String(b.itemId ?? ""),
+        quantity: String(b.quantity ?? "0"),
+        rate: null,
+        value: null,
+        projectId: l.projectId ?? "",
+        costCentreId: l.costCentreId ?? "",
+        purposeId: l.purposeId ?? "",
+      })),
     };
     MOCK_STOCK_JOURNALS.unshift(nj);
     return { status: 201, body: success(nj) };
@@ -1607,65 +2867,136 @@ export async function mockNestjsFetch(req: MockReq): Promise<MockResult> {
     const action = sjm[2];
     const j = MOCK_STOCK_JOURNALS.find((x) => x.id === id);
     if (!j) return { status: 404, body: envelope("NOT_FOUND", "Stock Journal not found") };
-    if (!scopeOk(j.projectId)) return { status: 403, body: envelope("FORBIDDEN", "You don't have access to this Stock Journal.") };
+    if (!scopeOk(j.projectId))
+      return {
+        status: 403,
+        body: envelope("FORBIDDEN", "You don't have access to this Stock Journal."),
+      };
     const b = body as Record<string, unknown>;
 
     if (req.method === "GET" && !action) return { status: 200, body: success(j) };
 
     if (req.method === "PATCH" && !action) {
-      if (j.status !== "DRAFT") return { status: 409, body: envelope("VOUCHER_POSTED_IMMUTABLE", "Posted Stock Journals can't be edited.") };
+      if (j.status !== "DRAFT")
+        return {
+          status: 409,
+          body: envelope("VOUCHER_POSTED_IMMUTABLE", "Posted Stock Journals can't be edited."),
+        };
       const lines = (Array.isArray(b.lines) ? b.lines : j.lines) as Array<Record<string, string>>;
       const out = lines.find((l) => l.side === "OUT") ?? {};
       const inn = lines.find((l) => l.side === "IN");
       if (b.mode === "TRANSFER" && out.godownId && inn?.godownId && out.godownId === inn.godownId) {
-        return { status: 400, body: envelope("SAME_GODOWN_TRANSFER", "Source and destination can't be the same godown.") };
+        return {
+          status: 400,
+          body: envelope(
+            "SAME_GODOWN_TRANSFER",
+            "Source and destination can't be the same godown.",
+          ),
+        };
       }
       Object.assign(j, {
-        voucherDate: b.voucherDate ?? j.voucherDate, mode: b.mode ?? j.mode, itemId: b.itemId ?? j.itemId, quantity: b.quantity ?? j.quantity,
-        issuedById: b.issuedById ?? j.issuedById, receivedById: b.receivedById ?? j.receivedById, narration: b.narration ?? j.narration,
-        fromGodownId: out.godownId ?? j.fromGodownId, toGodownId: inn?.godownId ?? null, projectId: out.projectId ?? j.projectId,
-        costCentreId: out.costCentreId ?? j.costCentreId, purposeId: out.purposeId ?? j.purposeId, version: j.version + 1,
+        voucherDate: b.voucherDate ?? j.voucherDate,
+        mode: b.mode ?? j.mode,
+        itemId: b.itemId ?? j.itemId,
+        quantity: b.quantity ?? j.quantity,
+        issuedById: b.issuedById ?? j.issuedById,
+        receivedById: b.receivedById ?? j.receivedById,
+        narration: b.narration ?? j.narration,
+        fromGodownId: out.godownId ?? j.fromGodownId,
+        toGodownId: inn?.godownId ?? null,
+        projectId: out.projectId ?? j.projectId,
+        costCentreId: out.costCentreId ?? j.costCentreId,
+        purposeId: out.purposeId ?? j.purposeId,
+        version: j.version + 1,
       });
       return { status: 200, body: success(j) };
     }
 
     if (req.method === "DELETE" && !action) {
-      if (j.status !== "DRAFT") return { status: 409, body: envelope("VOUCHER_POSTED_IMMUTABLE", "Posted Stock Journals can't be deleted.") };
+      if (j.status !== "DRAFT")
+        return {
+          status: 409,
+          body: envelope("VOUCHER_POSTED_IMMUTABLE", "Posted Stock Journals can't be deleted."),
+        };
       const idx = MOCK_STOCK_JOURNALS.indexOf(j);
       MOCK_STOCK_JOURNALS.splice(idx, 1);
       return { status: 204, body: null };
     }
 
     if (req.method === "POST" && action === "approve") {
-      if (j.status !== "DRAFT") return { status: 409, body: envelope("INVALID_STOCK_JOURNAL_TRANSITION", "Only a draft can be approved.") };
-      j.status = "APPROVED"; j.approvedById = user.id; j.approvedAt = new Date().toISOString(); j.version += 1;
+      if (j.status !== "DRAFT")
+        return {
+          status: 409,
+          body: envelope("INVALID_STOCK_JOURNAL_TRANSITION", "Only a draft can be approved."),
+        };
+      j.status = "APPROVED";
+      j.approvedById = user.id;
+      j.approvedAt = new Date().toISOString();
+      j.version += 1;
       return { status: 200, body: success(j) };
     }
 
     if (req.method === "POST" && action === "post") {
-      if (j.status !== "APPROVED") return { status: 409, body: envelope("STOCK_JOURNAL_NOT_APPROVED", "This Stock Journal must be approved before it can be posted.") };
-      const bal = MOCK_STOCK_LEDGER.find((r) => r.godownId === j.fromGodownId && r.itemId === j.itemId);
+      if (j.status !== "APPROVED")
+        return {
+          status: 409,
+          body: envelope(
+            "STOCK_JOURNAL_NOT_APPROVED",
+            "This Stock Journal must be approved before it can be posted.",
+          ),
+        };
+      const bal = MOCK_STOCK_LEDGER.find(
+        (r) => r.godownId === j.fromGodownId && r.itemId === j.itemId,
+      );
       const onHand = bal ? Number(bal.quantityOnHand) : 0;
       const allow = b.allowNegativeStock === true;
       if (Number(j.quantity) > onHand) {
         if (!allow || user.role !== "ADMIN") {
-          return { status: 409, body: envelope("NEGATIVE_STOCK_BLOCKED", "This would take the item below zero. You don't have authorisation to allow negative stock.") };
+          return {
+            status: 409,
+            body: envelope(
+              "NEGATIVE_STOCK_BLOCKED",
+              "This would take the item below zero. You don't have authorisation to allow negative stock.",
+            ),
+          };
         }
-        j.negativeStockAuthorisedById = user.id; j.negativeStockReason = (b.negativeStockReason as string) ?? null;
+        j.negativeStockAuthorisedById = user.id;
+        j.negativeStockReason = (b.negativeStockReason as string) ?? null;
       }
       const rate = bal?.weightedAverageRate ?? "0.0000";
-      j.status = "POSTED"; j.postedAt = new Date().toISOString(); j.postedById = user.id;
-      j.rate = rate; j.value = (Number(rate) * Number(j.quantity)).toFixed(4);
-      if (j.mode === "TRANSFER") { j.entryNo = null; j.journalEntryId = null; } // value-neutral
-      else { j.entryNo = `SJ/2526/${String((sjNumberSeq += 1)).padStart(4, "0")}`; j.journalEntryId = `je-${j.id}`; }
+      j.status = "POSTED";
+      j.postedAt = new Date().toISOString();
+      j.postedById = user.id;
+      j.rate = rate;
+      j.value = (Number(rate) * Number(j.quantity)).toFixed(4);
+      if (j.mode === "TRANSFER") {
+        j.entryNo = null;
+        j.journalEntryId = null;
+      } // value-neutral
+      else {
+        j.entryNo = `SJ/2526/${String((sjNumberSeq += 1)).padStart(4, "0")}`;
+        j.journalEntryId = `je-${j.id}`;
+      }
       j.version += 1;
       return { status: 200, body: success(j) };
     }
 
     if (req.method === "POST" && action === "reverse") {
-      if (j.status === "CANCELLED") return { status: 409, body: envelope("ALREADY_REVERSED", "This Stock Journal has already been reversed.") };
-      if (j.status !== "POSTED") return { status: 409, body: envelope("INVALID_STOCK_JOURNAL_TRANSITION", "Only a posted journal can be reversed.") };
-      j.status = "CANCELLED"; j.version += 1;
+      if (j.status === "CANCELLED")
+        return {
+          status: 409,
+          body: envelope("ALREADY_REVERSED", "This Stock Journal has already been reversed."),
+        };
+      if (j.status !== "POSTED")
+        return {
+          status: 409,
+          body: envelope(
+            "INVALID_STOCK_JOURNAL_TRANSITION",
+            "Only a posted journal can be reversed.",
+          ),
+        };
+      j.status = "CANCELLED";
+      j.version += 1;
       return { status: 200, body: success(j) };
     }
   }
@@ -1703,16 +3034,38 @@ export async function mockNestjsFetch(req: MockReq): Promise<MockResult> {
     const b = body as Partial<MockIpc> & { version?: number };
     const project = MOCK_PROJECTS.find((p) => p.id === b.projectId);
     if (!project) return { status: 404, body: envelope("NOT_FOUND", "Project not found") };
-    if (!scopeOk(project.id)) return { status: 403, body: envelope("FORBIDDEN", "You don't have access to this project.") };
-    if (project.status === "CLOSED") return { status: 409, body: envelope("PROJECT_CLOSED", "This project is closed and can't accept new IPCs.") };
+    if (!scopeOk(project.id))
+      return { status: 403, body: envelope("FORBIDDEN", "You don't have access to this project.") };
+    if (project.status === "CLOSED")
+      return {
+        status: 409,
+        body: envelope("PROJECT_CLOSED", "This project is closed and can't accept new IPCs."),
+      };
     const seqNo = Number(b.ipcSeqNo ?? 0);
-    if (Number(b.certifiedAmount ?? 0) <= 0) return { status: 400, body: envelope("VALIDATION_ERROR", "Certified amount must be greater than zero.") };
-    if ((b.dueDate ?? "") < (b.billDate ?? "")) return { status: 400, body: envelope("VALIDATION_ERROR", "Due date can't be before the bill date.") };
+    if (Number(b.certifiedAmount ?? 0) <= 0)
+      return {
+        status: 400,
+        body: envelope("VALIDATION_ERROR", "Certified amount must be greater than zero."),
+      };
+    if ((b.dueDate ?? "") < (b.billDate ?? ""))
+      return {
+        status: 400,
+        body: envelope("VALIDATION_ERROR", "Due date can't be before the bill date."),
+      };
     if (MOCK_IPCS.some((i) => i.projectId === project.id && i.ipcSeqNo === seqNo)) {
-      return { status: 409, body: envelope("DUPLICATE_IPC_SEQ_NO", `This project already has IPC #${seqNo}.`) };
+      return {
+        status: 409,
+        body: envelope("DUPLICATE_IPC_SEQ_NO", `This project already has IPC #${seqNo}.`),
+      };
     }
     if (Number(b.advanceRecoveredAmount ?? 0) > Number(project.remainingAdvance)) {
-      return { status: 409, body: envelope("ADVANCE_EXCEEDS_REMAINING", "Advance recovered exceeds the remaining project advance.") };
+      return {
+        status: 409,
+        body: envelope(
+          "ADVANCE_EXCEEDS_REMAINING",
+          "Advance recovered exceeds the remaining project advance.",
+        ),
+      };
     }
     const draft = mkIpc({
       id: `ipc-${(ipcSeq += 1)}`,
@@ -1733,9 +3086,23 @@ export async function mockNestjsFetch(req: MockReq): Promise<MockResult> {
       narration: b.narration ?? null,
       status: "DRAFT",
     });
-    if (Number(ipcCurrentlyDue(draft)) === 0 && Number(draft.certifiedAmount) > 0 &&
-      Number(draft.certifiedAmount) + Number(draft.outputVatAmount) - Number(draft.retentionAmount) - Number(draft.advanceRecoveredAmount) - Number(draft.aitTdsAmount) < 0) {
-      return { status: 400, body: envelope("CURRENTLY_DUE_NEGATIVE", "These figures make the currently-due amount negative.") };
+    if (
+      Number(ipcCurrentlyDue(draft)) === 0 &&
+      Number(draft.certifiedAmount) > 0 &&
+      Number(draft.certifiedAmount) +
+        Number(draft.outputVatAmount) -
+        Number(draft.retentionAmount) -
+        Number(draft.advanceRecoveredAmount) -
+        Number(draft.aitTdsAmount) <
+        0
+    ) {
+      return {
+        status: 400,
+        body: envelope(
+          "CURRENTLY_DUE_NEGATIVE",
+          "These figures make the currently-due amount negative.",
+        ),
+      };
     }
     MOCK_IPCS.unshift(draft);
     return { status: 201, body: success({ id: draft.id }) };
@@ -1747,7 +3114,10 @@ export async function mockNestjsFetch(req: MockReq): Promise<MockResult> {
   // posted IPC. `MOCK_RELEASES` is declared at module scope above so state persists across
   // requests (a per-request local was the earlier bug that made releases invisible on refetch).
   const releasedTotal = (ipcId: string) =>
-    MOCK_RELEASES.filter((r) => r.ipcId === ipcId).reduce((sum, r) => sum + Number(r.releasedAmount), 0);
+    MOCK_RELEASES.filter((r) => r.ipcId === ipcId).reduce(
+      (sum, r) => sum + Number(r.releasedAmount),
+      0,
+    );
   const ipcHeldNet = (i: MockIpc) => {
     if (i.status !== "POSTED") return "0.0000";
     return (Number(i.retentionAmount) - releasedTotal(i.id)).toFixed(4);
@@ -1758,12 +3128,19 @@ export async function mockNestjsFetch(req: MockReq): Promise<MockResult> {
     const projectId = registerMatch[1]!;
     const project = MOCK_PROJECTS.find((p) => p.id === projectId);
     if (!project) return { status: 404, body: envelope("NOT_FOUND", "Project not found") };
-    if (!scopeOk(project.id)) return { status: 403, body: envelope("FORBIDDEN", "You don't have access to this project's register.") };
-    const posted = MOCK_IPCS
-      .filter((i) => i.projectId === projectId && i.status === "POSTED")
+    if (!scopeOk(project.id))
+      return {
+        status: 403,
+        body: envelope("FORBIDDEN", "You don't have access to this project's register."),
+      };
+    const posted = MOCK_IPCS.filter((i) => i.projectId === projectId && i.status === "POSTED")
       .slice()
       .sort((a, b) => a.ipcSeqNo - b.ipcSeqNo);
-    let cumC = 0, cumD = 0, cumR = 0, cumA = 0, cumRec = 0;
+    let cumC = 0,
+      cumD = 0,
+      cumR = 0,
+      cumA = 0,
+      cumRec = 0;
     const rows = posted.map((i) => {
       const cert = Number(i.certifiedAmount);
       const due = Number(ipcCurrentlyDue(i));
@@ -1773,7 +3150,10 @@ export async function mockNestjsFetch(req: MockReq): Promise<MockResult> {
       // (null receivedAmount) to exercise the state matrix; the rest resolve to "0.0000".
       const isPending = i.id === "ipc-7";
       const rec = isPending ? null : 0;
-      cumC += cert; cumD += due; cumR += ret; cumA += adv;
+      cumC += cert;
+      cumD += due;
+      cumR += ret;
+      cumA += adv;
       if (rec !== null) cumRec += rec;
       return {
         ipcId: i.id,
@@ -1805,13 +3185,16 @@ export async function mockNestjsFetch(req: MockReq): Promise<MockResult> {
     return { status: 200, body: success({ rows, totals }) };
   }
 
-  const releaseMatch = /^\/sales\/ipc\/([^/]+)\/(release-retention|retention-releases)$/.exec(pathname ?? "");
+  const releaseMatch = /^\/sales\/ipc\/([^/]+)\/(release-retention|retention-releases)$/.exec(
+    pathname ?? "",
+  );
   if (releaseMatch) {
     const id = releaseMatch[1]!;
     const kind = releaseMatch[2]!;
     const ipc = MOCK_IPCS.find((i) => i.id === id);
     if (!ipc) return { status: 404, body: envelope("NOT_FOUND", "IPC not found") };
-    if (!scopeOk(ipc.projectId)) return { status: 403, body: envelope("FORBIDDEN", "You don't have access to this IPC.") };
+    if (!scopeOk(ipc.projectId))
+      return { status: 403, body: envelope("FORBIDDEN", "You don't have access to this IPC.") };
 
     if (kind === "retention-releases" && req.method === "GET") {
       return { status: 200, body: success(MOCK_RELEASES.filter((r) => r.ipcId === id)) };
@@ -1819,23 +3202,44 @@ export async function mockNestjsFetch(req: MockReq): Promise<MockResult> {
 
     if (kind === "release-retention" && req.method === "POST") {
       if (ipc.status !== "POSTED") {
-        return { status: 409, body: envelope("VOUCHER_NOT_POSTED", "This IPC isn't posted yet — retention can only be released from a posted IPC.") };
+        return {
+          status: 409,
+          body: envelope(
+            "VOUCHER_NOT_POSTED",
+            "This IPC isn't posted yet — retention can only be released from a posted IPC.",
+          ),
+        };
       }
       const project = MOCK_PROJECTS.find((p) => p.id === ipc.projectId);
       if (project?.status === "CLOSED") {
-        return { status: 409, body: envelope("PROJECT_CLOSED", "This project is closed — release isn't allowed.") };
+        return {
+          status: 409,
+          body: envelope("PROJECT_CLOSED", "This project is closed — release isn't allowed."),
+        };
       }
       const b = body as { releaseDate?: string; releasedAmount?: string; narration?: string };
       if (!b.releaseDate || !/^\d{4}-\d{2}-\d{2}$/.test(b.releaseDate)) {
         return { status: 400, body: envelope("VALIDATION_ERROR", "Enter a valid release date.") };
       }
       const held = Number(ipcHeldNet(ipc));
-      const requested = b.releasedAmount != null && String(b.releasedAmount).trim() !== "" ? Number(b.releasedAmount) : held;
+      const requested =
+        b.releasedAmount != null && String(b.releasedAmount).trim() !== ""
+          ? Number(b.releasedAmount)
+          : held;
       if (requested <= 0) {
-        return { status: 400, body: envelope("VALIDATION_ERROR", "Enter an amount greater than zero.") };
+        return {
+          status: 400,
+          body: envelope("VALIDATION_ERROR", "Enter an amount greater than zero."),
+        };
       }
       if (requested > held + 1e-6) {
-        return { status: 409, body: envelope("OVER_RELEASE", `You can't release more than the retention held (৳${held.toFixed(4)}).`) };
+        return {
+          status: 409,
+          body: envelope(
+            "OVER_RELEASE",
+            `You can't release more than the retention held (৳${held.toFixed(4)}).`,
+          ),
+        };
       }
       const entryNo = `IPC/2526/${String((ipcNumberSeq += 1)).padStart(4, "0")}`;
       const release: MockRelease = {
@@ -1851,7 +3255,13 @@ export async function mockNestjsFetch(req: MockReq): Promise<MockResult> {
       MOCK_RELEASES.push(release);
       return {
         status: 201,
-        body: success({ id: release.id, ipcId: id, entryNo, releasedAmount: release.releasedAmount, status: "POSTED" }),
+        body: success({
+          id: release.id,
+          ipcId: id,
+          entryNo,
+          releasedAmount: release.releasedAmount,
+          status: "POSTED",
+        }),
       };
     }
   }
@@ -1862,7 +3272,8 @@ export async function mockNestjsFetch(req: MockReq): Promise<MockResult> {
     const action = ipcMatch[2];
     const ipc = MOCK_IPCS.find((i) => i.id === id);
     if (!ipc) return { status: 404, body: envelope("NOT_FOUND", "IPC not found") };
-    if (!scopeOk(ipc.projectId)) return { status: 403, body: envelope("FORBIDDEN", "You don't have access to this IPC.") };
+    if (!scopeOk(ipc.projectId))
+      return { status: 403, body: envelope("FORBIDDEN", "You don't have access to this IPC.") };
     const b = body as Partial<MockIpc> & { version?: number; reason?: string };
 
     if (req.method === "GET" && !action) {
@@ -1870,11 +3281,36 @@ export async function mockNestjsFetch(req: MockReq): Promise<MockResult> {
     }
 
     if (req.method === "PATCH" && !action) {
-      if (ipc.status !== "DRAFT") return { status: 409, body: envelope("VOUCHER_POSTED_IMMUTABLE", "This IPC has been posted and can no longer be edited.") };
-      if (b.version !== undefined && b.version !== ipc.version) return { status: 409, body: envelope("OPTIMISTIC_LOCK_CONFLICT", "This IPC was just changed by someone else.") };
+      if (ipc.status !== "DRAFT")
+        return {
+          status: 409,
+          body: envelope(
+            "VOUCHER_POSTED_IMMUTABLE",
+            "This IPC has been posted and can no longer be edited.",
+          ),
+        };
+      if (b.version !== undefined && b.version !== ipc.version)
+        return {
+          status: 409,
+          body: envelope("OPTIMISTIC_LOCK_CONFLICT", "This IPC was just changed by someone else."),
+        };
       const project = MOCK_PROJECTS.find((p) => p.id === (b.projectId ?? ipc.projectId));
-      if (b.ipcSeqNo !== undefined && MOCK_IPCS.some((i) => i.id !== ipc.id && i.projectId === (b.projectId ?? ipc.projectId) && i.ipcSeqNo === Number(b.ipcSeqNo))) {
-        return { status: 409, body: envelope("DUPLICATE_IPC_SEQ_NO", `This project already has IPC #${Number(b.ipcSeqNo)}.`) };
+      if (
+        b.ipcSeqNo !== undefined &&
+        MOCK_IPCS.some(
+          (i) =>
+            i.id !== ipc.id &&
+            i.projectId === (b.projectId ?? ipc.projectId) &&
+            i.ipcSeqNo === Number(b.ipcSeqNo),
+        )
+      ) {
+        return {
+          status: 409,
+          body: envelope(
+            "DUPLICATE_IPC_SEQ_NO",
+            `This project already has IPC #${Number(b.ipcSeqNo)}.`,
+          ),
+        };
       }
       Object.assign(ipc, {
         projectId: b.projectId ?? ipc.projectId,
@@ -1884,7 +3320,8 @@ export async function mockNestjsFetch(req: MockReq): Promise<MockResult> {
         billDate: b.billDate ?? ipc.billDate,
         dueDate: b.dueDate ?? ipc.dueDate,
         workCompletedPct: b.workCompletedPct ?? ipc.workCompletedPct,
-        certifiedAmount: b.certifiedAmount != null ? String(b.certifiedAmount) : ipc.certifiedAmount,
+        certifiedAmount:
+          b.certifiedAmount != null ? String(b.certifiedAmount) : ipc.certifiedAmount,
         costCentreId: b.costCentreId ?? ipc.costCentreId,
         purposeId: b.purposeId ?? ipc.purposeId,
         outputVatAmount: b.outputVatAmount ?? ipc.outputVatAmount,
@@ -1898,14 +3335,26 @@ export async function mockNestjsFetch(req: MockReq): Promise<MockResult> {
     }
 
     if (req.method === "DELETE" && !action) {
-      if (ipc.status !== "DRAFT") return { status: 409, body: envelope("VOUCHER_POSTED_IMMUTABLE", "Only a draft IPC can be discarded.") };
+      if (ipc.status !== "DRAFT")
+        return {
+          status: 409,
+          body: envelope("VOUCHER_POSTED_IMMUTABLE", "Only a draft IPC can be discarded."),
+        };
       MOCK_IPCS.splice(MOCK_IPCS.indexOf(ipc), 1);
       return { status: 204, body: null };
     }
 
     if (req.method === "POST" && action === "post") {
-      if (ipc.status !== "DRAFT") return { status: 409, body: envelope("VOUCHER_POSTED_IMMUTABLE", "This IPC has already been posted.") };
-      if (b.version !== undefined && b.version !== ipc.version) return { status: 409, body: envelope("OPTIMISTIC_LOCK_CONFLICT", "This IPC was just changed by someone else.") };
+      if (ipc.status !== "DRAFT")
+        return {
+          status: 409,
+          body: envelope("VOUCHER_POSTED_IMMUTABLE", "This IPC has already been posted."),
+        };
+      if (b.version !== undefined && b.version !== ipc.version)
+        return {
+          status: 409,
+          body: envelope("OPTIMISTIC_LOCK_CONFLICT", "This IPC was just changed by someone else."),
+        };
       const entryNo = `IPC/2526/${String((ipcNumberSeq += 1)).padStart(4, "0")}`;
       Object.assign(ipc, {
         status: "POSTED",
@@ -1915,26 +3364,68 @@ export async function mockNestjsFetch(req: MockReq): Promise<MockResult> {
         postedBy: user.id,
         version: ipc.version + 1,
       });
-      return { status: 200, body: success({ id: ipc.id, entryNo, journalEntryId: ipc.journalEntryId, status: "POSTED", currentlyDueAmount: ipcCurrentlyDue(ipc) }) };
+      return {
+        status: 200,
+        body: success({
+          id: ipc.id,
+          entryNo,
+          journalEntryId: ipc.journalEntryId,
+          status: "POSTED",
+          currentlyDueAmount: ipcCurrentlyDue(ipc),
+        }),
+      };
     }
 
     if (req.method === "POST" && action === "cancel") {
-      if (ipc.status === "DRAFT") return { status: 409, body: envelope("VOUCHER_NOT_POSTED", "This IPC isn't posted, so it can't be cancelled.") };
-      if (ipc.status === "CANCELLED") return { status: 409, body: envelope("ALREADY_REVERSED", "This IPC has already been cancelled.") };
-      if (!String(b.reason ?? "").trim()) return { status: 400, body: envelope("VALIDATION_ERROR", "Enter a reason for cancelling this IPC.") };
+      if (ipc.status === "DRAFT")
+        return {
+          status: 409,
+          body: envelope("VOUCHER_NOT_POSTED", "This IPC isn't posted, so it can't be cancelled."),
+        };
+      if (ipc.status === "CANCELLED")
+        return {
+          status: 409,
+          body: envelope("ALREADY_REVERSED", "This IPC has already been cancelled."),
+        };
+      if (!String(b.reason ?? "").trim())
+        return {
+          status: 400,
+          body: envelope("VALIDATION_ERROR", "Enter a reason for cancelling this IPC."),
+        };
       const reversalEntryNo = `IPC/2526/${String((ipcNumberSeq += 1)).padStart(4, "0")}`;
       Object.assign(ipc, { status: "CANCELLED", reversalEntryNo, version: ipc.version + 1 });
-      return { status: 200, body: success({ id: ipc.id, status: "CANCELLED", reversalEntryId: `je-${ipc.id}-rev`, reversalEntryNo }) };
+      return {
+        status: 200,
+        body: success({
+          id: ipc.id,
+          status: "CANCELLED",
+          reversalEntryId: `je-${ipc.id}-rev`,
+          reversalEntryNo,
+        }),
+      };
     }
 
     if (req.method === "POST" && action === "repost") {
-      if (ipc.status === "DRAFT") return { status: 409, body: envelope("VOUCHER_NOT_POSTED", "This IPC isn't posted, so it can't be reposted.") };
-      if (ipc.status === "CANCELLED") return { status: 409, body: envelope("ALREADY_REVERSED", "This IPC has already been cancelled.") };
-      if (!String(b.reason ?? "").trim()) return { status: 400, body: envelope("VALIDATION_ERROR", "Enter a reason for correcting this IPC.") };
+      if (ipc.status === "DRAFT")
+        return {
+          status: 409,
+          body: envelope("VOUCHER_NOT_POSTED", "This IPC isn't posted, so it can't be reposted."),
+        };
+      if (ipc.status === "CANCELLED")
+        return {
+          status: 409,
+          body: envelope("ALREADY_REVERSED", "This IPC has already been cancelled."),
+        };
+      if (!String(b.reason ?? "").trim())
+        return {
+          status: 400,
+          body: envelope("VALIDATION_ERROR", "Enter a reason for correcting this IPC."),
+        };
       const reversalEntryNo = `IPC/2526/${String((ipcNumberSeq += 1)).padStart(4, "0")}`;
       const entryNo = `IPC/2526/${String((ipcNumberSeq += 1)).padStart(4, "0")}`;
       Object.assign(ipc, {
-        certifiedAmount: b.certifiedAmount != null ? String(b.certifiedAmount) : ipc.certifiedAmount,
+        certifiedAmount:
+          b.certifiedAmount != null ? String(b.certifiedAmount) : ipc.certifiedAmount,
         workCompletedPct: b.workCompletedPct ?? ipc.workCompletedPct,
         outputVatAmount: b.outputVatAmount ?? ipc.outputVatAmount,
         aitTdsAmount: b.aitTdsAmount ?? ipc.aitTdsAmount,
@@ -1947,7 +3438,16 @@ export async function mockNestjsFetch(req: MockReq): Promise<MockResult> {
         journalEntryId: `je-${ipc.id}-v2`,
         version: ipc.version + 1,
       });
-      return { status: 200, body: success({ id: ipc.id, status: "POSTED", entryNo, reversalEntryNo, currentlyDueAmount: ipcCurrentlyDue(ipc) }) };
+      return {
+        status: 200,
+        body: success({
+          id: ipc.id,
+          status: "POSTED",
+          entryNo,
+          reversalEntryNo,
+          currentlyDueAmount: ipcCurrentlyDue(ipc),
+        }),
+      };
     }
   }
 
@@ -1965,7 +3465,8 @@ export async function mockNestjsFetch(req: MockReq): Promise<MockResult> {
     if (projectF) rows = rows.filter((r) => r.projectId === projectF);
     if (ccF) rows = rows.filter((r) => r.costCentreId === ccF);
     if (byF) rows = rows.filter((r) => r.submittedById === byF);
-    if (outF === "true") rows = rows.filter((r) => r.lines.some((l) => Number(l.balanceQuantity) > 0));
+    if (outF === "true")
+      rows = rows.filter((r) => r.lines.some((l) => Number(l.balanceQuantity) > 0));
     return { status: 200, body: pageEnvelope(rows) };
   }
 
@@ -1975,19 +3476,46 @@ export async function mockNestjsFetch(req: MockReq): Promise<MockResult> {
     const purposeId = String(b.purposeId ?? "");
     const purpose = MOCK_PURPOSES.find((p) => p.id === purposeId);
     if (purpose && purpose.projectId !== projectId) {
-      return { status: 400, body: envelope("CROSS_PROJECT_DIMENSION", "This purpose doesn't belong to the selected project.") };
+      return {
+        status: 400,
+        body: envelope(
+          "CROSS_PROJECT_DIMENSION",
+          "This purpose doesn't belong to the selected project.",
+        ),
+      };
     }
-    const bodyLines = (Array.isArray(b.lines) ? b.lines : []) as Array<{ itemId: string; requestedQuantity: string }>;
-    const inactive = bodyLines.find((l) => MOCK_ITEMS.find((i) => i.id === l.itemId)?.isActive === false);
-    if (inactive) return { status: 400, body: envelope("INACTIVE_MASTER_REFERENCE", "This item is inactive.") };
+    const bodyLines = (Array.isArray(b.lines) ? b.lines : []) as Array<{
+      itemId: string;
+      requestedQuantity: string;
+    }>;
+    const inactive = bodyLines.find(
+      (l) => MOCK_ITEMS.find((i) => i.id === l.itemId)?.isActive === false,
+    );
+    if (inactive)
+      return { status: 400, body: envelope("INACTIVE_MASTER_REFERENCE", "This item is inactive.") };
     const godownId = (b.fromGodownId as string) ?? null;
     const id = `req-${(reqSeq += 1)}`;
     const nr: MockRequisition = {
-      id, requisitionNo: null, projectId, costCentreId: String(b.costCentreId ?? ""), purposeId,
-      fromGodownId: godownId, requiredDate: String(b.requiredDate ?? ""), priority: (b.priority as MockRequisition["priority"]) ?? "NORMAL",
-      status: "DRAFT", estimatedValue: null, approvalTier: null, submittedAt: null, submittedById: null,
-      closedAt: null, closedReason: null, narration: (b.narration as string) ?? null, version: 1,
-      lines: bodyLines.map((l, i) => mkLine(`rl-${id}-${i}`, i + 1, l.itemId, l.requestedQuantity, "0", godownId)),
+      id,
+      requisitionNo: null,
+      projectId,
+      costCentreId: String(b.costCentreId ?? ""),
+      purposeId,
+      fromGodownId: godownId,
+      requiredDate: String(b.requiredDate ?? ""),
+      priority: (b.priority as MockRequisition["priority"]) ?? "NORMAL",
+      status: "DRAFT",
+      estimatedValue: null,
+      approvalTier: null,
+      submittedAt: null,
+      submittedById: null,
+      closedAt: null,
+      closedReason: null,
+      narration: (b.narration as string) ?? null,
+      version: 1,
+      lines: bodyLines.map((l, i) =>
+        mkLine(`rl-${id}-${i}`, i + 1, l.itemId, l.requestedQuantity, "0", godownId),
+      ),
     };
     MOCK_REQUISITIONS.unshift(nr);
     return { status: 201, body: success({ id }) };
@@ -1999,17 +3527,29 @@ export async function mockNestjsFetch(req: MockReq): Promise<MockResult> {
     const [, reqId, issueId] = rev;
     const r = MOCK_REQUISITIONS.find((x) => x.id === reqId);
     if (!r) return { status: 404, body: envelope("NOT_FOUND", "Requisition not found") };
-    const iss = MOCK_REQ_ISSUES.find((i) => i.requisitionIssueId === issueId && i.requisitionId === reqId);
+    const iss = MOCK_REQ_ISSUES.find(
+      (i) => i.requisitionIssueId === issueId && i.requisitionId === reqId,
+    );
     if (!iss) return { status: 404, body: envelope("NOT_FOUND", "Issue not found") };
-    if (iss.reversedAt) return { status: 409, body: envelope("ALREADY_REVERSED", "This issue has already been reversed.") };
+    if (iss.reversedAt)
+      return {
+        status: 409,
+        body: envelope("ALREADY_REVERSED", "This issue has already been reversed."),
+      };
     const b = body as Record<string, unknown>;
-    if (!String(b.reason ?? "").trim()) return { status: 400, body: envelope("VALIDATION_ERROR", "Enter a reason for reversing this issue.") };
+    if (!String(b.reason ?? "").trim())
+      return {
+        status: 400,
+        body: envelope("VALIDATION_ERROR", "Enter a reason for reversing this issue."),
+      };
     // Restore each line's balance.
     for (const il of iss.lines) {
       const line = r.lines.find((l) => l.id === il.requisitionLineId);
       if (line) {
         line.issuedQuantity = (Number(line.issuedQuantity) - Number(il.issuedQuantity)).toFixed(4);
-        line.balanceQuantity = (Number(line.requestedQuantity) - Number(line.issuedQuantity)).toFixed(4);
+        line.balanceQuantity = (
+          Number(line.requestedQuantity) - Number(line.issuedQuantity)
+        ).toFixed(4);
       }
     }
     iss.reversedAt = new Date().toISOString();
@@ -2021,24 +3561,44 @@ export async function mockNestjsFetch(req: MockReq): Promise<MockResult> {
   }
 
   // ── Requisition /:id [/submit|approve|reject|approvals|issue|close|outstanding|issues] ──
-  const rm = /^\/requisition\/([^/]+)(?:\/(submit|approve|reject|approvals|issue|close|outstanding|issues))?$/.exec(pathname ?? "");
+  const rm =
+    /^\/requisition\/([^/]+)(?:\/(submit|approve|reject|approvals|issue|close|outstanding|issues))?$/.exec(
+      pathname ?? "",
+    );
   if (rm) {
     const id = rm[1]!;
     const action = rm[2];
     const r = MOCK_REQUISITIONS.find((x) => x.id === id);
     if (!r) return { status: 404, body: envelope("NOT_FOUND", "Requisition not found") };
-    if (!scopeOk(r.projectId)) return { status: 403, body: envelope("FORBIDDEN", "You don't have access to this requisition.") };
+    if (!scopeOk(r.projectId))
+      return {
+        status: 403,
+        body: envelope("FORBIDDEN", "You don't have access to this requisition."),
+      };
     const b = body as Record<string, unknown>;
 
     if (req.method === "GET" && !action) return { status: 200, body: success(r) };
 
     if (req.method === "PATCH") {
-      if (r.status !== "DRAFT") return { status: 409, body: envelope("VOUCHER_POSTED_IMMUTABLE", "This requisition has been submitted and can't be edited here.") };
+      if (r.status !== "DRAFT")
+        return {
+          status: 409,
+          body: envelope(
+            "VOUCHER_POSTED_IMMUTABLE",
+            "This requisition has been submitted and can't be edited here.",
+          ),
+        };
       const purposeId = b.purposeId !== undefined ? String(b.purposeId) : r.purposeId;
       const projectId = b.projectId !== undefined ? String(b.projectId) : r.projectId;
       const purpose = MOCK_PURPOSES.find((p) => p.id === purposeId);
       if (purpose && purpose.projectId !== projectId) {
-        return { status: 400, body: envelope("CROSS_PROJECT_DIMENSION", "This purpose doesn't belong to the selected project.") };
+        return {
+          status: 400,
+          body: envelope(
+            "CROSS_PROJECT_DIMENSION",
+            "This purpose doesn't belong to the selected project.",
+          ),
+        };
       }
       if (b.projectId !== undefined) r.projectId = projectId;
       if (b.costCentreId !== undefined) r.costCentreId = String(b.costCentreId);
@@ -2049,22 +3609,41 @@ export async function mockNestjsFetch(req: MockReq): Promise<MockResult> {
       if (b.narration !== undefined) r.narration = (b.narration as string) ?? null;
       if (Array.isArray(b.lines)) {
         const bl = b.lines as Array<{ itemId: string; requestedQuantity: string }>;
-        const inactive = bl.find((l) => MOCK_ITEMS.find((i) => i.id === l.itemId)?.isActive === false);
-        if (inactive) return { status: 400, body: envelope("INACTIVE_MASTER_REFERENCE", "This item is inactive.") };
-        r.lines = bl.map((l, i) => mkLine(`rl-${id}-${i}`, i + 1, l.itemId, l.requestedQuantity, "0", r.fromGodownId));
+        const inactive = bl.find(
+          (l) => MOCK_ITEMS.find((i) => i.id === l.itemId)?.isActive === false,
+        );
+        if (inactive)
+          return {
+            status: 400,
+            body: envelope("INACTIVE_MASTER_REFERENCE", "This item is inactive."),
+          };
+        r.lines = bl.map((l, i) =>
+          mkLine(`rl-${id}-${i}`, i + 1, l.itemId, l.requestedQuantity, "0", r.fromGodownId),
+        );
       }
       r.version += 1;
       return { status: 200, body: success(r) };
     }
 
     if (req.method === "DELETE") {
-      if (r.status !== "DRAFT") return { status: 409, body: envelope("VOUCHER_POSTED_IMMUTABLE", "Only a draft can be deleted.") };
+      if (r.status !== "DRAFT")
+        return {
+          status: 409,
+          body: envelope("VOUCHER_POSTED_IMMUTABLE", "Only a draft can be deleted."),
+        };
       MOCK_REQUISITIONS.splice(MOCK_REQUISITIONS.indexOf(r), 1);
       return { status: 204, body: null };
     }
 
     if (req.method === "POST" && action === "submit") {
-      if (r.status !== "DRAFT") return { status: 409, body: envelope("INVALID_REQUISITION_TRANSITION", "This requisition can no longer be submitted.") };
+      if (r.status !== "DRAFT")
+        return {
+          status: 409,
+          body: envelope(
+            "INVALID_REQUISITION_TRANSITION",
+            "This requisition can no longer be submitted.",
+          ),
+        };
       const est = reqEstimate(r.lines);
       r.status = "SUBMITTED";
       r.requisitionNo = `REQ/2526/${String((reqNoSeq += 1)).padStart(4, "0")}`;
@@ -2078,7 +3657,10 @@ export async function mockNestjsFetch(req: MockReq): Promise<MockResult> {
 
     // Approval history (FR-REQ-008).
     if (req.method === "GET" && action === "approvals") {
-      return { status: 200, body: success(MOCK_REQ_APPROVALS.filter((a) => a.requisitionId === id)) };
+      return {
+        status: 200,
+        body: success(MOCK_REQ_APPROVALS.filter((a) => a.requisitionId === id)),
+      };
     }
 
     // Escalate-by-default authority gate (FR-REQ-010/-011): a PM may decide only a PM-tier
@@ -2090,29 +3672,67 @@ export async function mockNestjsFetch(req: MockReq): Promise<MockResult> {
         : user.role === "PROJECT_MANAGER");
 
     if (req.method === "POST" && action === "approve") {
-      if (r.status !== "SUBMITTED") return { status: 409, body: envelope("REQUISITION_NOT_SUBMITTED", "This requisition has already been decided.") };
-      if (!canDecideTier) return { status: 403, body: envelope("APPROVAL_BEYOND_AUTHORITY", "This requisition is above your approval limit.") };
+      if (r.status !== "SUBMITTED")
+        return {
+          status: 409,
+          body: envelope("REQUISITION_NOT_SUBMITTED", "This requisition has already been decided."),
+        };
+      if (!canDecideTier)
+        return {
+          status: 403,
+          body: envelope(
+            "APPROVAL_BEYOND_AUTHORITY",
+            "This requisition is above your approval limit.",
+          ),
+        };
       r.status = "APPROVED";
       r.version += 1;
       MOCK_REQ_APPROVALS.push({
-        id: `ra-${MOCK_REQ_APPROVALS.length + 1}`, requisitionId: id, decision: "APPROVED",
-        tier: r.approvalTier ?? "PM", thresholdEvaluated: r.approvalTier === "ACCOUNTS" ? "2500000.0000" : "500000.0000",
-        estimatedValueAtReview: r.estimatedValue, reason: (b.note as string) ?? null, decidedById: user.id, decidedAt: new Date().toISOString(),
+        id: `ra-${MOCK_REQ_APPROVALS.length + 1}`,
+        requisitionId: id,
+        decision: "APPROVED",
+        tier: r.approvalTier ?? "PM",
+        thresholdEvaluated: r.approvalTier === "ACCOUNTS" ? "2500000.0000" : "500000.0000",
+        estimatedValueAtReview: r.estimatedValue,
+        reason: (b.note as string) ?? null,
+        decidedById: user.id,
+        decidedAt: new Date().toISOString(),
       });
       return { status: 200, body: success(r) };
     }
 
     if (req.method === "POST" && action === "reject") {
-      if (r.status !== "SUBMITTED") return { status: 409, body: envelope("REQUISITION_NOT_SUBMITTED", "This requisition has already been decided.") };
-      if (!canDecideTier) return { status: 403, body: envelope("APPROVAL_BEYOND_AUTHORITY", "This requisition is above your approval limit.") };
+      if (r.status !== "SUBMITTED")
+        return {
+          status: 409,
+          body: envelope("REQUISITION_NOT_SUBMITTED", "This requisition has already been decided."),
+        };
+      if (!canDecideTier)
+        return {
+          status: 403,
+          body: envelope(
+            "APPROVAL_BEYOND_AUTHORITY",
+            "This requisition is above your approval limit.",
+          ),
+        };
       const reason = String(b.reason ?? "").trim();
-      if (!reason) return { status: 400, body: envelope("MISSING_REJECT_REASON", "Enter a reason for rejecting this requisition.") };
+      if (!reason)
+        return {
+          status: 400,
+          body: envelope("MISSING_REJECT_REASON", "Enter a reason for rejecting this requisition."),
+        };
       r.status = "REJECTED";
       r.version += 1;
       MOCK_REQ_APPROVALS.push({
-        id: `ra-${MOCK_REQ_APPROVALS.length + 1}`, requisitionId: id, decision: "REJECTED",
-        tier: r.approvalTier ?? "PM", thresholdEvaluated: r.approvalTier === "ACCOUNTS" ? "2500000.0000" : "500000.0000",
-        estimatedValueAtReview: r.estimatedValue, reason, decidedById: user.id, decidedAt: new Date().toISOString(),
+        id: `ra-${MOCK_REQ_APPROVALS.length + 1}`,
+        requisitionId: id,
+        decision: "REJECTED",
+        tier: r.approvalTier ?? "PM",
+        thresholdEvaluated: r.approvalTier === "ACCOUNTS" ? "2500000.0000" : "500000.0000",
+        estimatedValueAtReview: r.estimatedValue,
+        reason,
+        decidedById: user.id,
+        decidedAt: new Date().toISOString(),
       });
       return { status: 200, body: success(r) };
     }
@@ -2125,8 +3745,12 @@ export async function mockNestjsFetch(req: MockReq): Promise<MockResult> {
           requisitionId: id,
           status: r.status,
           lines: r.lines.map((l) => ({
-            requisitionLineId: l.id, itemId: l.itemId, requestedQuantity: l.requestedQuantity,
-            issuedQuantity: l.issuedQuantity, balanceQuantity: l.balanceQuantity, uom: l.uom,
+            requisitionLineId: l.id,
+            itemId: l.itemId,
+            requestedQuantity: l.requestedQuantity,
+            issuedQuantity: l.issuedQuantity,
+            balanceQuantity: l.balanceQuantity,
+            uom: l.uom,
           })),
           totalOutstandingValueIndicative: reqOutstandingValue(r),
         }),
@@ -2141,39 +3765,72 @@ export async function mockNestjsFetch(req: MockReq): Promise<MockResult> {
     // Issue material — atomic stock deduct + consumption post (FR-REQ-012…-016).
     if (req.method === "POST" && action === "issue") {
       if (r.status !== "APPROVED" && r.status !== "PARTIALLY_ISSUED") {
-        return { status: 409, body: envelope("REQUISITION_NOT_APPROVED", "This requisition can no longer be issued.") };
+        return {
+          status: 409,
+          body: envelope("REQUISITION_NOT_APPROVED", "This requisition can no longer be issued."),
+        };
       }
       const fromGodown = String(b.fromGodownId ?? "");
       const allowNeg = b.allowNegativeStock === true;
-      const bodyLines = (Array.isArray(b.lines) ? b.lines : []) as Array<{ requisitionLineId: string; issueQuantity: string; godownId?: string }>;
+      const bodyLines = (Array.isArray(b.lines) ? b.lines : []) as Array<{
+        requisitionLineId: string;
+        issueQuantity: string;
+        godownId?: string;
+      }>;
       const resultLines: MockReqIssueLine[] = [];
       let issuedValue = 0;
       for (const bl of bodyLines) {
         const line = r.lines.find((l) => l.id === bl.requisitionLineId);
-        if (!line) return { status: 400, body: envelope("VALIDATION_ERROR", "Unknown requisition line.") };
+        if (!line)
+          return { status: 400, body: envelope("VALIDATION_ERROR", "Unknown requisition line.") };
         const qty = Number(bl.issueQuantity);
         if (qty <= 0 || qty > Number(line.balanceQuantity)) {
-          return { status: 400, body: envelope("ISSUE_EXCEEDS_BALANCE", `This exceeds the outstanding balance (${line.balanceQuantity}).`) };
+          return {
+            status: 400,
+            body: envelope(
+              "ISSUE_EXCEEDS_BALANCE",
+              `This exceeds the outstanding balance (${line.balanceQuantity}).`,
+            ),
+          };
         }
         const godown = bl.godownId ?? fromGodown;
         if (!allowNeg && user.role !== "ADMIN" && qty > reqOnHand(godown, line.itemId)) {
-          return { status: 409, body: envelope("NEGATIVE_STOCK_BLOCKED", "Not enough stock on hand.") };
+          return {
+            status: 409,
+            body: envelope("NEGATIVE_STOCK_BLOCKED", "Not enough stock on hand."),
+          };
         }
         const rate = reqIndicativeRate(line.itemId, godown) ?? "0.0000";
         const value = qty * Number(rate);
         issuedValue += value;
-        resultLines.push({ requisitionLineId: line.id, stockMovementId: `mv-req-${reqIssueSeq}-${resultLines.length}`, issuedQuantity: qty.toFixed(4), rate, value: value.toFixed(4) });
+        resultLines.push({
+          requisitionLineId: line.id,
+          stockMovementId: `mv-req-${reqIssueSeq}-${resultLines.length}`,
+          issuedQuantity: qty.toFixed(4),
+          rate,
+          value: value.toFixed(4),
+        });
         line.issuedQuantity = (Number(line.issuedQuantity) + qty).toFixed(4);
-        line.balanceQuantity = (Number(line.requestedQuantity) - Number(line.issuedQuantity)).toFixed(4);
+        line.balanceQuantity = (
+          Number(line.requestedQuantity) - Number(line.issuedQuantity)
+        ).toFixed(4);
       }
       const fullyIssued = r.lines.every((l) => Number(l.balanceQuantity) <= 0);
       r.status = fullyIssued ? "ISSUED" : "PARTIALLY_ISSUED";
       r.version += 1;
       const issue: MockReqIssue = {
-        requisitionId: id, requisitionIssueId: `ri-${(reqIssueSeq += 1)}`, issueNo: (reqIssueNoSeq += 1),
-        journalEntryId: `je-${reqIssueSeq}`, entryNo: `SJ/2526/${String(reqIssueSeq).padStart(4, "0")}`,
-        issuedValue: issuedValue.toFixed(4), fromGodownId: fromGodown, lines: resultLines,
-        requisitionStatus: r.status, issuedAt: new Date().toISOString(), reversedAt: null, reversedById: null,
+        requisitionId: id,
+        requisitionIssueId: `ri-${(reqIssueSeq += 1)}`,
+        issueNo: (reqIssueNoSeq += 1),
+        journalEntryId: `je-${reqIssueSeq}`,
+        entryNo: `SJ/2526/${String(reqIssueSeq).padStart(4, "0")}`,
+        issuedValue: issuedValue.toFixed(4),
+        fromGodownId: fromGodown,
+        lines: resultLines,
+        requisitionStatus: r.status,
+        issuedAt: new Date().toISOString(),
+        reversedAt: null,
+        reversedById: null,
       };
       MOCK_REQ_ISSUES.push(issue);
       return { status: 200, body: success(issue) };
@@ -2182,12 +3839,23 @@ export async function mockNestjsFetch(req: MockReq): Promise<MockResult> {
     // Manual close — abandon the outstanding balance (FR-REQ-020).
     if (req.method === "POST" && action === "close") {
       if (r.status !== "APPROVED" && r.status !== "PARTIALLY_ISSUED") {
-        return { status: 409, body: envelope("NO_OUTSTANDING_BALANCE", "There's no outstanding balance left to close.") };
+        return {
+          status: 409,
+          body: envelope("NO_OUTSTANDING_BALANCE", "There's no outstanding balance left to close."),
+        };
       }
       const totalBalance = r.lines.reduce((s, l) => s + Number(l.balanceQuantity), 0);
-      if (totalBalance <= 0) return { status: 409, body: envelope("NO_OUTSTANDING_BALANCE", "There's no outstanding balance left to close.") };
+      if (totalBalance <= 0)
+        return {
+          status: 409,
+          body: envelope("NO_OUTSTANDING_BALANCE", "There's no outstanding balance left to close."),
+        };
       const reason = String(b.reason ?? "").trim();
-      if (!reason) return { status: 400, body: envelope("VALIDATION_ERROR", "Enter a reason for closing this requisition.") };
+      if (!reason)
+        return {
+          status: 400,
+          body: envelope("VALIDATION_ERROR", "Enter a reason for closing this requisition."),
+        };
       r.status = "CLOSED";
       r.closedAt = new Date().toISOString();
       r.closedReason = reason;
@@ -2233,65 +3901,255 @@ export async function mockNestjsFetch(req: MockReq): Promise<MockResult> {
     note: string | null;
   }
 
-  const g = globalThis as unknown as { __ZE_MOCK_HR__?: { employees: MockEmployee[]; assignments: MockAssignment[]; seq: number } };
+  const g = globalThis as unknown as {
+    __ZE_MOCK_HR__?: { employees: MockEmployee[]; assignments: MockAssignment[]; seq: number };
+  };
   if (!g.__ZE_MOCK_HR__) {
-    const mkEmp = (o: Partial<MockEmployee> & Pick<MockEmployee, "id" | "employeeCode" | "name" | "workBase" | "wageType" | "wageAmount" | "joiningDate">): MockEmployee => ({
-      designation: null, defaultProjectId: null, department: null,
-      bankName: null, bankAccountName: null, bankAccountNo: null,
-      pfApplicable: false, gratuityApplicable: false, wppfApplicable: false,
-      tin: null, status: "ACTIVE", hasReferences: false, version: 1,
+    const mkEmp = (
+      o: Partial<MockEmployee> &
+        Pick<
+          MockEmployee,
+          "id" | "employeeCode" | "name" | "workBase" | "wageType" | "wageAmount" | "joiningDate"
+        >,
+    ): MockEmployee => ({
+      designation: null,
+      defaultProjectId: null,
+      department: null,
+      bankName: null,
+      bankAccountName: null,
+      bankAccountNo: null,
+      pfApplicable: false,
+      gratuityApplicable: false,
+      wppfApplicable: false,
+      tin: null,
+      status: "ACTIVE",
+      hasReferences: false,
+      version: 1,
       ...o,
     });
     const employees: MockEmployee[] = [
-      mkEmp({ id: "emp-1", employeeCode: "EMP-001", name: "মোঃ রফিকুল ইসলাম", designation: "Site Accountant", defaultProjectId: "proj-a", department: "Accounts", workBase: "SITE", wageType: "MONTHLY", wageAmount: "45000.0000", bankName: "Dutch-Bangla Bank", bankAccountName: "Md Rafiqul Islam", bankAccountNo: "1234567890", pfApplicable: true, gratuityApplicable: true, tin: "123456789012", joiningDate: "2024-03-01", hasReferences: true, version: 3 }),
-      mkEmp({ id: "emp-2", employeeCode: "EMP-002", name: "Farzana Akter", designation: "Site Engineer", defaultProjectId: "proj-a", department: "Engineering", workBase: "SITE", wageType: "MONTHLY", wageAmount: "60000.0000", bankName: "BRAC Bank", bankAccountName: "Farzana Akter", bankAccountNo: "9988771234", pfApplicable: true, gratuityApplicable: true, tin: "223344556677", joiningDate: "2023-06-15", version: 2 }),
-      mkEmp({ id: "emp-3", employeeCode: "EMP-003", name: "Ashraful Alam", designation: "Project Coordinator", defaultProjectId: "proj-b", department: "Operations", workBase: "HEAD_OFFICE", wageType: "MONTHLY", wageAmount: "72000.0000", bankName: "City Bank", bankAccountName: "Ashraful Alam", bankAccountNo: "5566779988", pfApplicable: true, gratuityApplicable: true, joiningDate: "2022-11-01", version: 4 }),
-      mkEmp({ id: "emp-4", employeeCode: "EMP-004", name: "Nusrat Jahan", designation: "HR Assistant", department: "HR", workBase: "HEAD_OFFICE", wageType: "MONTHLY", wageAmount: "38000.0000", bankName: "Dutch-Bangla Bank", bankAccountName: "Nusrat Jahan", bankAccountNo: "1122334455", joiningDate: "2025-01-10", version: 1 }),
-      mkEmp({ id: "emp-5", employeeCode: "EMP-005", name: "Kamal Hossain", designation: "Storekeeper", defaultProjectId: "proj-c", department: "Store", workBase: "SITE", wageType: "DAILY", wageAmount: "1200.0000", joiningDate: "2024-08-20", status: "INACTIVE", version: 2 }),
-      mkEmp({ id: "emp-6", employeeCode: "EMP-006", name: "Salma Begum", designation: "Accounts Officer", defaultProjectId: null, department: "Accounts", workBase: "HEAD_OFFICE", wageType: "MONTHLY", wageAmount: "42000.0000", bankName: "Prime Bank", bankAccountName: "Salma Begum", bankAccountNo: "7788994455", tin: "998877665544", joiningDate: "2024-05-05", version: 1 }),
+      mkEmp({
+        id: "emp-1",
+        employeeCode: "EMP-001",
+        name: "মোঃ রফিকুল ইসলাম",
+        designation: "Site Accountant",
+        defaultProjectId: "proj-a",
+        department: "Accounts",
+        workBase: "SITE",
+        wageType: "MONTHLY",
+        wageAmount: "45000.0000",
+        bankName: "Dutch-Bangla Bank",
+        bankAccountName: "Md Rafiqul Islam",
+        bankAccountNo: "1234567890",
+        pfApplicable: true,
+        gratuityApplicable: true,
+        tin: "123456789012",
+        joiningDate: "2024-03-01",
+        hasReferences: true,
+        version: 3,
+      }),
+      mkEmp({
+        id: "emp-2",
+        employeeCode: "EMP-002",
+        name: "Farzana Akter",
+        designation: "Site Engineer",
+        defaultProjectId: "proj-a",
+        department: "Engineering",
+        workBase: "SITE",
+        wageType: "MONTHLY",
+        wageAmount: "60000.0000",
+        bankName: "BRAC Bank",
+        bankAccountName: "Farzana Akter",
+        bankAccountNo: "9988771234",
+        pfApplicable: true,
+        gratuityApplicable: true,
+        tin: "223344556677",
+        joiningDate: "2023-06-15",
+        version: 2,
+      }),
+      mkEmp({
+        id: "emp-3",
+        employeeCode: "EMP-003",
+        name: "Ashraful Alam",
+        designation: "Project Coordinator",
+        defaultProjectId: "proj-b",
+        department: "Operations",
+        workBase: "HEAD_OFFICE",
+        wageType: "MONTHLY",
+        wageAmount: "72000.0000",
+        bankName: "City Bank",
+        bankAccountName: "Ashraful Alam",
+        bankAccountNo: "5566779988",
+        pfApplicable: true,
+        gratuityApplicable: true,
+        joiningDate: "2022-11-01",
+        version: 4,
+      }),
+      mkEmp({
+        id: "emp-4",
+        employeeCode: "EMP-004",
+        name: "Nusrat Jahan",
+        designation: "HR Assistant",
+        department: "HR",
+        workBase: "HEAD_OFFICE",
+        wageType: "MONTHLY",
+        wageAmount: "38000.0000",
+        bankName: "Dutch-Bangla Bank",
+        bankAccountName: "Nusrat Jahan",
+        bankAccountNo: "1122334455",
+        joiningDate: "2025-01-10",
+        version: 1,
+      }),
+      mkEmp({
+        id: "emp-5",
+        employeeCode: "EMP-005",
+        name: "Kamal Hossain",
+        designation: "Storekeeper",
+        defaultProjectId: "proj-c",
+        department: "Store",
+        workBase: "SITE",
+        wageType: "DAILY",
+        wageAmount: "1200.0000",
+        joiningDate: "2024-08-20",
+        status: "INACTIVE",
+        version: 2,
+      }),
+      mkEmp({
+        id: "emp-6",
+        employeeCode: "EMP-006",
+        name: "Salma Begum",
+        designation: "Accounts Officer",
+        defaultProjectId: null,
+        department: "Accounts",
+        workBase: "HEAD_OFFICE",
+        wageType: "MONTHLY",
+        wageAmount: "42000.0000",
+        bankName: "Prime Bank",
+        bankAccountName: "Salma Begum",
+        bankAccountNo: "7788994455",
+        tin: "998877665544",
+        joiningDate: "2024-05-05",
+        version: 1,
+      }),
     ];
     const assignments: MockAssignment[] = [
-      { id: "asg-1", employeeId: "emp-1", projectId: "proj-a", effectiveDate: "2024-03-01", note: "Initial assignment" },
-      { id: "asg-2", employeeId: "emp-2", projectId: "proj-a", effectiveDate: "2023-06-15", note: "Initial assignment" },
-      { id: "asg-3", employeeId: "emp-3", projectId: "proj-b", effectiveDate: "2022-11-01", note: "Initial assignment" },
-      { id: "asg-4", employeeId: "emp-5", projectId: "proj-c", effectiveDate: "2024-08-20", note: "Initial assignment" },
-      { id: "asg-5", employeeId: "emp-6", projectId: null as unknown as string, effectiveDate: "2024-05-05", note: "Initial assignment" },
+      {
+        id: "asg-1",
+        employeeId: "emp-1",
+        projectId: "proj-a",
+        effectiveDate: "2024-03-01",
+        note: "Initial assignment",
+      },
+      {
+        id: "asg-2",
+        employeeId: "emp-2",
+        projectId: "proj-a",
+        effectiveDate: "2023-06-15",
+        note: "Initial assignment",
+      },
+      {
+        id: "asg-3",
+        employeeId: "emp-3",
+        projectId: "proj-b",
+        effectiveDate: "2022-11-01",
+        note: "Initial assignment",
+      },
+      {
+        id: "asg-4",
+        employeeId: "emp-5",
+        projectId: "proj-c",
+        effectiveDate: "2024-08-20",
+        note: "Initial assignment",
+      },
+      {
+        id: "asg-5",
+        employeeId: "emp-6",
+        projectId: null as unknown as string,
+        effectiveDate: "2024-05-05",
+        note: "Initial assignment",
+      },
     ].filter((a) => a.projectId != null);
     g.__ZE_MOCK_HR__ = { employees, assignments, seq: 100 };
   }
   const HR = g.__ZE_MOCK_HR__;
 
-  function maskBank(e: MockEmployee): { bankAccountName: string | null; bankAccountNo: string | null; bankMasked: boolean } {
-    if (!e.bankAccountNo && !e.bankAccountName) return { bankAccountName: null, bankAccountNo: null, bankMasked: true };
+  function maskBank(e: MockEmployee): {
+    bankAccountName: string | null;
+    bankAccountNo: string | null;
+    bankMasked: boolean;
+  } {
+    if (!e.bankAccountNo && !e.bankAccountName)
+      return { bankAccountName: null, bankAccountNo: null, bankMasked: true };
     const last4 = (v: string | null) => (v && v.length >= 4 ? `•••• ${v.slice(-4)}` : v);
-    return { bankAccountName: last4(e.bankAccountName), bankAccountNo: last4(e.bankAccountNo), bankMasked: true };
+    return {
+      bankAccountName: last4(e.bankAccountName),
+      bankAccountNo: last4(e.bankAccountNo),
+      bankMasked: true,
+    };
   }
   function employeeResource(e: MockEmployee, reveal: boolean) {
     if (reveal) {
       return {
-        id: e.id, employeeCode: e.employeeCode, name: e.name, designation: e.designation,
-        defaultProjectId: e.defaultProjectId, department: e.department, workBase: e.workBase,
-        wageType: e.wageType, wageAmount: e.wageAmount, bankName: e.bankName,
-        bankAccountName: e.bankAccountName, bankAccountNo: e.bankAccountNo, bankMasked: false,
-        pfApplicable: e.pfApplicable, gratuityApplicable: e.gratuityApplicable, wppfApplicable: e.wppfApplicable,
-        tin: e.tin, joiningDate: e.joiningDate, status: e.status, hasReferences: e.hasReferences, version: e.version,
+        id: e.id,
+        employeeCode: e.employeeCode,
+        name: e.name,
+        designation: e.designation,
+        defaultProjectId: e.defaultProjectId,
+        department: e.department,
+        workBase: e.workBase,
+        wageType: e.wageType,
+        wageAmount: e.wageAmount,
+        bankName: e.bankName,
+        bankAccountName: e.bankAccountName,
+        bankAccountNo: e.bankAccountNo,
+        bankMasked: false,
+        pfApplicable: e.pfApplicable,
+        gratuityApplicable: e.gratuityApplicable,
+        wppfApplicable: e.wppfApplicable,
+        tin: e.tin,
+        joiningDate: e.joiningDate,
+        status: e.status,
+        hasReferences: e.hasReferences,
+        version: e.version,
       };
     }
     const mask = maskBank(e);
     return {
-      id: e.id, employeeCode: e.employeeCode, name: e.name, designation: e.designation,
-      defaultProjectId: e.defaultProjectId, department: e.department, workBase: e.workBase,
-      wageType: e.wageType, wageAmount: e.wageAmount, bankName: e.bankName,
-      bankAccountName: mask.bankAccountName, bankAccountNo: mask.bankAccountNo, bankMasked: mask.bankMasked,
-      pfApplicable: e.pfApplicable, gratuityApplicable: e.gratuityApplicable, wppfApplicable: e.wppfApplicable,
-      tin: e.tin, joiningDate: e.joiningDate, status: e.status, hasReferences: e.hasReferences, version: e.version,
+      id: e.id,
+      employeeCode: e.employeeCode,
+      name: e.name,
+      designation: e.designation,
+      defaultProjectId: e.defaultProjectId,
+      department: e.department,
+      workBase: e.workBase,
+      wageType: e.wageType,
+      wageAmount: e.wageAmount,
+      bankName: e.bankName,
+      bankAccountName: mask.bankAccountName,
+      bankAccountNo: mask.bankAccountNo,
+      bankMasked: mask.bankMasked,
+      pfApplicable: e.pfApplicable,
+      gratuityApplicable: e.gratuityApplicable,
+      wppfApplicable: e.wppfApplicable,
+      tin: e.tin,
+      joiningDate: e.joiningDate,
+      status: e.status,
+      hasReferences: e.hasReferences,
+      version: e.version,
     };
   }
   function employeeSummary(e: MockEmployee) {
     return {
-      id: e.id, employeeCode: e.employeeCode, name: e.name, designation: e.designation,
-      defaultProjectId: e.defaultProjectId, workBase: e.workBase, wageType: e.wageType,
-      wageAmount: e.wageAmount, status: e.status, hasReferences: e.hasReferences,
+      id: e.id,
+      employeeCode: e.employeeCode,
+      name: e.name,
+      designation: e.designation,
+      defaultProjectId: e.defaultProjectId,
+      workBase: e.workBase,
+      wageType: e.wageType,
+      wageAmount: e.wageAmount,
+      status: e.status,
+      hasReferences: e.hasReferences,
     };
   }
   const hrUserRole = user?.role;
@@ -2309,26 +4167,49 @@ export async function mockNestjsFetch(req: MockReq): Promise<MockResult> {
     if (status) rows = rows.filter((e) => status.split(",").includes(e.status));
     if (projectId) rows = rows.filter((e) => e.defaultProjectId === projectId);
     if (wageType) rows = rows.filter((e) => e.wageType === wageType);
-    if (q) rows = rows.filter((e) => e.employeeCode.toLowerCase().includes(q) || e.name.toLowerCase().includes(q));
+    if (q)
+      rows = rows.filter(
+        (e) => e.employeeCode.toLowerCase().includes(q) || e.name.toLowerCase().includes(q),
+      );
     return { status: 200, body: pageEnvelope(rows.map(employeeSummary)) };
   }
 
   // POST /hr/employees — create
   if (pathname === "/hr/employees" && req.method === "POST") {
-    if (!hrCanWrite()) return { status: 403, body: envelope("FORBIDDEN", "You don't have permission to create employees.") };
+    if (!hrCanWrite())
+      return {
+        status: 403,
+        body: envelope("FORBIDDEN", "You don't have permission to create employees."),
+      };
     const b = body as Partial<MockEmployee>;
-    if (!b.employeeCode || String(b.employeeCode).trim() === "") return { status: 400, body: envelope("VALIDATION_ERROR", "Enter an employee code.") };
-    if (!b.name || String(b.name).trim() === "") return { status: 400, body: envelope("VALIDATION_ERROR", "Enter the employee's name.") };
-    if (!b.workBase) return { status: 400, body: envelope("VALIDATION_ERROR", "Select a work base.") };
-    if (!b.wageType) return { status: 400, body: envelope("VALIDATION_ERROR", "Select a wage type.") };
-    if (!b.joiningDate) return { status: 400, body: envelope("VALIDATION_ERROR", "Enter a joining date.") };
-    if (Number(b.wageAmount ?? "0") < 0) return { status: 400, body: envelope("VALIDATION_ERROR", "Enter a wage amount of ৳0 or more.") };
-    if (b.tin && !/^\d{12}$/.test(String(b.tin))) return { status: 400, body: envelope("VALIDATION_ERROR", "Enter a valid TIN.") };
+    if (!b.employeeCode || String(b.employeeCode).trim() === "")
+      return { status: 400, body: envelope("VALIDATION_ERROR", "Enter an employee code.") };
+    if (!b.name || String(b.name).trim() === "")
+      return { status: 400, body: envelope("VALIDATION_ERROR", "Enter the employee's name.") };
+    if (!b.workBase)
+      return { status: 400, body: envelope("VALIDATION_ERROR", "Select a work base.") };
+    if (!b.wageType)
+      return { status: 400, body: envelope("VALIDATION_ERROR", "Select a wage type.") };
+    if (!b.joiningDate)
+      return { status: 400, body: envelope("VALIDATION_ERROR", "Enter a joining date.") };
+    if (Number(b.wageAmount ?? "0") < 0)
+      return {
+        status: 400,
+        body: envelope("VALIDATION_ERROR", "Enter a wage amount of ৳0 or more."),
+      };
+    if (b.tin && !/^\d{12}$/.test(String(b.tin)))
+      return { status: 400, body: envelope("VALIDATION_ERROR", "Enter a valid TIN.") };
     if (HR.employees.some((e) => e.employeeCode === b.employeeCode)) {
-      return { status: 409, body: envelope("DUPLICATE_CODE", "This employee code is already in use.") };
+      return {
+        status: 409,
+        body: envelope("DUPLICATE_CODE", "This employee code is already in use."),
+      };
     }
     if (b.defaultProjectId && !MOCK_PROJECTS.some((p) => p.id === b.defaultProjectId)) {
-      return { status: 400, body: envelope("CROSS_COMPANY_REFERENCE", "That project belongs to a different company.") };
+      return {
+        status: 400,
+        body: envelope("CROSS_COMPANY_REFERENCE", "That project belongs to a different company."),
+      };
     }
     const now = new Date().toISOString().slice(0, 10);
     const emp: MockEmployee = {
@@ -2367,42 +4248,81 @@ export async function mockNestjsFetch(req: MockReq): Promise<MockResult> {
   }
 
   // /hr/employees/:id + subactions
-  const empMatch = /^\/hr\/employees\/([^/]+)(?:\/(reassign|deactivate|reactivate|assignments))?$/.exec(pathname ?? "");
+  const empMatch =
+    /^\/hr\/employees\/([^/]+)(?:\/(reassign|deactivate|reactivate|assignments))?$/.exec(
+      pathname ?? "",
+    );
   if (empMatch) {
     const id = empMatch[1]!;
     const action = empMatch[2];
     const emp = HR.employees.find((e) => e.id === id);
     if (!emp) return { status: 404, body: envelope("NOT_FOUND", "Employee not found.") };
-    const b = body as Partial<MockEmployee> & { version?: number; projectId?: string; effectiveDate?: string; note?: string | null };
+    const b = body as Partial<MockEmployee> & {
+      version?: number;
+      projectId?: string;
+      effectiveDate?: string;
+      note?: string | null;
+    };
 
     if (req.method === "GET" && !action) {
       const reveal = params.get("reveal") === "true";
       if (reveal && !hrCanWrite()) {
-        return { status: 403, body: envelope("FORBIDDEN", "You don't have permission to reveal bank details.") };
+        return {
+          status: 403,
+          body: envelope("FORBIDDEN", "You don't have permission to reveal bank details."),
+        };
       }
       return { status: 200, body: success(employeeResource(emp, reveal)) };
     }
 
     if (req.method === "GET" && action === "assignments") {
-      const rows = HR.assignments.filter((a) => a.employeeId === id).slice().sort((a, b) => (a.effectiveDate < b.effectiveDate ? 1 : -1));
+      const rows = HR.assignments
+        .filter((a) => a.employeeId === id)
+        .slice()
+        .sort((a, b) => (a.effectiveDate < b.effectiveDate ? 1 : -1));
       return { status: 200, body: success(rows) };
     }
 
     if (req.method === "PATCH" && !action) {
-      if (!hrCanWrite()) return { status: 403, body: envelope("FORBIDDEN", "You don't have permission to edit employees.") };
+      if (!hrCanWrite())
+        return {
+          status: 403,
+          body: envelope("FORBIDDEN", "You don't have permission to edit employees."),
+        };
       if (typeof b.version !== "number" || b.version !== emp.version) {
-        return { status: 409, body: envelope("OPTIMISTIC_LOCK_CONFLICT", "This employee was just changed by someone else. Reload and try again.") };
+        return {
+          status: 409,
+          body: envelope(
+            "OPTIMISTIC_LOCK_CONFLICT",
+            "This employee was just changed by someone else. Reload and try again.",
+          ),
+        };
       }
-      if ((b as { employeeCode?: string }).employeeCode && (b as { employeeCode?: string }).employeeCode !== emp.employeeCode) {
+      if (
+        (b as { employeeCode?: string }).employeeCode &&
+        (b as { employeeCode?: string }).employeeCode !== emp.employeeCode
+      ) {
         if (emp.hasReferences) {
-          return { status: 409, body: envelope("IMMUTABLE_EMPLOYEE_CODE", "This employee code can't be changed — it's already used in attendance or salary.") };
+          return {
+            status: 409,
+            body: envelope(
+              "IMMUTABLE_EMPLOYEE_CODE",
+              "This employee code can't be changed — it's already used in attendance or salary.",
+            ),
+          };
         }
       }
       if (b.defaultProjectId && !MOCK_PROJECTS.some((p) => p.id === b.defaultProjectId)) {
-        return { status: 400, body: envelope("CROSS_COMPANY_REFERENCE", "That project belongs to a different company.") };
+        return {
+          status: 400,
+          body: envelope("CROSS_COMPANY_REFERENCE", "That project belongs to a different company."),
+        };
       }
       if (b.wageAmount !== undefined && Number(b.wageAmount) < 0) {
-        return { status: 400, body: envelope("VALIDATION_ERROR", "Enter a wage amount of ৳0 or more.") };
+        return {
+          status: 400,
+          body: envelope("VALIDATION_ERROR", "Enter a wage amount of ৳0 or more."),
+        };
       }
       if (b.tin && !/^\d{12}$/.test(String(b.tin))) {
         return { status: 400, body: envelope("VALIDATION_ERROR", "Enter a valid TIN.") };
@@ -2410,7 +4330,8 @@ export async function mockNestjsFetch(req: MockReq): Promise<MockResult> {
       Object.assign(emp, {
         name: b.name ?? emp.name,
         designation: b.designation === undefined ? emp.designation : b.designation,
-        defaultProjectId: b.defaultProjectId === undefined ? emp.defaultProjectId : b.defaultProjectId,
+        defaultProjectId:
+          b.defaultProjectId === undefined ? emp.defaultProjectId : b.defaultProjectId,
         department: b.department === undefined ? emp.department : b.department,
         workBase: b.workBase ?? emp.workBase,
         wageType: b.wageType ?? emp.wageType,
@@ -2428,19 +4349,37 @@ export async function mockNestjsFetch(req: MockReq): Promise<MockResult> {
     }
 
     if (req.method === "POST" && action === "reassign") {
-      if (!hrCanWrite()) return { status: 403, body: envelope("FORBIDDEN", "You don't have permission to reassign employees.") };
+      if (!hrCanWrite())
+        return {
+          status: 403,
+          body: envelope("FORBIDDEN", "You don't have permission to reassign employees."),
+        };
       if (typeof b.version !== "number" || b.version !== emp.version) {
-        return { status: 409, body: envelope("OPTIMISTIC_LOCK_CONFLICT", "This employee was just changed by someone else. Reload and try again.") };
+        return {
+          status: 409,
+          body: envelope(
+            "OPTIMISTIC_LOCK_CONFLICT",
+            "This employee was just changed by someone else. Reload and try again.",
+          ),
+        };
       }
       const projectId = String(b.projectId ?? "");
       const effectiveDate = String(b.effectiveDate ?? "");
-      if (!projectId) return { status: 400, body: envelope("VALIDATION_ERROR", "Select a project.") };
+      if (!projectId)
+        return { status: 400, body: envelope("VALIDATION_ERROR", "Select a project.") };
       if (!MOCK_PROJECTS.some((p) => p.id === projectId)) {
-        return { status: 400, body: envelope("CROSS_COMPANY_REFERENCE", "That project belongs to a different company.") };
+        return {
+          status: 400,
+          body: envelope("CROSS_COMPANY_REFERENCE", "That project belongs to a different company."),
+        };
       }
-      if (!effectiveDate) return { status: 400, body: envelope("VALIDATION_ERROR", "Enter an effective date.") };
+      if (!effectiveDate)
+        return { status: 400, body: envelope("VALIDATION_ERROR", "Enter an effective date.") };
       if (effectiveDate < emp.joiningDate) {
-        return { status: 400, body: envelope("VALIDATION_ERROR", "Effective date can't be before the joining date.") };
+        return {
+          status: 400,
+          body: envelope("VALIDATION_ERROR", "Effective date can't be before the joining date."),
+        };
       }
       HR.assignments.unshift({
         id: `asg-new-${(HR.seq += 1)}`,
@@ -2455,9 +4394,16 @@ export async function mockNestjsFetch(req: MockReq): Promise<MockResult> {
     }
 
     if (req.method === "POST" && action === "deactivate") {
-      if (!hrCanWrite()) return { status: 403, body: envelope("FORBIDDEN", "You don't have permission.") };
+      if (!hrCanWrite())
+        return { status: 403, body: envelope("FORBIDDEN", "You don't have permission.") };
       if (typeof b.version !== "number" || b.version !== emp.version) {
-        return { status: 409, body: envelope("OPTIMISTIC_LOCK_CONFLICT", "This employee was just changed by someone else. Reload and try again.") };
+        return {
+          status: 409,
+          body: envelope(
+            "OPTIMISTIC_LOCK_CONFLICT",
+            "This employee was just changed by someone else. Reload and try again.",
+          ),
+        };
       }
       emp.status = "INACTIVE";
       emp.version += 1;
@@ -2465,9 +4411,16 @@ export async function mockNestjsFetch(req: MockReq): Promise<MockResult> {
     }
 
     if (req.method === "POST" && action === "reactivate") {
-      if (!hrCanWrite()) return { status: 403, body: envelope("FORBIDDEN", "You don't have permission.") };
+      if (!hrCanWrite())
+        return { status: 403, body: envelope("FORBIDDEN", "You don't have permission.") };
       if (typeof b.version !== "number" || b.version !== emp.version) {
-        return { status: 409, body: envelope("OPTIMISTIC_LOCK_CONFLICT", "This employee was just changed by someone else. Reload and try again.") };
+        return {
+          status: 409,
+          body: envelope(
+            "OPTIMISTIC_LOCK_CONFLICT",
+            "This employee was just changed by someone else. Reload and try again.",
+          ),
+        };
       }
       emp.status = "ACTIVE";
       emp.version += 1;
@@ -2506,71 +4459,202 @@ export async function mockNestjsFetch(req: MockReq): Promise<MockResult> {
     reversalEntryId: string | null;
     version: number;
   }
-  const ga = globalThis as unknown as { __ZE_MOCK_ATT__?: { rows: MockAttendance[]; seq: number; dlaSeq: number } };
+  const ga = globalThis as unknown as {
+    __ZE_MOCK_ATT__?: { rows: MockAttendance[]; seq: number; dlaSeq: number };
+  };
   if (!ga.__ZE_MOCK_ATT__) {
     const seed: MockAttendance[] = [
       // Office (2 rows for today)
       {
-        id: "att-off-1", mode: "OFFICE", attendanceDate: new Date().toISOString().slice(0, 10),
-        projectId: "proj-a", costCentreId: null, purposeId: null,
-        employeeId: "emp-1", checkIn: "09:15", checkOut: "18:05", dayStatus: "PRESENT", overtimeHours: "1.500",
-        partyId: null, headCount: null, labourCategory: null, dailyRate: null,
-        source: "MANUAL", isConfirmed: false, accrualEntryId: null, entryNo: null, accruedAmount: null,
-        postedAt: null, postedBy: null, reversalEntryNo: null, reversalEntryId: null, version: 1,
+        id: "att-off-1",
+        mode: "OFFICE",
+        attendanceDate: new Date().toISOString().slice(0, 10),
+        projectId: "proj-a",
+        costCentreId: null,
+        purposeId: null,
+        employeeId: "emp-1",
+        checkIn: "09:15",
+        checkOut: "18:05",
+        dayStatus: "PRESENT",
+        overtimeHours: "1.500",
+        partyId: null,
+        headCount: null,
+        labourCategory: null,
+        dailyRate: null,
+        source: "MANUAL",
+        isConfirmed: false,
+        accrualEntryId: null,
+        entryNo: null,
+        accruedAmount: null,
+        postedAt: null,
+        postedBy: null,
+        reversalEntryNo: null,
+        reversalEntryId: null,
+        version: 1,
       },
       {
-        id: "att-off-2", mode: "OFFICE", attendanceDate: new Date().toISOString().slice(0, 10),
-        projectId: "proj-a", costCentreId: null, purposeId: null,
-        employeeId: "emp-2", checkIn: "09:02", checkOut: "17:58", dayStatus: "PRESENT", overtimeHours: "0.000",
-        partyId: null, headCount: null, labourCategory: null, dailyRate: null,
-        source: "BIOMETRIC_IMPORT", isConfirmed: false, accrualEntryId: null, entryNo: null, accruedAmount: null,
-        postedAt: null, postedBy: null, reversalEntryNo: null, reversalEntryId: null, version: 1,
+        id: "att-off-2",
+        mode: "OFFICE",
+        attendanceDate: new Date().toISOString().slice(0, 10),
+        projectId: "proj-a",
+        costCentreId: null,
+        purposeId: null,
+        employeeId: "emp-2",
+        checkIn: "09:02",
+        checkOut: "17:58",
+        dayStatus: "PRESENT",
+        overtimeHours: "0.000",
+        partyId: null,
+        headCount: null,
+        labourCategory: null,
+        dailyRate: null,
+        source: "BIOMETRIC_IMPORT",
+        isConfirmed: false,
+        accrualEntryId: null,
+        entryNo: null,
+        accruedAmount: null,
+        postedAt: null,
+        postedBy: null,
+        reversalEntryNo: null,
+        reversalEntryId: null,
+        version: 1,
       },
       // Daily labour (one CONFIRMED with entryNo, two UNCONFIRMED)
       {
-        id: "att-dl-1", mode: "DAILY_LABOUR", attendanceDate: new Date().toISOString().slice(0, 10),
-        projectId: "proj-a", costCentreId: "cc-lab", purposeId: "pp-1",
-        employeeId: null, checkIn: null, checkOut: null, dayStatus: null, overtimeHours: null,
-        partyId: null, headCount: 20, labourCategory: "Mason", dailyRate: "650.0000",
-        source: "MANUAL", isConfirmed: true,
-        accrualEntryId: "je-dla-42", entryNo: "SJ/2526/0042",
+        id: "att-dl-1",
+        mode: "DAILY_LABOUR",
+        attendanceDate: new Date().toISOString().slice(0, 10),
+        projectId: "proj-a",
+        costCentreId: "cc-lab",
+        purposeId: "pp-1",
+        employeeId: null,
+        checkIn: null,
+        checkOut: null,
+        dayStatus: null,
+        overtimeHours: null,
+        partyId: null,
+        headCount: 20,
+        labourCategory: "Mason",
+        dailyRate: "650.0000",
+        source: "MANUAL",
+        isConfirmed: true,
+        accrualEntryId: "je-dla-42",
+        entryNo: "SJ/2526/0042",
         accruedAmount: "13000.0000",
         postedAt: new Date().toISOString(),
         postedBy: "00000000-0000-0000-0000-000000000001",
-        reversalEntryNo: null, reversalEntryId: null, version: 2,
+        reversalEntryNo: null,
+        reversalEntryId: null,
+        version: 2,
       },
       {
-        id: "att-dl-2", mode: "DAILY_LABOUR", attendanceDate: new Date().toISOString().slice(0, 10),
-        projectId: "proj-a", costCentreId: "cc-lab", purposeId: null,
-        employeeId: null, checkIn: null, checkOut: null, dayStatus: null, overtimeHours: null,
-        partyId: null, headCount: 12, labourCategory: "Helper", dailyRate: "450.0000",
-        source: "MANUAL", isConfirmed: false, accrualEntryId: null, entryNo: null, accruedAmount: null,
-        postedAt: null, postedBy: null, reversalEntryNo: null, reversalEntryId: null, version: 1,
+        id: "att-dl-2",
+        mode: "DAILY_LABOUR",
+        attendanceDate: new Date().toISOString().slice(0, 10),
+        projectId: "proj-a",
+        costCentreId: "cc-lab",
+        purposeId: null,
+        employeeId: null,
+        checkIn: null,
+        checkOut: null,
+        dayStatus: null,
+        overtimeHours: null,
+        partyId: null,
+        headCount: 12,
+        labourCategory: "Helper",
+        dailyRate: "450.0000",
+        source: "MANUAL",
+        isConfirmed: false,
+        accrualEntryId: null,
+        entryNo: null,
+        accruedAmount: null,
+        postedAt: null,
+        postedBy: null,
+        reversalEntryNo: null,
+        reversalEntryId: null,
+        version: 1,
       },
       {
-        id: "att-dl-3", mode: "DAILY_LABOUR", attendanceDate: new Date().toISOString().slice(0, 10),
-        projectId: "proj-a", costCentreId: "cc-tmp", purposeId: null,
-        employeeId: null, checkIn: null, checkOut: null, dayStatus: null, overtimeHours: null,
-        partyId: null, headCount: 8, labourCategory: "Formwork", dailyRate: "700.0000",
-        source: "MANUAL", isConfirmed: false, accrualEntryId: null, entryNo: null, accruedAmount: null,
-        postedAt: null, postedBy: null, reversalEntryNo: null, reversalEntryId: null, version: 1,
+        id: "att-dl-3",
+        mode: "DAILY_LABOUR",
+        attendanceDate: new Date().toISOString().slice(0, 10),
+        projectId: "proj-a",
+        costCentreId: "cc-tmp",
+        purposeId: null,
+        employeeId: null,
+        checkIn: null,
+        checkOut: null,
+        dayStatus: null,
+        overtimeHours: null,
+        partyId: null,
+        headCount: 8,
+        labourCategory: "Formwork",
+        dailyRate: "700.0000",
+        source: "MANUAL",
+        isConfirmed: false,
+        accrualEntryId: null,
+        entryNo: null,
+        accruedAmount: null,
+        postedAt: null,
+        postedBy: null,
+        reversalEntryNo: null,
+        reversalEntryId: null,
+        version: 1,
       },
       // Subcontractor (2 rows)
       {
-        id: "att-sub-1", mode: "SUBCONTRACTOR", attendanceDate: new Date().toISOString().slice(0, 10),
-        projectId: "proj-a", costCentreId: "cc-sub", purposeId: null,
-        employeeId: null, checkIn: null, checkOut: null, dayStatus: null, overtimeHours: null,
-        partyId: "pa-4", headCount: 25, labourCategory: null, dailyRate: null,
-        source: "MANUAL", isConfirmed: false, accrualEntryId: null, entryNo: null, accruedAmount: null,
-        postedAt: null, postedBy: null, reversalEntryNo: null, reversalEntryId: null, version: 1,
+        id: "att-sub-1",
+        mode: "SUBCONTRACTOR",
+        attendanceDate: new Date().toISOString().slice(0, 10),
+        projectId: "proj-a",
+        costCentreId: "cc-sub",
+        purposeId: null,
+        employeeId: null,
+        checkIn: null,
+        checkOut: null,
+        dayStatus: null,
+        overtimeHours: null,
+        partyId: "pa-4",
+        headCount: 25,
+        labourCategory: null,
+        dailyRate: null,
+        source: "MANUAL",
+        isConfirmed: false,
+        accrualEntryId: null,
+        entryNo: null,
+        accruedAmount: null,
+        postedAt: null,
+        postedBy: null,
+        reversalEntryNo: null,
+        reversalEntryId: null,
+        version: 1,
       },
       {
-        id: "att-sub-2", mode: "SUBCONTRACTOR", attendanceDate: new Date().toISOString().slice(0, 10),
-        projectId: "proj-a", costCentreId: "cc-sub", purposeId: null,
-        employeeId: null, checkIn: null, checkOut: null, dayStatus: null, overtimeHours: null,
-        partyId: "pa-7", headCount: 15, labourCategory: null, dailyRate: null,
-        source: "MANUAL", isConfirmed: false, accrualEntryId: null, entryNo: null, accruedAmount: null,
-        postedAt: null, postedBy: null, reversalEntryNo: null, reversalEntryId: null, version: 1,
+        id: "att-sub-2",
+        mode: "SUBCONTRACTOR",
+        attendanceDate: new Date().toISOString().slice(0, 10),
+        projectId: "proj-a",
+        costCentreId: "cc-sub",
+        purposeId: null,
+        employeeId: null,
+        checkIn: null,
+        checkOut: null,
+        dayStatus: null,
+        overtimeHours: null,
+        partyId: "pa-7",
+        headCount: 15,
+        labourCategory: null,
+        dailyRate: null,
+        source: "MANUAL",
+        isConfirmed: false,
+        accrualEntryId: null,
+        entryNo: null,
+        accruedAmount: null,
+        postedAt: null,
+        postedBy: null,
+        reversalEntryNo: null,
+        reversalEntryId: null,
+        version: 1,
       },
     ];
     ga.__ZE_MOCK_ATT__ = { rows: seed, seq: 100, dlaSeq: 42 };
@@ -2605,7 +4689,8 @@ export async function mockNestjsFetch(req: MockReq): Promise<MockResult> {
   // POST /attendance/office — bulk save
   if (pathname === "/attendance/office" && req.method === "POST") {
     const b = body as { rows?: unknown };
-    if (!Array.isArray(b.rows)) return { status: 400, body: envelope("VALIDATION_ERROR", "rows[] is required") };
+    if (!Array.isArray(b.rows))
+      return { status: 400, body: envelope("VALIDATION_ERROR", "rows[] is required") };
     const ids: string[] = [];
     for (const raw of b.rows as Array<Record<string, unknown>>) {
       const employeeId = String(raw.employeeId ?? "");
@@ -2613,11 +4698,18 @@ export async function mockNestjsFetch(req: MockReq): Promise<MockResult> {
       const projectId = String(raw.projectId ?? "");
       const dayStatus = String(raw.dayStatus ?? "");
       if (!employeeId || !attendanceDate || !projectId || !dayStatus) {
-        return { status: 400, body: envelope("VALIDATION_ERROR", "Some fields need attention. Please check and try again.") };
+        return {
+          status: 400,
+          body: envelope(
+            "VALIDATION_ERROR",
+            "Some fields need attention. Please check and try again.",
+          ),
+        };
       }
       // Upsert per (employeeId, attendanceDate).
       const existing = ATT.rows.find(
-        (r) => r.mode === "OFFICE" && r.employeeId === employeeId && r.attendanceDate === attendanceDate,
+        (r) =>
+          r.mode === "OFFICE" && r.employeeId === employeeId && r.attendanceDate === attendanceDate,
       );
       if (existing) {
         existing.checkIn = (raw.checkIn as string) ?? null;
@@ -2629,17 +4721,31 @@ export async function mockNestjsFetch(req: MockReq): Promise<MockResult> {
       } else {
         const id = `att-off-${(ATT.seq += 1)}`;
         ATT.rows.push({
-          id, mode: "OFFICE", attendanceDate, projectId,
-          costCentreId: null, purposeId: null,
+          id,
+          mode: "OFFICE",
+          attendanceDate,
+          projectId,
+          costCentreId: null,
+          purposeId: null,
           employeeId,
           checkIn: (raw.checkIn as string) ?? null,
           checkOut: (raw.checkOut as string) ?? null,
           dayStatus,
           overtimeHours: (raw.overtimeHours as string) ?? null,
-          partyId: null, headCount: null, labourCategory: null, dailyRate: null,
-          source: "MANUAL", isConfirmed: false, accrualEntryId: null,
-          entryNo: null, accruedAmount: null, postedAt: null, postedBy: null,
-          reversalEntryNo: null, reversalEntryId: null, version: 1,
+          partyId: null,
+          headCount: null,
+          labourCategory: null,
+          dailyRate: null,
+          source: "MANUAL",
+          isConfirmed: false,
+          accrualEntryId: null,
+          entryNo: null,
+          accruedAmount: null,
+          postedAt: null,
+          postedBy: null,
+          reversalEntryNo: null,
+          reversalEntryId: null,
+          version: 1,
         });
         ids.push(id);
       }
@@ -2652,7 +4758,10 @@ export async function mockNestjsFetch(req: MockReq): Promise<MockResult> {
     const b = body as { deviceFeed?: unknown; rows?: unknown };
     const feed = Array.isArray(b.deviceFeed) ? b.deviceFeed : Array.isArray(b.rows) ? b.rows : [];
     if (!Array.isArray(feed)) {
-      return { status: 400, body: envelope("VALIDATION_ERROR", "Paste a JSON array of rows or drop a CSV/XLSX file.") };
+      return {
+        status: 400,
+        body: envelope("VALIDATION_ERROR", "Paste a JSON array of rows or drop a CSV/XLSX file."),
+      };
     }
     const conflicts: Array<Record<string, unknown>> = [];
     const accepted: Array<Record<string, unknown>> = [];
@@ -2660,16 +4769,22 @@ export async function mockNestjsFetch(req: MockReq): Promise<MockResult> {
       const employeeId = String(raw.employeeId ?? "");
       const attendanceDate = String(raw.attendanceDate ?? "");
       const existing = ATT.rows.find(
-        (r) => r.mode === "OFFICE" && r.employeeId === employeeId && r.attendanceDate === attendanceDate,
+        (r) =>
+          r.mode === "OFFICE" && r.employeeId === employeeId && r.attendanceDate === attendanceDate,
       );
       if (existing && existing.source === "MANUAL") {
         conflicts.push({
-          employeeId, attendanceDate,
+          employeeId,
+          attendanceDate,
           reason: "Manual entry already exists for this day.",
           manual: {
-            employeeId, attendanceDate, projectId: existing.projectId,
-            checkIn: existing.checkIn, checkOut: existing.checkOut,
-            dayStatus: existing.dayStatus, overtimeHours: existing.overtimeHours,
+            employeeId,
+            attendanceDate,
+            projectId: existing.projectId,
+            checkIn: existing.checkIn,
+            checkOut: existing.checkOut,
+            dayStatus: existing.dayStatus,
+            overtimeHours: existing.overtimeHours,
           },
           imported: raw,
         });
@@ -2691,7 +4806,8 @@ export async function mockNestjsFetch(req: MockReq): Promise<MockResult> {
   // POST /attendance/subcontractor — bulk save
   if (pathname === "/attendance/subcontractor" && req.method === "POST") {
     const b = body as { rows?: unknown };
-    if (!Array.isArray(b.rows)) return { status: 400, body: envelope("VALIDATION_ERROR", "rows[] is required") };
+    if (!Array.isArray(b.rows))
+      return { status: 400, body: envelope("VALIDATION_ERROR", "rows[] is required") };
     const ids: string[] = [];
     for (const raw of b.rows as Array<Record<string, unknown>>) {
       const partyId = String(raw.partyId ?? "");
@@ -2700,17 +4816,41 @@ export async function mockNestjsFetch(req: MockReq): Promise<MockResult> {
       const headCount = Number(raw.headCount ?? 0);
       const attendanceDate = String(raw.attendanceDate ?? "");
       if (!partyId || !projectId || !costCentreId || headCount < 1 || !attendanceDate) {
-        return { status: 400, body: envelope("VALIDATION_ERROR", "Some fields need attention. Please check and try again.") };
+        return {
+          status: 400,
+          body: envelope(
+            "VALIDATION_ERROR",
+            "Some fields need attention. Please check and try again.",
+          ),
+        };
       }
       const id = `att-sub-${(ATT.seq += 1)}`;
       ATT.rows.push({
-        id, mode: "SUBCONTRACTOR", attendanceDate, projectId,
-        costCentreId, purposeId: (raw.purposeId as string) ?? null,
-        employeeId: null, checkIn: null, checkOut: null, dayStatus: null, overtimeHours: null,
-        partyId, headCount, labourCategory: null, dailyRate: null,
-        source: "MANUAL", isConfirmed: false, accrualEntryId: null,
-        entryNo: null, accruedAmount: null, postedAt: null, postedBy: null,
-        reversalEntryNo: null, reversalEntryId: null, version: 1,
+        id,
+        mode: "SUBCONTRACTOR",
+        attendanceDate,
+        projectId,
+        costCentreId,
+        purposeId: (raw.purposeId as string) ?? null,
+        employeeId: null,
+        checkIn: null,
+        checkOut: null,
+        dayStatus: null,
+        overtimeHours: null,
+        partyId,
+        headCount,
+        labourCategory: null,
+        dailyRate: null,
+        source: "MANUAL",
+        isConfirmed: false,
+        accrualEntryId: null,
+        entryNo: null,
+        accruedAmount: null,
+        postedAt: null,
+        postedBy: null,
+        reversalEntryNo: null,
+        reversalEntryId: null,
+        version: 1,
       });
       ids.push(id);
     }
@@ -2720,7 +4860,8 @@ export async function mockNestjsFetch(req: MockReq): Promise<MockResult> {
   // POST /attendance/daily-labour — bulk create UNCONFIRMED rows
   if (pathname === "/attendance/daily-labour" && req.method === "POST") {
     const b = body as { rows?: unknown };
-    if (!Array.isArray(b.rows)) return { status: 400, body: envelope("VALIDATION_ERROR", "rows[] is required") };
+    if (!Array.isArray(b.rows))
+      return { status: 400, body: envelope("VALIDATION_ERROR", "rows[] is required") };
     const ids: string[] = [];
     for (const raw of b.rows as Array<Record<string, unknown>>) {
       const attendanceDate = String(raw.attendanceDate ?? "");
@@ -2728,19 +4869,48 @@ export async function mockNestjsFetch(req: MockReq): Promise<MockResult> {
       const costCentreId = String(raw.costCentreId ?? "");
       const headCount = Number(raw.headCount ?? 0);
       const dailyRate = String(raw.dailyRate ?? "0");
-      if (!attendanceDate || !projectId || !costCentreId || headCount < 1 || Number(dailyRate) < 0) {
-        return { status: 400, body: envelope("VALIDATION_ERROR", "Some fields need attention. Please check and try again.") };
+      if (
+        !attendanceDate ||
+        !projectId ||
+        !costCentreId ||
+        headCount < 1 ||
+        Number(dailyRate) < 0
+      ) {
+        return {
+          status: 400,
+          body: envelope(
+            "VALIDATION_ERROR",
+            "Some fields need attention. Please check and try again.",
+          ),
+        };
       }
       const id = `att-dl-${(ATT.seq += 1)}`;
       ATT.rows.push({
-        id, mode: "DAILY_LABOUR", attendanceDate, projectId,
-        costCentreId, purposeId: (raw.purposeId as string) ?? null,
-        employeeId: null, checkIn: null, checkOut: null, dayStatus: null, overtimeHours: null,
-        partyId: null, headCount, labourCategory: (raw.labourCategory as string) ?? null,
+        id,
+        mode: "DAILY_LABOUR",
+        attendanceDate,
+        projectId,
+        costCentreId,
+        purposeId: (raw.purposeId as string) ?? null,
+        employeeId: null,
+        checkIn: null,
+        checkOut: null,
+        dayStatus: null,
+        overtimeHours: null,
+        partyId: null,
+        headCount,
+        labourCategory: (raw.labourCategory as string) ?? null,
         dailyRate,
-        source: "MANUAL", isConfirmed: false, accrualEntryId: null,
-        entryNo: null, accruedAmount: null, postedAt: null, postedBy: null,
-        reversalEntryNo: null, reversalEntryId: null, version: 1,
+        source: "MANUAL",
+        isConfirmed: false,
+        accrualEntryId: null,
+        entryNo: null,
+        accruedAmount: null,
+        postedAt: null,
+        postedBy: null,
+        reversalEntryNo: null,
+        reversalEntryId: null,
+        version: 1,
       });
       ids.push(id);
     }
@@ -2758,21 +4928,39 @@ export async function mockNestjsFetch(req: MockReq): Promise<MockResult> {
 
     if (req.method === "PATCH" && !action) {
       if (row.isConfirmed) {
-        return { status: 409, body: envelope("ATTENDANCE_CONFIRMED_IMMUTABLE", "This row has been confirmed and can no longer be edited — use Reverse to correct it.") };
+        return {
+          status: 409,
+          body: envelope(
+            "ATTENDANCE_CONFIRMED_IMMUTABLE",
+            "This row has been confirmed and can no longer be edited — use Reverse to correct it.",
+          ),
+        };
       }
       if (typeof b.version !== "number" || b.version !== row.version) {
-        return { status: 409, body: envelope("OPTIMISTIC_LOCK_CONFLICT", "This row was just changed by someone else. Reload and try again.") };
+        return {
+          status: 409,
+          body: envelope(
+            "OPTIMISTIC_LOCK_CONFLICT",
+            "This row was just changed by someone else. Reload and try again.",
+          ),
+        };
       }
       if (b.headCount !== undefined) {
         const hc = Number(b.headCount);
         if (!Number.isFinite(hc) || hc < 1) {
-          return { status: 400, body: envelope("VALIDATION_ERROR", "Enter a head count of 1 or more.") };
+          return {
+            status: 400,
+            body: envelope("VALIDATION_ERROR", "Enter a head count of 1 or more."),
+          };
         }
         row.headCount = hc;
       }
       if (b.dailyRate !== undefined) {
         if (Number(b.dailyRate) < 0) {
-          return { status: 400, body: envelope("VALIDATION_ERROR", "Enter a daily rate of ৳0 or more.") };
+          return {
+            status: 400,
+            body: envelope("VALIDATION_ERROR", "Enter a daily rate of ৳0 or more."),
+          };
         }
         row.dailyRate = String(b.dailyRate);
       }
@@ -2784,21 +4972,45 @@ export async function mockNestjsFetch(req: MockReq): Promise<MockResult> {
 
     if (req.method === "POST" && action === "confirm") {
       if (row.isConfirmed) {
-        return { status: 409, body: envelope("ALREADY_CONFIRMED", "This row has already been confirmed.") };
+        return {
+          status: 409,
+          body: envelope("ALREADY_CONFIRMED", "This row has already been confirmed."),
+        };
       }
       const purposeId = row.purposeId || (b.purposeId as string) || null;
       if (!purposeId) {
-        return { status: 400, body: envelope("MISSING_REQUIRED_DIMENSION", "A purpose is required to post the accrual.") };
+        return {
+          status: 400,
+          body: envelope(
+            "MISSING_REQUIRED_DIMENSION",
+            "A purpose is required to post the accrual.",
+          ),
+        };
       }
       if (!row.costCentreId) {
-        return { status: 400, body: envelope("MISSING_REQUIRED_DIMENSION", "A cost centre is required to post the accrual.") };
+        return {
+          status: 400,
+          body: envelope(
+            "MISSING_REQUIRED_DIMENSION",
+            "A cost centre is required to post the accrual.",
+          ),
+        };
       }
       if (isPeriodClosed(row.attendanceDate)) {
-        return { status: 409, body: envelope("PERIOD_CLOSED", "This accounting period is closed — posting isn't allowed.") };
+        return {
+          status: 409,
+          body: envelope(
+            "PERIOD_CLOSED",
+            "This accounting period is closed — posting isn't allowed.",
+          ),
+        };
       }
       const project = MOCK_PROJECTS.find((p) => p.id === row.projectId);
       if (project && project.status === "CLOSED") {
-        return { status: 409, body: envelope("PROJECT_CLOSED", "This project is closed — posting isn't allowed.") };
+        return {
+          status: 409,
+          body: envelope("PROJECT_CLOSED", "This project is closed — posting isn't allowed."),
+        };
       }
       row.purposeId = purposeId;
       const hc = row.headCount ?? 0;
@@ -2829,17 +5041,32 @@ export async function mockNestjsFetch(req: MockReq): Promise<MockResult> {
 
     if (req.method === "POST" && action === "reverse") {
       if (!row.isConfirmed) {
-        return { status: 409, body: envelope("NOT_CONFIRMED", "There's nothing to reverse — this row isn't confirmed.") };
+        return {
+          status: 409,
+          body: envelope("NOT_CONFIRMED", "There's nothing to reverse — this row isn't confirmed."),
+        };
       }
       if (row.reversalEntryNo) {
-        return { status: 409, body: envelope("ALREADY_REVERSED", "This accrual has already been reversed.") };
+        return {
+          status: 409,
+          body: envelope("ALREADY_REVERSED", "This accrual has already been reversed."),
+        };
       }
       const reason = String((b as { reason?: unknown }).reason ?? "").trim();
       if (!reason) {
-        return { status: 400, body: envelope("VALIDATION_ERROR", "Enter a reason for reversing this accrual.") };
+        return {
+          status: 400,
+          body: envelope("VALIDATION_ERROR", "Enter a reason for reversing this accrual."),
+        };
       }
       if (isPeriodClosed(row.attendanceDate)) {
-        return { status: 409, body: envelope("PERIOD_CLOSED", "This accounting period is closed — posting isn't allowed.") };
+        return {
+          status: 409,
+          body: envelope(
+            "PERIOD_CLOSED",
+            "This accounting period is closed — posting isn't allowed.",
+          ),
+        };
       }
       const seq = (ATT.dlaSeq += 1);
       row.reversalEntryNo = `SJ/2526/${String(seq).padStart(4, "0")}`;
@@ -2903,7 +5130,9 @@ export async function mockNestjsFetch(req: MockReq): Promise<MockResult> {
     lines: MockSalaryLine[];
     projectId: string | null;
   }
-  const gs = globalThis as unknown as { __ZE_MOCK_SAL__?: { sheets: MockSalarySheet[]; seq: number; noSeq: number } };
+  const gs = globalThis as unknown as {
+    __ZE_MOCK_SAL__?: { sheets: MockSalarySheet[]; seq: number; noSeq: number };
+  };
   function recomputeSheet(s: MockSalarySheet) {
     let g = 0;
     let d = 0;
@@ -2947,16 +5176,46 @@ export async function mockNestjsFetch(req: MockReq): Promise<MockResult> {
       projectId: null,
       lines: [
         {
-          id: "sl-draft-1", employeeId: "emp-1", employeeCode: "EMP-001", employeeName: "মোঃ রফিকুল ইসলাম",
-          designation: "Site Accountant", pfApplicable: true, projectId: "proj-a", costCentreId: "cc-lab", purposeId: "pp-1",
-          paidDays: "30.000", grossAmount: "45000.0000", allowances: "0", tdsAmount: "0", tdsRate: null,
-          pfAmount: "2000.0000", advanceRecovery: "0", otherDeductions: "0", netAmount: "0", version: 1,
+          id: "sl-draft-1",
+          employeeId: "emp-1",
+          employeeCode: "EMP-001",
+          employeeName: "মোঃ রফিকুল ইসলাম",
+          designation: "Site Accountant",
+          pfApplicable: true,
+          projectId: "proj-a",
+          costCentreId: "cc-lab",
+          purposeId: "pp-1",
+          paidDays: "30.000",
+          grossAmount: "45000.0000",
+          allowances: "0",
+          tdsAmount: "0",
+          tdsRate: null,
+          pfAmount: "2000.0000",
+          advanceRecovery: "0",
+          otherDeductions: "0",
+          netAmount: "0",
+          version: 1,
         },
         {
-          id: "sl-draft-2", employeeId: "emp-2", employeeCode: "EMP-002", employeeName: "Farzana Akter",
-          designation: "Site Engineer", pfApplicable: true, projectId: "proj-a", costCentreId: "cc-lab", purposeId: "pp-1",
-          paidDays: "30.000", grossAmount: "60000.0000", allowances: "0", tdsAmount: "0", tdsRate: null,
-          pfAmount: "3000.0000", advanceRecovery: "0", otherDeductions: "0", netAmount: "0", version: 1,
+          id: "sl-draft-2",
+          employeeId: "emp-2",
+          employeeCode: "EMP-002",
+          employeeName: "Farzana Akter",
+          designation: "Site Engineer",
+          pfApplicable: true,
+          projectId: "proj-a",
+          costCentreId: "cc-lab",
+          purposeId: "pp-1",
+          paidDays: "30.000",
+          grossAmount: "60000.0000",
+          allowances: "0",
+          tdsAmount: "0",
+          tdsRate: null,
+          pfAmount: "3000.0000",
+          advanceRecovery: "0",
+          otherDeductions: "0",
+          netAmount: "0",
+          version: 1,
         },
       ],
     };
@@ -2990,17 +5249,31 @@ export async function mockNestjsFetch(req: MockReq): Promise<MockResult> {
       lines: seededDraft.lines.map((l) => ({ ...l, id: `sl-r-${l.employeeId}`, version: 1 })),
     };
     recomputeSheet(seededReversed);
-    gs.__ZE_MOCK_SAL__ = { sheets: [seededDraft, seededPosted, seededReversed], seq: 100, noSeq: 3 };
+    gs.__ZE_MOCK_SAL__ = {
+      sheets: [seededDraft, seededPosted, seededReversed],
+      seq: 100,
+      noSeq: 3,
+    };
   }
   const SAL = gs.__ZE_MOCK_SAL__;
   function projectionOfSheet(s: MockSalarySheet, includeLines: boolean) {
     const base = {
-      id: s.id, financialYearId: s.financialYearId, periodLabel: s.periodLabel,
-      periodStart: s.periodStart, periodEnd: s.periodEnd, status: s.status,
-      salaryEntryId: s.salaryEntryId, entryNo: s.entryNo,
-      reversalEntryId: s.reversalEntryId, reversalEntryNo: s.reversalEntryNo,
-      totalGross: s.totalGross, totalDeductions: s.totalDeductions, totalNet: s.totalNet,
-      postedAt: s.postedAt, postedBy: s.postedBy, version: s.version,
+      id: s.id,
+      financialYearId: s.financialYearId,
+      periodLabel: s.periodLabel,
+      periodStart: s.periodStart,
+      periodEnd: s.periodEnd,
+      status: s.status,
+      salaryEntryId: s.salaryEntryId,
+      entryNo: s.entryNo,
+      reversalEntryId: s.reversalEntryId,
+      reversalEntryNo: s.reversalEntryNo,
+      totalGross: s.totalGross,
+      totalDeductions: s.totalDeductions,
+      totalNet: s.totalNet,
+      postedAt: s.postedAt,
+      postedBy: s.postedBy,
+      version: s.version,
     };
     return includeLines ? { ...base, lines: s.lines } : base;
   }
@@ -3010,11 +5283,24 @@ export async function mockNestjsFetch(req: MockReq): Promise<MockResult> {
 
   // POST /salary/sheets/generate
   if (pathname === "/salary/sheets/generate" && req.method === "POST") {
-    const b = body as { financialYearId?: string; periodLabel?: string; periodStart?: string; periodEnd?: string; projectId?: string | null };
-    if (!b.financialYearId) return { status: 400, body: envelope("VALIDATION_ERROR", "Select a financial year.") };
-    if (!b.periodLabel) return { status: 400, body: envelope("VALIDATION_ERROR", "Enter a period label.") };
-    if (!b.periodStart || !b.periodEnd) return { status: 400, body: envelope("VALIDATION_ERROR", "Enter a period range.") };
-    if (b.periodEnd < b.periodStart) return { status: 400, body: envelope("VALIDATION_ERROR", "Period end can't be before period start.") };
+    const b = body as {
+      financialYearId?: string;
+      periodLabel?: string;
+      periodStart?: string;
+      periodEnd?: string;
+      projectId?: string | null;
+    };
+    if (!b.financialYearId)
+      return { status: 400, body: envelope("VALIDATION_ERROR", "Select a financial year.") };
+    if (!b.periodLabel)
+      return { status: 400, body: envelope("VALIDATION_ERROR", "Enter a period label.") };
+    if (!b.periodStart || !b.periodEnd)
+      return { status: 400, body: envelope("VALIDATION_ERROR", "Enter a period range.") };
+    if (b.periodEnd < b.periodStart)
+      return {
+        status: 400,
+        body: envelope("VALIDATION_ERROR", "Period end can't be before period start."),
+      };
     const dup = SAL.sheets.find((s) => s.periodLabel === b.periodLabel && s.status === "DRAFT");
     if (dup) {
       return {
@@ -3022,7 +5308,8 @@ export async function mockNestjsFetch(req: MockReq): Promise<MockResult> {
         body: {
           error: {
             code: "DUPLICATE_DRAFT_SHEET",
-            message: "A draft salary sheet already exists for this period. Edit it instead of generating a new one.",
+            message:
+              "A draft salary sheet already exists for this period. Edit it instead of generating a new one.",
             details: { existingId: dup.id },
           },
           meta: { requestId: `mock-${Date.now()}` },
@@ -3030,10 +5317,13 @@ export async function mockNestjsFetch(req: MockReq): Promise<MockResult> {
       };
     }
     // Build a DRAFT from ACTIVE employees (INACTIVE excluded — FR-HR-003).
-    const employees = ((globalThis as unknown as { __ZE_MOCK_HR__?: { employees: MockEmployee[] } }).__ZE_MOCK_HR__?.employees ?? []).filter(
-      (e) => e.status === "ACTIVE",
-    );
-    const activeEmps = b.projectId ? employees.filter((e) => e.defaultProjectId === b.projectId) : employees;
+    const employees = (
+      (globalThis as unknown as { __ZE_MOCK_HR__?: { employees: MockEmployee[] } }).__ZE_MOCK_HR__
+        ?.employees ?? []
+    ).filter((e) => e.status === "ACTIVE");
+    const activeEmps = b.projectId
+      ? employees.filter((e) => e.defaultProjectId === b.projectId)
+      : employees;
     const newSheet: MockSalarySheet = {
       id: `sal-new-${(SAL.seq += 1)}`,
       financialYearId: String(b.financialYearId),
@@ -3041,9 +5331,16 @@ export async function mockNestjsFetch(req: MockReq): Promise<MockResult> {
       periodStart: String(b.periodStart),
       periodEnd: String(b.periodEnd),
       status: "DRAFT",
-      salaryEntryId: null, entryNo: null, reversalEntryId: null, reversalEntryNo: null,
-      totalGross: "0", totalDeductions: "0", totalNet: "0",
-      postedAt: null, postedBy: null, version: 1,
+      salaryEntryId: null,
+      entryNo: null,
+      reversalEntryId: null,
+      reversalEntryNo: null,
+      totalGross: "0",
+      totalDeductions: "0",
+      totalNet: "0",
+      postedAt: null,
+      postedBy: null,
+      version: 1,
       projectId: b.projectId ?? null,
       lines: activeEmps.map((e, i) => ({
         id: `sl-${SAL.seq}-${i}`,
@@ -3069,7 +5366,14 @@ export async function mockNestjsFetch(req: MockReq): Promise<MockResult> {
     };
     recomputeSheet(newSheet);
     SAL.sheets.unshift(newSheet);
-    return { status: 201, body: success({ id: newSheet.id, status: newSheet.status, periodLabel: newSheet.periodLabel }) };
+    return {
+      status: 201,
+      body: success({
+        id: newSheet.id,
+        status: newSheet.status,
+        periodLabel: newSheet.periodLabel,
+      }),
+    };
   }
 
   // GET /salary/sheets — list
@@ -3103,21 +5407,48 @@ export async function mockNestjsFetch(req: MockReq): Promise<MockResult> {
 
     if (smL && req.method === "PATCH") {
       if (sheet.status !== "DRAFT") {
-        return { status: 409, body: envelope("SALARY_NOT_DRAFT", "This salary sheet is already posted and can't be edited or posted again.") };
+        return {
+          status: 409,
+          body: envelope(
+            "SALARY_NOT_DRAFT",
+            "This salary sheet is already posted and can't be edited or posted again.",
+          ),
+        };
       }
       const lineId = smL[2]!;
       const line = sheet.lines.find((l) => l.id === lineId);
       if (!line) return { status: 404, body: envelope("NOT_FOUND", "Line not found.") };
-      const b = body as { version?: number; allowances?: string; tdsAmount?: string; tdsRate?: string; pfAmount?: string; advanceRecovery?: string; otherDeductions?: string };
+      const b = body as {
+        version?: number;
+        allowances?: string;
+        tdsAmount?: string;
+        tdsRate?: string;
+        pfAmount?: string;
+        advanceRecovery?: string;
+        otherDeductions?: string;
+      };
       if (typeof b.version !== "number" || b.version !== line.version) {
-        return { status: 409, body: envelope("OPTIMISTIC_LOCK_CONFLICT", "This salary sheet was just changed by someone else. Reload and try again.") };
+        return {
+          status: 409,
+          body: envelope(
+            "OPTIMISTIC_LOCK_CONFLICT",
+            "This salary sheet was just changed by someone else. Reload and try again.",
+          ),
+        };
       }
       const nonNeg = (v: string | undefined, name: string): string | null => {
         if (v === undefined) return null;
-        if (!/^\d*\.?\d*$/.test(v) || v === "" || Number(v) < 0) return `${name} can't be negative.`;
+        if (!/^\d*\.?\d*$/.test(v) || v === "" || Number(v) < 0)
+          return `${name} can't be negative.`;
         return null;
       };
-      for (const [name, v] of [["Allowances", b.allowances], ["TDS", b.tdsAmount], ["PF", b.pfAmount], ["Advance recovery", b.advanceRecovery], ["Other deductions", b.otherDeductions]] as const) {
+      for (const [name, v] of [
+        ["Allowances", b.allowances],
+        ["TDS", b.tdsAmount],
+        ["PF", b.pfAmount],
+        ["Advance recovery", b.advanceRecovery],
+        ["Other deductions", b.otherDeductions],
+      ] as const) {
         const err = nonNeg(v, name);
         if (err) return { status: 400, body: envelope("VALIDATION_ERROR", err) };
       }
@@ -3134,7 +5465,11 @@ export async function mockNestjsFetch(req: MockReq): Promise<MockResult> {
         status: 200,
         body: success({
           line,
-          totals: { totalGross: sheet.totalGross, totalDeductions: sheet.totalDeductions, totalNet: sheet.totalNet },
+          totals: {
+            totalGross: sheet.totalGross,
+            totalDeductions: sheet.totalDeductions,
+            totalNet: sheet.totalNet,
+          },
           version: sheet.version,
         }),
       };
@@ -3142,14 +5477,38 @@ export async function mockNestjsFetch(req: MockReq): Promise<MockResult> {
 
     if (smC && req.method === "PATCH") {
       if (sheet.status !== "DRAFT") {
-        return { status: 409, body: envelope("SALARY_NOT_DRAFT", "This salary sheet is already posted and can't be edited or posted again.") };
+        return {
+          status: 409,
+          body: envelope(
+            "SALARY_NOT_DRAFT",
+            "This salary sheet is already posted and can't be edited or posted again.",
+          ),
+        };
       }
-      const b = body as { apply?: { allowances?: string; tdsRate?: string; pfAmount?: string; advanceRecovery?: string }; employeeIds?: string[] | null; version?: number };
+      const b = body as {
+        apply?: {
+          allowances?: string;
+          tdsRate?: string;
+          pfAmount?: string;
+          advanceRecovery?: string;
+        };
+        employeeIds?: string[] | null;
+        version?: number;
+      };
       if (typeof b.version !== "number" || b.version !== sheet.version) {
-        return { status: 409, body: envelope("OPTIMISTIC_LOCK_CONFLICT", "This salary sheet was just changed by someone else. Reload and try again.") };
+        return {
+          status: 409,
+          body: envelope(
+            "OPTIMISTIC_LOCK_CONFLICT",
+            "This salary sheet was just changed by someone else. Reload and try again.",
+          ),
+        };
       }
       const apply = b.apply ?? {};
-      const targetLines = b.employeeIds && b.employeeIds.length > 0 ? sheet.lines.filter((l) => b.employeeIds!.includes(l.employeeId)) : sheet.lines;
+      const targetLines =
+        b.employeeIds && b.employeeIds.length > 0
+          ? sheet.lines.filter((l) => b.employeeIds!.includes(l.employeeId))
+          : sheet.lines;
       let changed = 0;
       for (const l of targetLines) {
         if (apply.allowances !== undefined) l.allowances = apply.allowances;
@@ -3158,7 +5517,10 @@ export async function mockNestjsFetch(req: MockReq): Promise<MockResult> {
         if (apply.tdsRate !== undefined) {
           const rate = Number(apply.tdsRate);
           if (!Number.isFinite(rate) || rate < 0 || rate > 100) {
-            return { status: 400, body: envelope("VALIDATION_ERROR", "TDS rate must be between 0 and 100.") };
+            return {
+              status: 400,
+              body: envelope("VALIDATION_ERROR", "TDS rate must be between 0 and 100."),
+            };
           }
           l.tdsAmount = ((Number(l.grossAmount) * rate) / 100).toFixed(4);
           l.tdsRate = String(apply.tdsRate);
@@ -3171,7 +5533,11 @@ export async function mockNestjsFetch(req: MockReq): Promise<MockResult> {
       return {
         status: 200,
         body: success({
-          totals: { totalGross: sheet.totalGross, totalDeductions: sheet.totalDeductions, totalNet: sheet.totalNet },
+          totals: {
+            totalGross: sheet.totalGross,
+            totalDeductions: sheet.totalDeductions,
+            totalNet: sheet.totalNet,
+          },
           changedLineCount: changed,
           version: sheet.version,
         }),
@@ -3180,22 +5546,52 @@ export async function mockNestjsFetch(req: MockReq): Promise<MockResult> {
 
     if (smP && req.method === "POST") {
       if (sheet.status !== "DRAFT") {
-        return { status: 409, body: envelope("SALARY_NOT_DRAFT", "This salary sheet is already posted and can't be edited or posted again.") };
+        return {
+          status: 409,
+          body: envelope(
+            "SALARY_NOT_DRAFT",
+            "This salary sheet is already posted and can't be edited or posted again.",
+          ),
+        };
       }
       const b = body as { version?: number };
       if (typeof b.version !== "number" || b.version !== sheet.version) {
-        return { status: 409, body: envelope("OPTIMISTIC_LOCK_CONFLICT", "This salary sheet was just changed by someone else. Reload and try again.") };
+        return {
+          status: 409,
+          body: envelope(
+            "OPTIMISTIC_LOCK_CONFLICT",
+            "This salary sheet was just changed by someone else. Reload and try again.",
+          ),
+        };
       }
       if (isSalaryPeriodClosed(sheet.periodEnd)) {
-        return { status: 409, body: envelope("PERIOD_CLOSED", "This period is closed — the salary run can't be posted.") };
+        return {
+          status: 409,
+          body: envelope(
+            "PERIOD_CLOSED",
+            "This period is closed — the salary run can't be posted.",
+          ),
+        };
       }
       for (const l of sheet.lines) {
         if (!l.projectId || !l.costCentreId || !l.purposeId) {
-          return { status: 400, body: envelope("MISSING_REQUIRED_DIMENSION", "One or more lines is missing a project, cost centre, or purpose — fix the line before posting.") };
+          return {
+            status: 400,
+            body: envelope(
+              "MISSING_REQUIRED_DIMENSION",
+              "One or more lines is missing a project, cost centre, or purpose — fix the line before posting.",
+            ),
+          };
         }
         const project = MOCK_PROJECTS.find((p) => p.id === l.projectId);
         if (project && project.status === "CLOSED") {
-          return { status: 409, body: envelope("PROJECT_CLOSED", "This project is closed — the salary run can't be posted.") };
+          return {
+            status: 409,
+            body: envelope(
+              "PROJECT_CLOSED",
+              "This project is closed — the salary run can't be posted.",
+            ),
+          };
         }
       }
       const seq = (SAL.noSeq += 1);
@@ -3221,14 +5617,27 @@ export async function mockNestjsFetch(req: MockReq): Promise<MockResult> {
 
     if (smR && req.method === "POST") {
       if (sheet.status === "REVERSED" || sheet.reversalEntryNo) {
-        return { status: 409, body: envelope("ALREADY_REVERSED", "This salary run has already been reversed.") };
+        return {
+          status: 409,
+          body: envelope("ALREADY_REVERSED", "This salary run has already been reversed."),
+        };
       }
       if (sheet.status !== "POSTED") {
-        return { status: 409, body: envelope("SALARY_NOT_POSTED", "This salary sheet isn't posted, so it can't be reversed.") };
+        return {
+          status: 409,
+          body: envelope(
+            "SALARY_NOT_POSTED",
+            "This salary sheet isn't posted, so it can't be reversed.",
+          ),
+        };
       }
       const b = body as { reason?: string; version?: number };
       const reason = String(b.reason ?? "").trim();
-      if (!reason) return { status: 400, body: envelope("VALIDATION_ERROR", "Enter a reason for reversing this salary run.") };
+      if (!reason)
+        return {
+          status: 400,
+          body: envelope("VALIDATION_ERROR", "Enter a reason for reversing this salary run."),
+        };
       const seq = (SAL.noSeq += 1);
       sheet.status = "REVERSED";
       sheet.reversalEntryNo = `SAL/2526/${String(seq).padStart(4, "0")}`;
@@ -3248,7 +5657,13 @@ export async function mockNestjsFetch(req: MockReq): Promise<MockResult> {
 
     if (smPS && req.method === "GET") {
       if (sheet.status !== "POSTED" && sheet.status !== "REVERSED") {
-        return { status: 409, body: envelope("SALARY_NOT_POSTED", "This salary sheet isn't posted, so it can't be reversed.") };
+        return {
+          status: 409,
+          body: envelope(
+            "SALARY_NOT_POSTED",
+            "This salary sheet isn't posted, so it can't be reversed.",
+          ),
+        };
       }
       const employeeIdFilter = params.get("employeeId");
       const list = sheet.lines
@@ -3262,7 +5677,12 @@ export async function mockNestjsFetch(req: MockReq): Promise<MockResult> {
           paidDays: l.paidDays,
           grossAmount: l.grossAmount,
           allowances: l.allowances,
-          deductions: { tds: l.tdsAmount, pf: l.pfAmount, advanceRecovery: l.advanceRecovery, other: l.otherDeductions },
+          deductions: {
+            tds: l.tdsAmount,
+            pf: l.pfAmount,
+            advanceRecovery: l.advanceRecovery,
+            other: l.otherDeductions,
+          },
           netAmount: l.netAmount,
         }));
       return { status: 200, body: success(list) };
@@ -3304,12 +5724,23 @@ export async function mockNestjsFetch(req: MockReq): Promise<MockResult> {
         const b = body as Partial<MockPo> & { lines?: MockPoLine[] };
         const project = MOCK_PROJECTS.find((p) => p.id === b.projectId);
         if (!project) return { status: 404, body: envelope("NOT_FOUND", "Project not found.") };
-        if (!scopeOk(project.id)) return { status: 403, body: envelope("FORBIDDEN", "You don't have access to this project.") };
+        if (!scopeOk(project.id))
+          return {
+            status: 403,
+            body: envelope("FORBIDDEN", "You don't have access to this project."),
+          };
         const lines = Array.isArray(b.lines) ? b.lines : [];
-        if (lines.length === 0) return { status: 400, body: envelope("VALIDATION_ERROR", "Add at least one line.") };
+        if (lines.length === 0)
+          return { status: 400, body: envelope("VALIDATION_ERROR", "Add at least one line.") };
         for (const [i, l] of lines.entries()) {
           if (!(Number(l.orderedQty) > 0)) {
-            return { status: 400, body: envelope("VALIDATION_ERROR", `Line ${i + 1}: ordered quantity must be greater than zero.`) };
+            return {
+              status: 400,
+              body: envelope(
+                "VALIDATION_ERROR",
+                `Line ${i + 1}: ordered quantity must be greater than zero.`,
+              ),
+            };
           }
           const g = MOCK_GODOWNS.find((x) => x.id === l.godownId);
           if (g && g.projectId !== project.id) {
@@ -3347,14 +5778,24 @@ export async function mockNestjsFetch(req: MockReq): Promise<MockResult> {
           status: "DRAFT",
         });
         MOCK_POS.unshift(po);
-        return { status: 201, body: { data: { id: po.id }, meta: { requestId: "mock-po", budgetWarnings: poBudgetWarnings(po) } } };
+        return {
+          status: 201,
+          body: {
+            data: { id: po.id },
+            meta: { requestId: "mock-po", budgetWarnings: poBudgetWarnings(po) },
+          },
+        };
       }
 
       // Below here: id-based reads / updates / actions.
       if (!id) return { status: 200, body: success({ ok: true, path: req.path }) };
       const po = MOCK_POS.find((p) => p.id === id);
       if (!po) return { status: 404, body: envelope("NOT_FOUND", "Purchase order not found.") };
-      if (!scopeOk(po.projectId)) return { status: 403, body: envelope("FORBIDDEN", "You don't have access to this purchase order.") };
+      if (!scopeOk(po.projectId))
+        return {
+          status: 403,
+          body: envelope("FORBIDDEN", "You don't have access to this purchase order."),
+        };
 
       if (!action && req.method === "GET") {
         return { status: 200, body: success(poResource(po)) };
@@ -3363,14 +5804,24 @@ export async function mockNestjsFetch(req: MockReq): Promise<MockResult> {
       if (!action && req.method === "PATCH") {
         const b = body as Partial<MockPo> & { version?: number; lines?: MockPoLine[] };
         if (po.status !== "DRAFT") {
-          return { status: 409, body: envelope("INVALID_PO_TRANSITION", "This purchase order is no longer a draft.") };
+          return {
+            status: 409,
+            body: envelope("INVALID_PO_TRANSITION", "This purchase order is no longer a draft."),
+          };
         }
         if (typeof b.version !== "number" || b.version !== po.version) {
-          return { status: 409, body: envelope("OPTIMISTIC_LOCK_CONFLICT", "This purchase order was just changed by someone else.") };
+          return {
+            status: 409,
+            body: envelope(
+              "OPTIMISTIC_LOCK_CONFLICT",
+              "This purchase order was just changed by someone else.",
+            ),
+          };
         }
         po.supplierId = String(b.supplierId ?? po.supplierId);
         po.poDate = String(b.poDate ?? po.poDate);
-        po.expectedDeliveryDate = (b.expectedDeliveryDate as string | null | undefined) ?? po.expectedDeliveryDate;
+        po.expectedDeliveryDate =
+          (b.expectedDeliveryDate as string | null | undefined) ?? po.expectedDeliveryDate;
         po.narration = (b.narration as string | null | undefined) ?? po.narration;
         if (Array.isArray(b.lines)) {
           po.lines = b.lines.map((l, idx) => ({
@@ -3387,39 +5838,83 @@ export async function mockNestjsFetch(req: MockReq): Promise<MockResult> {
           }));
         }
         po.version += 1;
-        return { status: 200, body: { data: poResource(po), meta: { requestId: "mock-po", budgetWarnings: poBudgetWarnings(po) } } };
+        return {
+          status: 200,
+          body: {
+            data: poResource(po),
+            meta: { requestId: "mock-po", budgetWarnings: poBudgetWarnings(po) },
+          },
+        };
       }
 
       if (action === "approve" && req.method === "POST") {
         const b = body as { version?: number };
         if (po.status !== "DRAFT") {
-          return { status: 409, body: envelope("INVALID_PO_TRANSITION", "This purchase order is not a draft.") };
+          return {
+            status: 409,
+            body: envelope("INVALID_PO_TRANSITION", "This purchase order is not a draft."),
+          };
         }
         if (typeof b.version !== "number" || b.version !== po.version) {
-          return { status: 409, body: envelope("OPTIMISTIC_LOCK_CONFLICT", "This purchase order was just changed by someone else.") };
+          return {
+            status: 409,
+            body: envelope(
+              "OPTIMISTIC_LOCK_CONFLICT",
+              "This purchase order was just changed by someone else.",
+            ),
+          };
         }
         po.status = "APPROVED";
         po.approvedBy = "u-admin";
         po.approvedAt = "2026-07-13T09:00:00Z";
         po.poRefNo = po.poRefNo ?? `PO-2026-${String(poSeq).padStart(4, "0")}`;
         po.version += 1;
-        return { status: 200, body: success({ id: po.id, status: po.status, approvedBy: po.approvedBy, approvedAt: po.approvedAt }) };
+        return {
+          status: 200,
+          body: success({
+            id: po.id,
+            status: po.status,
+            approvedBy: po.approvedBy,
+            approvedAt: po.approvedAt,
+          }),
+        };
       }
 
       if (action === "cancel" && req.method === "POST") {
         const b = body as { reason?: string; version?: number };
         if (po.status !== "DRAFT" && po.status !== "APPROVED") {
-          return { status: 409, body: envelope("INVALID_PO_TRANSITION", "This purchase order can no longer be cancelled.") };
+          return {
+            status: 409,
+            body: envelope(
+              "INVALID_PO_TRANSITION",
+              "This purchase order can no longer be cancelled.",
+            ),
+          };
         }
         if (!String(b.reason ?? "").trim()) {
-          return { status: 400, body: envelope("VALIDATION_ERROR", "Enter a reason for the cancellation.") };
+          return {
+            status: 400,
+            body: envelope("VALIDATION_ERROR", "Enter a reason for the cancellation."),
+          };
         }
         if (typeof b.version !== "number" || b.version !== po.version) {
-          return { status: 409, body: envelope("OPTIMISTIC_LOCK_CONFLICT", "This purchase order was just changed by someone else.") };
+          return {
+            status: 409,
+            body: envelope(
+              "OPTIMISTIC_LOCK_CONFLICT",
+              "This purchase order was just changed by someone else.",
+            ),
+          };
         }
         // e2e marker: a supplier id ending in "-bills" simulates the PO_HAS_BILLS block.
         if (po.supplierId.endsWith("-bills")) {
-          return { status: 409, body: envelope("PO_HAS_BILLS", "This PO already has a bill raised against it and can't be cancelled.") };
+          return {
+            status: 409,
+            body: envelope(
+              "PO_HAS_BILLS",
+              "This PO already has a bill raised against it and can't be cancelled.",
+            ),
+          };
         }
         po.status = "CANCELLED";
         po.version += 1;
@@ -3463,16 +5958,33 @@ export async function mockNestjsFetch(req: MockReq): Promise<MockResult> {
         const b = body as Partial<MockBill> & { lines?: MockBillLine[] };
         const project = MOCK_PROJECTS.find((p) => p.id === b.projectId);
         if (!project) return { status: 404, body: envelope("NOT_FOUND", "Project not found.") };
-        if (!scopeOk(project.id)) return { status: 403, body: envelope("FORBIDDEN", "You don't have access to this project.") };
+        if (!scopeOk(project.id))
+          return {
+            status: 403,
+            body: envelope("FORBIDDEN", "You don't have access to this project."),
+          };
         const lines = Array.isArray(b.lines) ? b.lines : [];
-        if (lines.length === 0) return { status: 400, body: envelope("VALIDATION_ERROR", "Add at least one line.") };
+        if (lines.length === 0)
+          return { status: 400, body: envelope("VALIDATION_ERROR", "Add at least one line.") };
         for (const [i, l] of lines.entries()) {
           const stock = !!l.isStockLine;
           if (stock && !(Number(l.billedQty) > 0)) {
-            return { status: 400, body: envelope("VALIDATION_ERROR", `Line ${i + 1}: billed quantity must be greater than zero.`) };
+            return {
+              status: 400,
+              body: envelope(
+                "VALIDATION_ERROR",
+                `Line ${i + 1}: billed quantity must be greater than zero.`,
+              ),
+            };
           }
           if (stock && !l.godownId) {
-            return { status: 400, body: envelope("VALIDATION_ERROR", `Line ${i + 1}: godown is required on a stock line.`) };
+            return {
+              status: 400,
+              body: envelope(
+                "VALIDATION_ERROR",
+                `Line ${i + 1}: godown is required on a stock line.`,
+              ),
+            };
           }
           const g = MOCK_GODOWNS.find((x) => x.id === l.godownId);
           if (g && g.projectId !== project.id) {
@@ -3501,16 +6013,26 @@ export async function mockNestjsFetch(req: MockReq): Promise<MockResult> {
           status: "DRAFT",
         });
         if (Number(built.netPayableAmount) < 0) {
-          return { status: 400, body: envelope("NET_PAYABLE_NEGATIVE", "TDS and AIT together are larger than the gross plus VAT input — net payable can't be negative.") };
+          return {
+            status: 400,
+            body: envelope(
+              "NET_PAYABLE_NEGATIVE",
+              "TDS and AIT together are larger than the gross plus VAT input — net payable can't be negative.",
+            ),
+          };
         }
         MOCK_BILLS.unshift(built);
-        return { status: 201, body: { data: { id: built.id }, meta: { requestId: "mock-bill", budgetWarnings: [] } } };
+        return {
+          status: 201,
+          body: { data: { id: built.id }, meta: { requestId: "mock-bill", budgetWarnings: [] } },
+        };
       }
 
       if (!id) return { status: 200, body: success({ ok: true, path: req.path }) };
       const bill = MOCK_BILLS.find((b) => b.id === id);
       if (!bill) return { status: 404, body: envelope("NOT_FOUND", "Purchase bill not found.") };
-      if (!scopeOk(bill.projectId)) return { status: 403, body: envelope("FORBIDDEN", "You don't have access to this bill.") };
+      if (!scopeOk(bill.projectId))
+        return { status: 403, body: envelope("FORBIDDEN", "You don't have access to this bill.") };
 
       if (!action && req.method === "GET") {
         return { status: 200, body: success(billResource(bill)) };
@@ -3519,35 +6041,64 @@ export async function mockNestjsFetch(req: MockReq): Promise<MockResult> {
       if (!action && req.method === "PATCH") {
         const b = body as Partial<MockBill> & { version?: number; lines?: MockBillLine[] };
         if (bill.status !== "DRAFT") {
-          return { status: 409, body: envelope("VOUCHER_POSTED_IMMUTABLE", "This bill has been posted and can't be edited.") };
+          return {
+            status: 409,
+            body: envelope(
+              "VOUCHER_POSTED_IMMUTABLE",
+              "This bill has been posted and can't be edited.",
+            ),
+          };
         }
         if (typeof b.version !== "number" || b.version !== bill.version) {
-          return { status: 409, body: envelope("OPTIMISTIC_LOCK_CONFLICT", "This bill was changed elsewhere.") };
+          return {
+            status: 409,
+            body: envelope("OPTIMISTIC_LOCK_CONFLICT", "This bill was changed elsewhere."),
+          };
         }
         bill.supplierId = String(b.supplierId ?? bill.supplierId);
         bill.billDate = String(b.billDate ?? bill.billDate);
         bill.dueDate = String(b.dueDate ?? bill.dueDate);
         bill.narration = (b.narration as string | null | undefined) ?? bill.narration;
-        bill.supplierInvoiceRef = (b.supplierInvoiceRef as string | null | undefined) ?? bill.supplierInvoiceRef;
-        bill.purchaseOrderId = (b.purchaseOrderId as string | null | undefined) ?? bill.purchaseOrderId;
+        bill.supplierInvoiceRef =
+          (b.supplierInvoiceRef as string | null | undefined) ?? bill.supplierInvoiceRef;
+        bill.purchaseOrderId =
+          (b.purchaseOrderId as string | null | undefined) ?? bill.purchaseOrderId;
         if (Array.isArray(b.lines)) {
           bill.lines = b.lines.map((l, idx) => normalizeBillLine(l, idx));
         }
         recomputeBill(bill);
         if (Number(bill.netPayableAmount) < 0) {
-          return { status: 400, body: envelope("NET_PAYABLE_NEGATIVE", "TDS and AIT together are larger than the gross plus VAT input — net payable can't be negative.") };
+          return {
+            status: 400,
+            body: envelope(
+              "NET_PAYABLE_NEGATIVE",
+              "TDS and AIT together are larger than the gross plus VAT input — net payable can't be negative.",
+            ),
+          };
         }
         bill.version += 1;
-        return { status: 200, body: { data: billResource(bill), meta: { requestId: "mock-bill", budgetWarnings: [] } } };
+        return {
+          status: 200,
+          body: { data: billResource(bill), meta: { requestId: "mock-bill", budgetWarnings: [] } },
+        };
       }
 
       if (action === "post" && req.method === "POST") {
         const b = body as { version?: number };
         if (bill.status !== "DRAFT") {
-          return { status: 409, body: envelope("VOUCHER_POSTED_IMMUTABLE", "This bill has already been posted or cancelled.") };
+          return {
+            status: 409,
+            body: envelope(
+              "VOUCHER_POSTED_IMMUTABLE",
+              "This bill has already been posted or cancelled.",
+            ),
+          };
         }
         if (typeof b.version !== "number" || b.version !== bill.version) {
-          return { status: 409, body: envelope("OPTIMISTIC_LOCK_CONFLICT", "This bill was changed elsewhere.") };
+          return {
+            status: 409,
+            body: envelope("OPTIMISTIC_LOCK_CONFLICT", "This bill was changed elsewhere."),
+          };
         }
         bill.status = "POSTED";
         bill.entryNo = bill.entryNo ?? `PUR/2526/${String(billSeq).padStart(4, "0")}`;
@@ -3571,19 +6122,31 @@ export async function mockNestjsFetch(req: MockReq): Promise<MockResult> {
       if (action === "cancel" && req.method === "POST") {
         const b = body as { reason?: string; version?: number };
         if (bill.status !== "POSTED") {
-          return { status: 409, body: envelope("VOUCHER_NOT_POSTED", "This bill isn't posted — nothing to cancel.") };
+          return {
+            status: 409,
+            body: envelope("VOUCHER_NOT_POSTED", "This bill isn't posted — nothing to cancel."),
+          };
         }
         if (!String(b.reason ?? "").trim()) {
-          return { status: 400, body: envelope("VALIDATION_ERROR", "Enter a reason for this cancellation.") };
+          return {
+            status: 400,
+            body: envelope("VALIDATION_ERROR", "Enter a reason for this cancellation."),
+          };
         }
         if (typeof b.version !== "number" || b.version !== bill.version) {
-          return { status: 409, body: envelope("OPTIMISTIC_LOCK_CONFLICT", "This bill was changed elsewhere.") };
+          return {
+            status: 409,
+            body: envelope("OPTIMISTIC_LOCK_CONFLICT", "This bill was changed elsewhere."),
+          };
         }
         // e2e marker: a supplier id ending in "-payments" simulates the applied-payments block.
         if (bill.supplierId.endsWith("-payments")) {
           return {
             status: 409,
-            body: envelope("BILL_HAS_APPLIED_PAYMENTS", "This bill has payments applied to it. Reverse or reallocate those payments first before cancelling."),
+            body: envelope(
+              "BILL_HAS_APPLIED_PAYMENTS",
+              "This bill has payments applied to it. Reverse or reallocate those payments first before cancelling.",
+            ),
           };
         }
         bill.status = "CANCELLED";
@@ -3613,7 +6176,10 @@ export async function mockNestjsFetch(req: MockReq): Promise<MockResult> {
       const po = MOCK_POS.find((p) => p.id === poId);
       if (!po) return { status: 404, body: envelope("NOT_FOUND", "Purchase order not found.") };
       if (!scopeOk(po.projectId)) {
-        return { status: 403, body: envelope("FORBIDDEN", "You don't have access to this purchase order's match view.") };
+        return {
+          status: 403,
+          body: envelope("FORBIDDEN", "You don't have access to this purchase order's match view."),
+        };
       }
       const billedByItem = new Map<string, number>();
       for (const b of MOCK_BILLS) {
@@ -3621,7 +6187,10 @@ export async function mockNestjsFetch(req: MockReq): Promise<MockResult> {
         if (b.status !== "POSTED") continue;
         for (const l of b.lines) {
           if (!l.itemId || !l.isStockLine) continue;
-          billedByItem.set(l.itemId, (billedByItem.get(l.itemId) ?? 0) + Number(l.billedQty || "0"));
+          billedByItem.set(
+            l.itemId,
+            (billedByItem.get(l.itemId) ?? 0) + Number(l.billedQty || "0"),
+          );
         }
       }
       const receivedByItem = new Map<string, number>();
@@ -3629,7 +6198,10 @@ export async function mockNestjsFetch(req: MockReq): Promise<MockResult> {
         if (g.purchaseOrderId !== poId) continue;
         if (g.status !== "POSTED") continue;
         for (const l of g.lines) {
-          receivedByItem.set(l.itemId, (receivedByItem.get(l.itemId) ?? 0) + Number(l.receivedQty || "0"));
+          receivedByItem.set(
+            l.itemId,
+            (receivedByItem.get(l.itemId) ?? 0) + Number(l.receivedQty || "0"),
+          );
         }
       }
       const lines = po.lines.map((l, i) => {
@@ -3637,7 +6209,8 @@ export async function mockNestjsFetch(req: MockReq): Promise<MockResult> {
         const billed = billedByItem.get(l.itemId) ?? 0;
         const received = receivedByItem.get(l.itemId) ?? 0;
         const open = Math.max(ordered - received, 0);
-        let matchStatus: "MATCHED" | "OVER_RECEIVED" | "UNDER_RECEIVED" | "PENDING_RECEIPT" = "PENDING_RECEIPT";
+        let matchStatus: "MATCHED" | "OVER_RECEIVED" | "UNDER_RECEIVED" | "PENDING_RECEIPT" =
+          "PENDING_RECEIPT";
         if (received > 0) {
           if (Math.abs(received - ordered) < 0.0001) matchStatus = "MATCHED";
           else if (received > ordered) matchStatus = "OVER_RECEIVED";
@@ -3707,15 +6280,32 @@ export async function mockNestjsFetch(req: MockReq): Promise<MockResult> {
         const b = body as Partial<MockGrn> & { lines?: MockGrnLine[] };
         const project = MOCK_PROJECTS.find((p) => p.id === b.projectId);
         if (!project) return { status: 404, body: envelope("NOT_FOUND", "Project not found.") };
-        if (!scopeOk(project.id)) return { status: 403, body: envelope("FORBIDDEN", "You don't have access to this project.") };
+        if (!scopeOk(project.id))
+          return {
+            status: 403,
+            body: envelope("FORBIDDEN", "You don't have access to this project."),
+          };
         if (!b.purchaseOrderId && !b.purchaseBillId) {
-          return { status: 400, body: envelope("VALIDATION_ERROR", "Choose a PO or Bill to receive against.") };
+          return {
+            status: 400,
+            body: envelope("VALIDATION_ERROR", "Choose a PO or Bill to receive against."),
+          };
         }
         const lines = Array.isArray(b.lines) ? b.lines : [];
-        if (lines.length === 0) return { status: 400, body: envelope("VALIDATION_ERROR", "Nothing left to receive on this reference.") };
+        if (lines.length === 0)
+          return {
+            status: 400,
+            body: envelope("VALIDATION_ERROR", "Nothing left to receive on this reference."),
+          };
         for (const [i, l] of lines.entries()) {
           if (!(Number(l.receivedQty) > 0)) {
-            return { status: 400, body: envelope("VALIDATION_ERROR", `Line ${i + 1}: received quantity must be greater than zero.`) };
+            return {
+              status: 400,
+              body: envelope(
+                "VALIDATION_ERROR",
+                `Line ${i + 1}: received quantity must be greater than zero.`,
+              ),
+            };
           }
           const g = MOCK_GODOWNS.find((x) => x.id === l.godownId);
           if (g && g.projectId !== project.id) {
@@ -3773,7 +6363,8 @@ export async function mockNestjsFetch(req: MockReq): Promise<MockResult> {
       if (!id) return { status: 200, body: success({ ok: true, path: req.path }) };
       const grn = MOCK_GRNS.find((g) => g.id === id);
       if (!grn) return { status: 404, body: envelope("NOT_FOUND", "GRN not found.") };
-      if (!scopeOk(grn.projectId)) return { status: 403, body: envelope("FORBIDDEN", "You don't have access to this GRN.") };
+      if (!scopeOk(grn.projectId))
+        return { status: 403, body: envelope("FORBIDDEN", "You don't have access to this GRN.") };
 
       if (!action && req.method === "GET") {
         return { status: 200, body: success(grnResource(grn)) };
@@ -3782,10 +6373,19 @@ export async function mockNestjsFetch(req: MockReq): Promise<MockResult> {
       if (!action && req.method === "PATCH") {
         const b = body as Partial<MockGrn> & { version?: number; lines?: MockGrnLine[] };
         if (grn.status !== "DRAFT") {
-          return { status: 409, body: envelope("VOUCHER_POSTED_IMMUTABLE", "This GRN has been posted and can't be edited.") };
+          return {
+            status: 409,
+            body: envelope(
+              "VOUCHER_POSTED_IMMUTABLE",
+              "This GRN has been posted and can't be edited.",
+            ),
+          };
         }
         if (typeof b.version !== "number" || b.version !== grn.version) {
-          return { status: 409, body: envelope("OPTIMISTIC_LOCK_CONFLICT", "This GRN was changed elsewhere.") };
+          return {
+            status: 409,
+            body: envelope("OPTIMISTIC_LOCK_CONFLICT", "This GRN was changed elsewhere."),
+          };
         }
         grn.receiptDate = String(b.receiptDate ?? grn.receiptDate);
         grn.narration = (b.narration as string | null | undefined) ?? grn.narration;
@@ -3810,10 +6410,16 @@ export async function mockNestjsFetch(req: MockReq): Promise<MockResult> {
       if (action === "post" && req.method === "POST") {
         const b = body as { version?: number };
         if (grn.status !== "DRAFT") {
-          return { status: 409, body: envelope("VOUCHER_POSTED_IMMUTABLE", "This GRN has already been posted.") };
+          return {
+            status: 409,
+            body: envelope("VOUCHER_POSTED_IMMUTABLE", "This GRN has already been posted."),
+          };
         }
         if (typeof b.version !== "number" || b.version !== grn.version) {
-          return { status: 409, body: envelope("OPTIMISTIC_LOCK_CONFLICT", "This GRN was changed elsewhere.") };
+          return {
+            status: 409,
+            body: envelope("OPTIMISTIC_LOCK_CONFLICT", "This GRN was changed elsewhere."),
+          };
         }
         grn.status = "POSTED";
         grn.grnRefNo = grn.grnRefNo ?? `GRN-2526/${String(grnSeq).padStart(4, "0")}`;
@@ -3840,6 +6446,84 @@ export async function mockNestjsFetch(req: MockReq): Promise<MockResult> {
         };
       }
     }
+  }
+
+  // ── Receipts (fe-receipt-list) — read-only collection register ─────────────
+  //
+  // GET /receipt: paginated + AND-combined filters (contract 11). PM is scoped to
+  // assigned-project receipts; a general no-project receipt is excluded for PM, and
+  // a direct out-of-scope `projectId` filter is `403 FORBIDDEN` (spec §11).
+  if (pathname === "/receipt" && req.method === "GET") {
+    const projectId = params.get("projectId");
+    if (
+      projectId &&
+      user.assignedProjectIds.length > 0 &&
+      !user.assignedProjectIds.includes(projectId)
+    ) {
+      return {
+        status: 403,
+        body: envelope("FORBIDDEN", "You can only view your assigned projects."),
+      };
+    }
+    let rows = MOCK_RECEIPTS.slice();
+    if (user.assignedProjectIds.length > 0) {
+      rows = rows.filter((r) => r.projectId && user.assignedProjectIds.includes(r.projectId));
+    }
+    const receiptType = params.get("receiptType");
+    const customerId = params.get("customerId");
+    const ipcId = params.get("ipcId");
+    const paymentModeCsv = params.get("paymentMode");
+    const statusCsv = params.get("status");
+    const dateFrom = params.get("dateFrom");
+    const dateTo = params.get("dateTo");
+    const entryNo = params.get("entryNo");
+    if (projectId) rows = rows.filter((r) => r.projectId === projectId);
+    if (receiptType) rows = rows.filter((r) => r.receiptType === receiptType);
+    if (customerId) rows = rows.filter((r) => r.partyId === customerId);
+    if (ipcId) rows = rows.filter((r) => r.ipcId === ipcId);
+    if (paymentModeCsv) {
+      const wanted = new Set(paymentModeCsv.split(","));
+      rows = rows.filter((r) => wanted.has(r.paymentMode));
+    }
+    if (statusCsv) {
+      const wanted = new Set(statusCsv.split(","));
+      rows = rows.filter((r) => wanted.has(r.status));
+    }
+    if (dateFrom) rows = rows.filter((r) => r.receiptDate >= dateFrom);
+    if (dateTo) rows = rows.filter((r) => r.receiptDate <= dateTo);
+    if (entryNo) rows = rows.filter((r) => r.entryNo === entryNo);
+    rows.sort((a, b) => (a.receiptDate < b.receiptDate ? 1 : -1)); // newest-first
+    return { status: 200, body: pageEnvelope(rows) };
+  }
+
+  // GET /receipt/ipc/{ipcId} — receipts applied to one IPC + its resulting balance due
+  // (FR-REC-016/-018). A live query, not a stored balance.
+  const receiptIpcMatch = /^\/receipt\/ipc\/([^/]+)$/.exec(pathname ?? "");
+  if (receiptIpcMatch && req.method === "GET") {
+    const ipcId = receiptIpcMatch[1]!;
+    const ipc = MOCK_IPCS.find((i) => i.id === ipcId);
+    if (!ipc) return { status: 404, body: envelope("NOT_FOUND", "IPC not found.") };
+    if (!scopeOk(ipc.projectId))
+      return { status: 403, body: envelope("FORBIDDEN", "You don't have access to this IPC.") };
+    const applied = MOCK_RECEIPTS.filter((r) => r.ipcId === ipcId && r.status === "POSTED");
+    const totalApplied = applied.reduce((s, r) => s + Number(r.amountSettled), 0);
+    const due = Number(ipcCurrentlyDue(ipc));
+    return {
+      status: 200,
+      body: success({
+        rows: applied.map((r) => ({
+          receiptId: r.id,
+          entryNo: r.entryNo,
+          receiptDate: r.receiptDate,
+          paymentMode: r.paymentMode,
+          amountApplied: r.amountSettled,
+          status: r.status,
+        })),
+        ipcCurrentlyDue: due.toFixed(4),
+        totalApplied: totalApplied.toFixed(4),
+        balanceDue: (due - totalApplied).toFixed(4),
+      }),
+    };
   }
 
   return { status: 200, body: success({ ok: true, path: req.path }) };
