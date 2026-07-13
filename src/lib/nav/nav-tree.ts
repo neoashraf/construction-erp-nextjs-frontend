@@ -453,7 +453,7 @@ export interface QuickCreateTarget {
 export const QUICK_CREATE: readonly QuickCreateTarget[] = [
   { label: "IPC", route: "/sales/ipcs/new", resource: "sales.ipcs", action: "CREATE", roles: ["ACCOUNTS_TEAM", "ADMIN"], built: true },
   { label: "Receipt", route: "/receipts/new", resource: "receipts", action: "CREATE", roles: ["ACCOUNTS_TEAM", "ADMIN"], built: false },
-  { label: "Purchase order", route: "/purchase/orders/new", resource: "purchase.orders", action: "CREATE", roles: ["ACCOUNTS_TEAM", "ADMIN"], built: false },
+  { label: "Purchase order", route: "/purchase/orders/new", resource: "purchase.orders", action: "CREATE", roles: ["ACCOUNTS_TEAM", "ADMIN"], built: true },
   { label: "Purchase bill", route: "/purchase/bills/new", resource: "purchase.bills", action: "CREATE", roles: ["ACCOUNTS_TEAM", "ADMIN"], built: false },
   { label: "GRN", route: "/purchase/grn/new", resource: "purchase.grn", action: "CREATE", roles: ["STORE_KEEPER", "ADMIN"], built: false },
   { label: "Payment", route: "/payments/new", resource: "payments.list", action: "CREATE", roles: ["ACCOUNTS_TEAM", "ADMIN"], built: false },

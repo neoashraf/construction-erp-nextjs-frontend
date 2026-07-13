@@ -391,6 +391,140 @@ const MOCK_PARTIES: MockParty[] = [
 ];
 let mockPartySeq = 800;
 
+// ── Purchase / Orders sample (dev/preview only) — the fe-purchase-orders store ──
+//
+// A PO is a NON-posting commitment (FR-PUR-001/-002): no ledger write, no gapless number.
+// `poRefNo` is the PO's own reference (allocated at Approve here for simplicity).
+// `lineAmount`/`billedQty`/`receivedQty` are derived. Draft-only edits; Approve locks;
+// Cancel needs a reason. Supplier ids ending in "-bills" simulate the PO_HAS_BILLS block.
+interface MockPoLine {
+  lineNo?: number;
+  itemId: string;
+  orderedQty: string;
+  rate: string;
+  lineAmount?: string;
+  godownId: string;
+  costCentreId: string;
+  purposeId: string;
+  billedQty?: string;
+  receivedQty?: string;
+}
+interface MockPo {
+  id: string;
+  projectId: string;
+  supplierId: string;
+  poRefNo: string | null;
+  poDate: string;
+  expectedDeliveryDate: string | null;
+  status: "DRAFT" | "APPROVED" | "PARTIALLY_BILLED" | "PARTIALLY_RECEIVED" | "CLOSED" | "CANCELLED";
+  narration: string | null;
+  lines: MockPoLine[];
+  approvedBy: string | null;
+  approvedAt: string | null;
+  version: number;
+}
+function mkPo(p: Partial<MockPo> & Pick<MockPo, "id" | "projectId">): MockPo {
+  return {
+    poRefNo: null,
+    supplierId: "pa-1",
+    poDate: "2026-07-10",
+    expectedDeliveryDate: null,
+    status: "DRAFT",
+    narration: null,
+    lines: [],
+    approvedBy: null,
+    approvedAt: null,
+    version: 1,
+    ...p,
+  };
+}
+const MOCK_POS: MockPo[] = [
+  mkPo({
+    id: "po-101",
+    projectId: "proj-a",
+    supplierId: "pa-1",
+    poRefNo: "PO-2026-0101",
+    poDate: "2026-07-08",
+    expectedDeliveryDate: "2026-07-20",
+    status: "APPROVED",
+    narration: "Slab materials",
+    approvedBy: "u-admin",
+    approvedAt: "2026-07-08T10:00:00Z",
+    lines: [
+      { lineNo: 1, itemId: "it-cement", orderedQty: "100.0000", rate: "500.0000", lineAmount: "50000.0000", godownId: "gd-a", costCentreId: "cc-mat", purposeId: "pp-1", billedQty: "0.0000", receivedQty: "0.0000" },
+    ],
+  }),
+  mkPo({
+    id: "po-102",
+    projectId: "proj-a",
+    supplierId: "pa-2",
+    poRefNo: null,
+    poDate: "2026-07-09",
+    status: "DRAFT",
+    lines: [
+      { lineNo: 1, itemId: "it-cement", orderedQty: "50.0000", rate: "540.0000", lineAmount: "27000.0000", godownId: "gd-a", costCentreId: "cc-mat", purposeId: "pp-1" },
+    ],
+  }),
+  mkPo({
+    id: "po-103",
+    projectId: "proj-b",
+    supplierId: "pa-6",
+    poRefNo: "PO-2026-0088",
+    poDate: "2026-06-25",
+    status: "CANCELLED",
+    lines: [
+      { lineNo: 1, itemId: "it-cement", orderedQty: "10.0000", rate: "520.0000", lineAmount: "5200.0000", godownId: "gd-c", costCentreId: "cc-mat", purposeId: "pp-1" },
+    ],
+  }),
+];
+let poSeq = 200;
+
+/** Summary shape returned in the PO list (contract 08 GET /orders response). */
+function poSummary(o: MockPo) {
+  return {
+    id: o.id,
+    poRefNo: o.poRefNo,
+    projectId: o.projectId,
+    supplierId: o.supplierId,
+    poDate: o.poDate,
+    status: o.status,
+  };
+}
+/** Full PO resource (contract 08 GET /orders/:id). */
+function poResource(o: MockPo) {
+  return {
+    id: o.id,
+    projectId: o.projectId,
+    supplierId: o.supplierId,
+    poRefNo: o.poRefNo,
+    poDate: o.poDate,
+    expectedDeliveryDate: o.expectedDeliveryDate,
+    status: o.status,
+    narration: o.narration,
+    lines: o.lines,
+    approvedBy: o.approvedBy,
+    approvedAt: o.approvedAt,
+    version: o.version,
+  };
+}
+/**
+ * Compute per-(project, costCentre) advisory budget warnings for a PO (FR-PUR-019).
+ * Purely illustrative: one entry per distinct cost centre on the PO, cycling through
+ * OK/APPROACHING/OVER/UNBUDGETED so the badges have something interesting to render.
+ * Never blocks a Save/Approve.
+ */
+function poBudgetWarnings(o: MockPo): Array<{ projectId: string; costCentreId: string; status: string }> {
+  const cycle = ["OK", "APPROACHING", "OVER", "UNBUDGETED"] as const;
+  const seen = new Set<string>();
+  const out: Array<{ projectId: string; costCentreId: string; status: string }> = [];
+  o.lines.forEach((l, i) => {
+    if (seen.has(l.costCentreId)) return;
+    seen.add(l.costCentreId);
+    out.push({ projectId: o.projectId, costCentreId: l.costCentreId, status: cycle[i % cycle.length]! });
+  });
+  return out;
+}
+
 // ── Sales / IPC sample (dev/preview only) — the fe-ipc-editor voucher store ──
 interface MockIpc {
   id: string;
@@ -2746,6 +2880,165 @@ export async function mockNestjsFetch(req: MockReq): Promise<MockResult> {
           netAmount: l.netAmount,
         }));
       return { status: 200, body: success(list) };
+    }
+  }
+
+  // ── Purchase / Orders (fe-purchase-orders) — non-posting commitment lifecycle ──
+  //
+  // Draft-only edits + Approve (server-confirmed) + Cancel (mandatory reason). No ledger
+  // write, no gapless number — the PO carries its own `poRefNo` (FR-PUR-001/-002/-024).
+  // Seed carries three POs so the list renders populated on first visit.
+  if (pathname?.startsWith("/purchase/orders")) {
+    const orderMatch = /^\/purchase\/orders(?:\/([^/]+))?(?:\/(approve|cancel))?$/.exec(pathname);
+    if (orderMatch) {
+      const id = orderMatch[1];
+      const action = orderMatch[2];
+
+      if (!id && req.method === "GET") {
+        let rows = MOCK_POS.slice().filter((o) => scopeOk(o.projectId));
+        const projectId = params.get("projectId");
+        const supplierId = params.get("supplierId");
+        const statusCsv = params.get("status");
+        const dateFrom = params.get("dateFrom");
+        const dateTo = params.get("dateTo");
+        if (projectId) rows = rows.filter((r) => r.projectId === projectId);
+        if (supplierId) rows = rows.filter((r) => r.supplierId === supplierId);
+        if (statusCsv) {
+          const wanted = new Set(statusCsv.split(","));
+          rows = rows.filter((r) => wanted.has(r.status));
+        }
+        if (dateFrom) rows = rows.filter((r) => r.poDate >= dateFrom);
+        if (dateTo) rows = rows.filter((r) => r.poDate <= dateTo);
+        rows.sort((a, b) => (a.poDate < b.poDate ? 1 : -1));
+        const summaries = rows.map(poSummary);
+        return { status: 200, body: pageEnvelope(summaries) };
+      }
+
+      if (!id && req.method === "POST") {
+        const b = body as Partial<MockPo> & { lines?: MockPoLine[] };
+        const project = MOCK_PROJECTS.find((p) => p.id === b.projectId);
+        if (!project) return { status: 404, body: envelope("NOT_FOUND", "Project not found.") };
+        if (!scopeOk(project.id)) return { status: 403, body: envelope("FORBIDDEN", "You don't have access to this project.") };
+        const lines = Array.isArray(b.lines) ? b.lines : [];
+        if (lines.length === 0) return { status: 400, body: envelope("VALIDATION_ERROR", "Add at least one line.") };
+        for (const [i, l] of lines.entries()) {
+          if (!(Number(l.orderedQty) > 0)) {
+            return { status: 400, body: envelope("VALIDATION_ERROR", `Line ${i + 1}: ordered quantity must be greater than zero.`) };
+          }
+          const g = MOCK_GODOWNS.find((x) => x.id === l.godownId);
+          if (g && g.projectId !== project.id) {
+            return {
+              status: 400,
+              body: {
+                error: {
+                  code: "CROSS_PROJECT_DIMENSION",
+                  message: "This godown doesn't belong to the selected project.",
+                  details: { path: ["lines", i, "godownId"] },
+                },
+              },
+            };
+          }
+        }
+        const po = mkPo({
+          id: `po-${(poSeq += 1)}`,
+          projectId: project.id,
+          supplierId: String(b.supplierId ?? ""),
+          poDate: String(b.poDate ?? ""),
+          expectedDeliveryDate: (b.expectedDeliveryDate as string | null | undefined) ?? null,
+          narration: (b.narration as string | null | undefined) ?? null,
+          lines: lines.map((l, idx) => ({
+            lineNo: idx + 1,
+            itemId: l.itemId,
+            orderedQty: String(l.orderedQty),
+            rate: String(l.rate),
+            lineAmount: (Number(l.orderedQty) * Number(l.rate)).toFixed(4),
+            godownId: l.godownId,
+            costCentreId: l.costCentreId,
+            purposeId: l.purposeId,
+            billedQty: "0.0000",
+            receivedQty: "0.0000",
+          })),
+          status: "DRAFT",
+        });
+        MOCK_POS.unshift(po);
+        return { status: 201, body: { data: { id: po.id }, meta: { requestId: "mock-po", budgetWarnings: poBudgetWarnings(po) } } };
+      }
+
+      // Below here: id-based reads / updates / actions.
+      if (!id) return { status: 200, body: success({ ok: true, path: req.path }) };
+      const po = MOCK_POS.find((p) => p.id === id);
+      if (!po) return { status: 404, body: envelope("NOT_FOUND", "Purchase order not found.") };
+      if (!scopeOk(po.projectId)) return { status: 403, body: envelope("FORBIDDEN", "You don't have access to this purchase order.") };
+
+      if (!action && req.method === "GET") {
+        return { status: 200, body: success(poResource(po)) };
+      }
+
+      if (!action && req.method === "PATCH") {
+        const b = body as Partial<MockPo> & { version?: number; lines?: MockPoLine[] };
+        if (po.status !== "DRAFT") {
+          return { status: 409, body: envelope("INVALID_PO_TRANSITION", "This purchase order is no longer a draft.") };
+        }
+        if (typeof b.version !== "number" || b.version !== po.version) {
+          return { status: 409, body: envelope("OPTIMISTIC_LOCK_CONFLICT", "This purchase order was just changed by someone else.") };
+        }
+        po.supplierId = String(b.supplierId ?? po.supplierId);
+        po.poDate = String(b.poDate ?? po.poDate);
+        po.expectedDeliveryDate = (b.expectedDeliveryDate as string | null | undefined) ?? po.expectedDeliveryDate;
+        po.narration = (b.narration as string | null | undefined) ?? po.narration;
+        if (Array.isArray(b.lines)) {
+          po.lines = b.lines.map((l, idx) => ({
+            lineNo: idx + 1,
+            itemId: l.itemId,
+            orderedQty: String(l.orderedQty),
+            rate: String(l.rate),
+            lineAmount: (Number(l.orderedQty) * Number(l.rate)).toFixed(4),
+            godownId: l.godownId,
+            costCentreId: l.costCentreId,
+            purposeId: l.purposeId,
+            billedQty: "0.0000",
+            receivedQty: "0.0000",
+          }));
+        }
+        po.version += 1;
+        return { status: 200, body: { data: poResource(po), meta: { requestId: "mock-po", budgetWarnings: poBudgetWarnings(po) } } };
+      }
+
+      if (action === "approve" && req.method === "POST") {
+        const b = body as { version?: number };
+        if (po.status !== "DRAFT") {
+          return { status: 409, body: envelope("INVALID_PO_TRANSITION", "This purchase order is not a draft.") };
+        }
+        if (typeof b.version !== "number" || b.version !== po.version) {
+          return { status: 409, body: envelope("OPTIMISTIC_LOCK_CONFLICT", "This purchase order was just changed by someone else.") };
+        }
+        po.status = "APPROVED";
+        po.approvedBy = "u-admin";
+        po.approvedAt = "2026-07-13T09:00:00Z";
+        po.poRefNo = po.poRefNo ?? `PO-2026-${String(poSeq).padStart(4, "0")}`;
+        po.version += 1;
+        return { status: 200, body: success({ id: po.id, status: po.status, approvedBy: po.approvedBy, approvedAt: po.approvedAt }) };
+      }
+
+      if (action === "cancel" && req.method === "POST") {
+        const b = body as { reason?: string; version?: number };
+        if (po.status !== "DRAFT" && po.status !== "APPROVED") {
+          return { status: 409, body: envelope("INVALID_PO_TRANSITION", "This purchase order can no longer be cancelled.") };
+        }
+        if (!String(b.reason ?? "").trim()) {
+          return { status: 400, body: envelope("VALIDATION_ERROR", "Enter a reason for the cancellation.") };
+        }
+        if (typeof b.version !== "number" || b.version !== po.version) {
+          return { status: 409, body: envelope("OPTIMISTIC_LOCK_CONFLICT", "This purchase order was just changed by someone else.") };
+        }
+        // e2e marker: a supplier id ending in "-bills" simulates the PO_HAS_BILLS block.
+        if (po.supplierId.endsWith("-bills")) {
+          return { status: 409, body: envelope("PO_HAS_BILLS", "This PO already has a bill raised against it and can't be cancelled.") };
+        }
+        po.status = "CANCELLED";
+        po.version += 1;
+        return { status: 200, body: success({ id: po.id, status: po.status }) };
+      }
     }
   }
 
