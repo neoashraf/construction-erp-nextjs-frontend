@@ -1,16 +1,18 @@
 import { requireModuleAccess } from "@/lib/auth/guard-module-page";
-import { EmployeeDetailScreen } from "@/features/hr-payroll/components/EmployeeDetailScreen";
+import { EmployeeDetail } from "@/features/hr/components/EmployeeDetail";
+
+interface RouteParams {
+  params: Promise<{ id: string }>;
+}
 
 /**
- * Employee detail route (FR-HR-001/002/003) — `[id]` is an employee id. Guarded by
- * the hr module guard; the client screen resolves the record + hosts the tabs/form.
+ * `/hr/employees/{id}` — the Employee detail page (Profile + Assignment-history tabs). The
+ * `"new"` route is served by the list's create drawer, not by this route (spec §3). Nav
+ * guard: SITE_ENGINEER / STORE_KEEPER / PROJECT_MANAGER redirect to /403; the server also
+ * re-checks every write and reveal so hidden affordances are UX only.
  */
-export default async function HrEmployeeDetailPage({
-  params,
-}: {
-  params: Promise<{ id: string }>;
-}) {
+export default async function HrEmployeeDetailPage({ params }: RouteParams) {
   await requireModuleAccess("hr");
   const { id } = await params;
-  return <EmployeeDetailScreen id={id} />;
+  return <EmployeeDetail employeeId={id} />;
 }

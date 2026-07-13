@@ -135,8 +135,6 @@ export function UsersTable({
   /** Row actions (edit / reset / activate) need the UPDATE grant; hidden without it. */
   canManage?: boolean;
 }) {
-
-  console.log('users=> ',users)
   return (
     <div>
       {/* Desktop / tablet (≥768px) */}
@@ -155,7 +153,7 @@ export function UsersTable({
             </TableRow>
           </TableHeader>
           <TableBody>
-            {users?.map((u) => (
+            {users.map((u) => (
               <TableRow
                 key={u.id}
                 tabIndex={0}
@@ -208,7 +206,7 @@ export function UsersTable({
 
       {/* Mobile stacked cards (≤767px, ≥360) — read-only review (spec §4) */}
       <ul className="flex flex-col gap-2 md:hidden" data-testid="users-cards">
-        {users?.map((u) => (
+        {users.map((u) => (
           <li
             key={u.id}
             className="rounded-card border border-border bg-surface p-3"

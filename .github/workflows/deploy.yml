@@ -1,4 +1,4 @@
-name: Deploy to Hostinger (self-hosted)
+name: Deploy to Homelab (self-hosted)
 
 on:
   push:
@@ -30,7 +30,7 @@ jobs:
   deploy:
     name: Build and restart ze-erp-frontend
     needs: test
-    runs-on: self-hosted
+    runs-on: [self-hosted, ze-erp-home]
 
     steps:
       - name: Checkout latest code

@@ -1,10 +1,13 @@
-import { ComingSoon } from "@/components/shell/coming-soon";
+import { requireModuleAccess } from "@/lib/auth/guard-module-page";
+import { StockJournalListScreen } from "@/features/inventory/components/StockJournalListScreen";
 
 /**
- * Placeholder route for the "Stock journals" screen (nav-tree route /inventory/stock-journals). The real
- * screen ships with its per-screen brief; until then this renders the shared
- * ComingSoon placeholder so the nav item navigates to a real page, not a dead link.
+ * Stock Journal list route (INV; FR-INV-022) — under the (app) shell + the `inventory`
+ * module guard. Read for all INV-scoped roles; the server scopes PM/Store Keeper to
+ * assigned projects and re-checks every read (`403 FORBIDDEN`). Write affordances (New /
+ * lifecycle actions) are gated per-actor inside the screens.
  */
-export default function InventoryStockJournalsPage() {
-  return <ComingSoon title="Stock journals" />;
+export default async function StockJournalsPage() {
+  await requireModuleAccess("inventory");
+  return <StockJournalListScreen />;
 }

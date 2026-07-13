@@ -71,6 +71,10 @@ export const MODULES = [
   "period",
   "audit",
   "cost-control",
+  "inventory",
+  "requisitions",
+  "sales",
+  "purchase",
   "hr",
 ] as const;
 
@@ -84,12 +88,12 @@ export type ModuleKey = (typeof MODULES)[number];
  * NOTE: deliberately conservative; per-screen briefs refine grants as needed.
  */
 const ROLE_MODULES: Record<Role, readonly ModuleKey[]> = {
-  ADMIN: ["master-data", "ledger", "numbering", "period", "audit", "cost-control", "hr"],
-  ACCOUNTS_TEAM: ["master-data", "ledger", "numbering", "period", "cost-control"],
-  ACCOUNTS_MANAGER: ["master-data", "ledger", "numbering", "period", "cost-control"],
-  PROJECT_MANAGER: ["ledger", "cost-control"],
-  SITE_ENGINEER: ["hr"],
-  STORE_KEEPER: [],
+  ADMIN: ["master-data", "ledger", "numbering", "period", "audit", "cost-control", "inventory", "requisitions", "sales", "purchase", "hr"],
+  ACCOUNTS_TEAM: ["master-data", "ledger", "numbering", "period", "cost-control", "inventory", "requisitions", "sales", "purchase", "hr"],
+  ACCOUNTS_MANAGER: ["master-data", "ledger", "numbering", "period", "cost-control", "inventory", "requisitions", "sales", "purchase", "hr"],
+  PROJECT_MANAGER: ["ledger", "cost-control", "inventory", "requisitions", "sales", "purchase"],
+  SITE_ENGINEER: ["requisitions"],
+  STORE_KEEPER: ["inventory", "requisitions", "purchase"],
   HR_MANAGER: ["hr"],
 };
 
@@ -108,6 +112,10 @@ export const MODULE_RESOURCE_PREFIX: Record<ModuleKey, readonly string[]> = {
   period: ["periods"],
   audit: ["audit."],
   "cost-control": ["cost_control."],
+  inventory: ["inventory."],
+  requisitions: ["requisitions."],
+  sales: ["sales."],
+  purchase: ["purchase."],
   hr: ["hr."],
 };
 
@@ -170,6 +178,10 @@ export function moduleLabel(module: ModuleKey): string {
     period: "Periods",
     audit: "Audit & Access",
     "cost-control": "Cost Control",
+    inventory: "Inventory",
+    requisitions: "Requisitions",
+    sales: "Sales / IPC",
+    purchase: "Purchase",
     hr: "HR & Payroll",
   };
   return labels[module];

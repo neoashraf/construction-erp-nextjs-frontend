@@ -296,7 +296,7 @@ export function GodownsTab({
         <form
           onSubmit={handleSubmit(onSubmit)}
           noValidate
-          className="mt-3.5 rounded-[11px] border border-[#D8E8B0] bg-surface p-[18px] shadow-sm"
+          className="mt-3.5 rounded-[11px] border border-accent-soft bg-surface p-[18px] shadow-sm"
           data-testid="godown-form"
         >
           <div className="mb-3.5 text-[13px] font-bold text-foreground">

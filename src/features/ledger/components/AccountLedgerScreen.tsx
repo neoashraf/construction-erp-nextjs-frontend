@@ -129,10 +129,7 @@ export function AccountLedgerScreen({
           data-testid="ledger-scope"
         >
           {/* selected account chip: code + resolved name (Account Ledger.dc.html) */}
-          <span
-            className="inline-flex h-[26px] items-center gap-2 rounded-token border bg-accent-soft px-2.5"
-            style={{ borderColor: "#DCEBBF" }}
-          >
+          <span className="inline-flex h-[26px] items-center gap-2 rounded-token border border-accent-soft bg-accent-soft px-2.5">
             <span className="font-mono text-[12px] font-semibold text-accent-ink">
               {applied.accountId}
             </span>
