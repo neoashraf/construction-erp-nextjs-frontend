@@ -1,10 +1,13 @@
-import { ComingSoon } from "@/components/shell/coming-soon";
+import { requireModuleAccess } from "@/lib/auth/guard-module-page";
+import { GrnListScreen } from "@/features/purchase/components/GrnListScreen";
 
 /**
- * Placeholder route for the "GRN & matching" screen (nav-tree route /purchase/grn). The real
- * screen ships with its per-screen brief; until then this renders the shared
- * ComingSoon placeholder so the nav item navigates to a real page, not a dead link.
+ * GRN & matching — list route (nav-tree route /purchase/grn, resource
+ * `purchase.grn`). Guarded by the `purchase` module gate; the list is a READ-only
+ * register (server scopes PM to assigned projects). The "New GRN" CTA is hidden
+ * for actors without `purchase.grn:CREATE` (Store Keeper only per spec §11).
  */
-export default function PurchaseGrnPage() {
-  return <ComingSoon title="GRN & matching" />;
+export default async function PurchaseGrnPage() {
+  await requireModuleAccess("purchase");
+  return <GrnListScreen />;
 }

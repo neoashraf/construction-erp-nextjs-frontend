@@ -71,3 +71,28 @@ export function canPostBill(user: Viewer): boolean {
 export function canCancelBill(user: Viewer): boolean {
   return allowBill(user, "CANCEL", ["ACCOUNTS_MANAGER", "ACCOUNTS_TEAM"]);
 }
+
+/**
+ * GRN scope (spec §11; brief §Scope 7). GRN entry is a Store Keeper action — only
+ * Store Keeper (+ permissioned Admin) records and posts. Accounts Manager / PM /
+ * Admin get read-only access (list + match view; PM assigned-projects only). The
+ * server enforces every action regardless — write affordances are HIDDEN, not
+ * disabled, for actors lacking scope.
+ */
+export const GRN_RESOURCE = "purchase.grn";
+
+function allowGrn(user: Viewer, action: ActionCode, fallbackRoles: readonly Role[]): boolean {
+  if (user.role === "ADMIN") return true;
+  if (user.permissions) return hasGrant(user as never, GRN_RESOURCE, action);
+  return roleMatches(fallbackRoles, user.role);
+}
+
+/** Create / edit a DRAFT GRN (`purchase:write`; catalogue C/U). Store Keeper only. */
+export function canWriteGrn(user: Viewer): boolean {
+  return allowGrn(user, "CREATE", ["STORE_KEEPER"]);
+}
+
+/** Post a DRAFT GRN (`purchase:post`; catalogue P). Store Keeper only. */
+export function canPostGrn(user: Viewer): boolean {
+  return allowGrn(user, "POST", ["STORE_KEEPER"]);
+}
