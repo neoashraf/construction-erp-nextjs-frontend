@@ -68,3 +68,35 @@ export function canReverseAttendance(user: Viewer): boolean {
   if (user.permissions) return hasGrant(user as never, HR_ATTENDANCE_RESOURCE, "CANCEL");
   return roleMatches(["HR_MANAGER", "ACCOUNTS_MANAGER", "ACCOUNTS_TEAM"], user.role);
 }
+
+/**
+ * Salary-sheet predicates (spec §11; API contract 12 § "Salary"; FR-HR-013..-018).
+ * Resource `hr.salary_sheets`, also-actions **C U P** (CREATE = Generate, UPDATE = edit
+ * draft / bulk-components, POST = Post/Reverse). HR Manager + ADMIN generate/edit/post/
+ * reverse; Accounts Manager can post/reverse (accounts-desk task, SRS §3). PM / Site
+ * Engineer / Store Keeper: nothing — screen hidden by the module guard, server 403 on
+ * direct URL. All write/post affordances are HIDDEN (not merely disabled) for actors
+ * without scope; the server re-checks every action regardless.
+ */
+export const HR_SALARY_RESOURCE = "hr.salary_sheets";
+
+/** Generate a new DRAFT for a period + edit its draft lines (bulk or per-line). */
+export function canGenerateSalarySheet(user: Viewer): boolean {
+  if (user.role === "ADMIN") return true;
+  if (user.permissions) return hasGrant(user as never, HR_SALARY_RESOURCE, "CREATE");
+  return roleMatches(["HR_MANAGER"], user.role);
+}
+
+/** Edit a DRAFT sheet's lines / bulk-components. Same scope as Generate. */
+export function canEditSalaryDraft(user: Viewer): boolean {
+  if (user.role === "ADMIN") return true;
+  if (user.permissions) return hasGrant(user as never, HR_SALARY_RESOURCE, "UPDATE");
+  return roleMatches(["HR_MANAGER"], user.role);
+}
+
+/** Post the SALARY entry + Reverse a posted run (spec §11 — HR Manager + Accounts + ADMIN). */
+export function canPostSalary(user: Viewer): boolean {
+  if (user.role === "ADMIN") return true;
+  if (user.permissions) return hasGrant(user as never, HR_SALARY_RESOURCE, "POST");
+  return roleMatches(["HR_MANAGER", "ACCOUNTS_MANAGER", "ACCOUNTS_TEAM"], user.role);
+}

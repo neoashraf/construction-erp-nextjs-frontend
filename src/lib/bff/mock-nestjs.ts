@@ -2336,5 +2336,418 @@ export async function mockNestjsFetch(req: MockReq): Promise<MockResult> {
     }
   }
 
+  // ── HR Salary (fe-salary-sheet, FE-37) ──
+  // Server-computed DRAFT sheets from the seeded HR.employees (ACTIVE only). Second
+  // Generate for the same period returns 409 DUPLICATE_DRAFT_SHEET. PATCH lines/components
+  // are DRAFT-only; Post allocates a gapless SAL/YYFY/#### number; Reverse produces a
+  // linked reversal. Money is Decimal(18,4); dates YYYY-MM-DD. Same simulated
+  // period-closed (≤ 2025-03-31) as attendance.
+  interface MockSalaryLine {
+    id: string;
+    employeeId: string;
+    employeeCode: string;
+    employeeName: string;
+    designation: string | null;
+    pfApplicable: boolean;
+    projectId: string | null;
+    costCentreId: string | null;
+    purposeId: string | null;
+    paidDays: string;
+    grossAmount: string;
+    allowances: string;
+    tdsAmount: string;
+    tdsRate: string | null;
+    pfAmount: string;
+    advanceRecovery: string;
+    otherDeductions: string;
+    netAmount: string;
+    version: number;
+  }
+  interface MockSalarySheet {
+    id: string;
+    financialYearId: string;
+    periodLabel: string;
+    periodStart: string;
+    periodEnd: string;
+    status: "DRAFT" | "POSTED" | "REVERSED";
+    salaryEntryId: string | null;
+    entryNo: string | null;
+    reversalEntryId: string | null;
+    reversalEntryNo: string | null;
+    totalGross: string;
+    totalDeductions: string;
+    totalNet: string;
+    postedAt: string | null;
+    postedBy: string | null;
+    version: number;
+    lines: MockSalaryLine[];
+    projectId: string | null;
+  }
+  const gs = globalThis as unknown as { __ZE_MOCK_SAL__?: { sheets: MockSalarySheet[]; seq: number; noSeq: number } };
+  function recomputeSheet(s: MockSalarySheet) {
+    let g = 0;
+    let d = 0;
+    let n = 0;
+    for (const l of s.lines) {
+      const gross = Number(l.grossAmount);
+      const allow = Number(l.allowances);
+      const tds = Number(l.tdsAmount);
+      const pf = Number(l.pfAmount);
+      const adv = Number(l.advanceRecovery);
+      const oth = Number(l.otherDeductions);
+      const net = gross + allow - (tds + pf + adv + oth);
+      l.netAmount = net.toFixed(4);
+      g += gross + allow;
+      d += tds + pf + adv + oth;
+      n += net;
+    }
+    s.totalGross = g.toFixed(4);
+    s.totalDeductions = d.toFixed(4);
+    s.totalNet = n.toFixed(4);
+  }
+  if (!gs.__ZE_MOCK_SAL__) {
+    // Seed one POSTED + one DRAFT + one REVERSED so the runs list is never empty in dev.
+    const seededDraft: MockSalarySheet = {
+      id: "sal-draft-1",
+      financialYearId: "22222222-2222-2222-2222-222222222222",
+      periodLabel: "2026-07",
+      periodStart: "2026-07-01",
+      periodEnd: "2026-07-31",
+      status: "DRAFT",
+      salaryEntryId: null,
+      entryNo: null,
+      reversalEntryId: null,
+      reversalEntryNo: null,
+      totalGross: "0",
+      totalDeductions: "0",
+      totalNet: "0",
+      postedAt: null,
+      postedBy: null,
+      version: 1,
+      projectId: null,
+      lines: [
+        {
+          id: "sl-draft-1", employeeId: "emp-1", employeeCode: "EMP-001", employeeName: "মোঃ রফিকুল ইসলাম",
+          designation: "Site Accountant", pfApplicable: true, projectId: "proj-a", costCentreId: "cc-lab", purposeId: "pp-1",
+          paidDays: "30.000", grossAmount: "45000.0000", allowances: "0", tdsAmount: "0", tdsRate: null,
+          pfAmount: "2000.0000", advanceRecovery: "0", otherDeductions: "0", netAmount: "0", version: 1,
+        },
+        {
+          id: "sl-draft-2", employeeId: "emp-2", employeeCode: "EMP-002", employeeName: "Farzana Akter",
+          designation: "Site Engineer", pfApplicable: true, projectId: "proj-a", costCentreId: "cc-lab", purposeId: "pp-1",
+          paidDays: "30.000", grossAmount: "60000.0000", allowances: "0", tdsAmount: "0", tdsRate: null,
+          pfAmount: "3000.0000", advanceRecovery: "0", otherDeductions: "0", netAmount: "0", version: 1,
+        },
+      ],
+    };
+    recomputeSheet(seededDraft);
+    const seededPosted: MockSalarySheet = {
+      ...seededDraft,
+      id: "sal-posted-1",
+      periodLabel: "2026-06",
+      periodStart: "2026-06-01",
+      periodEnd: "2026-06-30",
+      status: "POSTED",
+      salaryEntryId: "je-sal-1",
+      entryNo: "SAL/2526/0001",
+      postedAt: "2026-07-05T10:00:00Z",
+      postedBy: user.id,
+      version: 2,
+      lines: seededDraft.lines.map((l) => ({ ...l, id: `sl-p-${l.employeeId}`, version: 1 })),
+    };
+    recomputeSheet(seededPosted);
+    const seededReversed: MockSalarySheet = {
+      ...seededPosted,
+      id: "sal-rev-1",
+      periodLabel: "2026-05",
+      periodStart: "2026-05-01",
+      periodEnd: "2026-05-31",
+      status: "REVERSED",
+      salaryEntryId: "je-sal-0",
+      entryNo: "SAL/2526/0002",
+      reversalEntryId: "je-sal-r0",
+      reversalEntryNo: "SAL/2526/0003",
+      lines: seededDraft.lines.map((l) => ({ ...l, id: `sl-r-${l.employeeId}`, version: 1 })),
+    };
+    recomputeSheet(seededReversed);
+    gs.__ZE_MOCK_SAL__ = { sheets: [seededDraft, seededPosted, seededReversed], seq: 100, noSeq: 3 };
+  }
+  const SAL = gs.__ZE_MOCK_SAL__;
+  function projectionOfSheet(s: MockSalarySheet, includeLines: boolean) {
+    const base = {
+      id: s.id, financialYearId: s.financialYearId, periodLabel: s.periodLabel,
+      periodStart: s.periodStart, periodEnd: s.periodEnd, status: s.status,
+      salaryEntryId: s.salaryEntryId, entryNo: s.entryNo,
+      reversalEntryId: s.reversalEntryId, reversalEntryNo: s.reversalEntryNo,
+      totalGross: s.totalGross, totalDeductions: s.totalDeductions, totalNet: s.totalNet,
+      postedAt: s.postedAt, postedBy: s.postedBy, version: s.version,
+    };
+    return includeLines ? { ...base, lines: s.lines } : base;
+  }
+  function isSalaryPeriodClosed(end: string): boolean {
+    return end <= "2025-03-31";
+  }
+
+  // POST /salary/sheets/generate
+  if (pathname === "/salary/sheets/generate" && req.method === "POST") {
+    const b = body as { financialYearId?: string; periodLabel?: string; periodStart?: string; periodEnd?: string; projectId?: string | null };
+    if (!b.financialYearId) return { status: 400, body: envelope("VALIDATION_ERROR", "Select a financial year.") };
+    if (!b.periodLabel) return { status: 400, body: envelope("VALIDATION_ERROR", "Enter a period label.") };
+    if (!b.periodStart || !b.periodEnd) return { status: 400, body: envelope("VALIDATION_ERROR", "Enter a period range.") };
+    if (b.periodEnd < b.periodStart) return { status: 400, body: envelope("VALIDATION_ERROR", "Period end can't be before period start.") };
+    const dup = SAL.sheets.find((s) => s.periodLabel === b.periodLabel && s.status === "DRAFT");
+    if (dup) {
+      return {
+        status: 409,
+        body: {
+          error: {
+            code: "DUPLICATE_DRAFT_SHEET",
+            message: "A draft salary sheet already exists for this period. Edit it instead of generating a new one.",
+            details: { existingId: dup.id },
+          },
+          meta: { requestId: `mock-${Date.now()}` },
+        },
+      };
+    }
+    // Build a DRAFT from ACTIVE employees (INACTIVE excluded — FR-HR-003).
+    const employees = ((globalThis as unknown as { __ZE_MOCK_HR__?: { employees: MockEmployee[] } }).__ZE_MOCK_HR__?.employees ?? []).filter(
+      (e) => e.status === "ACTIVE",
+    );
+    const activeEmps = b.projectId ? employees.filter((e) => e.defaultProjectId === b.projectId) : employees;
+    const newSheet: MockSalarySheet = {
+      id: `sal-new-${(SAL.seq += 1)}`,
+      financialYearId: String(b.financialYearId),
+      periodLabel: String(b.periodLabel),
+      periodStart: String(b.periodStart),
+      periodEnd: String(b.periodEnd),
+      status: "DRAFT",
+      salaryEntryId: null, entryNo: null, reversalEntryId: null, reversalEntryNo: null,
+      totalGross: "0", totalDeductions: "0", totalNet: "0",
+      postedAt: null, postedBy: null, version: 1,
+      projectId: b.projectId ?? null,
+      lines: activeEmps.map((e, i) => ({
+        id: `sl-${SAL.seq}-${i}`,
+        employeeId: e.id,
+        employeeCode: e.employeeCode,
+        employeeName: e.name,
+        designation: e.designation,
+        pfApplicable: e.pfApplicable,
+        projectId: e.defaultProjectId,
+        costCentreId: "cc-lab",
+        purposeId: "pp-1",
+        paidDays: "30.000",
+        grossAmount: String(e.wageAmount),
+        allowances: "0",
+        tdsAmount: "0",
+        tdsRate: null,
+        pfAmount: e.pfApplicable ? (Number(e.wageAmount) * 0.05).toFixed(4) : "0",
+        advanceRecovery: "0",
+        otherDeductions: "0",
+        netAmount: "0",
+        version: 1,
+      })),
+    };
+    recomputeSheet(newSheet);
+    SAL.sheets.unshift(newSheet);
+    return { status: 201, body: success({ id: newSheet.id, status: newSheet.status, periodLabel: newSheet.periodLabel }) };
+  }
+
+  // GET /salary/sheets — list
+  if (pathname === "/salary/sheets" && req.method === "GET") {
+    let rows = SAL.sheets.slice();
+    const fy = params.get("financialYearId");
+    const status = params.get("status");
+    const period = params.get("periodLabel");
+    if (fy) rows = rows.filter((r) => r.financialYearId === fy);
+    if (status) rows = rows.filter((r) => r.status === status);
+    if (period) rows = rows.filter((r) => r.periodLabel.includes(period));
+    return { status: 200, body: pageEnvelope(rows.map((s) => projectionOfSheet(s, false))) };
+  }
+
+  // /salary/sheets/:id[/(lines/:lineId|components|post|reverse|payslips)]
+  const smA = /^\/salary\/sheets\/([^/]+)$/.exec(pathname ?? "");
+  const smL = /^\/salary\/sheets\/([^/]+)\/lines\/([^/]+)$/.exec(pathname ?? "");
+  const smC = /^\/salary\/sheets\/([^/]+)\/components$/.exec(pathname ?? "");
+  const smP = /^\/salary\/sheets\/([^/]+)\/post$/.exec(pathname ?? "");
+  const smR = /^\/salary\/sheets\/([^/]+)\/reverse$/.exec(pathname ?? "");
+  const smPS = /^\/salary\/sheets\/([^/]+)\/payslips$/.exec(pathname ?? "");
+  const sheetId = smA?.[1] ?? smL?.[1] ?? smC?.[1] ?? smP?.[1] ?? smR?.[1] ?? smPS?.[1];
+  if (sheetId) {
+    const sheet = SAL.sheets.find((s) => s.id === sheetId);
+    if (!sheet) return { status: 404, body: envelope("NOT_FOUND", "Salary sheet not found.") };
+
+    if (smA && req.method === "GET") {
+      const includeLines = params.get("includeLines") === "true";
+      return { status: 200, body: success(projectionOfSheet(sheet, includeLines)) };
+    }
+
+    if (smL && req.method === "PATCH") {
+      if (sheet.status !== "DRAFT") {
+        return { status: 409, body: envelope("SALARY_NOT_DRAFT", "This salary sheet is already posted and can't be edited or posted again.") };
+      }
+      const lineId = smL[2]!;
+      const line = sheet.lines.find((l) => l.id === lineId);
+      if (!line) return { status: 404, body: envelope("NOT_FOUND", "Line not found.") };
+      const b = body as { version?: number; allowances?: string; tdsAmount?: string; tdsRate?: string; pfAmount?: string; advanceRecovery?: string; otherDeductions?: string };
+      if (typeof b.version !== "number" || b.version !== line.version) {
+        return { status: 409, body: envelope("OPTIMISTIC_LOCK_CONFLICT", "This salary sheet was just changed by someone else. Reload and try again.") };
+      }
+      const nonNeg = (v: string | undefined, name: string): string | null => {
+        if (v === undefined) return null;
+        if (!/^\d*\.?\d*$/.test(v) || v === "" || Number(v) < 0) return `${name} can't be negative.`;
+        return null;
+      };
+      for (const [name, v] of [["Allowances", b.allowances], ["TDS", b.tdsAmount], ["PF", b.pfAmount], ["Advance recovery", b.advanceRecovery], ["Other deductions", b.otherDeductions]] as const) {
+        const err = nonNeg(v, name);
+        if (err) return { status: 400, body: envelope("VALIDATION_ERROR", err) };
+      }
+      if (b.allowances !== undefined) line.allowances = b.allowances;
+      if (b.tdsAmount !== undefined) line.tdsAmount = b.tdsAmount;
+      if (b.tdsRate !== undefined) line.tdsRate = b.tdsRate;
+      if (b.pfAmount !== undefined) line.pfAmount = b.pfAmount;
+      if (b.advanceRecovery !== undefined) line.advanceRecovery = b.advanceRecovery;
+      if (b.otherDeductions !== undefined) line.otherDeductions = b.otherDeductions;
+      line.version += 1;
+      recomputeSheet(sheet);
+      sheet.version += 1;
+      return {
+        status: 200,
+        body: success({
+          line,
+          totals: { totalGross: sheet.totalGross, totalDeductions: sheet.totalDeductions, totalNet: sheet.totalNet },
+          version: sheet.version,
+        }),
+      };
+    }
+
+    if (smC && req.method === "PATCH") {
+      if (sheet.status !== "DRAFT") {
+        return { status: 409, body: envelope("SALARY_NOT_DRAFT", "This salary sheet is already posted and can't be edited or posted again.") };
+      }
+      const b = body as { apply?: { allowances?: string; tdsRate?: string; pfAmount?: string; advanceRecovery?: string }; employeeIds?: string[] | null; version?: number };
+      if (typeof b.version !== "number" || b.version !== sheet.version) {
+        return { status: 409, body: envelope("OPTIMISTIC_LOCK_CONFLICT", "This salary sheet was just changed by someone else. Reload and try again.") };
+      }
+      const apply = b.apply ?? {};
+      const targetLines = b.employeeIds && b.employeeIds.length > 0 ? sheet.lines.filter((l) => b.employeeIds!.includes(l.employeeId)) : sheet.lines;
+      let changed = 0;
+      for (const l of targetLines) {
+        if (apply.allowances !== undefined) l.allowances = apply.allowances;
+        if (apply.pfAmount !== undefined) l.pfAmount = apply.pfAmount;
+        if (apply.advanceRecovery !== undefined) l.advanceRecovery = apply.advanceRecovery;
+        if (apply.tdsRate !== undefined) {
+          const rate = Number(apply.tdsRate);
+          if (!Number.isFinite(rate) || rate < 0 || rate > 100) {
+            return { status: 400, body: envelope("VALIDATION_ERROR", "TDS rate must be between 0 and 100.") };
+          }
+          l.tdsAmount = ((Number(l.grossAmount) * rate) / 100).toFixed(4);
+          l.tdsRate = String(apply.tdsRate);
+        }
+        changed += 1;
+        l.version += 1;
+      }
+      recomputeSheet(sheet);
+      sheet.version += 1;
+      return {
+        status: 200,
+        body: success({
+          totals: { totalGross: sheet.totalGross, totalDeductions: sheet.totalDeductions, totalNet: sheet.totalNet },
+          changedLineCount: changed,
+          version: sheet.version,
+        }),
+      };
+    }
+
+    if (smP && req.method === "POST") {
+      if (sheet.status !== "DRAFT") {
+        return { status: 409, body: envelope("SALARY_NOT_DRAFT", "This salary sheet is already posted and can't be edited or posted again.") };
+      }
+      const b = body as { version?: number };
+      if (typeof b.version !== "number" || b.version !== sheet.version) {
+        return { status: 409, body: envelope("OPTIMISTIC_LOCK_CONFLICT", "This salary sheet was just changed by someone else. Reload and try again.") };
+      }
+      if (isSalaryPeriodClosed(sheet.periodEnd)) {
+        return { status: 409, body: envelope("PERIOD_CLOSED", "This period is closed — the salary run can't be posted.") };
+      }
+      for (const l of sheet.lines) {
+        if (!l.projectId || !l.costCentreId || !l.purposeId) {
+          return { status: 400, body: envelope("MISSING_REQUIRED_DIMENSION", "One or more lines is missing a project, cost centre, or purpose — fix the line before posting.") };
+        }
+        const project = MOCK_PROJECTS.find((p) => p.id === l.projectId);
+        if (project && project.status === "CLOSED") {
+          return { status: 409, body: envelope("PROJECT_CLOSED", "This project is closed — the salary run can't be posted.") };
+        }
+      }
+      const seq = (SAL.noSeq += 1);
+      sheet.status = "POSTED";
+      sheet.entryNo = `SAL/2526/${String(seq).padStart(4, "0")}`;
+      sheet.salaryEntryId = `je-sal-${seq}`;
+      sheet.postedAt = new Date().toISOString();
+      sheet.postedBy = user.id;
+      sheet.version += 1;
+      return {
+        status: 200,
+        body: success({
+          salarySheetId: sheet.id,
+          salaryEntryId: sheet.salaryEntryId,
+          entryNo: sheet.entryNo,
+          status: sheet.status,
+          postedAt: sheet.postedAt,
+          postedBy: sheet.postedBy,
+          version: sheet.version,
+        }),
+      };
+    }
+
+    if (smR && req.method === "POST") {
+      if (sheet.status === "REVERSED" || sheet.reversalEntryNo) {
+        return { status: 409, body: envelope("ALREADY_REVERSED", "This salary run has already been reversed.") };
+      }
+      if (sheet.status !== "POSTED") {
+        return { status: 409, body: envelope("SALARY_NOT_POSTED", "This salary sheet isn't posted, so it can't be reversed.") };
+      }
+      const b = body as { reason?: string; version?: number };
+      const reason = String(b.reason ?? "").trim();
+      if (!reason) return { status: 400, body: envelope("VALIDATION_ERROR", "Enter a reason for reversing this salary run.") };
+      const seq = (SAL.noSeq += 1);
+      sheet.status = "REVERSED";
+      sheet.reversalEntryNo = `SAL/2526/${String(seq).padStart(4, "0")}`;
+      sheet.reversalEntryId = `je-sal-r${seq}`;
+      sheet.version += 1;
+      return {
+        status: 200,
+        body: success({
+          reversalEntryId: sheet.reversalEntryId,
+          reversalEntryNo: sheet.reversalEntryNo,
+          originalEntryId: sheet.salaryEntryId,
+          status: sheet.status,
+          version: sheet.version,
+        }),
+      };
+    }
+
+    if (smPS && req.method === "GET") {
+      if (sheet.status !== "POSTED" && sheet.status !== "REVERSED") {
+        return { status: 409, body: envelope("SALARY_NOT_POSTED", "This salary sheet isn't posted, so it can't be reversed.") };
+      }
+      const employeeIdFilter = params.get("employeeId");
+      const list = sheet.lines
+        .filter((l) => !employeeIdFilter || l.employeeId === employeeIdFilter)
+        .map((l) => ({
+          employeeId: l.employeeId,
+          employeeCode: l.employeeCode,
+          name: l.employeeName,
+          designation: l.designation,
+          periodLabel: sheet.periodLabel,
+          paidDays: l.paidDays,
+          grossAmount: l.grossAmount,
+          allowances: l.allowances,
+          deductions: { tds: l.tdsAmount, pf: l.pfAmount, advanceRecovery: l.advanceRecovery, other: l.otherDeductions },
+          netAmount: l.netAmount,
+        }));
+      return { status: 200, body: success(list) };
+    }
+  }
+
   return { status: 200, body: success({ ok: true, path: req.path }) };
 }
