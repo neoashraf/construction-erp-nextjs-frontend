@@ -1,10 +1,8 @@
-import { ComingSoon } from "@/components/shell/coming-soon";
+import { requireModuleAccess } from "@/lib/auth/guard-module-page";
+import { AttendanceScreen } from "@/features/hr-payroll/components/AttendanceScreen";
 
-/**
- * Placeholder route for the "Attendance" screen (nav-tree route /hr/attendance). The real
- * screen ships with its per-screen brief; until then this renders the shared
- * ComingSoon placeholder so the nav item navigates to a real page, not a dead link.
- */
-export default function HrAttendancePage() {
-  return <ComingSoon title="Attendance" />;
+/** Attendance capture route (FR-HR-004/005/006) — three modes on one shell. HR guard. */
+export default async function HrAttendancePage() {
+  await requireModuleAccess("hr");
+  return <AttendanceScreen />;
 }

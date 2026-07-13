@@ -51,6 +51,6 @@ export function guardAuthenticated(role: Role | null | undefined): GuardDecision
 /** Map a URL path under `(app)` to its module key, or null if not a module segment. */
 export function moduleFromPath(pathname: string): ModuleKey | null {
   const seg = pathname.replace(/^\/+/, "").split("/")[0];
-  const known: readonly string[] = ["master-data", "ledger", "numbering", "period", "audit"];
+  const known: readonly string[] = ["master-data", "ledger", "numbering", "period", "audit", "hr"];
   return known.includes(seg ?? "") ? (seg as ModuleKey) : null;
 }

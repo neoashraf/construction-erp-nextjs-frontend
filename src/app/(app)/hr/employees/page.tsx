@@ -1,10 +1,8 @@
-import { ComingSoon } from "@/components/shell/coming-soon";
+import { requireModuleAccess } from "@/lib/auth/guard-module-page";
+import { EmployeesScreen } from "@/features/hr-payroll/components/EmployeesScreen";
 
-/**
- * Placeholder route for the "Employees" screen (nav-tree route /hr/employees). The real
- * screen ships with its per-screen brief; until then this renders the shared
- * ComingSoon placeholder so the nav item navigates to a real page, not a dead link.
- */
-export default function HrEmployeesPage() {
-  return <ComingSoon title="Employees" />;
+/** Employees list route (FR-HR-001/003) — under the (app) shell + hr module guard. */
+export default async function HrEmployeesPage() {
+  await requireModuleAccess("hr");
+  return <EmployeesScreen />;
 }

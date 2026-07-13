@@ -1,10 +1,8 @@
-import { ComingSoon } from "@/components/shell/coming-soon";
+import { requireModuleAccess } from "@/lib/auth/guard-module-page";
+import { SalarySheetsScreen } from "@/features/hr-payroll/components/SalarySheetsScreen";
 
-/**
- * Placeholder route for the "Salary sheets" screen (nav-tree route /hr/salary-sheets). The real
- * screen ships with its per-screen brief; until then this renders the shared
- * ComingSoon placeholder so the nav item navigates to a real page, not a dead link.
- */
-export default function HrSalarySheetsPage() {
-  return <ComingSoon title="Salary sheets" />;
+/** Salary-sheet runs list route (FR-HR-013) — under the (app) shell + hr guard. */
+export default async function HrSalarySheetsPage() {
+  await requireModuleAccess("hr");
+  return <SalarySheetsScreen />;
 }
