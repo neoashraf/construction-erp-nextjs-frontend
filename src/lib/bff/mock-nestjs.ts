@@ -1955,5 +1955,386 @@ export async function mockNestjsFetch(req: MockReq): Promise<MockResult> {
     }
   }
 
+  // ── HR Attendance (fe-attendance) ──
+  // Three modes (office / daily-labour / subcontractor). Only daily-labour has a
+  // Confirm/Reverse lifecycle — that is the accrual post. Subcontractor is GL-free
+  // (SRS §5.2; overview §5.1 matrix). Simulated period-closed for dates ≤ 2025-03-31.
+  interface MockAttendance {
+    id: string;
+    mode: "OFFICE" | "DAILY_LABOUR" | "SUBCONTRACTOR";
+    attendanceDate: string;
+    projectId: string;
+    costCentreId: string | null;
+    purposeId: string | null;
+    employeeId: string | null;
+    checkIn: string | null;
+    checkOut: string | null;
+    dayStatus: string | null;
+    overtimeHours: string | null;
+    partyId: string | null;
+    headCount: number | null;
+    labourCategory: string | null;
+    dailyRate: string | null;
+    source: "MANUAL" | "BIOMETRIC_IMPORT";
+    isConfirmed: boolean;
+    accrualEntryId: string | null;
+    entryNo: string | null;
+    accruedAmount: string | null;
+    postedAt: string | null;
+    postedBy: string | null;
+    reversalEntryNo: string | null;
+    reversalEntryId: string | null;
+    version: number;
+  }
+  const ga = globalThis as unknown as { __ZE_MOCK_ATT__?: { rows: MockAttendance[]; seq: number; dlaSeq: number } };
+  if (!ga.__ZE_MOCK_ATT__) {
+    const seed: MockAttendance[] = [
+      // Office (2 rows for today)
+      {
+        id: "att-off-1", mode: "OFFICE", attendanceDate: new Date().toISOString().slice(0, 10),
+        projectId: "proj-a", costCentreId: null, purposeId: null,
+        employeeId: "emp-1", checkIn: "09:15", checkOut: "18:05", dayStatus: "PRESENT", overtimeHours: "1.500",
+        partyId: null, headCount: null, labourCategory: null, dailyRate: null,
+        source: "MANUAL", isConfirmed: false, accrualEntryId: null, entryNo: null, accruedAmount: null,
+        postedAt: null, postedBy: null, reversalEntryNo: null, reversalEntryId: null, version: 1,
+      },
+      {
+        id: "att-off-2", mode: "OFFICE", attendanceDate: new Date().toISOString().slice(0, 10),
+        projectId: "proj-a", costCentreId: null, purposeId: null,
+        employeeId: "emp-2", checkIn: "09:02", checkOut: "17:58", dayStatus: "PRESENT", overtimeHours: "0.000",
+        partyId: null, headCount: null, labourCategory: null, dailyRate: null,
+        source: "BIOMETRIC_IMPORT", isConfirmed: false, accrualEntryId: null, entryNo: null, accruedAmount: null,
+        postedAt: null, postedBy: null, reversalEntryNo: null, reversalEntryId: null, version: 1,
+      },
+      // Daily labour (one CONFIRMED with entryNo, two UNCONFIRMED)
+      {
+        id: "att-dl-1", mode: "DAILY_LABOUR", attendanceDate: new Date().toISOString().slice(0, 10),
+        projectId: "proj-a", costCentreId: "cc-lab", purposeId: "pp-1",
+        employeeId: null, checkIn: null, checkOut: null, dayStatus: null, overtimeHours: null,
+        partyId: null, headCount: 20, labourCategory: "Mason", dailyRate: "650.0000",
+        source: "MANUAL", isConfirmed: true,
+        accrualEntryId: "je-dla-42", entryNo: "SJ/2526/0042",
+        accruedAmount: "13000.0000",
+        postedAt: new Date().toISOString(),
+        postedBy: "00000000-0000-0000-0000-000000000001",
+        reversalEntryNo: null, reversalEntryId: null, version: 2,
+      },
+      {
+        id: "att-dl-2", mode: "DAILY_LABOUR", attendanceDate: new Date().toISOString().slice(0, 10),
+        projectId: "proj-a", costCentreId: "cc-lab", purposeId: null,
+        employeeId: null, checkIn: null, checkOut: null, dayStatus: null, overtimeHours: null,
+        partyId: null, headCount: 12, labourCategory: "Helper", dailyRate: "450.0000",
+        source: "MANUAL", isConfirmed: false, accrualEntryId: null, entryNo: null, accruedAmount: null,
+        postedAt: null, postedBy: null, reversalEntryNo: null, reversalEntryId: null, version: 1,
+      },
+      {
+        id: "att-dl-3", mode: "DAILY_LABOUR", attendanceDate: new Date().toISOString().slice(0, 10),
+        projectId: "proj-a", costCentreId: "cc-tmp", purposeId: null,
+        employeeId: null, checkIn: null, checkOut: null, dayStatus: null, overtimeHours: null,
+        partyId: null, headCount: 8, labourCategory: "Formwork", dailyRate: "700.0000",
+        source: "MANUAL", isConfirmed: false, accrualEntryId: null, entryNo: null, accruedAmount: null,
+        postedAt: null, postedBy: null, reversalEntryNo: null, reversalEntryId: null, version: 1,
+      },
+      // Subcontractor (2 rows)
+      {
+        id: "att-sub-1", mode: "SUBCONTRACTOR", attendanceDate: new Date().toISOString().slice(0, 10),
+        projectId: "proj-a", costCentreId: "cc-sub", purposeId: null,
+        employeeId: null, checkIn: null, checkOut: null, dayStatus: null, overtimeHours: null,
+        partyId: "pa-4", headCount: 25, labourCategory: null, dailyRate: null,
+        source: "MANUAL", isConfirmed: false, accrualEntryId: null, entryNo: null, accruedAmount: null,
+        postedAt: null, postedBy: null, reversalEntryNo: null, reversalEntryId: null, version: 1,
+      },
+      {
+        id: "att-sub-2", mode: "SUBCONTRACTOR", attendanceDate: new Date().toISOString().slice(0, 10),
+        projectId: "proj-a", costCentreId: "cc-sub", purposeId: null,
+        employeeId: null, checkIn: null, checkOut: null, dayStatus: null, overtimeHours: null,
+        partyId: "pa-7", headCount: 15, labourCategory: null, dailyRate: null,
+        source: "MANUAL", isConfirmed: false, accrualEntryId: null, entryNo: null, accruedAmount: null,
+        postedAt: null, postedBy: null, reversalEntryNo: null, reversalEntryId: null, version: 1,
+      },
+    ];
+    ga.__ZE_MOCK_ATT__ = { rows: seed, seq: 100, dlaSeq: 42 };
+  }
+  const ATT = ga.__ZE_MOCK_ATT__;
+
+  function modeFromQuery(m: string | null): MockAttendance["mode"] | null {
+    if (m === "office" || m === "OFFICE") return "OFFICE";
+    if (m === "daily-labour" || m === "DAILY_LABOUR") return "DAILY_LABOUR";
+    if (m === "subcontractor" || m === "SUBCONTRACTOR") return "SUBCONTRACTOR";
+    return null;
+  }
+
+  function isPeriodClosed(date: string): boolean {
+    // Simulated: any attendance date on or before FY 24–25 close (2025-03-31) is closed.
+    return date <= "2025-03-31";
+  }
+
+  // GET /attendance?mode=…&attendanceDate=…&projectId=…&costCentreId=…
+  if (pathname === "/attendance" && req.method === "GET") {
+    const mode = modeFromQuery(params.get("mode"));
+    if (!mode) return { status: 400, body: envelope("VALIDATION_ERROR", "mode is required") };
+    const date = params.get("attendanceDate") ?? "";
+    const projectId = params.get("projectId") ?? "";
+    const costCentreId = params.get("costCentreId") ?? "";
+    let rows = ATT.rows.filter((r) => r.mode === mode && (!date || r.attendanceDate === date));
+    if (projectId) rows = rows.filter((r) => r.projectId === projectId);
+    if (costCentreId) rows = rows.filter((r) => r.costCentreId === costCentreId);
+    return { status: 200, body: pageEnvelope(rows) };
+  }
+
+  // POST /attendance/office — bulk save
+  if (pathname === "/attendance/office" && req.method === "POST") {
+    const b = body as { rows?: unknown };
+    if (!Array.isArray(b.rows)) return { status: 400, body: envelope("VALIDATION_ERROR", "rows[] is required") };
+    const ids: string[] = [];
+    for (const raw of b.rows as Array<Record<string, unknown>>) {
+      const employeeId = String(raw.employeeId ?? "");
+      const attendanceDate = String(raw.attendanceDate ?? "");
+      const projectId = String(raw.projectId ?? "");
+      const dayStatus = String(raw.dayStatus ?? "");
+      if (!employeeId || !attendanceDate || !projectId || !dayStatus) {
+        return { status: 400, body: envelope("VALIDATION_ERROR", "Some fields need attention. Please check and try again.") };
+      }
+      // Upsert per (employeeId, attendanceDate).
+      const existing = ATT.rows.find(
+        (r) => r.mode === "OFFICE" && r.employeeId === employeeId && r.attendanceDate === attendanceDate,
+      );
+      if (existing) {
+        existing.checkIn = (raw.checkIn as string) ?? null;
+        existing.checkOut = (raw.checkOut as string) ?? null;
+        existing.dayStatus = dayStatus;
+        existing.overtimeHours = (raw.overtimeHours as string) ?? null;
+        existing.version += 1;
+        ids.push(existing.id);
+      } else {
+        const id = `att-off-${(ATT.seq += 1)}`;
+        ATT.rows.push({
+          id, mode: "OFFICE", attendanceDate, projectId,
+          costCentreId: null, purposeId: null,
+          employeeId,
+          checkIn: (raw.checkIn as string) ?? null,
+          checkOut: (raw.checkOut as string) ?? null,
+          dayStatus,
+          overtimeHours: (raw.overtimeHours as string) ?? null,
+          partyId: null, headCount: null, labourCategory: null, dailyRate: null,
+          source: "MANUAL", isConfirmed: false, accrualEntryId: null,
+          entryNo: null, accruedAmount: null, postedAt: null, postedBy: null,
+          reversalEntryNo: null, reversalEntryId: null, version: 1,
+        });
+        ids.push(id);
+      }
+    }
+    return { status: 201, body: success({ ids }) };
+  }
+
+  // POST /attendance/office/import — biometric feed with reconciliation
+  if (pathname === "/attendance/office/import" && req.method === "POST") {
+    const b = body as { deviceFeed?: unknown; rows?: unknown };
+    const feed = Array.isArray(b.deviceFeed) ? b.deviceFeed : Array.isArray(b.rows) ? b.rows : [];
+    if (!Array.isArray(feed)) {
+      return { status: 400, body: envelope("VALIDATION_ERROR", "Paste a JSON array of rows or drop a CSV/XLSX file.") };
+    }
+    const conflicts: Array<Record<string, unknown>> = [];
+    const accepted: Array<Record<string, unknown>> = [];
+    for (const raw of feed as Array<Record<string, unknown>>) {
+      const employeeId = String(raw.employeeId ?? "");
+      const attendanceDate = String(raw.attendanceDate ?? "");
+      const existing = ATT.rows.find(
+        (r) => r.mode === "OFFICE" && r.employeeId === employeeId && r.attendanceDate === attendanceDate,
+      );
+      if (existing && existing.source === "MANUAL") {
+        conflicts.push({
+          employeeId, attendanceDate,
+          reason: "Manual entry already exists for this day.",
+          manual: {
+            employeeId, attendanceDate, projectId: existing.projectId,
+            checkIn: existing.checkIn, checkOut: existing.checkOut,
+            dayStatus: existing.dayStatus, overtimeHours: existing.overtimeHours,
+          },
+          imported: raw,
+        });
+      } else {
+        accepted.push(raw);
+      }
+    }
+    return {
+      status: 200,
+      body: success({
+        imported: accepted.length + conflicts.length,
+        reconciled: accepted.length,
+        accepted,
+        conflicts,
+      }),
+    };
+  }
+
+  // POST /attendance/subcontractor — bulk save
+  if (pathname === "/attendance/subcontractor" && req.method === "POST") {
+    const b = body as { rows?: unknown };
+    if (!Array.isArray(b.rows)) return { status: 400, body: envelope("VALIDATION_ERROR", "rows[] is required") };
+    const ids: string[] = [];
+    for (const raw of b.rows as Array<Record<string, unknown>>) {
+      const partyId = String(raw.partyId ?? "");
+      const projectId = String(raw.projectId ?? "");
+      const costCentreId = String(raw.costCentreId ?? "");
+      const headCount = Number(raw.headCount ?? 0);
+      const attendanceDate = String(raw.attendanceDate ?? "");
+      if (!partyId || !projectId || !costCentreId || headCount < 1 || !attendanceDate) {
+        return { status: 400, body: envelope("VALIDATION_ERROR", "Some fields need attention. Please check and try again.") };
+      }
+      const id = `att-sub-${(ATT.seq += 1)}`;
+      ATT.rows.push({
+        id, mode: "SUBCONTRACTOR", attendanceDate, projectId,
+        costCentreId, purposeId: (raw.purposeId as string) ?? null,
+        employeeId: null, checkIn: null, checkOut: null, dayStatus: null, overtimeHours: null,
+        partyId, headCount, labourCategory: null, dailyRate: null,
+        source: "MANUAL", isConfirmed: false, accrualEntryId: null,
+        entryNo: null, accruedAmount: null, postedAt: null, postedBy: null,
+        reversalEntryNo: null, reversalEntryId: null, version: 1,
+      });
+      ids.push(id);
+    }
+    return { status: 201, body: success({ ids }) };
+  }
+
+  // POST /attendance/daily-labour — bulk create UNCONFIRMED rows
+  if (pathname === "/attendance/daily-labour" && req.method === "POST") {
+    const b = body as { rows?: unknown };
+    if (!Array.isArray(b.rows)) return { status: 400, body: envelope("VALIDATION_ERROR", "rows[] is required") };
+    const ids: string[] = [];
+    for (const raw of b.rows as Array<Record<string, unknown>>) {
+      const attendanceDate = String(raw.attendanceDate ?? "");
+      const projectId = String(raw.projectId ?? "");
+      const costCentreId = String(raw.costCentreId ?? "");
+      const headCount = Number(raw.headCount ?? 0);
+      const dailyRate = String(raw.dailyRate ?? "0");
+      if (!attendanceDate || !projectId || !costCentreId || headCount < 1 || Number(dailyRate) < 0) {
+        return { status: 400, body: envelope("VALIDATION_ERROR", "Some fields need attention. Please check and try again.") };
+      }
+      const id = `att-dl-${(ATT.seq += 1)}`;
+      ATT.rows.push({
+        id, mode: "DAILY_LABOUR", attendanceDate, projectId,
+        costCentreId, purposeId: (raw.purposeId as string) ?? null,
+        employeeId: null, checkIn: null, checkOut: null, dayStatus: null, overtimeHours: null,
+        partyId: null, headCount, labourCategory: (raw.labourCategory as string) ?? null,
+        dailyRate,
+        source: "MANUAL", isConfirmed: false, accrualEntryId: null,
+        entryNo: null, accruedAmount: null, postedAt: null, postedBy: null,
+        reversalEntryNo: null, reversalEntryId: null, version: 1,
+      });
+      ids.push(id);
+    }
+    return { status: 201, body: success({ ids }) };
+  }
+
+  // /attendance/daily-labour/:id[/(confirm|reverse)]
+  const dlm = /^\/attendance\/daily-labour\/([^/]+)(?:\/(confirm|reverse))?$/.exec(pathname ?? "");
+  if (dlm) {
+    const id = dlm[1]!;
+    const action = dlm[2];
+    const row = ATT.rows.find((r) => r.id === id && r.mode === "DAILY_LABOUR");
+    if (!row) return { status: 404, body: envelope("NOT_FOUND", "Attendance row not found.") };
+    const b = body as Record<string, unknown>;
+
+    if (req.method === "PATCH" && !action) {
+      if (row.isConfirmed) {
+        return { status: 409, body: envelope("ATTENDANCE_CONFIRMED_IMMUTABLE", "This row has been confirmed and can no longer be edited — use Reverse to correct it.") };
+      }
+      if (typeof b.version !== "number" || b.version !== row.version) {
+        return { status: 409, body: envelope("OPTIMISTIC_LOCK_CONFLICT", "This row was just changed by someone else. Reload and try again.") };
+      }
+      if (b.headCount !== undefined) {
+        const hc = Number(b.headCount);
+        if (!Number.isFinite(hc) || hc < 1) {
+          return { status: 400, body: envelope("VALIDATION_ERROR", "Enter a head count of 1 or more.") };
+        }
+        row.headCount = hc;
+      }
+      if (b.dailyRate !== undefined) {
+        if (Number(b.dailyRate) < 0) {
+          return { status: 400, body: envelope("VALIDATION_ERROR", "Enter a daily rate of ৳0 or more.") };
+        }
+        row.dailyRate = String(b.dailyRate);
+      }
+      if (b.labourCategory !== undefined) row.labourCategory = (b.labourCategory as string) ?? null;
+      if (b.purposeId !== undefined) row.purposeId = (b.purposeId as string) ?? null;
+      row.version += 1;
+      return { status: 200, body: success(row) };
+    }
+
+    if (req.method === "POST" && action === "confirm") {
+      if (row.isConfirmed) {
+        return { status: 409, body: envelope("ALREADY_CONFIRMED", "This row has already been confirmed.") };
+      }
+      const purposeId = row.purposeId || (b.purposeId as string) || null;
+      if (!purposeId) {
+        return { status: 400, body: envelope("MISSING_REQUIRED_DIMENSION", "A purpose is required to post the accrual.") };
+      }
+      if (!row.costCentreId) {
+        return { status: 400, body: envelope("MISSING_REQUIRED_DIMENSION", "A cost centre is required to post the accrual.") };
+      }
+      if (isPeriodClosed(row.attendanceDate)) {
+        return { status: 409, body: envelope("PERIOD_CLOSED", "This accounting period is closed — posting isn't allowed.") };
+      }
+      const project = MOCK_PROJECTS.find((p) => p.id === row.projectId);
+      if (project && project.status === "CLOSED") {
+        return { status: 409, body: envelope("PROJECT_CLOSED", "This project is closed — posting isn't allowed.") };
+      }
+      row.purposeId = purposeId;
+      const hc = row.headCount ?? 0;
+      const rate = row.dailyRate ?? "0";
+      const accrued = (Number(rate) * hc).toFixed(4);
+      const seq = (ATT.dlaSeq += 1);
+      row.entryNo = `SJ/2526/${String(seq).padStart(4, "0")}`;
+      row.accrualEntryId = `je-dla-${seq}`;
+      row.accruedAmount = accrued;
+      row.isConfirmed = true;
+      row.postedAt = new Date().toISOString();
+      row.postedBy = user.id;
+      row.version += 1;
+      return {
+        status: 200,
+        body: success({
+          attendanceId: row.id,
+          accrualEntryId: row.accrualEntryId,
+          entryNo: row.entryNo,
+          accruedAmount: row.accruedAmount,
+          isConfirmed: true,
+          postedAt: row.postedAt,
+          postedBy: row.postedBy,
+          version: row.version,
+        }),
+      };
+    }
+
+    if (req.method === "POST" && action === "reverse") {
+      if (!row.isConfirmed) {
+        return { status: 409, body: envelope("NOT_CONFIRMED", "There's nothing to reverse — this row isn't confirmed.") };
+      }
+      if (row.reversalEntryNo) {
+        return { status: 409, body: envelope("ALREADY_REVERSED", "This accrual has already been reversed.") };
+      }
+      const reason = String((b as { reason?: unknown }).reason ?? "").trim();
+      if (!reason) {
+        return { status: 400, body: envelope("VALIDATION_ERROR", "Enter a reason for reversing this accrual.") };
+      }
+      if (isPeriodClosed(row.attendanceDate)) {
+        return { status: 409, body: envelope("PERIOD_CLOSED", "This accounting period is closed — posting isn't allowed.") };
+      }
+      const seq = (ATT.dlaSeq += 1);
+      row.reversalEntryNo = `SJ/2526/${String(seq).padStart(4, "0")}`;
+      row.reversalEntryId = `je-dla-${seq}`;
+      row.version += 1;
+      return {
+        status: 200,
+        body: success({
+          reversalEntryId: row.reversalEntryId,
+          reversalEntryNo: row.reversalEntryNo,
+          originalEntryId: row.accrualEntryId,
+        }),
+      };
+    }
+  }
+
   return { status: 200, body: success({ ok: true, path: req.path }) };
 }

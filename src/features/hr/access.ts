@@ -38,3 +38,33 @@ export function canDeactivateEmployee(user: Viewer): boolean {
 export function canRevealBank(user: Viewer): boolean {
   return canWriteEmployee(user);
 }
+
+/**
+ * Attendance capture (FR-HR-004..-008): Site Engineer + HR Manager + ADMIN can capture rows
+ * for their assigned projects. Accounts/PM/Storekeeper have no capture write. Site Engineer's
+ * project scope is server-filtered; the UI hides Confirm/Reverse for them.
+ * Resource `hr.attendance` (scope `hr:attendance:write`).
+ */
+export const HR_ATTENDANCE_RESOURCE = "hr.attendance";
+
+export function canCaptureAttendance(user: Viewer): boolean {
+  if (user.role === "ADMIN") return true;
+  if (user.permissions) return hasGrant(user as never, HR_ATTENDANCE_RESOURCE, "CREATE");
+  return roleMatches(["HR_MANAGER", "SITE_ENGINEER", "ACCOUNTS_MANAGER", "ACCOUNTS_TEAM"], user.role);
+}
+
+/**
+ * Daily-labour Confirm (posts the accrual) + Reverse. Scope `hr:attendance:confirm`.
+ * HR_MANAGER + ACCOUNTS + ADMIN — Site Engineer CANNOT confirm/reverse (spec §11).
+ */
+export function canConfirmAttendance(user: Viewer): boolean {
+  if (user.role === "ADMIN") return true;
+  if (user.permissions) return hasGrant(user as never, HR_ATTENDANCE_RESOURCE, "POST");
+  return roleMatches(["HR_MANAGER", "ACCOUNTS_MANAGER", "ACCOUNTS_TEAM"], user.role);
+}
+
+export function canReverseAttendance(user: Viewer): boolean {
+  if (user.role === "ADMIN") return true;
+  if (user.permissions) return hasGrant(user as never, HR_ATTENDANCE_RESOURCE, "CANCEL");
+  return roleMatches(["HR_MANAGER", "ACCOUNTS_MANAGER", "ACCOUNTS_TEAM"], user.role);
+}
