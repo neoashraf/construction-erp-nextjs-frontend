@@ -455,7 +455,7 @@ export const QUICK_CREATE: readonly QuickCreateTarget[] = [
   { label: "Receipt", route: "/receipts/new", resource: "receipts", action: "CREATE", roles: ["ACCOUNTS_TEAM", "ADMIN"], built: false },
   { label: "Purchase order", route: "/purchase/orders/new", resource: "purchase.orders", action: "CREATE", roles: ["ACCOUNTS_TEAM", "ADMIN"], built: true },
   { label: "Purchase bill", route: "/purchase/bills/new", resource: "purchase.bills", action: "CREATE", roles: ["ACCOUNTS_TEAM", "ADMIN"], built: true },
-  { label: "GRN", route: "/purchase/grn/new", resource: "purchase.grn", action: "CREATE", roles: ["STORE_KEEPER", "ADMIN"], built: false },
+  { label: "GRN", route: "/purchase/grn/new", resource: "purchase.grn", action: "CREATE", roles: ["STORE_KEEPER", "ADMIN"], built: true },
   { label: "Payment", route: "/payments/new", resource: "payments.list", action: "CREATE", roles: ["ACCOUNTS_TEAM", "ADMIN"], built: false },
   { label: "Contra voucher", route: "/contra-journal/vouchers/new?type=contra", resource: "contra_journal.vouchers", action: "CREATE", roles: ["ACCOUNTS_TEAM", "ADMIN"], built: false },
   { label: "Journal voucher", route: "/contra-journal/vouchers/new?type=journal", resource: "contra_journal.vouchers", action: "CREATE", roles: ["ACCOUNTS_TEAM", "ADMIN"], built: false },

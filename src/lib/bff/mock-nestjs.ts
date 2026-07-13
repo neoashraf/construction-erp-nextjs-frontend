@@ -767,6 +767,100 @@ function billToJournalEntry(b: MockBill) {
   };
 }
 
+// ── GRN seed (dev/preview only) — the fe-grn-matching store ───────────────────
+//
+// A GRN records goods physically received against a PO/Bill; Post drives INV
+// `receiveIn` per line for the received qty (no ledger write, no PURCHASE number
+// — SRS §16). The mock keeps a couple of drafts + a posted GRN so the list has
+// something to render. Correction is via the parent bill; there is no cancel/repost.
+interface MockGrnLine {
+  lineNo?: number;
+  itemId: string;
+  orderedQty: string;
+  billedQty: string;
+  receivedQty: string;
+  rate: string;
+  receivedValue?: string;
+  godownId: string;
+  costCentreId: string;
+  purposeId: string;
+  matchStatus?: "MATCHED" | "OVER_RECEIVED" | "UNDER_RECEIVED" | "PENDING_RECEIPT";
+}
+interface MockGrn {
+  id: string;
+  projectId: string;
+  supplierId: string;
+  purchaseOrderId: string | null;
+  purchaseBillId: string | null;
+  grnRefNo: string | null;
+  receiptDate: string;
+  narration: string | null;
+  status: "DRAFT" | "POSTED" | "CANCELLED";
+  lines: MockGrnLine[];
+  receivedBy: string | null;
+  postedAt: string | null;
+  version: number;
+}
+function mkGrn(p: Partial<MockGrn> & Pick<MockGrn, "id" | "projectId" | "supplierId" | "receiptDate" | "lines">): MockGrn {
+  return {
+    purchaseOrderId: null,
+    purchaseBillId: null,
+    grnRefNo: null,
+    narration: null,
+    status: "DRAFT",
+    receivedBy: null,
+    postedAt: null,
+    version: 1,
+    ...p,
+  };
+}
+const MOCK_GRNS: MockGrn[] = [
+  mkGrn({
+    id: "grn-501",
+    projectId: "proj-a",
+    supplierId: "pa-1",
+    purchaseOrderId: "po-101",
+    purchaseBillId: null,
+    grnRefNo: "GRN-2526/0001",
+    receiptDate: "2026-07-08",
+    narration: null,
+    status: "POSTED",
+    receivedBy: "u-rafiq",
+    postedAt: "2026-07-08T05:00:00Z",
+    lines: [
+      {
+        lineNo: 1,
+        itemId: "it-cement",
+        orderedQty: "100.0000",
+        billedQty: "100.0000",
+        receivedQty: "100.0000",
+        rate: "500.0000",
+        receivedValue: "50000.0000",
+        godownId: "gd-a",
+        costCentreId: "cc-mat",
+        purposeId: "pp-1",
+        matchStatus: "MATCHED",
+      },
+    ],
+  }),
+];
+let grnSeq = 500;
+function grnSummary(g: MockGrn) {
+  return {
+    id: g.id,
+    grnRefNo: g.grnRefNo,
+    projectId: g.projectId,
+    supplierId: g.supplierId,
+    purchaseOrderId: g.purchaseOrderId,
+    purchaseBillId: g.purchaseBillId,
+    receiptDate: g.receiptDate,
+    status: g.status,
+  };
+}
+function grnResource(g: MockGrn) {
+  return { ...g };
+}
+
 function poSummary(o: MockPo) {
   return {
     id: o.id,
@@ -3501,6 +3595,247 @@ export async function mockNestjsFetch(req: MockReq): Promise<MockResult> {
             status: bill.status,
             reversalEntryId: `je-rev-${bill.id}`,
             reversalEntryNo: `PUR/2526/${String(billSeq + 100).padStart(4, "0")}`,
+          }),
+        };
+      }
+    }
+  }
+
+  // ── Purchase / Orders / {id}/match (fe-grn-matching, read-only) ─────────────
+  //
+  // Reconciles ordered vs billed vs received vs open per PO line, exposing the
+  // per-line `matchStatus`. Read-only — no mutation. Bills and GRNs contribute
+  // billed / received quantities (aggregated by itemId within the PO).
+  {
+    const matchM = pathname ? /^\/purchase\/orders\/([^/]+)\/match$/.exec(pathname) : null;
+    if (matchM && req.method === "GET") {
+      const poId = matchM[1]!;
+      const po = MOCK_POS.find((p) => p.id === poId);
+      if (!po) return { status: 404, body: envelope("NOT_FOUND", "Purchase order not found.") };
+      if (!scopeOk(po.projectId)) {
+        return { status: 403, body: envelope("FORBIDDEN", "You don't have access to this purchase order's match view.") };
+      }
+      const billedByItem = new Map<string, number>();
+      for (const b of MOCK_BILLS) {
+        if (b.purchaseOrderId !== poId) continue;
+        if (b.status !== "POSTED") continue;
+        for (const l of b.lines) {
+          if (!l.itemId || !l.isStockLine) continue;
+          billedByItem.set(l.itemId, (billedByItem.get(l.itemId) ?? 0) + Number(l.billedQty || "0"));
+        }
+      }
+      const receivedByItem = new Map<string, number>();
+      for (const g of MOCK_GRNS) {
+        if (g.purchaseOrderId !== poId) continue;
+        if (g.status !== "POSTED") continue;
+        for (const l of g.lines) {
+          receivedByItem.set(l.itemId, (receivedByItem.get(l.itemId) ?? 0) + Number(l.receivedQty || "0"));
+        }
+      }
+      const lines = po.lines.map((l, i) => {
+        const ordered = Number(l.orderedQty || "0");
+        const billed = billedByItem.get(l.itemId) ?? 0;
+        const received = receivedByItem.get(l.itemId) ?? 0;
+        const open = Math.max(ordered - received, 0);
+        let matchStatus: "MATCHED" | "OVER_RECEIVED" | "UNDER_RECEIVED" | "PENDING_RECEIPT" = "PENDING_RECEIPT";
+        if (received > 0) {
+          if (Math.abs(received - ordered) < 0.0001) matchStatus = "MATCHED";
+          else if (received > ordered) matchStatus = "OVER_RECEIVED";
+          else matchStatus = "UNDER_RECEIVED";
+        }
+        return {
+          lineNo: l.lineNo ?? i + 1,
+          itemId: l.itemId,
+          orderedQty: ordered.toFixed(4),
+          billedQty: billed.toFixed(4),
+          receivedQty: received.toFixed(4),
+          openQty: open.toFixed(4),
+          matchStatus,
+        };
+      });
+      return {
+        status: 200,
+        body: success({
+          poId: po.id,
+          poRefNo: po.poRefNo,
+          projectId: po.projectId,
+          supplierId: po.supplierId,
+          status: po.status,
+          lines,
+        }),
+      };
+    }
+  }
+
+  // ── Purchase / GRNs (fe-grn-matching) — receipt-only voucher, no ledger ─────
+  //
+  // A GRN records goods physically received against a PO and/or Bill. Draft →
+  // Post (INV `receiveIn` per line for the received quantity; no ledger, no
+  // `PURCHASE` number — SRS §16). Cancellation is NOT exposed (correction is via
+  // the parent bill). Received-qty may be less than, equal to, or more than the
+  // reference — never blocked; `matchStatus` is computed at Post.
+  if (pathname?.startsWith("/purchase/grns")) {
+    const grnMatch = /^\/purchase\/grns(?:\/([^/]+))?(?:\/(post))?$/.exec(pathname);
+    if (grnMatch) {
+      const id = grnMatch[1];
+      const action = grnMatch[2];
+
+      if (!id && req.method === "GET") {
+        let rows = MOCK_GRNS.slice().filter((g) => scopeOk(g.projectId));
+        const projectId = params.get("projectId");
+        const supplierId = params.get("supplierId");
+        const statusCsv = params.get("status");
+        const purchaseOrderId = params.get("purchaseOrderId");
+        const purchaseBillId = params.get("purchaseBillId");
+        const dateFrom = params.get("dateFrom");
+        const dateTo = params.get("dateTo");
+        if (projectId) rows = rows.filter((r) => r.projectId === projectId);
+        if (supplierId) rows = rows.filter((r) => r.supplierId === supplierId);
+        if (purchaseOrderId) rows = rows.filter((r) => r.purchaseOrderId === purchaseOrderId);
+        if (purchaseBillId) rows = rows.filter((r) => r.purchaseBillId === purchaseBillId);
+        if (statusCsv) {
+          const wanted = new Set(statusCsv.split(","));
+          rows = rows.filter((r) => wanted.has(r.status));
+        }
+        if (dateFrom) rows = rows.filter((r) => r.receiptDate >= dateFrom);
+        if (dateTo) rows = rows.filter((r) => r.receiptDate <= dateTo);
+        rows.sort((a, b) => (a.receiptDate < b.receiptDate ? 1 : -1));
+        return { status: 200, body: pageEnvelope(rows.map(grnSummary)) };
+      }
+
+      if (!id && req.method === "POST") {
+        const b = body as Partial<MockGrn> & { lines?: MockGrnLine[] };
+        const project = MOCK_PROJECTS.find((p) => p.id === b.projectId);
+        if (!project) return { status: 404, body: envelope("NOT_FOUND", "Project not found.") };
+        if (!scopeOk(project.id)) return { status: 403, body: envelope("FORBIDDEN", "You don't have access to this project.") };
+        if (!b.purchaseOrderId && !b.purchaseBillId) {
+          return { status: 400, body: envelope("VALIDATION_ERROR", "Choose a PO or Bill to receive against.") };
+        }
+        const lines = Array.isArray(b.lines) ? b.lines : [];
+        if (lines.length === 0) return { status: 400, body: envelope("VALIDATION_ERROR", "Nothing left to receive on this reference.") };
+        for (const [i, l] of lines.entries()) {
+          if (!(Number(l.receivedQty) > 0)) {
+            return { status: 400, body: envelope("VALIDATION_ERROR", `Line ${i + 1}: received quantity must be greater than zero.`) };
+          }
+          const g = MOCK_GODOWNS.find((x) => x.id === l.godownId);
+          if (g && g.projectId !== project.id) {
+            return {
+              status: 400,
+              body: {
+                error: {
+                  code: "CROSS_PROJECT_DIMENSION",
+                  message: "This godown doesn't belong to the selected project.",
+                  details: { path: ["lines", i, "godownId"] },
+                },
+              },
+            };
+          }
+          const pp = MOCK_PURPOSES.find((x) => x.id === l.purposeId);
+          if (pp && pp.projectId !== project.id) {
+            return {
+              status: 400,
+              body: {
+                error: {
+                  code: "CROSS_PROJECT_DIMENSION",
+                  message: "This purpose doesn't belong to the selected project.",
+                  details: { path: ["lines", i, "purposeId"] },
+                },
+              },
+            };
+          }
+        }
+        const grn = mkGrn({
+          id: `grn-${(grnSeq += 1)}`,
+          projectId: project.id,
+          supplierId: String(b.supplierId ?? ""),
+          purchaseOrderId: (b.purchaseOrderId as string | null | undefined) ?? null,
+          purchaseBillId: (b.purchaseBillId as string | null | undefined) ?? null,
+          receiptDate: String(b.receiptDate ?? ""),
+          narration: (b.narration as string | null | undefined) ?? null,
+          status: "DRAFT",
+          lines: lines.map((l, idx) => ({
+            lineNo: idx + 1,
+            itemId: l.itemId,
+            orderedQty: String(l.orderedQty ?? "0"),
+            billedQty: String(l.billedQty ?? "0"),
+            receivedQty: String(l.receivedQty),
+            rate: String(l.rate ?? "0"),
+            receivedValue: (Number(l.receivedQty) * Number(l.rate ?? "0")).toFixed(4),
+            godownId: l.godownId,
+            costCentreId: l.costCentreId,
+            purposeId: l.purposeId,
+          })),
+        });
+        MOCK_GRNS.unshift(grn);
+        return { status: 201, body: { data: { id: grn.id }, meta: { requestId: "mock-grn" } } };
+      }
+
+      if (!id) return { status: 200, body: success({ ok: true, path: req.path }) };
+      const grn = MOCK_GRNS.find((g) => g.id === id);
+      if (!grn) return { status: 404, body: envelope("NOT_FOUND", "GRN not found.") };
+      if (!scopeOk(grn.projectId)) return { status: 403, body: envelope("FORBIDDEN", "You don't have access to this GRN.") };
+
+      if (!action && req.method === "GET") {
+        return { status: 200, body: success(grnResource(grn)) };
+      }
+
+      if (!action && req.method === "PATCH") {
+        const b = body as Partial<MockGrn> & { version?: number; lines?: MockGrnLine[] };
+        if (grn.status !== "DRAFT") {
+          return { status: 409, body: envelope("VOUCHER_POSTED_IMMUTABLE", "This GRN has been posted and can't be edited.") };
+        }
+        if (typeof b.version !== "number" || b.version !== grn.version) {
+          return { status: 409, body: envelope("OPTIMISTIC_LOCK_CONFLICT", "This GRN was changed elsewhere.") };
+        }
+        grn.receiptDate = String(b.receiptDate ?? grn.receiptDate);
+        grn.narration = (b.narration as string | null | undefined) ?? grn.narration;
+        if (Array.isArray(b.lines)) {
+          grn.lines = b.lines.map((l, idx) => ({
+            lineNo: idx + 1,
+            itemId: l.itemId,
+            orderedQty: String(l.orderedQty ?? "0"),
+            billedQty: String(l.billedQty ?? "0"),
+            receivedQty: String(l.receivedQty),
+            rate: String(l.rate ?? "0"),
+            receivedValue: (Number(l.receivedQty) * Number(l.rate ?? "0")).toFixed(4),
+            godownId: l.godownId,
+            costCentreId: l.costCentreId,
+            purposeId: l.purposeId,
+          }));
+        }
+        grn.version += 1;
+        return { status: 200, body: { data: grnResource(grn), meta: { requestId: "mock-grn" } } };
+      }
+
+      if (action === "post" && req.method === "POST") {
+        const b = body as { version?: number };
+        if (grn.status !== "DRAFT") {
+          return { status: 409, body: envelope("VOUCHER_POSTED_IMMUTABLE", "This GRN has already been posted.") };
+        }
+        if (typeof b.version !== "number" || b.version !== grn.version) {
+          return { status: 409, body: envelope("OPTIMISTIC_LOCK_CONFLICT", "This GRN was changed elsewhere.") };
+        }
+        grn.status = "POSTED";
+        grn.grnRefNo = grn.grnRefNo ?? `GRN-2526/${String(grnSeq).padStart(4, "0")}`;
+        grn.postedAt = "2026-07-13T09:00:00Z";
+        grn.receivedBy = "u-rafiq";
+        // Compute per-line matchStatus.
+        for (const l of grn.lines) {
+          const ref = Number(l.orderedQty || l.billedQty || "0");
+          const rec = Number(l.receivedQty || "0");
+          if (rec <= 0) l.matchStatus = "PENDING_RECEIPT";
+          else if (ref <= 0 || rec > ref + 0.0001) l.matchStatus = "OVER_RECEIVED";
+          else if (Math.abs(rec - ref) < 0.0001) l.matchStatus = "MATCHED";
+          else l.matchStatus = "UNDER_RECEIVED";
+        }
+        grn.version += 1;
+        return {
+          status: 200,
+          body: success({
+            id: grn.id,
+            grnRefNo: grn.grnRefNo,
+            status: grn.status,
+            postedAt: grn.postedAt,
           }),
         };
       }

@@ -209,3 +209,88 @@ export interface PurchaseBillPage {
   pageSize: number;
   total: number;
 }
+
+// ── GRN (contract 08 § "GRN") ─────────────────────────────────────────────────
+//
+// A Goods Receipt Note records goods physically received against a PO and/or Bill.
+// GRN Post drives the INV `receiveIn` stock movement for the **received** quantity —
+// it writes NO ledger line and draws NO `PURCHASE` number (SRS §16). Lifecycle
+// `DRAFT → POSTED` (+ `CANCELLED`); a posted GRN is read-only. `receivedValue`
+// (= `receivedQty × rate`) and `matchStatus` are derived server-side on Post.
+
+/** GRN lifecycle (FR-PUR-015/-016/-024). */
+export type GrnStatus = "DRAFT" | "POSTED" | "CANCELLED";
+
+/** One GRN line — item + received qty + the four dimensions (FR-PUR-015/-016). */
+export interface GrnLine {
+  lineNo?: number;
+  itemId: string;
+  orderedQty: string;
+  billedQty: string;
+  receivedQty: string;
+  rate: string;
+  receivedValue?: string;
+  godownId: string;
+  costCentreId: string;
+  purposeId: string;
+  matchStatus?: PurchaseMatchStatus;
+}
+
+/** Full GRN resource (contract 08 § "GRN"). */
+export interface Grn {
+  id: string;
+  projectId: string;
+  supplierId: string;
+  purchaseOrderId: string | null;
+  purchaseBillId: string | null;
+  grnRefNo: string | null;
+  receiptDate: string;
+  narration: string | null;
+  status: GrnStatus;
+  lines: GrnLine[];
+  receivedBy: string | null;
+  postedAt: string | null;
+  version: number;
+}
+
+/** One GRN list summary row (contract 08 GET /grns response element). */
+export interface GrnSummary {
+  id: string;
+  grnRefNo: string | null;
+  projectId: string;
+  supplierId: string;
+  purchaseOrderId: string | null;
+  purchaseBillId: string | null;
+  receiptDate: string;
+  status: GrnStatus;
+}
+
+export interface GrnPage {
+  data: GrnSummary[];
+  page: number;
+  pageSize: number;
+  total: number;
+}
+
+// ── PO → Bill → GRN match ──────────────────────────────────────────────────────
+
+/** One line of the read-only match view (contract 08 GET /orders/{id}/match). */
+export interface MatchLine {
+  lineNo: number;
+  itemId: string;
+  orderedQty: string;
+  billedQty: string;
+  receivedQty: string;
+  openQty: string;
+  matchStatus: PurchaseMatchStatus;
+}
+
+/** Read-only reconciliation payload (contract 08 GET /orders/{id}/match). */
+export interface MatchView {
+  poId: string;
+  poRefNo: string | null;
+  projectId: string;
+  supplierId: string;
+  status: PurchaseOrderStatus;
+  lines: MatchLine[];
+}
