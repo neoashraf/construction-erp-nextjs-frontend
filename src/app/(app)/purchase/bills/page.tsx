@@ -1,10 +1,13 @@
-import { ComingSoon } from "@/components/shell/coming-soon";
+import { requireModuleAccess } from "@/lib/auth/guard-module-page";
+import { BillListScreen } from "@/features/purchase/components/BillListScreen";
 
 /**
- * Placeholder route for the "Purchase bills" screen (nav-tree route /purchase/bills). The real
- * screen ships with its per-screen brief; until then this renders the shared
- * ComingSoon placeholder so the nav item navigates to a real page, not a dead link.
+ * Purchase Bills list route (PUR; FR-PUR-020, FR-PUR-021) — under the (app) shell + the
+ * `purchase` module guard. The list is `purchase.bills:READ`-guarded; PM is scoped to
+ * assigned projects server-side (out-of-scope rows are excluded silently). The "New bill"
+ * CTA is hidden for actors without `purchase:write`.
  */
-export default function PurchaseBillsPage() {
-  return <ComingSoon title="Purchase bills" />;
+export default async function PurchaseBillsPage() {
+  await requireModuleAccess("purchase");
+  return <BillListScreen />;
 }

@@ -4,6 +4,7 @@ import { useAuthenticatedUser } from "@/providers/session-provider";
 import {
   createPurpose,
   listCostCentreOptions,
+  listExpenseAccountOptions,
   listGodownOptions,
   listItemOptions,
   listProjectOptions,
@@ -75,6 +76,16 @@ export function useGodownOptions(projectId?: string) {
   return useQuery({
     queryKey: queryKeys.list("purchase", "godown-options", scope, { projectId: projectId ?? "" }),
     queryFn: () => listGodownOptions(projectId),
+    staleTime: STALE,
+  });
+}
+
+/** Expense-account picker for non-stock bill lines (shared PUR master hook). */
+export function useExpenseAccountOptions() {
+  const scope = useScope();
+  return useQuery({
+    queryKey: queryKeys.list("purchase", "expense-account-options", scope),
+    queryFn: listExpenseAccountOptions,
     staleTime: STALE,
   });
 }
