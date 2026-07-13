@@ -480,6 +480,293 @@ const MOCK_POS: MockPo[] = [
 let poSeq = 200;
 
 /** Summary shape returned in the PO list (contract 08 GET /orders response). */
+// ── Purchase Bills seed (dev/preview only) — the fe-purchase-bills store ─────
+//
+// Bills are the AP posting voucher. Draft → Post (atomic — the mock allocates a
+// gapless-style entryNo + a synthetic journalEntryId) → Cancel (mandatory reason;
+// supplier id ending in "-payments" simulates BILL_HAS_APPLIED_PAYMENTS).
+// `netPayableAmount` is derived (Σ lineAmount + Σ vat − Σ tds − Σ ait), stored on
+// the record so the list running-totals strip has fresh values without the FE
+// recomputing (the real backend also derives it server-side).
+interface MockBillLine {
+  lineNo?: number;
+  itemId?: string | null;
+  expenseAccountId?: string | null;
+  isStockLine: boolean;
+  billedQty: string;
+  rate: string;
+  lineAmount?: string;
+  vatInputAmount: string;
+  tdsAmount: string;
+  aitAmount: string;
+  godownId?: string | null;
+  costCentreId: string;
+  purposeId: string;
+  receivedQty?: string;
+  matchStatus?: "MATCHED" | "OVER_RECEIVED" | "UNDER_RECEIVED" | "PENDING_RECEIPT";
+}
+interface MockBill {
+  id: string;
+  projectId: string;
+  supplierId: string;
+  purchaseOrderId: string | null;
+  supplierInvoiceRef: string | null;
+  billDate: string;
+  dueDate: string;
+  grossAmount: string;
+  vatInputAmount: string;
+  tdsAmount: string;
+  aitAmount: string;
+  netPayableAmount: string;
+  narration: string | null;
+  status: "DRAFT" | "POSTED" | "CANCELLED";
+  entryNo: string | null;
+  journalEntryId: string | null;
+  outstandingAmount: string;
+  lines: MockBillLine[];
+  postedAt: string | null;
+  postedBy: string | null;
+  version: number;
+}
+function normalizeBillLine(l: MockBillLine, idx: number): MockBillLine {
+  const qty = Number(l.billedQty || (l.isStockLine ? "0" : "1"));
+  const rate = Number(l.rate ?? "0");
+  const lineAmount = (qty * rate).toFixed(4);
+  return {
+    lineNo: idx + 1,
+    itemId: l.isStockLine ? l.itemId ?? null : null,
+    expenseAccountId: !l.isStockLine ? l.expenseAccountId ?? null : null,
+    isStockLine: !!l.isStockLine,
+    billedQty: String(l.billedQty || (l.isStockLine ? "0" : "1")),
+    rate: String(l.rate ?? "0"),
+    lineAmount,
+    vatInputAmount: String(l.vatInputAmount ?? "0"),
+    tdsAmount: String(l.tdsAmount ?? "0"),
+    aitAmount: String(l.aitAmount ?? "0"),
+    godownId: l.isStockLine ? l.godownId ?? null : null,
+    costCentreId: l.costCentreId,
+    purposeId: l.purposeId,
+    receivedQty: l.isStockLine ? l.receivedQty ?? "0.0000" : undefined,
+    matchStatus: l.matchStatus,
+  };
+}
+function recomputeBill(b: MockBill): void {
+  let gross = 0;
+  let vat = 0;
+  let tds = 0;
+  let ait = 0;
+  for (const l of b.lines) {
+    gross += Number(l.lineAmount ?? "0");
+    vat += Number(l.vatInputAmount ?? "0");
+    tds += Number(l.tdsAmount ?? "0");
+    ait += Number(l.aitAmount ?? "0");
+  }
+  b.grossAmount = gross.toFixed(4);
+  b.vatInputAmount = vat.toFixed(4);
+  b.tdsAmount = tds.toFixed(4);
+  b.aitAmount = ait.toFixed(4);
+  b.netPayableAmount = (gross + vat - tds - ait).toFixed(4);
+}
+function mkBill(p: Partial<MockBill> & Pick<MockBill, "id" | "projectId" | "supplierId" | "billDate" | "dueDate" | "lines">): MockBill {
+  const bill: MockBill = {
+    purchaseOrderId: null,
+    supplierInvoiceRef: null,
+    grossAmount: "0.0000",
+    vatInputAmount: "0.0000",
+    tdsAmount: "0.0000",
+    aitAmount: "0.0000",
+    netPayableAmount: "0.0000",
+    narration: null,
+    status: "DRAFT",
+    entryNo: null,
+    journalEntryId: null,
+    outstandingAmount: "0.0000",
+    postedAt: null,
+    postedBy: null,
+    version: 1,
+    ...p,
+  };
+  recomputeBill(bill);
+  return bill;
+}
+const MOCK_BILLS: MockBill[] = [
+  mkBill({
+    id: "bill-201",
+    projectId: "proj-a",
+    supplierId: "pa-1",
+    billDate: "2026-07-01",
+    dueDate: "2026-08-01",
+    supplierInvoiceRef: "INV-7741",
+    narration: "Cement + Rod — Slab",
+    status: "POSTED",
+    entryNo: "PUR/2526/0001",
+    journalEntryId: "je-bill-201",
+    postedAt: "2026-07-01T10:22:11Z",
+    postedBy: "u-admin",
+    lines: [
+      {
+        lineNo: 1,
+        itemId: "it-cement",
+        expenseAccountId: null,
+        isStockLine: true,
+        billedQty: "100.0000",
+        rate: "500.0000",
+        lineAmount: "50000.0000",
+        vatInputAmount: "3750.0000",
+        tdsAmount: "2500.0000",
+        aitAmount: "1000.0000",
+        godownId: "gd-a",
+        costCentreId: "cc-mat",
+        purposeId: "pp-1",
+        receivedQty: "100.0000",
+        matchStatus: "MATCHED",
+      },
+    ],
+  }),
+];
+let billSeq = 300;
+function billSummary(b: MockBill) {
+  return {
+    id: b.id,
+    entryNo: b.entryNo,
+    projectId: b.projectId,
+    supplierId: b.supplierId,
+    billDate: b.billDate,
+    grossAmount: b.grossAmount,
+    vatInputAmount: b.vatInputAmount,
+    tdsAmount: b.tdsAmount,
+    aitAmount: b.aitAmount,
+    netPayableAmount: b.netPayableAmount,
+    outstandingAmount: b.outstandingAmount,
+    status: b.status,
+  };
+}
+function billResource(b: MockBill) {
+  return { ...b };
+}
+function billToJournalEntry(b: MockBill) {
+  const stockLines = b.lines
+    .filter((l) => l.isStockLine)
+    .map((l, i) => ({
+      id: `l-inv-${b.id}-${i}`,
+      lineNo: i + 1,
+      accountId: "5100",
+      projectId: b.projectId,
+      costCentreId: l.costCentreId,
+      purposeId: l.purposeId,
+      godownId: l.godownId,
+      partyId: null,
+      debit: l.lineAmount ?? "0.0000",
+      credit: "0.0000",
+      narration: null,
+    }));
+  const expenseLines = b.lines
+    .filter((l) => !l.isStockLine)
+    .map((l, i) => ({
+      id: `l-exp-${b.id}-${i}`,
+      lineNo: stockLines.length + i + 1,
+      accountId: l.expenseAccountId ?? "5100",
+      projectId: b.projectId,
+      costCentreId: l.costCentreId,
+      purposeId: l.purposeId,
+      godownId: null,
+      partyId: null,
+      debit: l.lineAmount ?? "0.0000",
+      credit: "0.0000",
+      narration: null,
+    }));
+  const nextLineNo = stockLines.length + expenseLines.length + 1;
+  const nonBaseLines = [
+    ...(Number(b.vatInputAmount) > 0
+      ? [
+          {
+            id: `l-vat-${b.id}`,
+            lineNo: nextLineNo,
+            accountId: "1440",
+            projectId: b.projectId,
+            costCentreId: b.lines[0]?.costCentreId ?? null,
+            purposeId: b.lines[0]?.purposeId ?? null,
+            godownId: null,
+            partyId: null,
+            debit: b.vatInputAmount,
+            credit: "0.0000",
+            narration: null,
+          },
+        ]
+      : []),
+    {
+      id: `l-ap-${b.id}`,
+      lineNo: nextLineNo + 1,
+      accountId: "2100",
+      projectId: b.projectId,
+      costCentreId: b.lines[0]?.costCentreId ?? null,
+      purposeId: b.lines[0]?.purposeId ?? null,
+      godownId: null,
+      partyId: b.supplierId,
+      debit: "0.0000",
+      credit: b.netPayableAmount,
+      narration: null,
+    },
+    ...(Number(b.tdsAmount) > 0
+      ? [
+          {
+            id: `l-tds-${b.id}`,
+            lineNo: nextLineNo + 2,
+            accountId: "2210",
+            projectId: b.projectId,
+            costCentreId: b.lines[0]?.costCentreId ?? null,
+            purposeId: b.lines[0]?.purposeId ?? null,
+            godownId: null,
+            partyId: null,
+            debit: "0.0000",
+            credit: b.tdsAmount,
+            narration: null,
+          },
+        ]
+      : []),
+    ...(Number(b.aitAmount) > 0
+      ? [
+          {
+            id: `l-ait-${b.id}`,
+            lineNo: nextLineNo + 3,
+            accountId: "2220",
+            projectId: b.projectId,
+            costCentreId: b.lines[0]?.costCentreId ?? null,
+            purposeId: b.lines[0]?.purposeId ?? null,
+            godownId: null,
+            partyId: null,
+            debit: "0.0000",
+            credit: b.aitAmount,
+            narration: null,
+          },
+        ]
+      : []),
+  ];
+  const lines = [...stockLines, ...expenseLines, ...nonBaseLines];
+  const totalDebit = lines.reduce((s, l) => s + Number(l.debit), 0).toFixed(4);
+  const totalCredit = lines.reduce((s, l) => s + Number(l.credit), 0).toFixed(4);
+  return {
+    id: b.journalEntryId ?? `je-${b.id}`,
+    entryNo: b.entryNo ?? b.id,
+    financialYearId: "fy-1",
+    voucherType: "PURCHASE",
+    voucherDate: b.billDate,
+    sourceType: "purchase.bills",
+    sourceId: b.id,
+    isReversal: false,
+    reversalOf: null,
+    isReversed: b.status === "CANCELLED",
+    reversedByEntryId: null,
+    reversedBy: null,
+    narration: b.narration,
+    postedAt: b.postedAt ?? "2026-07-01T10:22:11Z",
+    postedBy: b.postedBy,
+    totalDebit,
+    totalCredit,
+    lines,
+  };
+}
+
 function poSummary(o: MockPo) {
   return {
     id: o.id,
@@ -857,7 +1144,12 @@ export async function mockNestjsFetch(req: MockReq): Promise<MockResult> {
     }
     const entryId = entryMatch[1]!;
     const ipc = MOCK_IPCS.find((i) => i.journalEntryId === entryId || `je-${i.id}` === entryId || `je-${i.id}-v2` === entryId);
-    if (!ipc) return { status: 404, body: envelope("NOT_FOUND", "Journal entry not found") };
+    if (!ipc) {
+      // Bill viewer's balanced-lines panel reads the same LED endpoint (fe-purchase-bills).
+      const bill = MOCK_BILLS.find((b) => b.journalEntryId === entryId);
+      if (bill) return { status: 200, body: billToJournalEntry(bill) };
+      return { status: 404, body: envelope("NOT_FOUND", "Journal entry not found") };
+    }
     const zero = "0.0000";
     const lines = [
       { id: `${entryId}-l1`, lineNo: 1, accountId: "1200", projectId: null, costCentreId: null, purposeId: null, godownId: null, partyId: ipc.customerId, debit: ipcCurrentlyDue(ipc), credit: zero, narration: null },
@@ -3038,6 +3330,179 @@ export async function mockNestjsFetch(req: MockReq): Promise<MockResult> {
         po.status = "CANCELLED";
         po.version += 1;
         return { status: 200, body: success({ id: po.id, status: po.status }) };
+      }
+    }
+  }
+
+  // ── Purchase / Bills (fe-purchase-bills) — POSTING voucher lifecycle ─────────
+  //
+  // Draft → Post (atomic; the mock allocates a gapless-style entryNo + a synthetic
+  // journalEntryId) → Cancel (mandatory reason; supplier id ending in "-payments"
+  // simulates the BILL_HAS_APPLIED_PAYMENTS block). No inventory-in modelling in the
+  // mock — the FE viewer's inventory panel just displays the stock lines as posted.
+  if (pathname?.startsWith("/purchase/bills")) {
+    const billMatch = /^\/purchase\/bills(?:\/([^/]+))?(?:\/(post|cancel|repost))?$/.exec(pathname);
+    if (billMatch) {
+      const id = billMatch[1];
+      const action = billMatch[2];
+
+      if (!id && req.method === "GET") {
+        let rows = MOCK_BILLS.slice().filter((b) => scopeOk(b.projectId));
+        const projectId = params.get("projectId");
+        const supplierId = params.get("supplierId");
+        const statusCsv = params.get("status");
+        const dateFrom = params.get("dateFrom");
+        const dateTo = params.get("dateTo");
+        if (projectId) rows = rows.filter((r) => r.projectId === projectId);
+        if (supplierId) rows = rows.filter((r) => r.supplierId === supplierId);
+        if (statusCsv) {
+          const wanted = new Set(statusCsv.split(","));
+          rows = rows.filter((r) => wanted.has(r.status));
+        }
+        if (dateFrom) rows = rows.filter((r) => r.billDate >= dateFrom);
+        if (dateTo) rows = rows.filter((r) => r.billDate <= dateTo);
+        rows.sort((a, b) => (a.billDate < b.billDate ? 1 : -1));
+        return { status: 200, body: pageEnvelope(rows.map(billSummary)) };
+      }
+
+      if (!id && req.method === "POST") {
+        const b = body as Partial<MockBill> & { lines?: MockBillLine[] };
+        const project = MOCK_PROJECTS.find((p) => p.id === b.projectId);
+        if (!project) return { status: 404, body: envelope("NOT_FOUND", "Project not found.") };
+        if (!scopeOk(project.id)) return { status: 403, body: envelope("FORBIDDEN", "You don't have access to this project.") };
+        const lines = Array.isArray(b.lines) ? b.lines : [];
+        if (lines.length === 0) return { status: 400, body: envelope("VALIDATION_ERROR", "Add at least one line.") };
+        for (const [i, l] of lines.entries()) {
+          const stock = !!l.isStockLine;
+          if (stock && !(Number(l.billedQty) > 0)) {
+            return { status: 400, body: envelope("VALIDATION_ERROR", `Line ${i + 1}: billed quantity must be greater than zero.`) };
+          }
+          if (stock && !l.godownId) {
+            return { status: 400, body: envelope("VALIDATION_ERROR", `Line ${i + 1}: godown is required on a stock line.`) };
+          }
+          const g = MOCK_GODOWNS.find((x) => x.id === l.godownId);
+          if (g && g.projectId !== project.id) {
+            return {
+              status: 400,
+              body: {
+                error: {
+                  code: "CROSS_PROJECT_DIMENSION",
+                  message: "This godown doesn't belong to the selected project.",
+                  details: { path: ["lines", i, "godownId"] },
+                },
+              },
+            };
+          }
+        }
+        const built = mkBill({
+          id: `bill-${(billSeq += 1)}`,
+          projectId: project.id,
+          supplierId: String(b.supplierId ?? ""),
+          purchaseOrderId: (b.purchaseOrderId as string | null | undefined) ?? null,
+          supplierInvoiceRef: (b.supplierInvoiceRef as string | null | undefined) ?? null,
+          billDate: String(b.billDate ?? ""),
+          dueDate: String(b.dueDate ?? ""),
+          narration: (b.narration as string | null | undefined) ?? null,
+          lines: lines.map((l, idx) => normalizeBillLine(l, idx)),
+          status: "DRAFT",
+        });
+        if (Number(built.netPayableAmount) < 0) {
+          return { status: 400, body: envelope("NET_PAYABLE_NEGATIVE", "TDS and AIT together are larger than the gross plus VAT input — net payable can't be negative.") };
+        }
+        MOCK_BILLS.unshift(built);
+        return { status: 201, body: { data: { id: built.id }, meta: { requestId: "mock-bill", budgetWarnings: [] } } };
+      }
+
+      if (!id) return { status: 200, body: success({ ok: true, path: req.path }) };
+      const bill = MOCK_BILLS.find((b) => b.id === id);
+      if (!bill) return { status: 404, body: envelope("NOT_FOUND", "Purchase bill not found.") };
+      if (!scopeOk(bill.projectId)) return { status: 403, body: envelope("FORBIDDEN", "You don't have access to this bill.") };
+
+      if (!action && req.method === "GET") {
+        return { status: 200, body: success(billResource(bill)) };
+      }
+
+      if (!action && req.method === "PATCH") {
+        const b = body as Partial<MockBill> & { version?: number; lines?: MockBillLine[] };
+        if (bill.status !== "DRAFT") {
+          return { status: 409, body: envelope("VOUCHER_POSTED_IMMUTABLE", "This bill has been posted and can't be edited.") };
+        }
+        if (typeof b.version !== "number" || b.version !== bill.version) {
+          return { status: 409, body: envelope("OPTIMISTIC_LOCK_CONFLICT", "This bill was changed elsewhere.") };
+        }
+        bill.supplierId = String(b.supplierId ?? bill.supplierId);
+        bill.billDate = String(b.billDate ?? bill.billDate);
+        bill.dueDate = String(b.dueDate ?? bill.dueDate);
+        bill.narration = (b.narration as string | null | undefined) ?? bill.narration;
+        bill.supplierInvoiceRef = (b.supplierInvoiceRef as string | null | undefined) ?? bill.supplierInvoiceRef;
+        bill.purchaseOrderId = (b.purchaseOrderId as string | null | undefined) ?? bill.purchaseOrderId;
+        if (Array.isArray(b.lines)) {
+          bill.lines = b.lines.map((l, idx) => normalizeBillLine(l, idx));
+        }
+        recomputeBill(bill);
+        if (Number(bill.netPayableAmount) < 0) {
+          return { status: 400, body: envelope("NET_PAYABLE_NEGATIVE", "TDS and AIT together are larger than the gross plus VAT input — net payable can't be negative.") };
+        }
+        bill.version += 1;
+        return { status: 200, body: { data: billResource(bill), meta: { requestId: "mock-bill", budgetWarnings: [] } } };
+      }
+
+      if (action === "post" && req.method === "POST") {
+        const b = body as { version?: number };
+        if (bill.status !== "DRAFT") {
+          return { status: 409, body: envelope("VOUCHER_POSTED_IMMUTABLE", "This bill has already been posted or cancelled.") };
+        }
+        if (typeof b.version !== "number" || b.version !== bill.version) {
+          return { status: 409, body: envelope("OPTIMISTIC_LOCK_CONFLICT", "This bill was changed elsewhere.") };
+        }
+        bill.status = "POSTED";
+        bill.entryNo = bill.entryNo ?? `PUR/2526/${String(billSeq).padStart(4, "0")}`;
+        bill.journalEntryId = bill.journalEntryId ?? `je-${bill.id}`;
+        bill.postedAt = "2026-07-13T09:00:00Z";
+        bill.postedBy = "u-admin";
+        bill.outstandingAmount = bill.netPayableAmount;
+        bill.version += 1;
+        return {
+          status: 200,
+          body: success({
+            id: bill.id,
+            entryNo: bill.entryNo,
+            journalEntryId: bill.journalEntryId,
+            status: bill.status,
+            netPayableAmount: bill.netPayableAmount,
+          }),
+        };
+      }
+
+      if (action === "cancel" && req.method === "POST") {
+        const b = body as { reason?: string; version?: number };
+        if (bill.status !== "POSTED") {
+          return { status: 409, body: envelope("VOUCHER_NOT_POSTED", "This bill isn't posted — nothing to cancel.") };
+        }
+        if (!String(b.reason ?? "").trim()) {
+          return { status: 400, body: envelope("VALIDATION_ERROR", "Enter a reason for this cancellation.") };
+        }
+        if (typeof b.version !== "number" || b.version !== bill.version) {
+          return { status: 409, body: envelope("OPTIMISTIC_LOCK_CONFLICT", "This bill was changed elsewhere.") };
+        }
+        // e2e marker: a supplier id ending in "-payments" simulates the applied-payments block.
+        if (bill.supplierId.endsWith("-payments")) {
+          return {
+            status: 409,
+            body: envelope("BILL_HAS_APPLIED_PAYMENTS", "This bill has payments applied to it. Reverse or reallocate those payments first before cancelling."),
+          };
+        }
+        bill.status = "CANCELLED";
+        bill.version += 1;
+        return {
+          status: 200,
+          body: success({
+            id: bill.id,
+            status: bill.status,
+            reversalEntryId: `je-rev-${bill.id}`,
+            reversalEntryNo: `PUR/2526/${String(billSeq + 100).padStart(4, "0")}`,
+          }),
+        };
       }
     }
   }

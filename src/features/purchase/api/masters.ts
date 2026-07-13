@@ -1,6 +1,7 @@
 import { apiClient } from "@/lib/api";
 import { readCsrfToken } from "@/lib/auth/csrf-client";
 import {
+  type AccountOption,
   type CostCentreOption,
   type GodownOption,
   type ItemOption,
@@ -66,4 +67,15 @@ export async function listGodownOptions(projectId?: string): Promise<GodownOptio
 export async function listItemOptions(): Promise<ItemOption[]> {
   const res = await apiClient.get<{ data: ItemOption[] }>("/masters/items?page=1&pageSize=500");
   return res.data;
+}
+
+/**
+ * Expense-account picker options for a non-stock bill line (contract 01 § Accounts).
+ * Only EXPENSE-type active accounts are relevant on a Purchase Bill non-stock line — the
+ * server enforces the same. A previously selected deactivated account stays visible on
+ * an existing bill for read-only rendering.
+ */
+export async function listExpenseAccountOptions(): Promise<AccountOption[]> {
+  const res = await apiClient.get<{ data: AccountOption[] }>("/masters/accounts");
+  return res.data.filter((a) => a.type === "EXPENSE");
 }

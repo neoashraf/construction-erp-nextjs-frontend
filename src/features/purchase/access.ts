@@ -43,3 +43,31 @@ export function canApprovePo(user: Viewer): boolean {
 export function canCancelPo(user: Viewer): boolean {
   return allow(user, "CANCEL", ["PROJECT_MANAGER", "ACCOUNTS_MANAGER", "ACCOUNTS_TEAM"]);
 }
+
+/**
+ * Purchase Bill scope (brief §Scope 15; spec §11). Bills are the AP posting voucher —
+ * PM is read-only (list + viewer, assigned projects), Accounts Manager + Admin can
+ * write/post/cancel, Store Keeper sees nothing. Server enforces every action.
+ */
+export const BILL_RESOURCE = "purchase.bills";
+
+function allowBill(user: Viewer, action: ActionCode, fallbackRoles: readonly Role[]): boolean {
+  if (user.role === "ADMIN") return true;
+  if (user.permissions) return hasGrant(user as never, BILL_RESOURCE, action);
+  return roleMatches(fallbackRoles, user.role);
+}
+
+/** Create / edit a DRAFT bill (`purchase:write`; catalogue C/U). */
+export function canWriteBill(user: Viewer): boolean {
+  return allowBill(user, "CREATE", ["ACCOUNTS_MANAGER", "ACCOUNTS_TEAM"]);
+}
+
+/** Post a DRAFT bill (`purchase:post`; catalogue P). */
+export function canPostBill(user: Viewer): boolean {
+  return allowBill(user, "POST", ["ACCOUNTS_MANAGER", "ACCOUNTS_TEAM"]);
+}
+
+/** Cancel / Repost a POSTED bill (`purchase:cancel`; catalogue X). */
+export function canCancelBill(user: Viewer): boolean {
+  return allowBill(user, "CANCEL", ["ACCOUNTS_MANAGER", "ACCOUNTS_TEAM"]);
+}

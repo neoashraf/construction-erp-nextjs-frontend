@@ -19,6 +19,9 @@ export type PurchaseOrderStatus =
   | "CLOSED"
   | "CANCELLED";
 
+/** Purchase Bill lifecycle (FR-PUR-004/-008/-022). Three states — the standard voucher matrix. */
+export type PurchaseBillStatus = "DRAFT" | "POSTED" | "CANCELLED";
+
 /** Advisory over-budget status per (project, cost_centre) — never blocks Save/Approve (FR-PUR-019). */
 export type BudgetStatus = "OK" | "APPROACHING" | "OVER" | "UNBUDGETED";
 
@@ -123,4 +126,86 @@ export interface ItemOption {
   name: string;
   uom: string;
   isActive: boolean;
+}
+
+export interface AccountOption {
+  id: string;
+  code: string;
+  name: string;
+  type: "ASSET" | "LIABILITY" | "EQUITY" | "INCOME" | "EXPENSE";
+  isActive: boolean;
+}
+
+// ── Purchase Bill (contract 08 § "Purchase Bill") ─────────────────────────────
+
+/**
+ * One bill line — stock XOR non-stock (FR-PUR-005). A stock line carries `itemId`
+ * + `godownId` + `isStockLine: true`; a non-stock line carries `expenseAccountId`
+ * + `isStockLine: false` and no godown. `lineAmount` / `receivedQty` / `matchStatus`
+ * are derived server-side (FR-PUR-017).
+ */
+export interface PurchaseBillLine {
+  lineNo?: number;
+  itemId: string | null;
+  expenseAccountId: string | null;
+  isStockLine: boolean;
+  billedQty: string;
+  rate: string;
+  lineAmount?: string;
+  vatInputAmount: string;
+  tdsAmount: string;
+  aitAmount: string;
+  godownId: string | null;
+  costCentreId: string;
+  purposeId: string;
+  receivedQty?: string;
+  matchStatus?: PurchaseMatchStatus;
+}
+
+/** Full Purchase Bill resource shape (contract 08 § "Purchase Bill"). */
+export interface PurchaseBill {
+  id: string;
+  projectId: string;
+  supplierId: string;
+  purchaseOrderId: string | null;
+  supplierInvoiceRef: string | null;
+  billDate: string;
+  dueDate: string;
+  grossAmount: string;
+  vatInputAmount: string;
+  tdsAmount: string;
+  aitAmount: string;
+  netPayableAmount: string;
+  narration: string | null;
+  status: PurchaseBillStatus;
+  entryNo: string | null;
+  journalEntryId: string | null;
+  outstandingAmount: string;
+  lines: PurchaseBillLine[];
+  postedAt: string | null;
+  postedBy: string | null;
+  version: number;
+}
+
+/** One bill list summary row (contract 08 GET /bills response element). */
+export interface PurchaseBillSummary {
+  id: string;
+  entryNo: string | null;
+  projectId: string;
+  supplierId: string;
+  billDate: string;
+  grossAmount: string;
+  vatInputAmount: string;
+  tdsAmount: string;
+  aitAmount: string;
+  netPayableAmount: string;
+  outstandingAmount: string;
+  status: PurchaseBillStatus;
+}
+
+export interface PurchaseBillPage {
+  data: PurchaseBillSummary[];
+  page: number;
+  pageSize: number;
+  total: number;
 }
