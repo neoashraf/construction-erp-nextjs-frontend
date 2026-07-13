@@ -1,10 +1,13 @@
-import { ComingSoon } from "@/components/shell/coming-soon";
+import { requireModuleAccess } from "@/lib/auth/guard-module-page";
+import { AttendanceShell } from "@/features/hr/components/AttendanceShell";
 
 /**
- * Placeholder route for the "Attendance" screen (nav-tree route /hr/attendance). The real
- * screen ships with its per-screen brief; until then this renders the shared
- * ComingSoon placeholder so the nav item navigates to a real page, not a dead link.
+ * `/hr/attendance` — three-mode attendance shell (FR-HR-004..-012; spec §3). The module
+ * guard redirects Site Engineer / Store Keeper / PM (no HR module) to /403; HR Manager /
+ * Admin / Accounts reach the shell. The shell further hides Confirm/Reverse via
+ * `canConfirmAttendance` — server re-checks every write/post regardless.
  */
-export default function HrAttendancePage() {
-  return <ComingSoon title="Attendance" />;
+export default async function HrAttendancePage() {
+  await requireModuleAccess("hr");
+  return <AttendanceShell />;
 }
