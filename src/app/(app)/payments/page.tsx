@@ -1,10 +1,13 @@
-import { ComingSoon } from "@/components/shell/coming-soon";
+import { requireModuleAccess } from "@/lib/auth/guard-module-page";
+import { PaymentListScreen } from "@/features/payments/components/PaymentListScreen";
 
 /**
- * Placeholder route for the "Payments" screen (nav-tree route /payments). The real
- * screen ships with its per-screen brief; until then this renders the shared
- * ComingSoon placeholder so the nav item navigates to a real page, not a dead link.
+ * Payments — list + outstanding route (nav-tree /payments, resource
+ * `payments.list`). Guarded on `payments.list:READ`; the list is read-only
+ * (server scopes PM out of this screen — spec §11). Segmented control switches
+ * to the Outstanding view (per-payable open balance) inside the same route.
  */
-export default function PaymentsPage() {
-  return <ComingSoon title="Payments" />;
+export default async function PaymentsPage() {
+  await requireModuleAccess("payments");
+  return <PaymentListScreen />;
 }
