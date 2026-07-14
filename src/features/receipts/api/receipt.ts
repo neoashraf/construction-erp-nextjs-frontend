@@ -172,3 +172,92 @@ export async function postReceipt(id: string, version: number): Promise<ReceiptP
 export function isReceiptEditable(status: ReceiptType extends never ? never : ReceiptStatus): boolean {
   return status === "DRAFT";
 }
+
+// ── Viewer correction surface (FE-44) ────────────────────────────────────────────────
+
+export interface ReceiptCancelResult {
+  id: string;
+  status: Extract<ReceiptStatus, "CANCELLED">;
+  reversalEntryId: string;
+  reversalEntryNo: string;
+  ipcOutstandingAfter: string | null;
+}
+
+/**
+ * Cancel a POSTED receipt — LED reverses its journal entry; the receipt retains its
+ * original number, an IPC-linked receipt's outstanding is restored (FR-REC-021/-022/-023).
+ * `reason` is mandatory.
+ */
+export async function cancelReceipt(
+  id: string,
+  input: { reason: string; version: number },
+): Promise<ReceiptCancelResult> {
+  const res = await apiClient.post<{ data: ReceiptCancelResult }>(
+    `${BASE}/${id}/cancel`,
+    input,
+    csrf(),
+  );
+  return res.data;
+}
+
+export interface ReceiptRepostResult {
+  id: string;
+  status: Extract<ReceiptStatus, "POSTED">;
+  entryNo: string;
+  reversalEntryNo: string;
+  ipcOutstandingAfter: string | null;
+}
+
+/**
+ * Correct a POSTED receipt — reverse-and-repost in one transaction; each new entry
+ * takes its own number, the original number is retained (FR-REC-021/-023). Body = the
+ * corrected fields + a reason + the current `version` for optimistic concurrency.
+ */
+export async function repostReceipt(
+  id: string,
+  input: ReceiptWriteInput & { reason: string; version: number },
+): Promise<ReceiptRepostResult> {
+  const res = await apiClient.post<{ data: ReceiptRepostResult }>(
+    `${BASE}/${id}/repost`,
+    input,
+    csrf(),
+  );
+  return res.data;
+}
+
+/**
+ * Thin LED binding for the viewer's ledger-lines panel (API contract 02 §
+ * `GET /api/ledger/entries/{id}`). REC owns this local wrapper rather than importing
+ * `features/ledger` (skill §2.4 import boundary). READ-ONLY (LED writes are internal
+ * via PostingService — the FE never sends debit/credit). The endpoint is guarded by
+ * `ledger.journal_entries:READ` (distinct from `receipts:READ`, gap G2 in the brief) —
+ * a PM may `403` on this call while succeeding on the receipt read; the viewer renders
+ * that as its own in-panel state instead of blanking the whole screen.
+ */
+export interface JournalEntryLine {
+  id: string;
+  lineNo: number;
+  accountId: string;
+  projectId: string | null;
+  costCentreId: string | null;
+  purposeId: string | null;
+  godownId: string | null;
+  partyId: string | null;
+  debit: string;
+  credit: string;
+  narration: string | null;
+}
+export interface JournalEntry {
+  id: string;
+  entryNo: string;
+  voucherType: string;
+  voucherDate: string;
+  postedAt: string;
+  totalDebit: string;
+  totalCredit: string;
+  lines: JournalEntryLine[];
+}
+
+export async function getReceiptJournalEntry(id: string): Promise<JournalEntry> {
+  return apiClient.get<JournalEntry>(`/ledger/entries/${id}`);
+}
