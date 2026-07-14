@@ -50,7 +50,9 @@ export function ReportParameterPanel({
   }, []);
 
   const asOfActive = !!(value.asOf || value.periodId);
-  const rangeDisabled = asOfActive && descriptor.supportsAsOf;
+  // Only show the precedence note when BOTH controls are available on this report
+  // (as-of alone on a balance-sheet-style report has nothing to override).
+  const rangeDisabled = asOfActive && !!descriptor.supportsAsOf && !!descriptor.supportsDateRange;
 
   function submit(e: React.FormEvent) {
     e.preventDefault();

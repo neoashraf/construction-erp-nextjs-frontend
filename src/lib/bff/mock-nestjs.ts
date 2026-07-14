@@ -2820,6 +2820,101 @@ export async function mockNestjsFetch(req: MockReq): Promise<MockResult> {
       }),
     };
   }
+  // FE-55 fe-financial-statements — P&L
+  if (req.path.startsWith("/reports/profit-and-loss") && req.method === "GET") {
+    const query = req.path.split("?")[1] ?? "";
+    const qs = new URLSearchParams(query);
+    const projectId = qs.get("projectId");
+    const groupBy = qs.get("groupBy") ?? "account";
+    // Two dataset shapes so the tab exercises both a profit (consolidated) and
+    // a loss (single project) surface.
+    const rows = projectId
+      ? [
+          { accountId: "4000", accountCode: "4000", accountName: "Contract revenue", section: "INCOME", amount: "2500000.0000", projectId, projectName: "Bridge-04" },
+          { accountId: "5100", accountCode: "5100", accountName: "Materials", section: "EXPENSE", amount: "2200000.0000", projectId, projectName: "Bridge-04", ...(groupBy.includes("cost_centre") ? { costCentreId: "cc-mat", costCentreName: "Materials CC" } : {}) },
+          { accountId: "5200", accountCode: "5200", accountName: "Labour", section: "EXPENSE", amount: "600000.0000", projectId, projectName: "Bridge-04", ...(groupBy.includes("cost_centre") ? { costCentreId: "cc-lab", costCentreName: "Labour CC" } : {}) },
+          { accountId: "5300", accountCode: "5300", accountName: null, section: "EXPENSE", amount: "100000.0000", projectId, projectName: "Bridge-04" },
+        ]
+      : [
+          { accountId: "4000", accountCode: "4000", accountName: "Contract revenue", section: "INCOME", amount: "18500000.0000" },
+          { accountId: "4200", accountCode: "4200", accountName: "Other income", section: "INCOME", amount: "150000.0000" },
+          { accountId: "5100", accountCode: "5100", accountName: "Materials", section: "EXPENSE", amount: "9200000.0000" },
+          { accountId: "5200", accountCode: "5200", accountName: "Labour", section: "EXPENSE", amount: "3400000.0000" },
+          { accountId: "5300", accountCode: "5300", accountName: "Fuel & operating", section: "EXPENSE", amount: "760000.0000" },
+          { accountId: "5400", accountCode: "5400", accountName: "কর্মচারী বেতন", section: "EXPENSE", amount: "1900000.0000", isActive: false },
+        ];
+    const revenue = rows.filter((r) => r.section === "INCOME").reduce((a, r) => a + Number(r.amount), 0);
+    const cost = rows.filter((r) => r.section === "EXPENSE").reduce((a, r) => a + Number(r.amount), 0);
+    return {
+      status: 200,
+      body: success({
+        reportName: "profit-and-loss",
+        parameters: {},
+        rows,
+        meta: {
+          page: 1,
+          pageSize: rows.length,
+          total: rows.length,
+          generatedAt: new Date().toISOString(),
+          totals: {
+            revenue: revenue.toFixed(4),
+            cost: cost.toFixed(4),
+            profit: (revenue - cost).toFixed(4),
+          },
+        },
+      }),
+    };
+  }
+  // FE-55 fe-financial-statements — Balance sheet
+  if (req.path.startsWith("/reports/balance-sheet") && req.method === "GET") {
+    const query = req.path.split("?")[1] ?? "";
+    const qs = new URLSearchParams(query);
+    const projectId = qs.get("projectId");
+    const rows = projectId
+      ? [
+          { accountId: "1200", accountCode: "1200", accountName: "Retention receivable — Bridge-04", groupKind: "ASSET", groupLabel: "Current assets", amount: "620000.0000" },
+          { accountId: "1201", accountCode: "1201", accountName: "Advance from customer — Bridge-04", groupKind: "LIABILITY", groupLabel: "Current liabilities", amount: "1200000.0000" },
+        ]
+      : [
+          { accountId: "1010", accountCode: "1010", accountName: "Cash on hand", groupKind: "ASSET", groupLabel: "Current assets", amount: "500000.0000" },
+          { accountId: "1101", accountCode: "1101", accountName: "HSBC Current 001", groupKind: "ASSET", groupLabel: "Current assets", amount: "8500000.0000" },
+          { accountId: "1200", accountCode: "1200", accountName: "Accounts Receivable", groupKind: "ASSET", groupLabel: "Current assets", amount: "12400000.0000" },
+          { accountId: "1500", accountCode: "1500", accountName: "Plant & equipment", groupKind: "ASSET", groupLabel: "Non-current assets", amount: "9600000.0000" },
+          { accountId: "2100", accountCode: "2100", accountName: "Accounts payable", groupKind: "LIABILITY", groupLabel: "Current liabilities", amount: "3400000.0000" },
+          { accountId: "2200", accountCode: "2200", accountName: "Retention payable", groupKind: "LIABILITY", groupLabel: "Current liabilities", amount: "600000.0000" },
+          { accountId: "3100", accountCode: "3100", accountName: "Opening equity", groupKind: "EQUITY", groupLabel: "Equity", amount: "22500000.0000" },
+          { accountId: "3200", accountCode: "3200", accountName: "Retained earnings", groupKind: "EQUITY", groupLabel: "Equity", amount: "4500000.0000" },
+        ];
+    const totals = rows.reduce(
+      (acc, r) => {
+        const n = Number(r.amount);
+        if (r.groupKind === "ASSET") acc.assets += n;
+        else if (r.groupKind === "LIABILITY") acc.liabilities += n;
+        else acc.equity += n;
+        return acc;
+      },
+      { assets: 0, liabilities: 0, equity: 0 },
+    );
+    return {
+      status: 200,
+      body: success({
+        reportName: "balance-sheet",
+        parameters: {},
+        rows,
+        meta: {
+          page: 1,
+          pageSize: rows.length,
+          total: rows.length,
+          generatedAt: new Date().toISOString(),
+          totals: {
+            assets: totals.assets.toFixed(4),
+            liabilities: totals.liabilities.toFixed(4),
+            equity: totals.equity.toFixed(4),
+          },
+        },
+      }),
+    };
+  }
   // Every other /reports/<name> — return an empty well-formed result until the
   // viewer brief for that report lands.
   if (req.path.startsWith("/reports/") && req.method === "GET") {
