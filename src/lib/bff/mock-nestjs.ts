@@ -1565,6 +1565,113 @@ function billToJournalEntry(b: MockBill) {
   };
 }
 
+/**
+ * Synthesize a balanced journal entry for a posted/cancelled receipt (fe-receipt-viewer
+ * G2). IPC-linked: Dr deposit + Dr tax-recoverable / Cr Accounts Receivable (party-
+ * tagged); General: Dr deposit / Cr general target (party-tagged for advance liabilities).
+ * The mock has no ledger-write layer — the receipt POST allocates a `journalEntryId`
+ * synthetically, so this hydration is what the viewer reads back.
+ */
+function receiptToJournalEntry(r: MockReceipt, entryId: string) {
+  const zero = "0.0000";
+  const settled = r.amountSettled;
+  const cash = r.cashReceived ?? r.amountSettled;
+  const tds = r.taxDeductedAtSource ?? zero;
+  const lines: Array<{
+    id: string;
+    lineNo: number;
+    accountId: string;
+    projectId: string | null;
+    costCentreId: string | null;
+    purposeId: string | null;
+    godownId: null;
+    partyId: string | null;
+    debit: string;
+    credit: string;
+    narration: null;
+  }> = [];
+  // Dr deposit
+  lines.push({
+    id: `${entryId}-l1`,
+    lineNo: 1,
+    accountId: r.depositAccountId ?? "1010",
+    projectId: null,
+    costCentreId: null,
+    purposeId: null,
+    godownId: null,
+    partyId: null,
+    debit: cash,
+    credit: zero,
+    narration: null,
+  });
+  if (r.receiptType === "IPC_LINKED") {
+    if (Number(tds) > 0) {
+      lines.push({
+        id: `${entryId}-l2`,
+        lineNo: 2,
+        accountId: "1450",
+        projectId: r.projectId ?? null,
+        costCentreId: r.costCentreId ?? null,
+        purposeId: r.purposeId ?? null,
+        godownId: null,
+        partyId: null,
+        debit: tds,
+        credit: zero,
+        narration: null,
+      });
+    }
+    lines.push({
+      id: `${entryId}-lar`,
+      lineNo: lines.length + 1,
+      accountId: "1200",
+      projectId: null,
+      costCentreId: null,
+      purposeId: null,
+      godownId: null,
+      partyId: r.partyId,
+      debit: zero,
+      credit: settled,
+      narration: null,
+    });
+  } else {
+    lines.push({
+      id: `${entryId}-lgen`,
+      lineNo: 2,
+      accountId: r.generalTargetAccountId ?? "4100",
+      projectId: r.projectId ?? null,
+      costCentreId: r.costCentreId ?? null,
+      purposeId: r.purposeId ?? null,
+      godownId: null,
+      partyId: r.partyId,
+      debit: zero,
+      credit: settled,
+      narration: null,
+    });
+  }
+  const totalDebit = lines.reduce((s, l) => s + Number(l.debit), 0).toFixed(4);
+  const totalCredit = lines.reduce((s, l) => s + Number(l.credit), 0).toFixed(4);
+  return {
+    id: entryId,
+    entryNo: r.entryNo ?? r.id,
+    financialYearId: "fy-1",
+    voucherType: "RECEIPT",
+    voucherDate: r.receiptDate,
+    sourceType: "receipts",
+    sourceId: r.id,
+    isReversal: false,
+    reversalOf: null,
+    isReversed: r.status === "CANCELLED",
+    reversedByEntryId: null,
+    reversedBy: null,
+    narration: r.narration ?? null,
+    postedAt: r.postedAt ?? "2026-07-01T10:22:11Z",
+    postedBy: r.postedBy ?? null,
+    totalDebit,
+    totalCredit,
+    lines,
+  };
+}
+
 // ── GRN seed (dev/preview only) — the fe-grn-matching store ───────────────────
 //
 // A GRN records goods physically received against a PO/Bill; Post drives INV
@@ -2326,6 +2433,11 @@ export async function mockNestjsFetch(req: MockReq): Promise<MockResult> {
       // Bill viewer's balanced-lines panel reads the same LED endpoint (fe-purchase-bills).
       const bill = MOCK_BILLS.find((b) => b.journalEntryId === entryId);
       if (bill) return { status: 200, body: billToJournalEntry(bill) };
+      // Receipt viewer's balanced-lines panel reads the same LED endpoint (fe-receipt-viewer).
+      const receipt = MOCK_RECEIPTS.find(
+        (r) => r.journalEntryId === entryId || `je-${r.id}` === entryId || `je-${r.id}-v2` === entryId,
+      );
+      if (receipt) return { status: 200, body: receiptToJournalEntry(receipt, entryId) };
       return { status: 404, body: envelope("NOT_FOUND", "Journal entry not found") };
     }
     const zero = "0.0000";
@@ -6495,7 +6607,11 @@ export async function mockNestjsFetch(req: MockReq): Promise<MockResult> {
       narration: r.narration ?? null,
       status: r.status,
       entryNo: r.entryNo,
-      journalEntryId: r.journalEntryId ?? null,
+      // Seed receipts have no explicit journalEntryId; synthesize one for POSTED/CANCELLED
+      // so the viewer's LED lines fetch resolves — the LED entries endpoint recognises the
+      // `je-<id>` shape and hydrates receipt lines from receiptToJournalEntry.
+      journalEntryId:
+        r.journalEntryId ?? (r.status !== "DRAFT" ? `je-${r.id}` : null),
       ipcOutstandingAfter: r.ipcOutstandingAfter ?? null,
       postedAt: r.postedAt ?? null,
       postedBy: r.postedBy ?? null,
@@ -6601,7 +6717,7 @@ export async function mockNestjsFetch(req: MockReq): Promise<MockResult> {
     return { status: 201, body: success({ id }) };
   }
 
-  const receiptMatch = /^\/receipt\/([^/]+)(?:\/(post))?$/.exec(pathname ?? "");
+  const receiptMatch = /^\/receipt\/([^/]+)(?:\/(post|cancel|repost))?$/.exec(pathname ?? "");
   if (receiptMatch && !pathname?.startsWith("/receipt/ipc/")) {
     const id = receiptMatch[1]!;
     const action = receiptMatch[2];
@@ -6671,6 +6787,81 @@ export async function mockNestjsFetch(req: MockReq): Promise<MockResult> {
         journalEntryId: receipt.journalEntryId,
         status: "POSTED",
         ipcOutstandingAfter: outstandingAfter,
+      }) };
+    }
+    if (req.method === "POST" && action === "cancel") {
+      if (receipt.status === "DRAFT")
+        return { status: 409, body: envelope("VOUCHER_NOT_POSTED", "This receipt isn't posted, so it can't be cancelled or reposted.") };
+      if (receipt.status === "CANCELLED")
+        return { status: 409, body: envelope("ALREADY_REVERSED", "This receipt has already been cancelled.") };
+      const reversalNo = allocateReceiptEntryNo();
+      const reversalId = `je-rev-${id}`;
+      receipt.status = "CANCELLED";
+      receipt.version = (receipt.version ?? 1) + 1;
+      // Restore IPC outstanding (adding the receipt back) — surface the higher balance.
+      let restoredOutstanding: string | null = null;
+      if (receipt.receiptType === "IPC_LINKED" && receipt.ipcId) {
+        const ipc = MOCK_IPCS.find((i) => i.id === receipt.ipcId);
+        if (ipc) {
+          const due = Number(ipcCurrentlyDue(ipc));
+          const applied = MOCK_RECEIPTS.filter(
+            (r) => r.ipcId === ipc.id && r.status === "POSTED",
+          ).reduce((s, r) => s + Number(r.amountSettled), 0);
+          restoredOutstanding = (due - applied).toFixed(4);
+        }
+      }
+      return { status: 200, body: success({
+        id,
+        status: "CANCELLED",
+        reversalEntryId: reversalId,
+        reversalEntryNo: reversalNo,
+        ipcOutstandingAfter: restoredOutstanding,
+      }) };
+    }
+    if (req.method === "POST" && action === "repost") {
+      if (receipt.status === "DRAFT")
+        return { status: 409, body: envelope("VOUCHER_NOT_POSTED", "This receipt isn't posted, so it can't be reposted.") };
+      if (receipt.status === "CANCELLED")
+        return { status: 409, body: envelope("ALREADY_REVERSED", "This receipt has already been cancelled.") };
+      const b = (body ?? {}) as Record<string, unknown> & {
+        amountSettled?: string;
+        taxDeductedAtSource?: string;
+        reason?: string;
+        version?: number;
+      };
+      if (!b.reason || !String(b.reason).trim())
+        return { status: 400, body: envelope("VALIDATION_ERROR", "Reason is required.") };
+      if (b.version !== undefined && b.version !== (receipt.version ?? 1))
+        return { status: 409, body: envelope("OPTIMISTIC_LOCK_CONFLICT", "This receipt was just changed by someone else.") };
+      // Over-application re-check for IPC-linked (edge case 8).
+      if (receipt.receiptType === "IPC_LINKED" && receipt.ipcId) {
+        const ipc = MOCK_IPCS.find((i) => i.id === receipt.ipcId);
+        if (ipc) {
+          const due = Number(ipcCurrentlyDue(ipc));
+          const applied = MOCK_RECEIPTS.filter(
+            (r) => r.ipcId === ipc.id && r.status === "POSTED" && r.id !== receipt.id,
+          ).reduce((s, r) => s + Number(r.amountSettled), 0);
+          if (Number(b.amountSettled ?? receipt.amountSettled) > due - applied) {
+            return { status: 409, body: envelope("RECEIPT_EXCEEDS_OUTSTANDING", "This exceeds the IPC's remaining outstanding.") };
+          }
+        }
+      }
+      const reversalNo = allocateReceiptEntryNo();
+      const newEntryNo = allocateReceiptEntryNo();
+      const settled = String(b.amountSettled ?? receipt.amountSettled);
+      const tds = String(b.taxDeductedAtSource ?? receipt.taxDeductedAtSource);
+      receipt.amountSettled = settled;
+      receipt.taxDeductedAtSource = tds;
+      receipt.cashReceived = (Number(settled) - Number(tds)).toFixed(4);
+      receipt.entryNo = newEntryNo;
+      receipt.journalEntryId = `je-${id}-v2`;
+      receipt.version = (receipt.version ?? 1) + 1;
+      return { status: 200, body: success({
+        id,
+        status: "POSTED",
+        entryNo: newEntryNo,
+        reversalEntryNo: reversalNo,
+        ipcOutstandingAfter: null,
       }) };
     }
   }
