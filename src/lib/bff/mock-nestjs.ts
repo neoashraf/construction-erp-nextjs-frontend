@@ -7664,5 +7664,132 @@ export async function mockNestjsFetch(req: MockReq): Promise<MockResult> {
     }
   }
 
+  // ── Contra & Journal (fe-voucher-list) — read-only unified list ─────────────
+  //
+  // Minimum viable read for FE-48: seeded contra + journal + opening vouchers,
+  // filtered by status + date + entry number (+ voucherType for journals). Sibling
+  // briefs (FE-49/FE-50/FE-51) will add create/patch/delete/post/reverse.
+  interface MockContraSeed {
+    id: string;
+    voucherType: "CONTRA";
+    voucherDate: string;
+    narration: string | null;
+    status: "DRAFT" | "POSTED" | "CANCELLED";
+    entryNo: string | null;
+    journalEntryId: string | null;
+    totalDebit: string;
+    version: number;
+  }
+  interface MockJournalSeed {
+    id: string;
+    voucherType: "JOURNAL" | "OPENING";
+    voucherDate: string;
+    narration: string | null;
+    status: "DRAFT" | "POSTED" | "CANCELLED";
+    entryNo: string | null;
+    journalEntryId: string | null;
+    totalDebit: string;
+    version: number;
+  }
+  const gCJ = globalThis as unknown as {
+    __MOCK_CONTRA__?: MockContraSeed[];
+    __MOCK_JOURNAL__?: MockJournalSeed[];
+  };
+  if (!gCJ.__MOCK_CONTRA__) {
+    gCJ.__MOCK_CONTRA__ = [
+      {
+        id: "ctr-1",
+        voucherType: "CONTRA",
+        voucherDate: "2026-07-10",
+        narration: "Cash deposited to City Bank A/C",
+        status: "POSTED",
+        entryNo: "CTR/2526/0007",
+        journalEntryId: "je-ctr-1",
+        totalDebit: "500000.0000",
+        version: 2,
+      },
+      {
+        id: "ctr-2",
+        voucherType: "CONTRA",
+        voucherDate: "2026-07-08",
+        narration: "Bank to petty cash",
+        status: "DRAFT",
+        entryNo: null,
+        journalEntryId: null,
+        totalDebit: "50000.0000",
+        version: 1,
+      },
+    ];
+  }
+  if (!gCJ.__MOCK_JOURNAL__) {
+    gCJ.__MOCK_JOURNAL__ = [
+      {
+        id: "jnl-1",
+        voucherType: "JOURNAL",
+        voucherDate: "2026-07-05",
+        narration: "Accrue June electricity",
+        status: "POSTED",
+        entryNo: "JNL/2526/0022",
+        journalEntryId: "je-jnl-1",
+        totalDebit: "18500.0000",
+        version: 2,
+      },
+      {
+        id: "jnl-2",
+        voucherType: "JOURNAL",
+        voucherDate: "2026-06-30",
+        narration: "Reclassify prepayment",
+        status: "CANCELLED",
+        entryNo: "JNL/2526/0019",
+        journalEntryId: "je-jnl-2",
+        totalDebit: "12000.0000",
+        version: 3,
+      },
+      {
+        id: "opn-1",
+        voucherType: "OPENING",
+        voucherDate: "2025-07-01",
+        narration: "Go-live opening balances",
+        status: "POSTED",
+        entryNo: "OPN/2526/0001",
+        journalEntryId: "je-opn-1",
+        totalDebit: "12500000.0000",
+        version: 1,
+      },
+    ];
+  }
+  const MOCK_CONTRA = gCJ.__MOCK_CONTRA__;
+  const MOCK_JOURNAL = gCJ.__MOCK_JOURNAL__;
+
+  function applyCommonFilters<T extends { status: string; voucherDate: string; entryNo: string | null }>(
+    rows: T[],
+  ): T[] {
+    let out = rows.slice();
+    const statusCsv = params.get("status");
+    const dateFrom = params.get("dateFrom");
+    const dateTo = params.get("dateTo");
+    const entryNo = params.get("entryNo");
+    if (statusCsv) {
+      const wanted = new Set(statusCsv.split(","));
+      out = out.filter((r) => wanted.has(r.status));
+    }
+    if (dateFrom) out = out.filter((r) => r.voucherDate >= dateFrom);
+    if (dateTo) out = out.filter((r) => r.voucherDate <= dateTo);
+    if (entryNo) out = out.filter((r) => r.entryNo === entryNo);
+    out.sort((a, b) => (a.voucherDate < b.voucherDate ? 1 : -1));
+    return out;
+  }
+
+  if (pathname === "/contra" && req.method === "GET") {
+    const rows = applyCommonFilters(MOCK_CONTRA);
+    return { status: 200, body: pageEnvelope(rows) };
+  }
+  if (pathname === "/journal" && req.method === "GET") {
+    let rows = applyCommonFilters(MOCK_JOURNAL);
+    const voucherType = params.get("voucherType");
+    if (voucherType) rows = rows.filter((r) => r.voucherType === voucherType);
+    return { status: 200, body: pageEnvelope(rows) };
+  }
+
   return { status: 200, body: success({ ok: true, path: req.path }) };
 }
