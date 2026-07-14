@@ -1,6 +1,11 @@
 import { apiClient } from "@/lib/api";
 import { DEFAULT_PAGE_SIZE } from "@/lib/api/pagination";
-import { type JournalVoucherSummary, type VoucherListPage } from "../types";
+import { readCsrfToken } from "@/lib/auth/csrf-client";
+import { type JournalVoucher, type JournalVoucherSummary, type VoucherListPage } from "../types";
+
+function csrf() {
+  return { csrfToken: readCsrfToken() };
+}
 
 /**
  * Journal Voucher API bindings (API contract 14). Both hand-keyed journals and the
@@ -54,4 +59,77 @@ export async function listJournalVouchers(f: JournalListFilter = {}): Promise<Vo
     pageSize: meta.pageSize ?? f.pageSize ?? DEFAULT_PAGE_SIZE,
     total: meta.total ?? res.data.length,
   };
+}
+
+// ── Editor write surface (FE-50) ────────────────────────────────────────────────────
+
+export interface JournalLineInput {
+  accountId: string;
+  debit: string;
+  credit: string;
+  partyId: string | null;
+  projectId: string | null;
+  costCentreId: string | null;
+  purposeId: string | null;
+  narration: string | null;
+}
+export interface JournalWriteInput {
+  voucherDate: string;
+  narration: string | null;
+  lines: JournalLineInput[];
+}
+
+export async function getJournalVoucher(id: string): Promise<JournalVoucher> {
+  const res = await apiClient.get<{ data: JournalVoucher }>(`${BASE}/${id}`);
+  return res.data;
+}
+
+export async function createJournalVoucher(input: JournalWriteInput): Promise<{ id: string }> {
+  const res = await apiClient.post<{ data: { id: string } }>(BASE, input, csrf());
+  return res.data;
+}
+
+export async function updateJournalVoucher(
+  id: string,
+  input: JournalWriteInput & { version: number },
+): Promise<JournalVoucher> {
+  const res = await apiClient.patch<{ data: JournalVoucher }>(`${BASE}/${id}`, input, csrf());
+  return res.data;
+}
+
+export async function deleteJournalVoucher(id: string): Promise<void> {
+  await apiClient.delete(`${BASE}/${id}`, csrf());
+}
+
+export interface JournalPostResult {
+  id: string;
+  entryNo: string;
+  journalEntryId: string;
+  status: "POSTED";
+}
+export async function postJournalVoucher(id: string, version: number): Promise<JournalPostResult> {
+  const res = await apiClient.post<{ data: JournalPostResult }>(
+    `${BASE}/${id}/post`,
+    { version },
+    csrf(),
+  );
+  return res.data;
+}
+
+export interface JournalReverseResult {
+  id: string;
+  status: "CANCELLED";
+  reversalEntryId: string;
+  reversalEntryNo: string;
+}
+export async function reverseJournalVoucher(
+  id: string,
+  input: { reason: string; version: number },
+): Promise<JournalReverseResult> {
+  const res = await apiClient.post<{ data: JournalReverseResult }>(
+    `${BASE}/${id}/reverse`,
+    input,
+    csrf(),
+  );
+  return res.data;
 }

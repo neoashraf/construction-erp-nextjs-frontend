@@ -1,9 +1,10 @@
 import { requireModuleAccess } from "@/lib/auth/guard-module-page";
 import { ContraVoucherEditor } from "@/features/contra-journal/components/ContraVoucherEditor";
+import { JournalVoucherEditor } from "@/features/contra-journal/components/JournalVoucherEditor";
 
 /**
- * Existing voucher route (GEN; FR-GEN-001…-018). Dispatches by `?type` — this brief
- * owns the contra branch; FE-50 mounts the journal editor alongside. Both are guarded
+ * Existing voucher route (GEN; FR-GEN-001…-018). Dispatches by `?type`. FE-49 owns the
+ * contra branch; FE-50 mounts the journal editor on `?type=journal`. Both are guarded
  * on `contra-journal:READ`; write actions gate further inside.
  */
 export default async function ExistingVoucherPage({
@@ -18,6 +19,6 @@ export default async function ExistingVoucherPage({
   const sp = await searchParams;
   const one = (v: string | string[] | undefined) => (Array.isArray(v) ? v[0] : v);
   const type = (one(sp.type) ?? "contra").toLowerCase();
-  if (type === "journal") return <ContraVoucherEditor voucherId={id} />;
+  if (type === "journal") return <JournalVoucherEditor voucherId={id} />;
   return <ContraVoucherEditor voucherId={id} />;
 }

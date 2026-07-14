@@ -7981,11 +7981,223 @@ export async function mockNestjsFetch(req: MockReq): Promise<MockResult> {
     }
   }
 
+  // Allocate the next gapless JNL number.
+  const gJnlSeq = globalThis as unknown as { __MOCK_JNL_SEQ__?: number };
+  if (typeof gJnlSeq.__MOCK_JNL_SEQ__ !== "number") {
+    gJnlSeq.__MOCK_JNL_SEQ__ = MOCK_JOURNAL.reduce((m, r) => {
+      const n = r.entryNo ? Number(r.entryNo.split("/").pop()) : 0;
+      return Number.isFinite(n) && n > m ? n : m;
+    }, 0);
+  }
+  function allocateJnlEntryNo(): string {
+    gJnlSeq.__MOCK_JNL_SEQ__ = (gJnlSeq.__MOCK_JNL_SEQ__ ?? 0) + 1;
+    return `JNL/2526/${String(gJnlSeq.__MOCK_JNL_SEQ__).padStart(4, "0")}`;
+  }
+
+  interface MockJournalLine {
+    lineNo: number;
+    accountId: string;
+    debit: string;
+    credit: string;
+    partyId: string | null;
+    projectId: string | null;
+    costCentreId: string | null;
+    purposeId: string | null;
+    narration: string | null;
+  }
+  interface MockJournalFull extends MockJournalSeed {
+    lines: MockJournalLine[];
+  }
+  const gJnlFull = globalThis as unknown as { __MOCK_JOURNAL_FULL__?: Record<string, MockJournalFull> };
+  if (!gJnlFull.__MOCK_JOURNAL_FULL__) {
+    gJnlFull.__MOCK_JOURNAL_FULL__ = {
+      "jnl-1": {
+        ...MOCK_JOURNAL[0]!,
+        lines: [
+          { lineNo: 1, accountId: "5100", debit: "18500.0000", credit: "0.0000", partyId: null, projectId: "proj-a", costCentreId: "cc-1", purposeId: "pp-1", narration: null },
+          { lineNo: 2, accountId: "2100", debit: "0.0000", credit: "18500.0000", partyId: "pa-1", projectId: null, costCentreId: null, purposeId: null, narration: null },
+        ],
+      },
+      "jnl-2": {
+        ...MOCK_JOURNAL[1]!,
+        lines: [
+          { lineNo: 1, accountId: "1500", debit: "12000.0000", credit: "0.0000", partyId: null, projectId: null, costCentreId: null, purposeId: null, narration: null },
+          { lineNo: 2, accountId: "1010", debit: "0.0000", credit: "12000.0000", partyId: null, projectId: null, costCentreId: null, purposeId: null, narration: null },
+        ],
+      },
+      "opn-1": {
+        ...MOCK_JOURNAL[2]!,
+        lines: [],
+      },
+    };
+  }
+  const MOCK_JOURNAL_FULL = gJnlFull.__MOCK_JOURNAL_FULL__;
+
+  function journalResource(r: MockJournalFull) {
+    return {
+      id: r.id,
+      voucherType: r.voucherType,
+      voucherDate: r.voucherDate,
+      narration: r.narration,
+      status: r.status,
+      entryNo: r.entryNo,
+      journalEntryId: r.journalEntryId,
+      postedAt: r.status !== "DRAFT" ? "2026-07-05T10:22:11Z" : null,
+      postedBy: r.status !== "DRAFT" ? user?.id ?? null : null,
+      lines: r.lines,
+      version: r.version,
+      createdAt: "2026-07-05T10:00:00Z",
+      updatedAt: "2026-07-05T10:00:00Z",
+      totalDebit: r.totalDebit,
+    };
+  }
+
   if (pathname === "/journal" && req.method === "GET") {
     let rows = applyCommonFilters(MOCK_JOURNAL);
     const voucherType = params.get("voucherType");
     if (voucherType) rows = rows.filter((r) => r.voucherType === voucherType);
     return { status: 200, body: pageEnvelope(rows) };
+  }
+  if (pathname === "/journal" && req.method === "POST") {
+    const b = (body ?? {}) as { voucherDate?: string; narration?: string | null; lines?: MockJournalLine[] };
+    const id = `jnl-new-${Object.keys(MOCK_JOURNAL_FULL).length + 1}`;
+    const lines = (b.lines ?? []).map((l, i) => ({
+      lineNo: i + 1,
+      accountId: l.accountId,
+      debit: l.debit ?? "0.0000",
+      credit: l.credit ?? "0.0000",
+      partyId: l.partyId ?? null,
+      projectId: l.projectId ?? null,
+      costCentreId: l.costCentreId ?? null,
+      purposeId: l.purposeId ?? null,
+      narration: l.narration ?? null,
+    }));
+    const totalDebit = lines.reduce((s, l) => s + Number(l.debit), 0).toFixed(4);
+    const rec: MockJournalFull = {
+      id,
+      voucherType: "JOURNAL",
+      voucherDate: b.voucherDate ?? "2026-07-05",
+      narration: b.narration ?? null,
+      status: "DRAFT",
+      entryNo: null,
+      journalEntryId: null,
+      totalDebit,
+      version: 1,
+      lines,
+    };
+    MOCK_JOURNAL_FULL[id] = rec;
+    MOCK_JOURNAL.unshift({
+      id,
+      voucherType: "JOURNAL",
+      voucherDate: rec.voucherDate,
+      narration: rec.narration,
+      status: rec.status,
+      entryNo: rec.entryNo,
+      journalEntryId: rec.journalEntryId,
+      totalDebit,
+      version: 1,
+    });
+    return { status: 201, body: success({ id }) };
+  }
+
+  const journalIdMatch = /^\/journal\/([^/]+)(?:\/(post|reverse))?$/.exec(pathname ?? "");
+  if (journalIdMatch) {
+    const id = journalIdMatch[1]!;
+    const action = journalIdMatch[2];
+    const r = MOCK_JOURNAL_FULL[id];
+    if (!r) return { status: 404, body: envelope("NOT_FOUND", "Journal voucher not found.") };
+    if (req.method === "GET" && !action) return { status: 200, body: success(journalResource(r)) };
+    if (req.method === "PATCH" && !action) {
+      if (r.status !== "DRAFT")
+        return { status: 409, body: envelope("VOUCHER_POSTED_IMMUTABLE", "This voucher has been posted and can no longer be edited.") };
+      const b = (body ?? {}) as { voucherDate?: string; narration?: string | null; lines?: MockJournalLine[]; version?: number };
+      if (b.version !== undefined && b.version !== r.version)
+        return { status: 409, body: envelope("OPTIMISTIC_LOCK_CONFLICT", "This voucher was changed by someone else.") };
+      if (b.voucherDate) r.voucherDate = b.voucherDate;
+      if (b.narration !== undefined) r.narration = b.narration ?? null;
+      if (b.lines)
+        r.lines = b.lines.map((l, i) => ({
+          lineNo: i + 1,
+          accountId: l.accountId,
+          debit: l.debit ?? "0.0000",
+          credit: l.credit ?? "0.0000",
+          partyId: l.partyId ?? null,
+          projectId: l.projectId ?? null,
+          costCentreId: l.costCentreId ?? null,
+          purposeId: l.purposeId ?? null,
+          narration: l.narration ?? null,
+        }));
+      r.totalDebit = r.lines.reduce((s, l) => s + Number(l.debit), 0).toFixed(4);
+      r.version += 1;
+      const summary = MOCK_JOURNAL.find((j) => j.id === id);
+      if (summary) {
+        summary.voucherDate = r.voucherDate;
+        summary.narration = r.narration;
+        summary.totalDebit = r.totalDebit;
+        summary.version = r.version;
+      }
+      return { status: 200, body: success(journalResource(r)) };
+    }
+    if (req.method === "DELETE" && !action) {
+      if (r.status !== "DRAFT")
+        return { status: 409, body: envelope("VOUCHER_POSTED_IMMUTABLE", "This voucher has been posted and can no longer be deleted.") };
+      delete MOCK_JOURNAL_FULL[id];
+      const idx = MOCK_JOURNAL.findIndex((j) => j.id === id);
+      if (idx >= 0) MOCK_JOURNAL.splice(idx, 1);
+      return { status: 204, body: null };
+    }
+    if (req.method === "POST" && action === "post") {
+      if (r.status !== "DRAFT")
+        return { status: 409, body: envelope("VOUCHER_POSTED_IMMUTABLE", "This voucher has already been posted.") };
+      const sumDr = r.lines.reduce((s, l) => s + Number(l.debit), 0);
+      const sumCr = r.lines.reduce((s, l) => s + Number(l.credit), 0);
+      if (Math.abs(sumDr - sumCr) > 0.0001)
+        return { status: 400, body: envelope("UNBALANCED_ENTRY", "Σ debit ≠ Σ credit.") };
+      const entryNo = allocateJnlEntryNo();
+      r.status = "POSTED";
+      r.entryNo = entryNo;
+      r.journalEntryId = `je-${id}`;
+      r.version += 1;
+      const summary = MOCK_JOURNAL.find((j) => j.id === id);
+      if (summary) {
+        summary.status = "POSTED";
+        summary.entryNo = entryNo;
+        summary.journalEntryId = r.journalEntryId;
+        summary.version = r.version;
+      }
+      return {
+        status: 200,
+        body: success({ id, entryNo, journalEntryId: r.journalEntryId, status: "POSTED" }),
+      };
+    }
+    if (req.method === "POST" && action === "reverse") {
+      if (r.status === "DRAFT")
+        return { status: 409, body: envelope("VOUCHER_NOT_POSTED", "This voucher isn't posted, so it can't be reversed.") };
+      if (r.status === "CANCELLED")
+        return { status: 409, body: envelope("ALREADY_REVERSED", "This voucher has already been reversed.") };
+      const b = (body ?? {}) as { reason?: string; version?: number };
+      if (!b.reason || !String(b.reason).trim())
+        return { status: 400, body: envelope("VALIDATION_ERROR", "Reason is required.") };
+      if (b.version !== undefined && b.version !== r.version)
+        return { status: 409, body: envelope("OPTIMISTIC_LOCK_CONFLICT", "This voucher was changed by someone else.") };
+      const reversalNo = allocateJnlEntryNo();
+      r.status = "CANCELLED";
+      r.version += 1;
+      const summary = MOCK_JOURNAL.find((j) => j.id === id);
+      if (summary) {
+        summary.status = "CANCELLED";
+        summary.version = r.version;
+      }
+      return {
+        status: 200,
+        body: success({
+          id,
+          status: "CANCELLED",
+          reversalEntryId: `je-rev-${id}`,
+          reversalEntryNo: reversalNo,
+        }),
+      };
+    }
   }
 
   return { status: 200, body: success({ ok: true, path: req.path }) };
