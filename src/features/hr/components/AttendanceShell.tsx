@@ -101,22 +101,26 @@ export function AttendanceShell() {
   return (
     <div className="mx-auto max-w-6xl" data-testid="attendance-shell">
       <Breadcrumb items={[{ label: "HR" }, { label: "Attendance" }]} />
-      <div className="mb-4 mt-1 flex flex-wrap items-center gap-3">
+      <div className="mt-1 flex items-center gap-3">
         <h1 className="text-[23px] font-bold tracking-[-0.02em]" data-testid="attendance-title">
           Attendance
         </h1>
-        <div className="ml-auto">
-          <AttendanceModeTabs active={mode} onChange={setMode} />
-        </div>
+        <span className="inline-flex h-[23px] items-center whitespace-nowrap rounded-pill bg-muted px-2.5 text-[11.5px] font-semibold text-muted-foreground">
+          {filter.date}
+        </span>
+      </div>
+
+      <div className="mt-3">
+        <AttendanceModeTabs active={mode} onChange={setMode} />
       </div>
 
       {!canCapture && (
-        <p className="mb-2 text-[12px] text-muted-foreground" data-testid="attendance-readonly-note">
+        <p className="mb-2 mt-2 text-[12px] text-muted-foreground" data-testid="attendance-readonly-note">
           You have read-only access to attendance.
         </p>
       )}
       {canCapture && !canConfirm && mode === "DAILY_LABOUR" && (
-        <p className="mb-2 text-[12px] text-muted-foreground" data-testid="attendance-noconfirm-note">
+        <p className="mb-2 mt-2 text-[12px] text-muted-foreground" data-testid="attendance-noconfirm-note">
           You can capture head count, but HR Manager or Accounts must Confirm the accrual.
         </p>
       )}
@@ -148,6 +152,7 @@ export function AttendanceShell() {
           projects={projects}
           costCentres={costCentres}
           parties={parties}
+          purposeOptions={purposes}
           isLoadingMasters={costCentresQ.isLoading || projectsQ.isLoading || partiesQ.isLoading}
         />
       )}

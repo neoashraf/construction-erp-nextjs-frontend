@@ -40,7 +40,7 @@ export function PostConfirmDialog({
         )}
 
         <div className="mt-5 flex items-center justify-end gap-2">
-          <Button variant="outline" onClick={() => onOpenChange(false)} disabled={isPosting} data-testid="post-cancel">
+          <Button variant="ghost" onClick={() => onOpenChange(false)} disabled={isPosting} data-testid="post-cancel">
             Cancel
           </Button>
           <Button onClick={onConfirm} disabled={isPosting} data-testid="post-confirm" aria-busy={isPosting || undefined}>

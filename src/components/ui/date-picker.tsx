@@ -1,6 +1,7 @@
 "use client";
 
 import * as React from "react";
+import { createPortal } from "react-dom";
 import { Calendar as CalendarIcon, ChevronLeft, ChevronRight } from "lucide-react";
 import { cn } from "@/lib/utils";
 import { formatDate, parseDate } from "@/lib/format";
@@ -11,7 +12,16 @@ import { formatDate, parseDate } from "@/lib/format";
  * ADDS a calendar popover for mouse users. Dependency-free: a small month grid, no
  * date library. Emits/consumes the value as a `DD/MM/YYYY` string so it drops into
  * the existing react-hook-form fields (`value` + `onChange`) unchanged.
+ *
+ * The calendar renders in a `document.body` portal with fixed positioning so it
+ * escapes any `overflow-auto`/`overflow-hidden` ancestor (e.g. a Sheet/drawer body)
+ * that would otherwise clip it and trigger a stray scrollbar. It flips above the
+ * field when there isn't room below, and re-anchors on scroll/resize while open.
  */
+
+const POPOVER_WIDTH = 260;
+const POPOVER_MAX_HEIGHT = 320;
+const POPOVER_GAP = 4;
 
 const WEEKDAYS = ["Su", "Mo", "Tu", "We", "Th", "Fr", "Sa"];
 const MONTHS = [
@@ -49,6 +59,20 @@ export const DatePickerInput = React.forwardRef<HTMLInputElement, DatePickerInpu
     // Which pane is showing: day grid, month grid, or year grid (click the header to switch).
     const [mode, setMode] = React.useState<"days" | "months" | "years">("days");
     const wrapRef = React.useRef<HTMLDivElement>(null);
+    const popoverRef = React.useRef<HTMLDivElement>(null);
+    // Fixed viewport coordinates for the portaled popover (null until first measured).
+    const [pos, setPos] = React.useState<{ top: number; left: number; placement: "top" | "bottom" } | null>(null);
+    // Portal target: the enclosing Radix Dialog/Sheet content if there is one, else <body>.
+    // Portalling INTO the dialog keeps the calendar inside Radix's interaction scope, so its
+    // outside-press guard + focus trap don't swallow clicks — while `position: fixed` still
+    // lets it escape the dialog body's `overflow-auto` clipping. Falls back to body when the
+    // field isn't inside a dialog (e.g. the inline detail form).
+    const [container, setContainer] = React.useState<HTMLElement | null>(null);
+    React.useEffect(() => {
+      if (!open) return;
+      const dialog = wrapRef.current?.closest<HTMLElement>('[role="dialog"]');
+      setContainer(dialog ?? (typeof document !== "undefined" ? document.body : null));
+    }, [open]);
 
     // The month the calendar is showing — seeded from the typed value, else today (UTC).
     const parsed = tryParse(value);
@@ -66,11 +90,58 @@ export const DatePickerInput = React.forwardRef<HTMLInputElement, DatePickerInpu
       // eslint-disable-next-line react-hooks/exhaustive-deps
     }, [open]);
 
-    // Close on outside click / Escape.
+    // Anchor the portaled popover to the field, flipping above when there's no room below.
+    // Runs on open and while open on scroll/resize (capture: true catches scrolling
+    // ancestors like the drawer body) so it tracks the field.
+    //
+    // `position: fixed` is normally viewport-relative — but a `transform` on an ancestor
+    // (e.g. Radix Dialog's `-translate-x-1/2 -translate-y-1/2` centering; Sheet has NO
+    // transform, just `fixed inset-y-0 right-0`) makes that ancestor the containing block
+    // for fixed descendants instead of the viewport (CSS Transforms spec). We only need to
+    // subtract the container's own rect when it actually has a transform — checking for
+    // `role="dialog"` alone isn't enough, since Sheet also renders that role via the same
+    // Radix primitive but has no transform, so no coordinate-space shift occurs there.
+    React.useLayoutEffect(() => {
+      if (!open) return;
+      function place() {
+        const rect = wrapRef.current?.getBoundingClientRect();
+        if (!rect) return;
+        const isTransformed = !!container && container !== document.body && getComputedStyle(container).transform !== "none";
+        const containerRect = isTransformed ? container!.getBoundingClientRect() : null;
+        const offsetTop = containerRect?.top ?? 0;
+        const offsetLeft = containerRect?.left ?? 0;
+
+        const spaceBelow = window.innerHeight - rect.bottom;
+        const flipUp = spaceBelow < POPOVER_MAX_HEIGHT + POPOVER_GAP && rect.top > spaceBelow;
+        const top =
+          (flipUp ? Math.max(POPOVER_GAP, rect.top - POPOVER_GAP) : rect.bottom + POPOVER_GAP) -
+          offsetTop;
+        // Align to the requested edge, then clamp into the viewport.
+        const rawLeft = align === "right" ? rect.right - POPOVER_WIDTH : rect.left;
+        const left =
+          Math.min(
+            Math.max(POPOVER_GAP, rawLeft),
+            window.innerWidth - POPOVER_WIDTH - POPOVER_GAP,
+          ) - offsetLeft;
+        setPos({ top, left, placement: flipUp ? "top" : "bottom" });
+      }
+      place();
+      window.addEventListener("scroll", place, true);
+      window.addEventListener("resize", place);
+      return () => {
+        window.removeEventListener("scroll", place, true);
+        window.removeEventListener("resize", place);
+      };
+    }, [open, align, container]);
+
+    // Close on outside click / Escape. The popover now lives in a body portal, so the
+    // "inside" check must consider both the field wrapper and the popover element.
     React.useEffect(() => {
       if (!open) return;
       function onDocClick(e: MouseEvent) {
-        if (!wrapRef.current?.contains(e.target as Node)) setOpen(false);
+        const target = e.target as Node;
+        if (wrapRef.current?.contains(target) || popoverRef.current?.contains(target)) return;
+        setOpen(false);
       }
       function onKey(e: KeyboardEvent) {
         if (e.key === "Escape") setOpen(false);
@@ -169,14 +240,19 @@ export const DatePickerInput = React.forwardRef<HTMLInputElement, DatePickerInpu
           </button>
         </div>
 
-        {open && (
+        {open && pos && container && createPortal(
           <div
+            ref={popoverRef}
             role="dialog"
             aria-label="Choose date"
-            className={cn(
-              "absolute z-50 mt-1 w-[260px] rounded-md border border-border bg-surface p-3 shadow-lg",
-              align === "right" ? "right-0" : "left-0",
-            )}
+            style={{
+              position: "fixed",
+              top: pos.top,
+              left: pos.left,
+              width: POPOVER_WIDTH,
+              transform: pos.placement === "top" ? "translateY(-100%)" : undefined,
+            }}
+            className="z-[60] max-h-[320px] overflow-auto rounded-md border border-border bg-surface p-3 shadow-lg"
           >
             {/* header: clickable month/year label (switches pane) + prev/next */}
             <div className="mb-2 flex items-center justify-between">
@@ -293,7 +369,8 @@ export const DatePickerInput = React.forwardRef<HTMLInputElement, DatePickerInpu
                 ))}
               </div>
             )}
-          </div>
+          </div>,
+          container,
         )}
       </div>
     );

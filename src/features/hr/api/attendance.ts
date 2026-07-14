@@ -73,12 +73,7 @@ export interface AttendancePage {
 
 function buildListQuery(f: AttendanceListFilter): string {
   const p = new URLSearchParams();
-  const modeMap: Record<AttendanceMode, string> = {
-    OFFICE: "office",
-    DAILY_LABOUR: "daily-labour",
-    SUBCONTRACTOR: "subcontractor",
-  };
-  p.set("mode", modeMap[f.mode]);
+  p.set("mode", f.mode);
   p.set("attendanceDate", f.attendanceDate);
   if (f.projectId) p.set("projectId", f.projectId);
   if (f.costCentreId) p.set("costCentreId", f.costCentreId);

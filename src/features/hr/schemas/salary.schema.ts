@@ -28,7 +28,8 @@ export const generateSheetSchema = z
     periodLabel: z.string().trim().min(1, "Enter a period label."),
     periodStart: z.string().min(1, "Enter a start date."),
     periodEnd: z.string().min(1, "Enter an end date."),
-    projectId: z.string().nullable().optional(),
+    projectId: z.string().min(1, "Select a project."),
+    purposeId: z.string().min(1, "Select a purpose."),
   })
   .refine((v) => v.periodEnd >= v.periodStart, {
     path: ["periodEnd"],
@@ -104,9 +105,15 @@ export type ReverseSalaryValues = z.infer<typeof reverseSalarySchema>;
 
 /**
  * Map every API contract 12 § "Salary" code → the exact spec §8 microcopy. Callers pass
- * the raw ApiError code; unknown codes fall back to the generic message.
+ * the raw ApiError code; unknown codes fall back to the server's own `message` (still more
+ * actionable than a generic string — e.g. HR_ACCOUNT_NOT_CONFIGURED names the missing
+ * account role) and only drop to `fallback` when there's no server message at all.
  */
-export function mapSalaryError(code: string, fallback = "Something went wrong. Please try again."): string {
+export function mapSalaryError(
+  code: string,
+  fallback = "Something went wrong. Please try again.",
+  serverMessage?: string | null,
+): string {
   const M: Record<string, string> = {
     VALIDATION_ERROR: "Some fields need attention. Please check and try again.",
     DUPLICATE_DRAFT_SHEET:
@@ -122,8 +129,10 @@ export function mapSalaryError(code: string, fallback = "Something went wrong. P
     OPTIMISTIC_LOCK_CONFLICT: "This salary sheet was just changed by someone else. Reload and try again.",
     CROSS_COMPANY_REFERENCE: "That project belongs to a different company.",
     FORBIDDEN: "You don't have permission to do that.",
+    HR_ACCOUNT_NOT_CONFIGURED:
+      "Payroll isn't set up yet for this company. Ask an admin to configure the salary ledger accounts, then try again.",
   };
-  return M[code] ?? fallback;
+  return M[code] ?? serverMessage ?? fallback;
 }
 
 /** Display labels for the status badge (§5). */

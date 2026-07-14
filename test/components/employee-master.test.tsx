@@ -159,6 +159,22 @@ describe("EmployeeCreateDrawer → Detail (spec §5/§9)", () => {
     expect(routerPush).toHaveBeenCalledWith("/hr/employees/emp-new");
   });
 
+  // Regression: the calendar popover portals INTO the Radix dialog so its day buttons stay
+  // clickable — a body-level portal was swallowed by the dialog's outside-press guard.
+  it("picks a joining date by clicking a calendar day inside the drawer", async () => {
+    listMock.mockResolvedValue({ data: [], page: 1, pageSize: 25, total: 0 });
+    renderWith(<EmployeeList />);
+    await screen.findByTestId("employee-empty-firstuse");
+    await userEvent.click(screen.getByTestId("employee-empty-new"));
+    const drawer = await screen.findByTestId("employee-create-drawer");
+    // Open the calendar, then click day "15" in the visible month grid.
+    await userEvent.click(within(drawer).getByRole("button", { name: "Open calendar" }));
+    const calendar = await screen.findByRole("dialog", { name: "Choose date" });
+    await userEvent.click(within(calendar).getByRole("button", { name: "15" }));
+    // The day click must land in the input (proves the portaled popover isn't blocked).
+    expect((screen.getByTestId("emp-joining") as HTMLInputElement).value).toMatch(/^15\/\d{2}\/\d{4}$/);
+  });
+
   it("surfaces DUPLICATE_CODE inline on the employeeCode field with the exact spec §8 copy", async () => {
     listMock.mockResolvedValue({ data: [], page: 1, pageSize: 25, total: 0 });
     createMock.mockRejectedValue(new ApiError({ code: "DUPLICATE_CODE", message: "x", status: 409 }));
@@ -222,6 +238,54 @@ describe("EmployeeDetail (spec §5/§6/§11)", () => {
     await userEvent.click(screen.getByTestId("employee-save-edit"));
     await waitFor(() => expect(updateMock).toHaveBeenCalled());
     expect(await screen.findByText("Changes saved.")).toBeInTheDocument();
+  });
+
+  it("header meta line shows designation, work base and the joining date (Employees.dc.html detail mockup)", async () => {
+    getMock.mockResolvedValue(emp({ workBase: "SITE", joiningDate: "2024-03-01" }));
+    listAssignmentsMock.mockResolvedValue([asg()]);
+    renderWith(<EmployeeDetail employeeId="emp-1" />);
+    await screen.findByTestId("employee-detail");
+    expect(screen.getByText("Site")).toBeInTheDocument();
+    expect(screen.getAllByText("01/03/2024").length).toBeGreaterThan(0);
+  });
+
+  it("Work base and Wage type render as a segmented toggle and update the form on click", async () => {
+    getMock.mockResolvedValue(emp({ workBase: "SITE", wageType: "MONTHLY" }));
+    listAssignmentsMock.mockResolvedValue([asg()]);
+    updateMock.mockResolvedValue(emp({ workBase: "HEAD_OFFICE", version: 2 }));
+    renderWith(<EmployeeDetail employeeId="emp-1" />);
+    await screen.findByTestId("employee-detail");
+
+    const workBase = screen.getByTestId("emp-workbase");
+    expect(workBase).toHaveAttribute("role", "radiogroup");
+    const headOffice = screen.getByTestId("emp-workbase-HEAD_OFFICE");
+    expect(headOffice).toHaveAttribute("aria-checked", "false");
+    await userEvent.click(headOffice);
+    expect(headOffice).toHaveAttribute("aria-checked", "true");
+
+    await userEvent.click(screen.getByTestId("employee-save-edit"));
+    await waitFor(() =>
+      expect(updateMock).toHaveBeenCalledWith(
+        "emp-1",
+        expect.objectContaining({ workBase: "HEAD_OFFICE" }),
+      ),
+    );
+  });
+
+  it("PF/Gratuity/WPPF render as switches and toggle on click", async () => {
+    getMock.mockResolvedValue(emp({ pfApplicable: false }));
+    listAssignmentsMock.mockResolvedValue([asg()]);
+    renderWith(<EmployeeDetail employeeId="emp-1" />);
+    await screen.findByTestId("employee-detail");
+    const pf = screen.getByTestId("emp-pf");
+    expect(pf).toHaveAttribute("role", "switch");
+    expect(pf).toHaveAttribute("aria-checked", "false");
+    await userEvent.click(pf);
+    expect(pf).toHaveAttribute("aria-checked", "true");
+    // clicking the row label also toggles it (whole row is clickable per the mockup)
+    // gratuityApplicable defaults to true in the fixture, so a click flips it to false.
+    await userEvent.click(screen.getByText("Gratuity applicable"));
+    expect(screen.getByTestId("emp-gratuity")).toHaveAttribute("aria-checked", "false");
   });
 
   it("locks the employeeCode field when the employee has attendance/salary references", async () => {
@@ -315,6 +379,26 @@ describe("Reassign (FR-HR-002)", () => {
     await userEvent.click(within(dialog).getByTestId("reassign-confirm"));
     await waitFor(() => expect(reassignMock).toHaveBeenCalled());
     expect(await screen.findByText(/reassigned to/i)).toBeInTheDocument();
+  });
+
+  it("Assignment history tab shows the timeline with Current + Joining assignment badges (Employees.dc.html detail mockup)", async () => {
+    getMock.mockResolvedValue(emp({ joiningDate: "2024-03-01" }));
+    listAssignmentsMock.mockResolvedValue([
+      asg({ id: "asg-2", projectId: "proj-b", effectiveDate: "2026-07-01", note: "Move to Tower-A" }),
+      asg({ id: "asg-1", projectId: "proj-a", effectiveDate: "2024-03-01", note: "Initial assignment" }),
+    ]);
+    renderWith(<EmployeeDetail employeeId="emp-1" />);
+    await screen.findByTestId("employee-detail");
+    await userEvent.click(screen.getByTestId("tab-history"));
+    const list = await screen.findByTestId("assignments-list");
+    const rows = within(list).getAllByTestId(/^assignment-row-/);
+    expect(rows).toHaveLength(2);
+    // newest row (first) is "Current"
+    expect(within(rows[0]!).getByText("Current")).toBeInTheDocument();
+    expect(within(rows[0]!).queryByText("Joining assignment")).not.toBeInTheDocument();
+    // row matching the employee's joiningDate is "Joining assignment"
+    expect(within(rows[1]!).getByText("Joining assignment")).toBeInTheDocument();
+    expect(within(rows[1]!).queryByText("Current")).not.toBeInTheDocument();
   });
 
   it("blocks an effective-date before joining-date with the exact spec §8 copy", async () => {

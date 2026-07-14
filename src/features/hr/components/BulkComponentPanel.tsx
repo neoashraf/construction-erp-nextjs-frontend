@@ -73,17 +73,12 @@ export function BulkComponentPanel({
   if (disabled) return null;
 
   return (
-    <Card className="mt-4 p-4" data-testid="bulk-component-panel">
-      <div className="mb-3 flex items-baseline justify-between gap-3">
-        <div>
-          <h2 className="text-[15px] font-bold text-foreground">Bulk apply components</h2>
-          <p className="text-[12px] text-muted-foreground">
-            Apply a flat allowance, TDS rate, PF, or advance recovery to all or selected lines.
-          </p>
-        </div>
-        <span className="text-[11.5px] font-semibold text-muted-foreground" data-testid="bulk-will-change">
-          {willChange} of {lines.length} line{lines.length === 1 ? "" : "s"} will change
-        </span>
+    <Card className="p-4" data-testid="bulk-component-panel">
+      <div className="mb-3">
+        <h2 className="text-[13.5px] font-bold text-foreground">Apply a component to multiple lines</h2>
+        <p className="mt-0.5 text-[12px] text-muted-foreground">
+          Set a flat allowance / PF / advance, or a TDS rate, across a group of lines.
+        </p>
       </div>
 
       <div className="grid grid-cols-2 gap-3 md:grid-cols-4">
@@ -127,7 +122,12 @@ export function BulkComponentPanel({
       )}
       {serverError && <Alert tone="destructive" className="mt-3" title={serverError} data-testid="bulk-server-err" />}
 
-      <div className="mt-3 flex items-center justify-end">
+      <div className="mt-3.5 flex items-center gap-3">
+        <span className="text-[12px] text-muted-foreground" data-testid="bulk-will-change">
+          Will change <b className="font-semibold text-foreground">{willChange}</b> of {lines.length} line
+          {lines.length === 1 ? "" : "s"}.
+        </span>
+        <div className="flex-1" />
         <Button onClick={submit} disabled={isApplying} data-testid="bulk-apply">
           {isApplying ? "Applying…" : "Apply to selected"}
         </Button>

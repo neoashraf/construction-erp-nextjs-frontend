@@ -117,7 +117,9 @@ export interface GenerateSheetInput {
   periodLabel: string;
   periodStart: string; // YYYY-MM-DD
   periodEnd: string;
-  projectId?: string | null;
+  projectId: string;
+  /** Applied to every generated line (accrual/salary matrix requires purpose). Project-scoped MAS master. */
+  purposeId: string;
 }
 
 export interface GenerateSheetResult {
@@ -276,22 +278,24 @@ export async function getSheetPayslips(sheetId: string, employeeId?: string): Pr
 export interface FinancialYearOption {
   id: string;
   code: string;
-  startDate: string;
-  endDate: string;
-  isClosed: boolean;
+}
+
+interface FinancialYearApiRow {
+  id: string;
+  label: string;
 }
 
 /**
  * The financial-year picker options for the Generate dialog + list filter. HR-local
  * binding (same pattern as `masters.ts`) to keep the `features/hr` → `features/master-data`
- * import boundary intact.
+ * import boundary intact. The API returns `label`; mapped to `code` for the dropdown text.
  */
 export async function listFinancialYearOptions(): Promise<FinancialYearOption[]> {
   try {
-    const res = await apiClient.get<{ data: FinancialYearOption[] }>(
+    const res = await apiClient.get<{ data: FinancialYearApiRow[] }>(
       "/masters/financial-years?page=1&pageSize=50",
     );
-    return res.data;
+    return res.data.map((fy) => ({ id: fy.id, code: fy.label }));
   } catch {
     return [];
   }

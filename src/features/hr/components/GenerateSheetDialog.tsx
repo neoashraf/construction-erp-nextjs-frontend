@@ -2,6 +2,7 @@
 
 import { useEffect, useState } from "react";
 import Link from "next/link";
+import { useQuery } from "@tanstack/react-query";
 import { Dialog, DialogContent, DialogDescription, DialogTitle } from "@/components/ui/dialog";
 import { Button } from "@/components/ui/button";
 import { Label } from "@/components/ui/label";
@@ -12,6 +13,7 @@ import { Alert } from "@/components/ui/alert";
 import { formatDate, parseDate } from "@/lib/format";
 import { generateSheetSchema, type GenerateSheetValues } from "../schemas/salary.schema";
 import { type FinancialYearOption, type GenerateSheetInput } from "../api/salary";
+import { listPurposeOptions } from "../api/masters";
 import { type ProjectOption } from "../types";
 
 /**
@@ -58,6 +60,7 @@ export function GenerateSheetDialog({
     periodStart: "",
     periodEnd: "",
     projectId: "",
+    purposeId: "",
   });
   const [errors, setErrors] = useState<Partial<Record<keyof GenerateSheetValues, string>>>({});
 
@@ -72,10 +75,22 @@ export function GenerateSheetDialog({
         periodStart: firstOfMonth,
         periodEnd: lastOfMonth,
         projectId: "",
+        purposeId: "",
       });
       setErrors({});
     }
   }, [open, financialYears]);
+
+  // Purpose is project-scoped (no company-wide list) — load once a project is chosen, and
+  // clear any previously-picked purpose when the project changes (FR-HR-015).
+  const purposesQ = useQuery({
+    queryKey: ["hr", "purposes", "generate-sheet", values.projectId],
+    queryFn: () => listPurposeOptions(values.projectId),
+    enabled: open && !!values.projectId,
+    staleTime: 60 * 1000,
+    retry: 1,
+  });
+  const purposeOptions = purposesQ.data ?? [];
 
   function submit() {
     const apiStart = toApiDate(values.periodStart);
@@ -100,7 +115,8 @@ export function GenerateSheetDialog({
       periodLabel: parsed.data.periodLabel,
       periodStart: parsed.data.periodStart,
       periodEnd: parsed.data.periodEnd,
-      projectId: parsed.data.projectId || undefined,
+      projectId: parsed.data.projectId,
+      purposeId: parsed.data.purposeId,
     });
   }
 
@@ -188,28 +204,68 @@ export function GenerateSheetDialog({
               </p>
             )}
           </div>
-          <div className="col-span-2">
+          <div className="col-span-1">
             <Label htmlFor="gen-project" className="mb-1 block text-[12px] font-semibold text-foreground">
-              Project (optional scope)
+              Project <span className="text-destructive">*</span>
             </Label>
             <Select
               id="gen-project"
               data-testid="gen-project"
-              value={values.projectId ?? ""}
-              onChange={(e) => setValues((v) => ({ ...v, projectId: e.target.value }))}
+              value={values.projectId}
+              onChange={(e) =>
+                setValues((v) => ({ ...v, projectId: e.target.value, purposeId: "" }))
+              }
+              invalid={!!errors.projectId}
             >
-              <option value="">All projects (unscoped)</option>
+              <option value="">Choose a project…</option>
               {projects.map((p) => (
                 <option key={p.id} value={p.id}>
                   {p.name}
                 </option>
               ))}
             </Select>
+            {errors.projectId && (
+              <p className="mt-1 text-[12px] text-destructive" data-testid="gen-project-err">
+                {errors.projectId}
+              </p>
+            )}
+          </div>
+          <div className="col-span-1">
+            <Label htmlFor="gen-purpose" className="mb-1 block text-[12px] font-semibold text-foreground">
+              Purpose <span className="text-destructive">*</span>
+            </Label>
+            <Select
+              id="gen-purpose"
+              data-testid="gen-purpose"
+              value={values.purposeId}
+              onChange={(e) => setValues((v) => ({ ...v, purposeId: e.target.value }))}
+              disabled={!values.projectId}
+              invalid={!!errors.purposeId}
+            >
+              <option value="">
+                {values.projectId ? "Choose a purpose…" : "Select a project first"}
+              </option>
+              {purposeOptions.map((p) => (
+                <option key={p.id} value={p.id}>
+                  {p.name}
+                </option>
+              ))}
+            </Select>
+            {errors.purposeId && (
+              <p className="mt-1 text-[12px] text-destructive" data-testid="gen-purpose-err">
+                {errors.purposeId}
+              </p>
+            )}
           </div>
         </div>
 
         {errorMessage && (
-          <Alert tone="destructive" className="mt-4" title={errorMessage} data-testid="gen-server-err">
+          <Alert
+            tone={existingDraftId ? "warning" : "destructive"}
+            className="mt-4"
+            title={errorMessage}
+            data-testid="gen-server-err"
+          >
             {existingDraftId && (
               <Link
                 href={`/hr/salary-sheets/${existingDraftId}`}
@@ -223,7 +279,7 @@ export function GenerateSheetDialog({
         )}
 
         <div className="mt-5 flex items-center justify-end gap-2">
-          <Button variant="outline" onClick={() => onOpenChange(false)} disabled={isGenerating} data-testid="gen-cancel">
+          <Button variant="ghost" onClick={() => onOpenChange(false)} disabled={isGenerating} data-testid="gen-cancel">
             Cancel
           </Button>
           <Button onClick={submit} disabled={isGenerating} data-testid="gen-submit" aria-busy={isGenerating || undefined}>

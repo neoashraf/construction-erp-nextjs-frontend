@@ -33,22 +33,21 @@ export function SalaryLinesTable({
     <div data-testid="salary-lines-table" aria-readonly={readOnly || undefined}>
       {/* ≥lg full grid */}
       <div className="hidden overflow-x-auto lg:block">
-        <table className="w-full" style={{ minWidth: 1100 }}>
-          <thead className="bg-surface-2 text-[11px] font-semibold uppercase tracking-[0.4px] text-muted-foreground">
+        <table className="w-full" style={{ minWidth: 1080 }}>
+          <thead className="bg-surface-2 text-[11px] font-semibold uppercase tracking-[0.3px] text-muted-foreground">
             <tr>
-              <th className="px-3 py-2 text-left">Employee</th>
-              <th className="px-3 py-2 text-left">Project</th>
-              <th className="px-3 py-2 text-left">Cost centre</th>
-              <th className="px-3 py-2 text-left">Purpose</th>
-              <th className="px-3 py-2 text-right">Paid days</th>
-              <th className="px-3 py-2 text-right">Gross ৳</th>
-              <th className="px-3 py-2 text-right">Allowances ৳</th>
-              <th className="px-3 py-2 text-right">TDS ৳</th>
-              <th className="px-3 py-2 text-right">PF ৳</th>
-              <th className="px-3 py-2 text-right">Advance ৳</th>
-              <th className="px-3 py-2 text-right">Other ৳</th>
-              <th className="px-3 py-2 text-right">Net ৳</th>
-              <th className="px-3 py-2" />
+              <th className="h-11 px-4 text-left">Employee</th>
+              <th className="h-11 px-2.5 text-left">Project</th>
+              <th className="h-11 px-2.5 text-left">Cost ctr</th>
+              <th className="h-11 px-2 text-right">Paid d</th>
+              <th className="h-11 px-2.5 text-right">Gross ৳</th>
+              <th className="h-11 px-2.5 text-right">Allow. ৳</th>
+              <th className="h-11 px-2 text-right">TDS ৳</th>
+              <th className="h-11 px-2 text-right">PF ৳</th>
+              <th className="h-11 px-2.5 text-right">Adv. ৳</th>
+              <th className="h-11 px-2.5 text-right">Other ৳</th>
+              <th className="h-11 px-4 text-right">Net ৳</th>
+              <th className="h-11 px-3" />
             </tr>
           </thead>
           <tbody className="text-[13px]">

@@ -19,8 +19,9 @@ import {
   canWriteEmployee,
 } from "../access";
 import { useEmployee } from "../hooks/useEmployee";
+import { useAssignments } from "../hooks/useAssignments";
 import { useEmployeeMutations } from "../hooks/useEmployeeMutations";
-import { EmployeeProfileForm } from "./EmployeeProfileForm";
+import { EmployeeProfileDetailForm } from "./EmployeeProfileDetailForm";
 import { EmployeeStatusBadge } from "./StatusBadge";
 import { AssignmentHistory } from "./AssignmentHistory";
 import { MaskedBankField } from "./MaskedBankField";
@@ -33,9 +34,11 @@ import {
   formToUpdateInput,
   mapEmployeeError,
   validateEmployee,
+  WORK_BASE_LABEL,
   type EmployeeFieldErrors,
   type EmployeeFormValues,
 } from "../schemas/employee.schema";
+import { formatDate } from "@/lib/format";
 import { type Employee } from "../types";
 
 type Tab = "profile" | "history";
@@ -68,6 +71,7 @@ export function EmployeeDetail({ employeeId }: { employeeId: string }) {
 
   const detail = useEmployee(employeeId, { reveal: revealed });
   const employee: Employee | undefined = detail.data;
+  const assignments = useAssignments(employeeId);
   const { update } = useEmployeeMutations();
   const lookups = useMasterLookups();
   const projectOptions = useProjectOptions();
@@ -183,22 +187,23 @@ export function EmployeeDetail({ employeeId }: { employeeId: string }) {
       <div className="mb-4 mt-1 flex flex-wrap items-start gap-3">
         <div className="min-w-0">
           <div className="flex items-center gap-2">
-            <h1 className="text-[22px] font-bold tracking-[-0.02em] [overflow-wrap:anywhere]" data-testid="employee-name">
+            <h1 className="text-[23px] font-bold tracking-[-0.01em] [overflow-wrap:anywhere]" data-testid="employee-name">
               {employee.name}
             </h1>
             <EmployeeStatusBadge status={employee.status} />
           </div>
           <div className="mt-0.5 text-[12.5px] text-muted-foreground">
-            <span className="font-mono font-semibold text-accent-ink">{employee.employeeCode}</span> ·{" "}
-            {employee.designation ?? "—"} · {projName}
+            {employee.designation ?? "—"} · {WORK_BASE_LABEL[employee.workBase]} · Default project{" "}
+            <span className="font-medium text-foreground">{projName}</span> · Joined{" "}
+            <span className="font-mono tabular-nums">{formatDate(employee.joiningDate)}</span>
           </div>
         </div>
 
         {canWrite && (
-          <div className="ml-auto flex flex-wrap items-center gap-2">
+          <div className="ml-auto flex flex-none flex-wrap items-center gap-2.5">
             <Button
               variant="outline"
-              size="sm"
+              size="md"
               onClick={() => setReassignOpen(true)}
               data-testid="employee-reassign"
             >
@@ -207,8 +212,8 @@ export function EmployeeDetail({ employeeId }: { employeeId: string }) {
             {canDeactivate &&
               (employee.status === "ACTIVE" ? (
                 <Button
-                  variant="destructive"
-                  size="sm"
+                  variant="destructive-outline"
+                  size="md"
                   onClick={() => setDeactivateOpen(true)}
                   data-testid="employee-deactivate"
                 >
@@ -216,7 +221,7 @@ export function EmployeeDetail({ employeeId }: { employeeId: string }) {
                 </Button>
               ) : (
                 <Button
-                  size="sm"
+                  size="md"
                   onClick={() => setDeactivateOpen(true)}
                   data-testid="employee-reactivate"
                 >
@@ -232,40 +237,59 @@ export function EmployeeDetail({ employeeId }: { employeeId: string }) {
       )}
 
       {/* Tabs */}
-      <div className="mb-3 flex items-center gap-1 border-b border-border" role="tablist">
+      <div className="mb-3 mt-4 flex items-end gap-6 border-b border-border" role="tablist">
         <TabButton active={tab === "profile"} onClick={() => setTab("profile")} testId="tab-profile">
           Profile
         </TabButton>
         <TabButton active={tab === "history"} onClick={() => setTab("history")} testId="tab-history">
           Assignment history
+          {assignments.data && (
+            <span className="inline-flex h-[18px] items-center rounded-pill bg-muted px-[7px] text-[10.5px] font-semibold text-muted-foreground">
+              {assignments.data.length}
+            </span>
+          )}
         </TabButton>
       </div>
 
       {tab === "profile" ? (
-        <Card className="p-5" role="tabpanel" aria-labelledby="tab-profile">
+        <div role="tabpanel" aria-labelledby="tab-profile">
           {banner && (
             <Alert tone="destructive" className="mb-3" title={banner} data-testid="employee-detail-banner" />
           )}
 
-          <EmployeeProfileForm
+          <EmployeeProfileDetailForm
             values={form}
             errors={errors}
             projects={profileProjectOptions}
             codeLocked={codeLocked}
             disabled={!editable || !online}
-            isEdit
+            joiningDateIso={employee.joiningDate}
             onChange={patch}
-            bankSlot={
-              <div className="grid gap-4 md:grid-cols-2">
+            onReassignClick={canWrite ? () => setReassignOpen(true) : undefined}
+            bankHeaderSlot={
+              canReveal ? (
+                <button
+                  type="button"
+                  aria-pressed={revealed}
+                  aria-label={revealed ? "Hide bank details" : "Show bank details"}
+                  onClick={() => setRevealed((v) => !v)}
+                  disabled={detail.isFetching}
+                  data-testid="bank-reveal-toggle"
+                  className="ml-auto inline-flex h-[26px] items-center gap-1.5 rounded-token border border-border-strong bg-surface px-2.5 text-[11.5px] font-semibold text-foreground transition-colors hover:bg-muted disabled:cursor-not-allowed disabled:opacity-60"
+                >
+                  {revealed ? "Hide" : "Show"}
+                </button>
+              ) : (
+                <span className="ml-auto text-[11px] text-faint">Masked — no reveal for your role</span>
+              )
+            }
+            bankFieldsSlot={
+              <div className="grid grid-cols-2 gap-3">
                 <MaskedBankField
                   label="Bank account name"
-                  value={
-                    revealed && !employee.bankMasked
-                      ? (employee.bankAccountName ?? "—")
-                      : (employee.bankAccountName ?? "—")
-                  }
+                  value={employee.bankAccountName ?? "—"}
                   masked={employee.bankMasked}
-                  canReveal={canReveal}
+                  canReveal={false}
                   isRevealed={revealed}
                   onToggle={() => setRevealed((v) => !v)}
                   loading={detail.isFetching}
@@ -273,13 +297,9 @@ export function EmployeeDetail({ employeeId }: { employeeId: string }) {
                 />
                 <MaskedBankField
                   label="Bank account no."
-                  value={
-                    revealed && !employee.bankMasked
-                      ? (employee.bankAccountNo ?? "—")
-                      : (employee.bankAccountNo ?? "—")
-                  }
+                  value={employee.bankAccountNo ?? "—"}
                   masked={employee.bankMasked}
-                  canReveal={canReveal}
+                  canReveal={false}
                   isRevealed={revealed}
                   onToggle={() => setRevealed((v) => !v)}
                   loading={detail.isFetching}
@@ -289,8 +309,17 @@ export function EmployeeDetail({ employeeId }: { employeeId: string }) {
             }
           />
 
+          <Alert
+            tone="info"
+            className="mt-4"
+            title="Only named office staff belong here. Subcontractor and daily-labour workers are tracked as head counts on the Attendance screen."
+          />
+
           {canWrite && (
-            <div className="mt-4 flex items-center justify-end gap-2 border-t border-border pt-4">
+            <div className="mt-4 flex items-center justify-end gap-2.5">
+              <Button variant="ghost" size="md" onClick={() => setForm(employeeToForm(employee))} disabled={busy}>
+                Cancel
+              </Button>
               <Button
                 size="md"
                 onClick={onSave}
@@ -304,14 +333,14 @@ export function EmployeeDetail({ employeeId }: { employeeId: string }) {
           )}
 
           {!canWrite && (
-            <div className="mt-4 border-t border-border pt-4 text-[12.5px] text-muted-foreground">
+            <div className="mt-4 text-[12.5px] text-muted-foreground">
               You have read-only access to this employee. Bank details are masked for your role.
             </div>
           )}
-        </Card>
+        </div>
       ) : (
         <Card className="p-5" role="tabpanel" aria-labelledby="tab-history">
-          <AssignmentHistory employeeId={employee.id} />
+          <AssignmentHistory employeeId={employee.id} joiningDate={employee.joiningDate} />
         </Card>
       )}
 
@@ -354,10 +383,10 @@ function TabButton({
       data-testid={testId}
       onClick={onClick}
       className={cn(
-        "-mb-px inline-flex h-9 items-center rounded-t-token px-4 text-[13px] font-semibold transition-colors",
+        "-mb-px inline-flex items-center gap-1.5 border-b-2 px-0.5 pb-2.5 text-[13.5px] transition-colors",
         active
-          ? "border-b-2 border-accent text-foreground"
-          : "text-muted-foreground hover:text-foreground",
+          ? "border-accent font-semibold text-foreground"
+          : "border-transparent font-medium text-muted-foreground hover:text-foreground",
       )}
     >
       {children}
