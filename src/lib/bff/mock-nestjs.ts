@@ -8052,6 +8052,76 @@ export async function mockNestjsFetch(req: MockReq): Promise<MockResult> {
     };
   }
 
+  // ── Opening journal (fe-opening-journal) — preview + one-time post ──────────
+  //
+  // Phase-1 mock shim: /journal/opening/preview returns a derived-lines fixture; the
+  // real backend either supplies a preview endpoint or the FE derives from MAS
+  // `opening_balance` (SRS §15/§16 — PENDING). POST /journal/opening posts once per
+  // company and stores the derived voucher in MOCK_JOURNAL + MOCK_JOURNAL_FULL.
+  if (pathname === "/journal/opening/preview" && req.method === "GET") {
+    // If an OPENING already exists, the wizard renders the recap instead — the preview
+    // is still useful for tests, so we return an empty (posted) shape here.
+    const alreadyPosted = MOCK_JOURNAL.some((j) => j.voucherType === "OPENING");
+    const lines = alreadyPosted
+      ? []
+      : [
+          { lineNo: 1, section: "ACCOUNT", accountLabel: "1010 · Cash on hand", partyLabel: null, debit: "500000.0000", credit: "0.0000" },
+          { lineNo: 2, section: "ACCOUNT", accountLabel: "1201 · HSBC Current 001", partyLabel: null, debit: "8500000.0000", credit: "0.0000" },
+          { lineNo: 3, section: "ACCOUNT", accountLabel: "2100 · Accounts payable", partyLabel: null, debit: "0.0000", credit: "1200000.0000" },
+          { lineNo: 4, section: "PARTY_AR", accountLabel: "1200 · Accounts Receivable", partyLabel: "National Housing Authority", debit: "2500000.0000", credit: "0.0000" },
+          { lineNo: 5, section: "PARTY_AP", accountLabel: "2100 · Accounts payable", partyLabel: "M/s Rahman Traders", debit: "0.0000", credit: "800000.0000" },
+          { lineNo: 6, section: "EQUITY", accountLabel: "3100 · Opening balance equity", partyLabel: null, debit: "0.0000", credit: "9500000.0000" },
+        ];
+    const totalDebit = lines.reduce((s, l) => s + Number(l.debit), 0).toFixed(4);
+    const totalCredit = lines.reduce((s, l) => s + Number(l.credit), 0).toFixed(4);
+    return {
+      status: 200,
+      body: success({ lines, totalDebit, totalCredit, configGap: false }),
+    };
+  }
+  if (pathname === "/journal/opening" && req.method === "POST") {
+    if (MOCK_JOURNAL.some((j) => j.voucherType === "OPENING")) {
+      return { status: 409, body: envelope("OPENING_ALREADY_EXISTS", "An opening journal already exists for this company.") };
+    }
+    const b = (body ?? {}) as { voucherDate?: string; narration?: string | null };
+    const id = `opn-new-${Object.keys(MOCK_JOURNAL_FULL).length + 1}`;
+    const entryNo = allocateJnlEntryNo();
+    const lines = [
+      { lineNo: 1, accountId: "1010", debit: "500000.0000", credit: "0.0000", partyId: null, projectId: null, costCentreId: null, purposeId: null, narration: null },
+      { lineNo: 2, accountId: "1201", debit: "8500000.0000", credit: "0.0000", partyId: null, projectId: null, costCentreId: null, purposeId: null, narration: null },
+      { lineNo: 3, accountId: "2100", debit: "0.0000", credit: "1200000.0000", partyId: null, projectId: null, costCentreId: null, purposeId: null, narration: null },
+      { lineNo: 4, accountId: "1200", debit: "2500000.0000", credit: "0.0000", partyId: "pa-8", projectId: null, costCentreId: null, purposeId: null, narration: null },
+      { lineNo: 5, accountId: "2100", debit: "0.0000", credit: "800000.0000", partyId: "pa-1", projectId: null, costCentreId: null, purposeId: null, narration: null },
+      { lineNo: 6, accountId: "3100", debit: "0.0000", credit: "9500000.0000", partyId: null, projectId: null, costCentreId: null, purposeId: null, narration: null },
+    ];
+    const totalDebit = lines.reduce((s, l) => s + Number(l.debit), 0).toFixed(4);
+    const rec: MockJournalFull = {
+      id,
+      voucherType: "OPENING",
+      voucherDate: b.voucherDate ?? "2025-07-01",
+      narration: b.narration ?? "Go-live opening balances",
+      status: "POSTED",
+      entryNo,
+      journalEntryId: `je-${id}`,
+      totalDebit,
+      version: 1,
+      lines,
+    };
+    MOCK_JOURNAL_FULL[id] = rec;
+    MOCK_JOURNAL.unshift({
+      id,
+      voucherType: "OPENING",
+      voucherDate: rec.voucherDate,
+      narration: rec.narration,
+      status: rec.status,
+      entryNo: rec.entryNo,
+      journalEntryId: rec.journalEntryId,
+      totalDebit,
+      version: 1,
+    });
+    return { status: 201, body: success(journalResource(rec)) };
+  }
+
   if (pathname === "/journal" && req.method === "GET") {
     let rows = applyCommonFilters(MOCK_JOURNAL);
     const voucherType = params.get("voucherType");
