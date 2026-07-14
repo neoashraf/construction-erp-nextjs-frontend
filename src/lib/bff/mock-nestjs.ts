@@ -151,6 +151,11 @@ const MOCK_COST_CENTRES = [
 const MOCK_FINANCIAL_YEARS = [
   { id: "fy-2025-26", label: "FY 2025–26", isActive: true },
   { id: "fy-2024-25", label: "FY 2024–25", isActive: false },
+  // FE-52 — the auth-mock USER carries this UUID as its default FY; include it
+  // so the profile screen resolves `financialYearId` → label (rather than
+  // falling back to the raw UUID). Not shown in the FY switcher (`isActive`
+  // + FY switch list still keys off the two shorter ids above).
+  { id: "22222222-2222-2222-2222-222222222222", label: "FY 2025–26 · Zakir Enterprise", isActive: false },
 ];
 
 /** Budget-vs-actual rows for Bridge-04 (proj-a) — mirrors the design sample. */
@@ -2375,6 +2380,86 @@ function readRefresh(token: string): { userKey: string; jti: string } | null {
   return { userKey: m[1]!, jti: m[2]! };
 }
 
+// ── FE-52 profile store (mock) ────────────────────────────────────────────────
+interface MockProfile {
+  id: string;
+  email: string;
+  name: string;
+  phone: string | null;
+  avatarUrl: string | null;
+  role: string;
+  isUnscoped: boolean;
+  isActive: boolean;
+  financialYearId: string;
+  lastLoginAt: string | null;
+  version: number;
+}
+
+const gProfile = globalThis as unknown as { __MOCK_PROFILES__?: Record<string, MockProfile> };
+
+function seedProfile(u: MockUser): MockProfile {
+  return {
+    id: u.id,
+    email: u.email,
+    name: u.name,
+    phone: u.email === "admin@ze.test" ? "+8801712345678" : null,
+    avatarUrl: null,
+    role: u.role,
+    isUnscoped: u.assignedProjectIds.length === 0,
+    isActive: u.isActive,
+    financialYearId: u.financialYearId,
+    lastLoginAt: u.email === "admin@ze.test" ? "2026-07-14T10:15:00Z" : null,
+    version: 1,
+  };
+}
+
+export function mockGetProfile(userKey: string): MockProfile {
+  if (!gProfile.__MOCK_PROFILES__) gProfile.__MOCK_PROFILES__ = {};
+  if (!gProfile.__MOCK_PROFILES__[userKey]) {
+    const u = USERS[userKey];
+    if (!u) throw new Error(`Unknown mock user: ${userKey}`);
+    gProfile.__MOCK_PROFILES__[userKey] = seedProfile(u);
+  }
+  return gProfile.__MOCK_PROFILES__[userKey]!;
+}
+
+export function mockProfileSetAvatar(accessToken: string, dataUri: string): unknown | null {
+  const parsed = readAccess(accessToken);
+  if (!parsed || parsed.expired) return null;
+  const profile = mockGetProfile(parsed.userKey);
+  profile.avatarUrl = dataUri;
+  profile.version += 1;
+  return profileToView(profile);
+}
+
+const MOCK_PROJECT_NAMES: Record<string, string> = {
+  "proj-a": "Bridge-04 (Meghna river approach)",
+  "proj-b": "টাওয়ার-১২ (Uttara)",
+};
+
+function profileToView(p: MockProfile) {
+  const assignedProjects = p.isUnscoped
+    ? { scope: "ALL" as const }
+    : (USERS[p.email]?.assignedProjectIds ?? []).map((id) => ({
+        projectId: id,
+        projectName: MOCK_PROJECT_NAMES[id] ?? id,
+      }));
+  return {
+    id: p.id,
+    email: p.email,
+    name: p.name,
+    phone: p.phone,
+    avatarUrl: p.avatarUrl,
+    role: p.role,
+    isUnscoped: p.isUnscoped,
+    isActive: p.isActive,
+    financialYearId: p.financialYearId,
+    lastLoginAt: p.lastLoginAt,
+    assignedProjects,
+    version: p.version,
+  };
+}
+
 interface MockReq {
   path: string;
   method: string;
@@ -2482,6 +2567,55 @@ export async function mockNestjsFetch(req: MockReq): Promise<MockResult> {
   // A tiny sample protected resource for the proxy/refresh e2e.
   if (req.path === "/auth/me") {
     return { status: 200, body: success({ user: safeUser(user) }) };
+  }
+
+  // ── FE-52 fe-account-profile — /profile self-service surface ──
+  // Reads the caller's own profile (self-scoped from the token; no :id) and
+  // permits name/phone-only edits. Avatar upload (POST /profile/image) is
+  // handled by the dedicated multipart route at app/api/profile/image/route.ts;
+  // DELETE /profile/image is idempotent here.
+  const profile = mockGetProfile(access.userKey);
+  if (req.path === "/profile" && req.method === "GET") {
+    return { status: 200, body: success(profileToView(profile)) };
+  }
+  if (req.path === "/profile" && req.method === "PATCH") {
+    const patch = body as { name?: unknown; phone?: unknown; version?: unknown };
+    // Privilege-escalation guard (FR-AUD-033): reject any authorization-bearing key.
+    const forbiddenKeys = ["role", "email", "isActive", "financialYearId", "assignedProjects", "avatarUrl", "permissions", "approvalLimit"] as const;
+    for (const key of forbiddenKeys) {
+      if (key in (patch as Record<string, unknown>)) {
+        return { status: 400, body: envelope("VALIDATION_ERROR", `Field "${key}" cannot be changed here.`) };
+      }
+    }
+    const versionOk = typeof patch.version === "number" && patch.version === profile.version;
+    if (typeof patch.version !== "number") {
+      return { status: 400, body: envelope("VALIDATION_ERROR", "version is required") };
+    }
+    if (!versionOk) {
+      return { status: 409, body: envelope("OPTIMISTIC_LOCK_CONFLICT", "Your profile was updated elsewhere") };
+    }
+    if ("name" in patch) {
+      const name = String(patch.name ?? "").trim();
+      if (!name) return { status: 400, body: envelope("VALIDATION_ERROR", "Name can't be empty.") };
+      profile.name = name;
+    }
+    if ("phone" in patch) {
+      if (patch.phone === null) profile.phone = null;
+      else if (typeof patch.phone === "string") {
+        const phone = patch.phone.trim();
+        if (phone && !/^\+[1-9]\d{1,14}$/.test(phone)) {
+          return { status: 400, body: envelope("VALIDATION_ERROR", "Enter a valid phone number, e.g. +8801712345678.") };
+        }
+        profile.phone = phone || null;
+      }
+    }
+    profile.version += 1;
+    return { status: 200, body: success(profileToView(profile)) };
+  }
+  if (req.path === "/profile/image" && req.method === "DELETE") {
+    profile.avatarUrl = null;
+    profile.version += 1;
+    return { status: 200, body: success(profileToView(profile)) };
   }
 
   // ── Master-data sample endpoints (dev/preview only) ──

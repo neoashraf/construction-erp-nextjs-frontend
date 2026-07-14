@@ -2,7 +2,7 @@
 
 import { useState } from "react";
 import { useRouter } from "next/navigation";
-import { KeyRound, LogOut, ChevronsUpDown } from "lucide-react";
+import { KeyRound, LogOut, ChevronsUpDown, UserRound } from "lucide-react";
 import {
   DropdownMenu,
   DropdownMenuTrigger,
@@ -119,8 +119,15 @@ export function UserMenu({
           </div>
         </div>
         <DropdownMenuItem
-          data-testid="user-menu-change-password"
+          data-testid="user-menu-my-profile"
           className="mt-1"
+          onSelect={() => router.push("/profile")}
+        >
+          <UserRound className="mr-2 h-4 w-4" aria-hidden />
+          My profile
+        </DropdownMenuItem>
+        <DropdownMenuItem
+          data-testid="user-menu-change-password"
           onSelect={() => router.push("/change-password")}
         >
           <KeyRound className="mr-2 h-4 w-4" aria-hidden />
