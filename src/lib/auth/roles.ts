@@ -30,7 +30,14 @@ export type Role = (typeof ROLES)[number];
  * ACCOUNTS_TEAM→ACCOUNTS_MANAGER rename, treated as equivalent in fallbacks).
  */
 export const ACTION_CODES = [
-  "CREATE", "READ", "UPDATE", "DELETE", "POST", "CANCEL", "APPROVE", "REJECT",
+  "CREATE",
+  "READ",
+  "UPDATE",
+  "DELETE",
+  "POST",
+  "CANCEL",
+  "APPROVE",
+  "REJECT",
 ] as const;
 export type ActionCode = (typeof ACTION_CODES)[number];
 
@@ -73,6 +80,10 @@ export const MODULES = [
   "cost-control",
   "inventory",
   "requisitions",
+  "sales",
+  "purchase",
+  "receipts",
+  "hr",
 ] as const;
 
 export type ModuleKey = (typeof MODULES)[number];
@@ -85,17 +96,67 @@ export type ModuleKey = (typeof MODULES)[number];
  * NOTE: deliberately conservative; per-screen briefs refine grants as needed.
  */
 const ROLE_MODULES: Record<Role, readonly ModuleKey[]> = {
-  ADMIN: ["master-data", "ledger", "numbering", "period", "audit", "cost-control", "inventory", "requisitions"],
-  ACCOUNTS_TEAM: ["master-data", "ledger", "numbering", "period", "cost-control", "inventory", "requisitions"],
-  ACCOUNTS_MANAGER: ["master-data", "ledger", "numbering", "period", "cost-control", "inventory", "requisitions"],
-  PROJECT_MANAGER: ["ledger", "cost-control", "inventory", "requisitions"],
+  ADMIN: [
+    "master-data",
+    "ledger",
+    "numbering",
+    "period",
+    "audit",
+    "cost-control",
+    "inventory",
+    "requisitions",
+    "sales",
+    "purchase",
+    "receipts",
+    "hr",
+  ],
+  ACCOUNTS_TEAM: [
+    "master-data",
+    "ledger",
+    "numbering",
+    "period",
+    "cost-control",
+    "inventory",
+    "requisitions",
+    "sales",
+    "purchase",
+    "receipts",
+    "hr",
+  ],
+  ACCOUNTS_MANAGER: [
+    "master-data",
+    "ledger",
+    "numbering",
+    "period",
+    "cost-control",
+    "inventory",
+    "requisitions",
+    "sales",
+    "purchase",
+    "receipts",
+    "hr",
+  ],
+  PROJECT_MANAGER: [
+    "ledger",
+    "cost-control",
+    "inventory",
+    "requisitions",
+    "sales",
+    "purchase",
+    "receipts",
+  ],
   SITE_ENGINEER: ["requisitions"],
-  STORE_KEEPER: ["inventory", "requisitions"],
-  HR_MANAGER: [],
+  STORE_KEEPER: ["inventory", "requisitions", "purchase"],
+  HR_MANAGER: ["hr"],
 };
 
 /** Roles that are NOT project-scoped (see all projects). The rest are scoped. */
-export const UNSCOPED_ROLES: readonly Role[] = ["ADMIN", "ACCOUNTS_TEAM", "ACCOUNTS_MANAGER", "HR_MANAGER"];
+export const UNSCOPED_ROLES: readonly Role[] = [
+  "ADMIN",
+  "ACCOUNTS_TEAM",
+  "ACCOUNTS_MANAGER",
+  "HR_MANAGER",
+];
 
 /**
  * Module segment → the Resource-Catalogue prefix(es) its screens' grants use
@@ -111,11 +172,18 @@ export const MODULE_RESOURCE_PREFIX: Record<ModuleKey, readonly string[]> = {
   "cost-control": ["cost_control."],
   inventory: ["inventory."],
   requisitions: ["requisitions."],
+  sales: ["sales."],
+  purchase: ["purchase."],
+  receipts: ["receipts"],
+  hr: ["hr."],
 };
 
 /** True when the effective set holds any READ grant inside the module (FE-21). */
 export function hasModuleGrant(
-  viewer: { role: Role | string; permissions?: readonly { resource: string; action: string }[] | null },
+  viewer: {
+    role: Role | string;
+    permissions?: readonly { resource: string; action: string }[] | null;
+  },
   module: ModuleKey,
 ): boolean {
   if (viewer.role === "ADMIN") return true;
@@ -124,7 +192,9 @@ export function hasModuleGrant(
   return viewer.permissions.some(
     (p) =>
       p.action === "READ" &&
-      prefixes.some((prefix) => (prefix.endsWith(".") ? p.resource.startsWith(prefix) : p.resource === prefix)),
+      prefixes.some((prefix) =>
+        prefix.endsWith(".") ? p.resource.startsWith(prefix) : p.resource === prefix,
+      ),
   );
 }
 
@@ -174,6 +244,10 @@ export function moduleLabel(module: ModuleKey): string {
     "cost-control": "Cost Control",
     inventory: "Inventory",
     requisitions: "Requisitions",
+    sales: "Sales / IPC",
+    purchase: "Purchase",
+    receipts: "Receipts",
+    hr: "HR & Payroll",
   };
   return labels[module];
 }

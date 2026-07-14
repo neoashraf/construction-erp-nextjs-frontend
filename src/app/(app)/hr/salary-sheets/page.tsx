@@ -1,10 +1,13 @@
-import { ComingSoon } from "@/components/shell/coming-soon";
+import { requireModuleAccess } from "@/lib/auth/guard-module-page";
+import { SalaryRunsList } from "@/features/hr/components/SalaryRunsList";
 
 /**
- * Placeholder route for the "Salary sheets" screen (nav-tree route /hr/salary-sheets). The real
- * screen ships with its per-screen brief; until then this renders the shared
- * ComingSoon placeholder so the nav item navigates to a real page, not a dead link.
+ * `/hr/salary-sheets` — the runs list (FR-HR-013). Module guard redirects Site Engineer /
+ * Store Keeper / PM (no HR module) to /403; HR Manager / Admin / Accounts reach the list.
+ * Generate / edit / post / reverse are further gated inside the client tree (access.ts),
+ * with the server re-checking every action.
  */
-export default function HrSalarySheetsPage() {
-  return <ComingSoon title="Salary sheets" />;
+export default async function HrSalarySheetsPage() {
+  await requireModuleAccess("hr");
+  return <SalaryRunsList />;
 }

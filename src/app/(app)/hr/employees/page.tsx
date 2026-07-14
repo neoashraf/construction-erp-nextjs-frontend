@@ -1,10 +1,13 @@
-import { ComingSoon } from "@/components/shell/coming-soon";
+import { requireModuleAccess } from "@/lib/auth/guard-module-page";
+import { EmployeeList } from "@/features/hr/components/EmployeeList";
 
 /**
- * Placeholder route for the "Employees" screen (nav-tree route /hr/employees). The real
- * screen ships with its per-screen brief; until then this renders the shared
- * ComingSoon placeholder so the nav item navigates to a real page, not a dead link.
+ * `/hr/employees` — the Employee master list landing (FR-HR-001/-003; spec §3). The module
+ * guard redirects Site Engineer / Store Keeper / PM (no HR module) to /403; HR Manager /
+ * Admin / Accounts Manager reach the list. The list itself further HIDES the "New employee"
+ * CTA for Accounts (read-only) via `canWriteEmployee` — server re-checks every write.
  */
-export default function HrEmployeesPage() {
-  return <ComingSoon title="Employees" />;
+export default async function HrEmployeesPage() {
+  await requireModuleAccess("hr");
+  return <EmployeeList />;
 }

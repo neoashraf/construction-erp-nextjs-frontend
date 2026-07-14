@@ -1,10 +1,13 @@
-import { ComingSoon } from "@/components/shell/coming-soon";
+import { requireModuleAccess } from "@/lib/auth/guard-module-page";
+import { IpcRegisterScreen } from "@/features/sales-ipc/components/IpcRegisterScreen";
 
 /**
- * Placeholder route for the "IPC register & retention" screen (nav-tree route /sales/ipc-register). The real
- * screen ships with its per-screen brief; until then this renders the shared
- * ComingSoon placeholder so the nav item navigates to a real page, not a dead link.
+ * IPC register + retention route (SAL; FR-SAL-015…-020) — under the (app) shell + the
+ * `sales` module guard (`sales.ipc_register:READ`). The retention Release action inside the
+ * screen is separately gated on `sales:release-retention` (server-authoritative); the
+ * catalogue action-code gap for that action is flagged to the AUD/design owner in the brief.
  */
-export default function SalesIpcRegisterPage() {
-  return <ComingSoon title="IPC register & retention" />;
+export default async function SalesIpcRegisterPage() {
+  await requireModuleAccess("sales");
+  return <IpcRegisterScreen />;
 }

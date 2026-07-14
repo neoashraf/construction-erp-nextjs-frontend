@@ -1,10 +1,12 @@
-import { ComingSoon } from "@/components/shell/coming-soon";
+import { requireModuleAccess } from "@/lib/auth/guard-module-page";
+import { PoListScreen } from "@/features/purchase/components/PoListScreen";
 
 /**
- * Placeholder route for the "Purchase orders" screen (nav-tree route /purchase/orders). The real
- * screen ships with its per-screen brief; until then this renders the shared
- * ComingSoon placeholder so the nav item navigates to a real page, not a dead link.
+ * Purchase Orders list route (PUR; FR-PUR-001/-002) — under the (app) shell + the
+ * `purchase` module guard. Read for all PUR-scoped roles; the server scopes PM to
+ * assigned projects. The "New PO" CTA is gated per-actor inside the screen.
  */
-export default function PurchaseOrdersPage() {
-  return <ComingSoon title="Purchase orders" />;
+export default async function PurchaseOrdersPage() {
+  await requireModuleAccess("purchase");
+  return <PoListScreen />;
 }
