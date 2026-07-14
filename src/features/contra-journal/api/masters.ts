@@ -57,3 +57,72 @@ export function isBankOrCashAccount(a: AccountOption): boolean {
   const code = String(a.code);
   return code.startsWith("10") || code.startsWith("11") || code.startsWith("12");
 }
+
+/**
+ * Classify an account for the FE-50 journal cluster (spec §7 decision table):
+ * P&L (INCOME/EXPENSE) needs project+cost_centre+purpose; AR/AP control needs party;
+ * anything else (balance-sheet non-control) collects no cluster. The server enforces
+ * via MISSING_REQUIRED_DIMENSION / MISSING_CONTROL_PARTY regardless.
+ */
+export type AccountClassification = "PL" | "CONTROL" | "OTHER_BS";
+
+export function classifyAccount(a: AccountOption | undefined): AccountClassification {
+  if (!a) return "OTHER_BS";
+  if (a.type === "INCOME" || a.type === "EXPENSE") return "PL";
+  const code = String(a.code);
+  // AR (1200-series) or AP (2100-series) → control (backend classification is the
+  // authority; this heuristic keeps the cluster right in the common case).
+  if (code.startsWith("1200") || code.startsWith("2100")) return "CONTROL";
+  return "OTHER_BS";
+}
+
+// ── Additional MAS pickers for the journal editor (thin bindings, skill §2.4). ──
+
+export interface ProjectOption {
+  id: string;
+  name: string;
+  projectCode?: string;
+  status?: string;
+}
+export interface CostCentreOption {
+  id: string;
+  name: string;
+}
+export interface PurposeOption {
+  id: string;
+  name: string;
+}
+export interface PartyOption {
+  id: string;
+  name: string;
+  isActive: boolean;
+}
+
+export async function listProjectOptions(): Promise<ProjectOption[]> {
+  const res = await apiClient.get<{ data: ProjectOption[] }>(
+    "/masters/projects?page=1&pageSize=500",
+  );
+  return res.data;
+}
+
+export async function listCostCentreOptions(): Promise<CostCentreOption[]> {
+  const res = await apiClient.get<{ data: CostCentreOption[] }>(
+    "/masters/cost-centres?page=1&pageSize=500",
+  );
+  return res.data;
+}
+
+export async function listPurposeOptions(projectId: string): Promise<PurposeOption[]> {
+  if (!projectId) return [];
+  const res = await apiClient.get<{ data: PurposeOption[] }>(
+    `/masters/projects/${projectId}/purposes?page=1&pageSize=500`,
+  );
+  return res.data;
+}
+
+export async function listPartyOptions(): Promise<PartyOption[]> {
+  const res = await apiClient.get<{
+    data: Array<{ id: string; name: string; isActive?: boolean }>;
+  }>("/masters/parties?page=1&pageSize=500");
+  return res.data.map((p) => ({ id: p.id, name: p.name, isActive: p.isActive ?? true }));
+}
