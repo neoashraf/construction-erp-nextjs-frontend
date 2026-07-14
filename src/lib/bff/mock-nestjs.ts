@@ -7297,20 +7297,218 @@ export async function mockNestjsFetch(req: MockReq): Promise<MockResult> {
     };
   }
 
-  const paymentIdMatch = /^\/payment\/([^/]+)$/.exec(pathname ?? "");
-  if (paymentIdMatch && !pathname?.startsWith("/payment/payables/") && !pathname?.startsWith("/payment/open")) {
-    const id = paymentIdMatch[1]!;
+  // Allocate the next gapless PAYMENT number from a stable counter.
+  const gPaySeq = globalThis as unknown as { __MOCK_PAY_SEQ__?: number };
+  if (typeof gPaySeq.__MOCK_PAY_SEQ__ !== "number") {
+    gPaySeq.__MOCK_PAY_SEQ__ = MOCK_PAYMENTS.reduce((m, r) => {
+      const n = r.entryNo ? Number(r.entryNo.split("/").pop()) : 0;
+      return Number.isFinite(n) && n > m ? n : m;
+    }, 0);
+  }
+  function allocatePaymentEntryNo(): string {
+    gPaySeq.__MOCK_PAY_SEQ__ = (gPaySeq.__MOCK_PAY_SEQ__ ?? 0) + 1;
+    return `PAY/2526/${String(gPaySeq.__MOCK_PAY_SEQ__).padStart(4, "0")}`;
+  }
+
+  interface PaymentAllocationInputBody {
+    payableType: MockPaymentAllocation["payableType"];
+    payableId: string;
+    amountAllocated?: string;
+  }
+  interface PaymentWriteBody {
+    partyId?: string;
+    paymentDate?: string;
+    paymentMode?: MockPayment["paymentMode"];
+    paymentAccountId?: string;
+    chequeTxnRef?: string | null;
+    bankChargesAmount?: string;
+    bankChargesProjectId?: string | null;
+    bankChargesCostCentreId?: string | null;
+    bankChargesPurposeId?: string | null;
+    paymentAmount?: string;
+    narration?: string | null;
+    allocations?: PaymentAllocationInputBody[];
+    version?: number;
+    reason?: string;
+  }
+
+  function applyBody(target: MockPayment, b: PaymentWriteBody): void {
+    if (b.partyId !== undefined) target.partyId = b.partyId;
+    if (b.paymentDate !== undefined) target.paymentDate = b.paymentDate;
+    if (b.paymentMode !== undefined) target.paymentMode = b.paymentMode;
+    if (b.paymentAccountId !== undefined) target.paymentAccountId = b.paymentAccountId;
+    if (b.chequeTxnRef !== undefined) target.chequeTxnRef = b.chequeTxnRef;
+    if (b.bankChargesAmount !== undefined) target.bankChargesAmount = b.bankChargesAmount;
+    if (b.paymentAmount !== undefined) target.paymentAmount = b.paymentAmount;
+    if (b.narration !== undefined) target.narration = b.narration;
+    if (b.allocations !== undefined) {
+      target.allocations = b.allocations.map((a, i) => ({
+        lineNo: i + 1,
+        payableType: a.payableType,
+        payableId: a.payableId,
+        amountAllocated: a.amountAllocated ?? "0.0000",
+        accruedAmount: a.payableType === "LABOUR_PAYABLE" ? "0.0000" : null,
+        partyId: target.partyId,
+        projectId: null,
+        costCentreId: null,
+        purposeId: null,
+      }));
+    }
+  }
+
+  function validateWrite(b: PaymentWriteBody): { status: number; body: unknown } | null {
+    if (b.paymentMode !== undefined && b.paymentMode !== "CASH" && !b.chequeTxnRef) {
+      return { status: 400, body: envelope("CHEQUE_REF_REQUIRED", "Enter a reference for this payment mode.") };
+    }
+    if (b.paymentAmount !== undefined && Number(b.paymentAmount) < 0) {
+      return { status: 400, body: envelope("VALIDATION_ERROR", "Payment amount can't be negative.") };
+    }
+    if (b.allocations) {
+      const sum = b.allocations.reduce((s, a) => s + Number(a.amountAllocated ?? 0), 0);
+      const total = Number(b.paymentAmount ?? 0);
+      if (total > 0 && sum > total)
+        return { status: 400, body: envelope("OVER_ALLOCATION", "Total allocations exceed the payment amount.") };
+    }
+    if (b.bankChargesAmount !== undefined && Number(b.bankChargesAmount) < 0) {
+      return { status: 400, body: envelope("VALIDATION_ERROR", "Bank charges can't be negative.") };
+    }
+    if (b.bankChargesAmount !== undefined && Number(b.bankChargesAmount) > 0) {
+      if (!b.bankChargesProjectId || !b.bankChargesCostCentreId || !b.bankChargesPurposeId) {
+        return { status: 400, body: envelope("VALIDATION_ERROR", "Bank charges need project, cost centre and purpose.") };
+      }
+    }
+    return null;
+  }
+
+  if (pathname === "/payment" && req.method === "POST") {
+    const b = (body ?? {}) as PaymentWriteBody;
+    const err = validateWrite(b);
+    if (err) return err;
+    const id = `pay-new-${MOCK_PAYMENTS.length + 1}`;
+    const draft: MockPayment = {
+      id,
+      partyId: b.partyId ?? "",
+      paymentDate: b.paymentDate ?? "",
+      paymentMode: b.paymentMode ?? "BANK_TRANSFER",
+      paymentAccountId: b.paymentAccountId ?? "",
+      chequeTxnRef: b.chequeTxnRef ?? null,
+      bankChargesAmount: b.bankChargesAmount ?? "0.0000",
+      paymentAmount: b.paymentAmount ?? "0.0000",
+      narration: b.narration ?? null,
+      status: "DRAFT",
+      entryNo: null,
+      journalEntryId: null,
+      postedAt: null,
+      postedBy: null,
+      version: 1,
+      allocations: [],
+    };
+    applyBody(draft, b);
+    MOCK_PAYMENTS.unshift(draft);
+    return { status: 201, body: success({ id }) };
+  }
+
+  const paymentActionMatch = /^\/payment\/([^/]+)(?:\/(post|cancel|repost))?$/.exec(pathname ?? "");
+  if (
+    paymentActionMatch &&
+    !pathname?.startsWith("/payment/payables/") &&
+    !pathname?.startsWith("/payment/open")
+  ) {
+    const id = paymentActionMatch[1]!;
+    const action = paymentActionMatch[2];
     const p = MOCK_PAYMENTS.find((r) => r.id === id);
     if (!p) return { status: 404, body: envelope("NOT_FOUND", "Payment not found.") };
-    if (req.method === "GET") {
+    if (req.method === "GET" && !action) {
       return { status: 200, body: success(paymentResource(p)) };
     }
-    if (req.method === "DELETE") {
+    if (req.method === "PATCH" && !action) {
+      if (p.status !== "DRAFT")
+        return { status: 409, body: envelope("VOUCHER_POSTED_IMMUTABLE", "This payment has been posted and can no longer be edited.") };
+      const b = (body ?? {}) as PaymentWriteBody;
+      if (b.version !== undefined && b.version !== p.version)
+        return { status: 409, body: envelope("OPTIMISTIC_LOCK_CONFLICT", "This payment was just changed by someone else.") };
+      const err = validateWrite(b);
+      if (err) return err;
+      applyBody(p, b);
+      p.version += 1;
+      return { status: 200, body: success(paymentResource(p)) };
+    }
+    if (req.method === "DELETE" && !action) {
       if (p.status !== "DRAFT")
         return { status: 409, body: envelope("VOUCHER_POSTED_IMMUTABLE", "This payment has been posted and can no longer be deleted.") };
       const idx = MOCK_PAYMENTS.findIndex((r) => r.id === id);
       MOCK_PAYMENTS.splice(idx, 1);
       return { status: 204, body: null };
+    }
+    if (req.method === "POST" && action === "post") {
+      if (p.status !== "DRAFT")
+        return { status: 409, body: envelope("VOUCHER_POSTED_IMMUTABLE", "This payment has already been posted.") };
+      const sum = p.allocations.reduce((s, a) => s + Number(a.amountAllocated), 0);
+      if (sum > Number(p.paymentAmount))
+        return { status: 400, body: envelope("OVER_ALLOCATION", "Total allocations exceed the payment amount.") };
+      const entryNo = allocatePaymentEntryNo();
+      p.status = "POSTED";
+      p.entryNo = entryNo;
+      p.journalEntryId = `je-${id}`;
+      p.postedAt = new Date().toISOString();
+      p.postedBy = user.id;
+      p.version += 1;
+      return {
+        status: 200,
+        body: success({
+          id,
+          entryNo,
+          journalEntryId: p.journalEntryId,
+          status: "POSTED",
+          paymentAmount: p.paymentAmount,
+          allocatedAmount: sum.toFixed(4),
+        }),
+      };
+    }
+    if (req.method === "POST" && action === "cancel") {
+      if (p.status === "DRAFT")
+        return { status: 409, body: envelope("VOUCHER_NOT_POSTED", "This payment isn't posted, so it can't be cancelled.") };
+      if (p.status === "CANCELLED")
+        return { status: 409, body: envelope("ALREADY_REVERSED", "This payment has already been cancelled.") };
+      const reversalNo = allocatePaymentEntryNo();
+      p.status = "CANCELLED";
+      p.version += 1;
+      return {
+        status: 200,
+        body: success({
+          id,
+          status: "CANCELLED",
+          reversalEntryId: `je-rev-${id}`,
+          reversalEntryNo: reversalNo,
+        }),
+      };
+    }
+    if (req.method === "POST" && action === "repost") {
+      if (p.status === "DRAFT")
+        return { status: 409, body: envelope("VOUCHER_NOT_POSTED", "This payment isn't posted, so it can't be reposted.") };
+      if (p.status === "CANCELLED")
+        return { status: 409, body: envelope("ALREADY_REVERSED", "This payment has already been cancelled.") };
+      const b = (body ?? {}) as PaymentWriteBody;
+      if (!b.reason || !String(b.reason).trim())
+        return { status: 400, body: envelope("VALIDATION_ERROR", "Reason is required.") };
+      const err = validateWrite(b);
+      if (err) return err;
+      const reversalNo = allocatePaymentEntryNo();
+      const newEntryNo = allocatePaymentEntryNo();
+      applyBody(p, b);
+      p.entryNo = newEntryNo;
+      p.journalEntryId = `je-${id}-v2`;
+      p.version += 1;
+      return {
+        status: 200,
+        body: success({
+          id,
+          status: "POSTED",
+          entryNo: newEntryNo,
+          reversalEntryNo: reversalNo,
+          paymentAmount: p.paymentAmount,
+        }),
+      };
     }
   }
 

@@ -40,3 +40,29 @@ function normalizeType(t: string | undefined): AccountOption["type"] {
   if (t === "ASSET" || t === "LIABILITY" || t === "EQUITY" || t === "INCOME" || t === "EXPENSE") return t;
   return "ASSET";
 }
+
+// ── Bank-charge dimension pickers ────────────────────────────────────────────────────
+
+export interface CostCentreOption {
+  id: string;
+  name: string;
+}
+export interface PurposeOption {
+  id: string;
+  name: string;
+}
+
+export async function listCostCentreOptions(): Promise<CostCentreOption[]> {
+  const res = await apiClient.get<{ data: CostCentreOption[] }>(
+    "/masters/cost-centres?page=1&pageSize=500",
+  );
+  return res.data;
+}
+
+export async function listPurposeOptions(projectId: string): Promise<PurposeOption[]> {
+  if (!projectId) return [];
+  const res = await apiClient.get<{ data: PurposeOption[] }>(
+    `/masters/projects/${projectId}/purposes?page=1&pageSize=500`,
+  );
+  return res.data;
+}
