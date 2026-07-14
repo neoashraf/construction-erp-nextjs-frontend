@@ -1,18 +1,23 @@
 import { apiClient } from "@/lib/api";
 import { DEFAULT_PAGE_SIZE } from "@/lib/api/pagination";
-import { type ContraVoucherSummary, type VoucherListPage } from "../types";
+import { readCsrfToken } from "@/lib/auth/csrf-client";
+import { type ContraVoucher, type ContraVoucherSummary, type VoucherListPage } from "../types";
 
 /**
- * Contra Voucher API bindings (API contract 14). The list read is used here (FE-48);
- * FE-49's editor extends this file with get-by-id/create/patch/delete/post/reverse.
+ * Contra Voucher API bindings (API contract 14). List + full write surface — the
+ * FE-49 editor lifecycle: create/get/patch/delete + POST /post + POST /reverse.
  * Money is `Decimal(18,4)` JSON strings; dates `YYYY-MM-DD`. Company implicit from JWT.
  */
 
 const BASE = "/contra";
 
+function csrf() {
+  return { csrfToken: readCsrfToken() };
+}
+
 export interface ContraListFilter {
-  status?: string; // csv of VoucherStatus
-  dateFrom?: string; // YYYY-MM-DD
+  status?: string;
+  dateFrom?: string;
   dateTo?: string;
   entryNo?: string;
   accountId?: string;
@@ -47,4 +52,73 @@ export async function listContraVouchers(f: ContraListFilter = {}): Promise<Vouc
     pageSize: meta.pageSize ?? f.pageSize ?? DEFAULT_PAGE_SIZE,
     total: meta.total ?? res.data.length,
   };
+}
+
+// ── Editor write surface (FE-49) ────────────────────────────────────────────────────
+
+export interface ContraLineInput {
+  accountId: string;
+  debit: string;
+  credit: string;
+  narration: string | null;
+}
+export interface ContraWriteInput {
+  voucherDate: string; // YYYY-MM-DD
+  narration: string | null;
+  lines: ContraLineInput[];
+}
+
+export async function getContraVoucher(id: string): Promise<ContraVoucher> {
+  const res = await apiClient.get<{ data: ContraVoucher }>(`${BASE}/${id}`);
+  return res.data;
+}
+
+export async function createContraVoucher(input: ContraWriteInput): Promise<{ id: string }> {
+  const res = await apiClient.post<{ data: { id: string } }>(BASE, input, csrf());
+  return res.data;
+}
+
+export async function updateContraVoucher(
+  id: string,
+  input: ContraWriteInput & { version: number },
+): Promise<ContraVoucher> {
+  const res = await apiClient.patch<{ data: ContraVoucher }>(`${BASE}/${id}`, input, csrf());
+  return res.data;
+}
+
+export async function deleteContraVoucher(id: string): Promise<void> {
+  await apiClient.delete(`${BASE}/${id}`, csrf());
+}
+
+export interface ContraPostResult {
+  id: string;
+  entryNo: string;
+  journalEntryId: string;
+  status: "POSTED";
+}
+export async function postContraVoucher(id: string, version: number): Promise<ContraPostResult> {
+  const res = await apiClient.post<{ data: ContraPostResult }>(
+    `${BASE}/${id}/post`,
+    { version },
+    csrf(),
+  );
+  return res.data;
+}
+
+export interface ContraReverseResult {
+  id: string;
+  status: "CANCELLED";
+  reversalEntryId: string;
+  reversalEntryNo: string;
+}
+export async function reverseContraVoucher(
+  id: string,
+  input: { reason: string; version: number },
+): Promise<ContraReverseResult> {
+  const res = await apiClient.post<{ data: ContraReverseResult }>(
+    `${BASE}/${id}/reverse`,
+    input,
+    csrf(),
+  );
+  return res.data;
 }
