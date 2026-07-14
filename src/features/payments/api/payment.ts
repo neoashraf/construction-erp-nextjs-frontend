@@ -207,3 +207,41 @@ export async function getPayableApplied(
   );
   return res.data;
 }
+
+// ── LED entry binding (viewer, FE-47) ────────────────────────────────────────────────
+
+/**
+ * Thin LED binding for the viewer's ledger-lines panel (API contract 02 §
+ * `GET /api/ledger/entries/{id}`). PAY owns this local wrapper rather than importing
+ * `features/ledger` (skill §2.4 import boundary). READ-ONLY. Guarded by
+ * `ledger.journal_entries:READ`, distinct from `payments.list:READ` — an Accounts user
+ * without the LED grant `403`s on the lines call, which the viewer renders as its own
+ * in-panel state rather than blanking the whole screen.
+ */
+export interface JournalEntryLine {
+  id: string;
+  lineNo: number;
+  accountId: string;
+  projectId: string | null;
+  costCentreId: string | null;
+  purposeId: string | null;
+  godownId: string | null;
+  partyId: string | null;
+  debit: string;
+  credit: string;
+  narration: string | null;
+}
+export interface JournalEntry {
+  id: string;
+  entryNo: string;
+  voucherType: string;
+  voucherDate: string;
+  postedAt: string;
+  totalDebit: string;
+  totalCredit: string;
+  lines: JournalEntryLine[];
+}
+
+export async function getPaymentJournalEntry(id: string): Promise<JournalEntry> {
+  return apiClient.get<JournalEntry>(`/ledger/entries/${id}`);
+}

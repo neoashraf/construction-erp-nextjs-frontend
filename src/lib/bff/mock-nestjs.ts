@@ -1672,6 +1672,127 @@ function receiptToJournalEntry(r: MockReceipt, entryId: string) {
   };
 }
 
+/**
+ * Synthesize a balanced journal entry for a posted/cancelled payment (fe-payment-viewer
+ * G2). One control/liability debit per allocation (AP for supplier bills, Labour Payable
+ * for labour, Salary Payable for salary — never re-expensed), an optional bank-charge
+ * debit, and the bank/cash/MFS credit for the remainder. The mock synthesises this on
+ * demand from MOCK_PAYMENTS (no ledger-write layer).
+ */
+function paymentToJournalEntry(
+  p: {
+    id: string;
+    partyId: string;
+    paymentDate: string;
+    paymentAccountId: string;
+    paymentAmount: string;
+    bankChargesAmount: string;
+    allocations: Array<{
+      payableType: string;
+      payableId: string;
+      amountAllocated: string;
+      partyId: string | null;
+    }>;
+    entryNo: string | null;
+    journalEntryId: string | null;
+    postedAt: string | null;
+    postedBy: string | null;
+    narration: string | null;
+    status: string;
+  },
+  entryId: string,
+) {
+  const zero = "0.0000";
+  const CONTROL: Record<string, string> = {
+    PURCHASE_BILL: "2100", // Accounts Payable
+    LABOUR_PAYABLE: "2110", // Labour Payable
+    SALARY: "2120", // Salary Payable
+  };
+  const lines: Array<{
+    id: string;
+    lineNo: number;
+    accountId: string;
+    projectId: string | null;
+    costCentreId: string | null;
+    purposeId: string | null;
+    godownId: null;
+    partyId: string | null;
+    debit: string;
+    credit: string;
+    narration: null;
+  }> = [];
+  let ln = 1;
+  for (const a of p.allocations) {
+    lines.push({
+      id: `${entryId}-l${ln}`,
+      lineNo: ln,
+      accountId: CONTROL[a.payableType] ?? "2100",
+      projectId: null,
+      costCentreId: null,
+      purposeId: null,
+      godownId: null,
+      partyId: a.partyId ?? p.partyId,
+      debit: a.amountAllocated,
+      credit: zero,
+      narration: null,
+    });
+    ln += 1;
+  }
+  if (Number(p.bankChargesAmount) > 0) {
+    lines.push({
+      id: `${entryId}-lbc`,
+      lineNo: ln++,
+      accountId: "5300", // Bank charges (expense)
+      projectId: null,
+      costCentreId: null,
+      purposeId: null,
+      godownId: null,
+      partyId: null,
+      debit: p.bankChargesAmount,
+      credit: zero,
+      narration: null,
+    });
+  }
+  // Cash out = Σ allocations + bank charges (matches paymentAmount because the FE gates
+  // Post on full allocation — Phase-1 rule).
+  const totalDr = lines.reduce((s, l) => s + Number(l.debit), 0);
+  lines.push({
+    id: `${entryId}-lcash`,
+    lineNo: ln,
+    accountId: p.paymentAccountId,
+    projectId: null,
+    costCentreId: null,
+    purposeId: null,
+    godownId: null,
+    partyId: null,
+    debit: zero,
+    credit: totalDr.toFixed(4),
+    narration: null,
+  });
+  const totalDebit = lines.reduce((s, l) => s + Number(l.debit), 0).toFixed(4);
+  const totalCredit = lines.reduce((s, l) => s + Number(l.credit), 0).toFixed(4);
+  return {
+    id: entryId,
+    entryNo: p.entryNo ?? p.id,
+    financialYearId: "fy-1",
+    voucherType: "PAYMENT",
+    voucherDate: p.paymentDate,
+    sourceType: "payments",
+    sourceId: p.id,
+    isReversal: false,
+    reversalOf: null,
+    isReversed: p.status === "CANCELLED",
+    reversedByEntryId: null,
+    reversedBy: null,
+    narration: p.narration,
+    postedAt: p.postedAt ?? "2026-07-01T10:22:11Z",
+    postedBy: p.postedBy,
+    totalDebit,
+    totalCredit,
+    lines,
+  };
+}
+
 // ── GRN seed (dev/preview only) — the fe-grn-matching store ───────────────────
 //
 // A GRN records goods physically received against a PO/Bill; Post drives INV
@@ -2438,6 +2559,37 @@ export async function mockNestjsFetch(req: MockReq): Promise<MockResult> {
         (r) => r.journalEntryId === entryId || `je-${r.id}` === entryId || `je-${r.id}-v2` === entryId,
       );
       if (receipt) return { status: 200, body: receiptToJournalEntry(receipt, entryId) };
+      // Payment viewer's balanced-lines panel reads the same LED endpoint (fe-payment-viewer).
+      // MOCK_PAYMENTS lives inside the fetch scope further down; read the stashed store.
+      const payStore = (globalThis as unknown as { __MOCK_PAYMENTS__?: unknown }).__MOCK_PAYMENTS__;
+      if (Array.isArray(payStore)) {
+        const p = (payStore as Array<{ id: string; journalEntryId: string | null }>).find(
+          (r) => r.journalEntryId === entryId || `je-${r.id}` === entryId || `je-${r.id}-v2` === entryId,
+        );
+        if (p) {
+          return {
+            status: 200,
+            body: paymentToJournalEntry(
+              p as unknown as {
+                id: string;
+                partyId: string;
+                paymentDate: string;
+                paymentAccountId: string;
+                paymentAmount: string;
+                bankChargesAmount: string;
+                allocations: Array<{ payableType: string; payableId: string; amountAllocated: string; partyId: string | null }>;
+                entryNo: string | null;
+                journalEntryId: string | null;
+                postedAt: string | null;
+                postedBy: string | null;
+                narration: string | null;
+                status: string;
+              },
+              entryId,
+            ),
+          };
+        }
+      }
       return { status: 404, body: envelope("NOT_FOUND", "Journal entry not found") };
     }
     const zero = "0.0000";
