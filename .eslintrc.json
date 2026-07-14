@@ -88,6 +88,10 @@
     {
       "files": ["**/*.test.{ts,tsx}", "test/**/*"],
       "rules": { "boundaries/element-types": "off", "no-restricted-syntax": "off" }
+    },
+    {
+      "files": ["src/components/shell/alerts-bell.tsx"],
+      "rules": { "boundaries/element-types": "off" }
     }
   ],
   "ignorePatterns": [

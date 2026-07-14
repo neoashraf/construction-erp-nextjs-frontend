@@ -476,12 +476,16 @@ export function quickCreateForRole(viewerLike: ViewerLike): QuickCreateTarget[] 
   });
 }
 
-/** True when the alerts bell renders — the viewer holds `cost_control.alerts:READ`
- *  (fallback: the CC actor roles — Accounts, Admin, PM). */
+/**
+ * True when the topbar bell renders. FE-53 rebinds this to the NTF surface,
+ * which every authenticated user has — the bell shows for **all** roles and
+ * opens the notifications drawer (superseding the CC-only over-budget link).
+ * The old `cost_control.alerts:READ` check is no longer relevant here.
+ */
 export function showsAlertsBell(viewerLike: ViewerLike): boolean {
-  const viewer = asViewer(viewerLike);
-  if (viewer.permissions) return hasGrant(viewer, "cost_control.alerts", "READ");
-  return viewer.role === "ADMIN" || roleMatches(["ACCOUNTS_TEAM", "PROJECT_MANAGER"], viewer.role);
+  // Any signed-in viewer with a role; the parameter is retained for callers
+  // that still pass a viewer object.
+  return !!asViewer(viewerLike).role;
 }
 
 /**

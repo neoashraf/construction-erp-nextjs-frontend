@@ -2380,6 +2380,123 @@ function readRefresh(token: string): { userKey: string; jti: string } | null {
   return { userKey: m[1]!, jti: m[2]! };
 }
 
+// ── FE-53 notifications store (mock) ─────────────────────────────────────────
+interface MockNotification {
+  id: string;
+  type: string;
+  severity: "HIGH" | "NORMAL" | "LOW";
+  sourceModule: string;
+  title: string;
+  body: string;
+  deepLink: { route: string; params?: Record<string, string> | null } | null;
+  payload: Record<string, string> | null;
+  createdAt: string;
+  readAt: string | null;
+}
+interface MockNotifStore {
+  rows: MockNotification[];
+}
+const gNtf = globalThis as unknown as { __MOCK_NOTIFS__?: Record<string, MockNotifStore> };
+function getMockNotifStore(userKey: string): MockNotifStore {
+  if (!gNtf.__MOCK_NOTIFS__) gNtf.__MOCK_NOTIFS__ = {};
+  if (!gNtf.__MOCK_NOTIFS__[userKey]) {
+    const now = Date.now();
+    const mk = (
+      i: number,
+      seed: Omit<MockNotification, "id" | "createdAt" | "readAt"> & { agoMin: number; read?: boolean },
+    ): MockNotification => ({
+      id: `ntf-${userKey}-${i}`,
+      type: seed.type,
+      severity: seed.severity,
+      sourceModule: seed.sourceModule,
+      title: seed.title,
+      body: seed.body,
+      deepLink: seed.deepLink,
+      payload: seed.payload,
+      createdAt: new Date(now - seed.agoMin * 60_000).toISOString(),
+      readAt: seed.read ? new Date(now - seed.agoMin * 30_000).toISOString() : null,
+    });
+    gNtf.__MOCK_NOTIFS__[userKey] = {
+      rows: [
+        mk(1, {
+          type: "BUDGET_BREACH",
+          severity: "HIGH",
+          sourceModule: "CC",
+          title: "Budget breach — Flooring, Tower A",
+          body: "Actuals ৳ 12,45,000 exceed the budget ৳ 10,00,000 (+24.5%). Review the cost centre.",
+          deepLink: { route: "/cost-control/budget-vs-actual", params: { costCentre: "cc-mat" } },
+          payload: null,
+          agoMin: 4,
+        }),
+        mk(2, {
+          type: "REQUISITION_APPROVAL",
+          severity: "NORMAL",
+          sourceModule: "REQ",
+          title: "Requisition REQ-2025/0324 — Awaiting your approval",
+          body: "Rahim Uddin submitted for Bridge-04 · 12 items · ৳ 5,20,000.",
+          deepLink: { route: "/requisitions/approvals" },
+          payload: null,
+          agoMin: 22,
+        }),
+        mk(3, {
+          type: "IPC_SUBMITTED",
+          severity: "NORMAL",
+          sourceModule: "SAL",
+          title: "IPC IPC/2526/0018 submitted",
+          body: "National Housing Authority · Bridge-04 · ৳ 92,00,000 certified this month.",
+          deepLink: { route: "/sales/ipcs" },
+          payload: null,
+          agoMin: 65,
+        }),
+        mk(4, {
+          type: "GRN_MISMATCH",
+          severity: "NORMAL",
+          sourceModule: "PUR",
+          title: "GRN mismatch — PO-2025/0141",
+          body: "Received 480 bags vs ordered 500. Short-received 20 bags of cement.",
+          deepLink: { route: "/purchase/grn" },
+          payload: null,
+          agoMin: 130,
+        }),
+        mk(5, {
+          type: "PAYMENT_POSTED",
+          severity: "LOW",
+          sourceModule: "PAY",
+          title: "কর্মচারী বেতন পোস্ট হয়েছে",
+          body: "Salary payment posted for the July 2025 cycle · ৳ 18,45,000 disbursed.",
+          deepLink: { route: "/payments" },
+          payload: null,
+          agoMin: 300,
+          read: true,
+        }),
+        mk(6, {
+          type: "AUDIT_EVENT",
+          severity: "LOW",
+          sourceModule: "AUD",
+          title: "New sign-in on your account",
+          body: "A new session started from Dhaka, Bangladesh at 14/07/2026 09:12.",
+          deepLink: null,
+          payload: null,
+          agoMin: 900,
+          read: true,
+        }),
+        mk(7, {
+          type: "IPC_REVERSED",
+          severity: "NORMAL",
+          sourceModule: "SAL",
+          title: "IPC IPC/2526/0007 reversed",
+          body: "This IPC has been reversed; the underlying record was replaced.",
+          deepLink: { route: "/sales/ipcs/ipc-gone" },
+          payload: null,
+          agoMin: 1500,
+          read: true,
+        }),
+      ],
+    };
+  }
+  return gNtf.__MOCK_NOTIFS__[userKey]!;
+}
+
 // ── FE-52 profile store (mock) ────────────────────────────────────────────────
 interface MockProfile {
   id: string;
@@ -2567,6 +2684,64 @@ export async function mockNestjsFetch(req: MockReq): Promise<MockResult> {
   // A tiny sample protected resource for the proxy/refresh e2e.
   if (req.path === "/auth/me") {
     return { status: 200, body: success({ user: safeUser(user) }) };
+  }
+
+  // ── FE-53 fe-notifications — /notifications feed + unread-count + mark-read ──
+  const notifStore = getMockNotifStore(access.userKey);
+  const [notifPath, notifRawQuery = ""] = req.path.split("?");
+  const notifParams = new URLSearchParams(notifRawQuery);
+  if (notifPath === "/notifications" && req.method === "GET") {
+    const isReadRaw = notifParams.get("isRead");
+    const isRead = isReadRaw === "true" ? true : isReadRaw === "false" ? false : null;
+    const typeF = notifParams.get("type");
+    const since = notifParams.get("since");
+    const page = Math.max(1, Number(notifParams.get("page") ?? "1"));
+    const pageSize = Math.max(1, Math.min(100, Number(notifParams.get("pageSize") ?? "25")));
+    const filtered = notifStore.rows.filter((n) => {
+      if (isRead === true && n.readAt === null) return false;
+      if (isRead === false && n.readAt !== null) return false;
+      if (typeF && n.type !== typeF) return false;
+      if (since && n.createdAt <= since) return false;
+      return true;
+    });
+    const start = (page - 1) * pageSize;
+    const slice = filtered.slice(start, start + pageSize);
+    return {
+      status: 200,
+      body: {
+        data: slice,
+        meta: { requestId: `mock-ntf-${jtiCounterSeed}`, page, pageSize, total: filtered.length },
+      },
+    };
+  }
+  if (req.path === "/notifications/unread-count" && req.method === "GET") {
+    const unread = notifStore.rows.filter((n) => n.readAt === null).length;
+    return { status: 200, body: success({ unreadCount: unread }) };
+  }
+  const singleMatch = /^\/notifications\/([^/]+)(\/read)?$/.exec(notifPath ?? "");
+  if (singleMatch && singleMatch[1] !== "unread-count" && singleMatch[1] !== "read-all") {
+    const id = singleMatch[1]!;
+    const row = notifStore.rows.find((n) => n.id === id);
+    if (req.method === "GET") {
+      if (!row) return { status: 404, body: envelope("NOT_FOUND", "Notification not found") };
+      return { status: 200, body: success(row) };
+    }
+    if (req.method === "POST" && singleMatch[2] === "/read") {
+      if (!row) return { status: 404, body: envelope("NOT_FOUND", "Notification not found") };
+      if (row.readAt === null) row.readAt = new Date().toISOString();
+      return { status: 200, body: success(row) };
+    }
+  }
+  if (req.path === "/notifications/read-all" && req.method === "POST") {
+    let updated = 0;
+    const now = new Date().toISOString();
+    for (const row of notifStore.rows) {
+      if (row.readAt === null) {
+        row.readAt = now;
+        updated += 1;
+      }
+    }
+    return { status: 200, body: success({ updated }) };
   }
 
   // ── FE-52 fe-account-profile — /profile self-service surface ──
