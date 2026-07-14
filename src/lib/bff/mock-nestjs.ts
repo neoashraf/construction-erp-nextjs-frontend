@@ -2686,6 +2686,161 @@ export async function mockNestjsFetch(req: MockReq): Promise<MockResult> {
     return { status: 200, body: success({ user: safeUser(user) }) };
   }
 
+  // ── FE-54 fe-report-catalog — /reports/catalog + /reports/<name> ──
+  if (req.path === "/reports/catalog" && req.method === "GET") {
+    return {
+      status: 200,
+      body: success([
+        {
+          name: "trial-balance",
+          title: "Trial balance",
+          description: "Debit + credit balance per account for the period; must tie.",
+          category: "LEDGERS_REGISTERS",
+          viewerRoute: "/reports/trial-balance-ledgers",
+          requiredPermission: "reports",
+          parameters: [],
+          projectScoped: false,
+          supportsAsOf: true,
+          supportsDateRange: true,
+        },
+        {
+          name: "profit-and-loss",
+          title: "Profit & loss",
+          description: "Revenue vs cost of services + operating expenses for the period.",
+          category: "FINANCIAL_STATEMENTS",
+          viewerRoute: "/reports/financial-statements",
+          requiredPermission: "reports",
+          parameters: [],
+          supportsDateRange: true,
+        },
+        {
+          name: "balance-sheet",
+          title: "Balance sheet",
+          description: "Assets = Liabilities + Equity as at a date.",
+          category: "FINANCIAL_STATEMENTS",
+          viewerRoute: "/reports/financial-statements",
+          requiredPermission: "reports",
+          parameters: [],
+          supportsAsOf: true,
+        },
+        {
+          name: "journal-register",
+          title: "Journal register",
+          description: "Every posted journal entry over the period, oldest first.",
+          category: "LEDGERS_REGISTERS",
+          viewerRoute: "/reports/trial-balance-ledgers",
+          requiredPermission: "reports",
+          parameters: [],
+          supportsDateRange: true,
+        },
+        {
+          name: "project-pnl",
+          title: "Project P&L",
+          description: "Revenue vs cost per project; PM sees assigned only.",
+          category: "PROJECT_IPC",
+          viewerRoute: "/reports/project-ipc",
+          requiredPermission: "reports",
+          parameters: [],
+          projectScoped: true,
+          supportsDateRange: true,
+        },
+        {
+          name: "ipc-register",
+          title: "IPC register & retention",
+          description: "Every IPC over the period with retention held.",
+          category: "PROJECT_IPC",
+          viewerRoute: "/reports/project-ipc",
+          requiredPermission: "reports",
+          parameters: [],
+          supportsDateRange: true,
+        },
+        {
+          name: "stock-ledger-report",
+          title: "Stock ledger",
+          description: "Movements + running qty per item.",
+          category: "INVENTORY",
+          viewerRoute: "/reports/inventory",
+          requiredPermission: "reports",
+          parameters: [],
+          supportsDateRange: true,
+        },
+        {
+          name: "requisition-register",
+          title: "Requisition register",
+          description: "Every requisition + approval status over the period.",
+          category: "REQUISITION_COST_CONTROL",
+          viewerRoute: "/reports/requisition-cost-control",
+          requiredPermission: "reports",
+          parameters: [],
+          supportsDateRange: true,
+        },
+        {
+          name: "salary-register",
+          title: "Salary register",
+          description: "Salary sheet lines with earnings + deductions per employee.",
+          category: "HR",
+          viewerRoute: "/reports/hr",
+          requiredPermission: "reports",
+          parameters: [],
+          supportsDateRange: true,
+        },
+      ]),
+    };
+  }
+  if (req.path.startsWith("/reports/trial-balance") && req.method === "GET") {
+    // Any query string is accepted; the mock returns a canonical, ties-out dataset.
+    const rows = [
+      { accountId: "1010", accountCode: "1010", accountName: "Cash on hand", debit: "500000.0000", credit: "0.0000" },
+      { accountId: "1201", accountCode: "1201", accountName: "HSBC Current 001", debit: "8500000.0000", credit: "0.0000" },
+      { accountId: "1200", accountCode: "1200", accountName: "Accounts Receivable", debit: "2500000.0000", credit: "0.0000" },
+      { accountId: "2100", accountCode: "2100", accountName: "Accounts payable", debit: "0.0000", credit: "800000.0000" },
+      { accountId: "3100", accountCode: "3100", accountName: "Opening balance equity", debit: "0.0000", credit: "10800000.0000" },
+      { accountId: "gone-42", accountCode: "9999", accountName: null, debit: "100000.0000", credit: "100000.0000" },
+    ];
+    const totals = rows.reduce(
+      (acc, r) => ({
+        debit: (Number(acc.debit) + Number(r.debit)).toFixed(4),
+        credit: (Number(acc.credit) + Number(r.credit)).toFixed(4),
+      }),
+      { debit: "0.0000", credit: "0.0000" },
+    );
+    return {
+      status: 200,
+      body: success({
+        reportName: "trial-balance",
+        parameters: {},
+        rows,
+        meta: {
+          page: 1,
+          pageSize: rows.length,
+          total: rows.length,
+          generatedAt: new Date().toISOString(),
+          totals,
+        },
+      }),
+    };
+  }
+  // Every other /reports/<name> — return an empty well-formed result until the
+  // viewer brief for that report lands.
+  if (req.path.startsWith("/reports/") && req.method === "GET") {
+    const name = req.path.slice("/reports/".length).split("?")[0]!;
+    return {
+      status: 200,
+      body: success({
+        reportName: name,
+        parameters: {},
+        rows: [],
+        meta: {
+          page: 1,
+          pageSize: 25,
+          total: 0,
+          generatedAt: new Date().toISOString(),
+          totals: {},
+        },
+      }),
+    };
+  }
+
   // ── FE-53 fe-notifications — /notifications feed + unread-count + mark-read ──
   const notifStore = getMockNotifStore(access.userKey);
   const [notifPath, notifRawQuery = ""] = req.path.split("?");
