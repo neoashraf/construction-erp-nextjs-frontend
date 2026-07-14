@@ -2789,7 +2789,7 @@ export async function mockNestjsFetch(req: MockReq): Promise<MockResult> {
   }
   if (req.path.startsWith("/reports/trial-balance") && req.method === "GET") {
     // Any query string is accepted; the mock returns a canonical, ties-out dataset.
-    const rows = [
+    const baseRows = [
       { accountId: "1010", accountCode: "1010", accountName: "Cash on hand", debit: "500000.0000", credit: "0.0000" },
       { accountId: "1201", accountCode: "1201", accountName: "HSBC Current 001", debit: "8500000.0000", credit: "0.0000" },
       { accountId: "1200", accountCode: "1200", accountName: "Accounts Receivable", debit: "2500000.0000", credit: "0.0000" },
@@ -2797,6 +2797,10 @@ export async function mockNestjsFetch(req: MockReq): Promise<MockResult> {
       { accountId: "3100", accountCode: "3100", accountName: "Opening balance equity", debit: "0.0000", credit: "10800000.0000" },
       { accountId: "gone-42", accountCode: "9999", accountName: null, debit: "100000.0000", credit: "100000.0000" },
     ];
+    const rows = baseRows.map((r) => ({
+      ...r,
+      net: (Number(r.debit) - Number(r.credit)).toFixed(4),
+    }));
     const totals = rows.reduce(
       (acc, r) => ({
         debit: (Number(acc.debit) + Number(r.debit)).toFixed(4),
@@ -2816,6 +2820,94 @@ export async function mockNestjsFetch(req: MockReq): Promise<MockResult> {
           total: rows.length,
           generatedAt: new Date().toISOString(),
           totals,
+        },
+      }),
+    };
+  }
+  // FE-56 fe-trial-balance-ledgers — account ledger
+  if (req.path.startsWith("/reports/account-ledger") && req.method === "GET") {
+    const [, rawQ = ""] = req.path.split("?");
+    const qs = new URLSearchParams(rawQ);
+    const accountId = qs.get("accountId");
+    const page = Math.max(1, Number(qs.get("page") ?? "1"));
+    const pageSize = Math.max(1, Number(qs.get("pageSize") ?? "25"));
+    if (!accountId) {
+      return {
+        status: 400,
+        body: envelope("VALIDATION_ERROR", "accountId is required"),
+      };
+    }
+    const allRows = [
+      { entryId: "je-1001", journalEntryId: "je-1001", entryNo: "JV/2526/0001", voucherDate: "2026-04-02", voucherType: "Journal", accountId, accountCode: "1200", accountName: "Accounts Receivable", partyId: "party-1", partyName: "National Housing Authority", debit: "250000.0000", credit: "0.0000", runningBalance: "1250000.0000" },
+      { entryId: "je-1002", journalEntryId: "je-1002", entryNo: "RV/2526/0007", voucherDate: "2026-04-15", voucherType: "Receipt", accountId, accountCode: "1200", accountName: "Accounts Receivable", partyId: "party-1", partyName: "National Housing Authority", debit: "0.0000", credit: "150000.0000", runningBalance: "1100000.0000" },
+      { entryId: "je-1003", journalEntryId: "je-1003", entryNo: "PV/2526/0011", voucherDate: "2026-05-01", voucherType: "Payment", accountId, accountCode: "1200", accountName: "Accounts Receivable", partyId: "party-2", partyName: "M/s Rahman Traders", debit: "80000.0000", credit: "0.0000", runningBalance: "1180000.0000", isReversal: true },
+      { entryId: "je-1004", entryNo: "JV/2526/0021", voucherDate: "2026-05-20", voucherType: "Journal", accountId, accountCode: "1200", accountName: null, debit: "45000.0000", credit: "0.0000", runningBalance: "1225000.0000" },
+    ];
+    const rows = allRows.slice((page - 1) * pageSize, (page - 1) * pageSize + pageSize);
+    return {
+      status: 200,
+      body: success({
+        reportName: "account-ledger",
+        parameters: {},
+        rows,
+        meta: {
+          page,
+          pageSize,
+          total: allRows.length,
+          generatedAt: new Date().toISOString(),
+          openingBalance: "1000000.0000",
+          openingAsOf: "2026-04-01",
+          dateFrom: qs.get("dateFrom") ?? "2026-04-01",
+          dateTo: qs.get("dateTo") ?? "2026-06-30",
+        },
+      }),
+    };
+  }
+  // FE-56 — daybook
+  if (req.path.startsWith("/reports/daybook") && req.method === "GET") {
+    const rows = [
+      { entryId: "je-1001", journalEntryId: "je-1001", entryNo: "JV/2526/0001", voucherDate: "2026-04-02", voucherType: "Journal", accountId: "1200", accountCode: "1200", accountName: "Accounts Receivable", debit: "250000.0000", credit: "0.0000", runningBalance: "0.0000" },
+      { entryId: "je-1002", journalEntryId: "je-1002", entryNo: "RV/2526/0007", voucherDate: "2026-04-15", voucherType: "Receipt", accountId: "1101", accountCode: "1101", accountName: "HSBC Current 001", debit: "150000.0000", credit: "0.0000", runningBalance: "0.0000" },
+      { entryId: "je-1003", journalEntryId: "je-1003", entryNo: "PV/2526/0011", voucherDate: "2026-05-01", voucherType: "Payment", accountId: "2100", accountCode: "2100", accountName: "Accounts payable", debit: "0.0000", credit: "80000.0000", runningBalance: "0.0000" },
+    ];
+    return {
+      status: 200,
+      body: success({
+        reportName: "daybook",
+        parameters: {},
+        rows,
+        meta: {
+          page: 1,
+          pageSize: rows.length,
+          total: rows.length,
+          generatedAt: new Date().toISOString(),
+        },
+      }),
+    };
+  }
+  // FE-56 — cash & bank book
+  if (req.path.startsWith("/reports/cash-bank-book") && req.method === "GET") {
+    const [, rawQ = ""] = req.path.split("?");
+    const qs = new URLSearchParams(rawQ);
+    const rows = [
+      { entryId: "je-2001", journalEntryId: "je-2001", entryNo: "RV/2526/0007", voucherDate: "2026-04-15", voucherType: "Receipt", accountId: "1101", accountCode: "1101", accountName: "HSBC Current 001", partyId: "party-1", partyName: "National Housing Authority", debit: "150000.0000", credit: "0.0000", runningBalance: "8650000.0000" },
+      { entryId: "je-2002", journalEntryId: "je-2002", entryNo: "PV/2526/0011", voucherDate: "2026-05-01", voucherType: "Payment", accountId: "1101", accountCode: "1101", accountName: "HSBC Current 001", partyId: "party-2", partyName: "M/s Rahman Traders", debit: "0.0000", credit: "80000.0000", runningBalance: "8570000.0000" },
+    ];
+    return {
+      status: 200,
+      body: success({
+        reportName: "cash-bank-book",
+        parameters: {},
+        rows,
+        meta: {
+          page: 1,
+          pageSize: rows.length,
+          total: rows.length,
+          generatedAt: new Date().toISOString(),
+          openingBalance: "8500000.0000",
+          openingAsOf: "2026-04-01",
+          dateFrom: qs.get("dateFrom") ?? "2026-04-01",
+          dateTo: qs.get("dateTo") ?? "2026-06-30",
         },
       }),
     };
