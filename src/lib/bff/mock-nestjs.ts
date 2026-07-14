@@ -6944,5 +6944,375 @@ export async function mockNestjsFetch(req: MockReq): Promise<MockResult> {
     };
   }
 
+  // ── Payments (fe-payment-list) — read/navigate + delete-draft ───────────────
+  //
+  // Minimum viable payment endpoints for FE-45 e2e/RTL: GET /payment (paginated,
+  // filtered), GET /payment/{id}, DELETE /payment/{id} (DRAFT only),
+  // GET /payment/open-payables (open PUR bills + HR labour/salary payables),
+  // GET /payment/payables/{type}/{id}/applied. Create/patch/post/cancel/repost
+  // arrive with FE-46/FE-47. Seed a small mix of DRAFT/POSTED/CANCELLED payments
+  // + a couple of open PUR bills against the seed suppliers so the Outstanding
+  // view has something to render.
+  interface MockPaymentAllocation {
+    lineNo: number;
+    payableType: "PURCHASE_BILL" | "LABOUR_PAYABLE" | "SALARY";
+    payableId: string;
+    amountAllocated: string;
+    accruedAmount: string | null;
+    partyId: string | null;
+    projectId: string | null;
+    costCentreId: string | null;
+    purposeId: string | null;
+  }
+  interface MockPayment {
+    id: string;
+    partyId: string;
+    paymentDate: string;
+    paymentMode: "CASH" | "MFS" | "BANK_TRANSFER" | "CHEQUE" | "RTGS";
+    paymentAccountId: string;
+    chequeTxnRef: string | null;
+    bankChargesAmount: string;
+    paymentAmount: string;
+    narration: string | null;
+    status: "DRAFT" | "POSTED" | "CANCELLED";
+    entryNo: string | null;
+    journalEntryId: string | null;
+    postedAt: string | null;
+    postedBy: string | null;
+    version: number;
+    allocations: MockPaymentAllocation[];
+  }
+  // A stable seed on first pass so hot-reload doesn't multiply rows.
+  const gPay = globalThis as unknown as { __MOCK_PAYMENTS__?: MockPayment[] };
+  if (!gPay.__MOCK_PAYMENTS__) {
+    gPay.__MOCK_PAYMENTS__ = [
+      {
+        id: "pay-1",
+        partyId: "pa-1",
+        paymentDate: "2026-07-11",
+        paymentMode: "RTGS",
+        paymentAccountId: "1201",
+        chequeTxnRef: "RTGS-99815",
+        bankChargesAmount: "150.0000",
+        paymentAmount: "200150.0000",
+        narration: "Part-payment — Sup-A bill 0042",
+        status: "POSTED",
+        entryNo: "PAY/2526/0031",
+        journalEntryId: "je-pay-1",
+        postedAt: "2026-07-11T10:22:11Z",
+        postedBy: "u1",
+        version: 2,
+        allocations: [
+          {
+            lineNo: 1,
+            payableType: "PURCHASE_BILL",
+            payableId: "bill-1",
+            amountAllocated: "200000.0000",
+            accruedAmount: null,
+            partyId: "pa-1",
+            projectId: null,
+            costCentreId: null,
+            purposeId: null,
+          },
+        ],
+      },
+      {
+        id: "pay-2",
+        partyId: "pa-1",
+        paymentDate: "2026-07-09",
+        paymentMode: "CHEQUE",
+        paymentAccountId: "1201",
+        chequeTxnRef: "CHQ-0912",
+        bankChargesAmount: "0.0000",
+        paymentAmount: "50000.0000",
+        narration: null,
+        status: "DRAFT",
+        entryNo: null,
+        journalEntryId: null,
+        postedAt: null,
+        postedBy: null,
+        version: 1,
+        allocations: [
+          {
+            lineNo: 1,
+            payableType: "PURCHASE_BILL",
+            payableId: "bill-2",
+            amountAllocated: "50000.0000",
+            accruedAmount: null,
+            partyId: "pa-1",
+            projectId: null,
+            costCentreId: null,
+            purposeId: null,
+          },
+        ],
+      },
+      {
+        id: "pay-3",
+        partyId: "pa-2",
+        paymentDate: "2026-06-30",
+        paymentMode: "BANK_TRANSFER",
+        paymentAccountId: "1201",
+        chequeTxnRef: "TXN-88170",
+        bankChargesAmount: "0.0000",
+        paymentAmount: "120000.0000",
+        narration: "Advance payment",
+        status: "CANCELLED",
+        entryNo: "PAY/2526/0028",
+        journalEntryId: "je-pay-3",
+        postedAt: "2026-06-30T09:00:00Z",
+        postedBy: "u1",
+        version: 3,
+        allocations: [
+          {
+            lineNo: 1,
+            payableType: "PURCHASE_BILL",
+            payableId: "bill-3",
+            amountAllocated: "120000.0000",
+            accruedAmount: null,
+            partyId: "pa-2",
+            projectId: null,
+            costCentreId: null,
+            purposeId: null,
+          },
+        ],
+      },
+    ];
+  }
+  const MOCK_PAYMENTS: MockPayment[] = gPay.__MOCK_PAYMENTS__;
+
+  function paymentAllocated(p: MockPayment): string {
+    return p.allocations
+      .reduce((s, a) => s + Number(a.amountAllocated), 0)
+      .toFixed(4);
+  }
+  function paymentUnallocated(p: MockPayment): string {
+    return (Number(p.paymentAmount) - Number(paymentAllocated(p))).toFixed(4);
+  }
+  function paymentSummary(p: MockPayment) {
+    return {
+      id: p.id,
+      entryNo: p.entryNo,
+      partyId: p.partyId,
+      paymentDate: p.paymentDate,
+      paymentMode: p.paymentMode,
+      paymentAccountId: p.paymentAccountId,
+      chequeTxnRef: p.chequeTxnRef,
+      paymentAmount: p.paymentAmount,
+      allocatedAmount: paymentAllocated(p),
+      unallocatedAmount: paymentUnallocated(p),
+      status: p.status,
+    };
+  }
+  function paymentResource(p: MockPayment) {
+    return {
+      id: p.id,
+      partyId: p.partyId,
+      paymentDate: p.paymentDate,
+      paymentMode: p.paymentMode,
+      paymentAccountId: p.paymentAccountId,
+      chequeTxnRef: p.chequeTxnRef,
+      bankChargesAmount: p.bankChargesAmount,
+      bankChargesProjectId: null,
+      bankChargesCostCentreId: null,
+      bankChargesPurposeId: null,
+      paymentAmount: p.paymentAmount,
+      narration: p.narration,
+      status: p.status,
+      entryNo: p.entryNo,
+      journalEntryId: p.journalEntryId,
+      allocatedAmount: paymentAllocated(p),
+      unallocatedAmount: paymentUnallocated(p),
+      allocations: p.allocations,
+      postedAt: p.postedAt,
+      postedBy: p.postedBy,
+      version: p.version,
+      linkage: p.status === "DRAFT" ? null : {
+        hasHistory: p.status === "CANCELLED",
+        currentEntryNo: p.entryNo,
+        originalEntryNo: p.entryNo,
+        entries: [],
+      },
+    };
+  }
+
+  if (pathname === "/payment" && req.method === "GET") {
+    let rows = MOCK_PAYMENTS.slice();
+    const partyId = params.get("partyId");
+    const paymentMode = params.get("paymentMode");
+    const statusCsv = params.get("status");
+    const paymentAccountId = params.get("paymentAccountId");
+    const entryNo = params.get("entryNo");
+    const dateFrom = params.get("dateFrom");
+    const dateTo = params.get("dateTo");
+    if (partyId) rows = rows.filter((r) => r.partyId === partyId);
+    if (paymentMode) {
+      const wanted = new Set(paymentMode.split(","));
+      rows = rows.filter((r) => wanted.has(r.paymentMode));
+    }
+    if (statusCsv) {
+      const wanted = new Set(statusCsv.split(","));
+      rows = rows.filter((r) => wanted.has(r.status));
+    }
+    if (paymentAccountId) rows = rows.filter((r) => r.paymentAccountId === paymentAccountId);
+    if (entryNo) rows = rows.filter((r) => r.entryNo === entryNo);
+    if (dateFrom) rows = rows.filter((r) => r.paymentDate >= dateFrom);
+    if (dateTo) rows = rows.filter((r) => r.paymentDate <= dateTo);
+    rows.sort((a, b) => (a.paymentDate < b.paymentDate ? 1 : -1)); // newest-first
+    return { status: 200, body: pageEnvelope(rows.map(paymentSummary)) };
+  }
+
+  // /payment/open-payables — synthesised from a small fixed catalogue that mirrors
+  // the seed suppliers. Real PAY BE queries `payment_allocation` + owning modules'
+  // payables; the mock only needs to feed the Outstanding view + drill-in.
+  if (pathname === "/payment/open-payables" && req.method === "GET") {
+    const partyId = params.get("partyId");
+    const payableTypeCsv = params.get("payableType");
+    const seed: Array<{
+      payableType: "PURCHASE_BILL" | "LABOUR_PAYABLE" | "SALARY";
+      payableId: string;
+      reference: string;
+      partyId: string | null;
+      originalAmount: string;
+      payableDate: string;
+      accruedAmount: string | null;
+    }> = [
+      {
+        payableType: "PURCHASE_BILL",
+        payableId: "bill-1",
+        reference: "PUR/2526/0042",
+        partyId: "pa-1",
+        originalAmount: "231150.0000",
+        payableDate: "2026-06-29",
+        accruedAmount: null,
+      },
+      {
+        payableType: "PURCHASE_BILL",
+        payableId: "bill-2",
+        reference: "PUR/2526/0055",
+        partyId: "pa-1",
+        originalAmount: "150000.0000",
+        payableDate: "2026-07-01",
+        accruedAmount: null,
+      },
+      {
+        payableType: "PURCHASE_BILL",
+        payableId: "bill-3",
+        reference: "PUR/2526/0060",
+        partyId: "pa-2",
+        originalAmount: "120000.0000",
+        payableDate: "2026-06-25",
+        accruedAmount: null,
+      },
+      {
+        payableType: "LABOUR_PAYABLE",
+        payableId: "lbr-1",
+        reference: "LBR/2026-07-10",
+        partyId: null,
+        originalAmount: "45000.0000",
+        payableDate: "2026-07-10",
+        accruedAmount: "45000.0000",
+      },
+      {
+        payableType: "SALARY",
+        payableId: "sal-1",
+        reference: "SAL/2026-06",
+        partyId: null,
+        originalAmount: "820000.0000",
+        payableDate: "2026-06-30",
+        accruedAmount: null,
+      },
+    ];
+    const wantedTypes = payableTypeCsv ? new Set(payableTypeCsv.split(",")) : null;
+    const rows = seed
+      .filter((s) => (partyId ? s.partyId === partyId : true))
+      .filter((s) => (wantedTypes ? wantedTypes.has(s.payableType) : true))
+      .map((s) => {
+        const applied = MOCK_PAYMENTS.filter((p) => p.status === "POSTED").reduce(
+          (sum, p) =>
+            sum +
+            p.allocations
+              .filter((a) => a.payableType === s.payableType && a.payableId === s.payableId)
+              .reduce((x, a) => x + Number(a.amountAllocated), 0),
+          0,
+        );
+        return {
+          payableType: s.payableType,
+          payableId: s.payableId,
+          reference: s.reference,
+          partyId: s.partyId,
+          originalAmount: s.originalAmount,
+          appliedAmount: applied.toFixed(4),
+          remainingOutstanding: (Number(s.originalAmount) - applied).toFixed(4),
+          accruedAmount: s.accruedAmount,
+          payableDate: s.payableDate,
+        };
+      })
+      .filter((r) => Number(r.remainingOutstanding) > 0);
+    return { status: 200, body: success(rows) };
+  }
+
+  const payAppliedMatch = /^\/payment\/payables\/([^/]+)\/([^/]+)\/applied$/.exec(
+    pathname ?? "",
+  );
+  if (payAppliedMatch && req.method === "GET") {
+    const [, payableType, payableId] = payAppliedMatch;
+    const applications = MOCK_PAYMENTS.filter(
+      (p) =>
+        p.status === "POSTED" &&
+        p.allocations.some((a) => a.payableType === payableType && a.payableId === payableId),
+    ).map((p) => {
+      const alloc = p.allocations.find(
+        (a) => a.payableType === payableType && a.payableId === payableId,
+      );
+      return {
+        paymentId: p.id,
+        entryNo: p.entryNo ?? "",
+        paymentDate: p.paymentDate,
+        amountAllocated: alloc?.amountAllocated ?? "0.0000",
+        status: p.status,
+      };
+    });
+    // Cross-ref the open-payables seed for the totals.
+    const seedOpen = {
+      "bill-1": "231150.0000",
+      "bill-2": "150000.0000",
+      "bill-3": "120000.0000",
+      "lbr-1": "45000.0000",
+      "sal-1": "820000.0000",
+    } as Record<string, string>;
+    const originalAmount = seedOpen[payableId ?? ""] ?? "0.0000";
+    const appliedAmount = applications
+      .reduce((s, a) => s + Number(a.amountAllocated), 0)
+      .toFixed(4);
+    return {
+      status: 200,
+      body: success({
+        payableType,
+        payableId,
+        originalAmount,
+        appliedAmount,
+        remainingOutstanding: (Number(originalAmount) - Number(appliedAmount)).toFixed(4),
+        applications,
+      }),
+    };
+  }
+
+  const paymentIdMatch = /^\/payment\/([^/]+)$/.exec(pathname ?? "");
+  if (paymentIdMatch && !pathname?.startsWith("/payment/payables/") && !pathname?.startsWith("/payment/open")) {
+    const id = paymentIdMatch[1]!;
+    const p = MOCK_PAYMENTS.find((r) => r.id === id);
+    if (!p) return { status: 404, body: envelope("NOT_FOUND", "Payment not found.") };
+    if (req.method === "GET") {
+      return { status: 200, body: success(paymentResource(p)) };
+    }
+    if (req.method === "DELETE") {
+      if (p.status !== "DRAFT")
+        return { status: 409, body: envelope("VOUCHER_POSTED_IMMUTABLE", "This payment has been posted and can no longer be deleted.") };
+      const idx = MOCK_PAYMENTS.findIndex((r) => r.id === id);
+      MOCK_PAYMENTS.splice(idx, 1);
+      return { status: 204, body: null };
+    }
+  }
+
   return { status: 200, body: success({ ok: true, path: req.path }) };
 }

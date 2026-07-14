@@ -83,6 +83,7 @@ export const MODULES = [
   "sales",
   "purchase",
   "receipts",
+  "payments",
   "hr",
 ] as const;
 
@@ -108,6 +109,7 @@ const ROLE_MODULES: Record<Role, readonly ModuleKey[]> = {
     "sales",
     "purchase",
     "receipts",
+    "payments",
     "hr",
   ],
   ACCOUNTS_TEAM: [
@@ -121,6 +123,7 @@ const ROLE_MODULES: Record<Role, readonly ModuleKey[]> = {
     "sales",
     "purchase",
     "receipts",
+    "payments",
     "hr",
   ],
   ACCOUNTS_MANAGER: [
@@ -134,6 +137,7 @@ const ROLE_MODULES: Record<Role, readonly ModuleKey[]> = {
     "sales",
     "purchase",
     "receipts",
+    "payments",
     "hr",
   ],
   PROJECT_MANAGER: [
@@ -175,6 +179,7 @@ export const MODULE_RESOURCE_PREFIX: Record<ModuleKey, readonly string[]> = {
   sales: ["sales."],
   purchase: ["purchase."],
   receipts: ["receipts"],
+  payments: ["payments."],
   hr: ["hr."],
 };
 
@@ -247,6 +252,7 @@ export function moduleLabel(module: ModuleKey): string {
     sales: "Sales / IPC",
     purchase: "Purchase",
     receipts: "Receipts",
+    payments: "Payments",
     hr: "HR & Payroll",
   };
   return labels[module];
