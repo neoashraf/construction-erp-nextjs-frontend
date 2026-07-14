@@ -1922,13 +1922,25 @@ interface MockReceipt {
   receiptType: "IPC_LINKED" | "GENERAL";
   receiptDate: string;
   paymentMode: "CASH" | "MFS" | "BANK_TRANSFER" | "CHEQUE";
+  depositAccountId?: string;
   partyId: string;
   projectId: string | null;
+  costCentreId?: string | null;
+  purposeId?: string | null;
   ipcId: string | null;
+  generalTargetAccountId?: string | null;
   amountSettled: string;
+  cashReceived?: string;
   taxDeductedAtSource: string;
+  chequeTxnRef?: string | null;
+  narration?: string | null;
   status: "DRAFT" | "POSTED" | "CANCELLED";
   entryNo: string | null;
+  journalEntryId?: string | null;
+  ipcOutstandingAfter?: string | null;
+  postedAt?: string | null;
+  postedBy?: string | null;
+  version?: number;
 }
 const MOCK_RECEIPTS: MockReceipt[] = [
   {
@@ -6445,6 +6457,221 @@ export async function mockNestjsFetch(req: MockReq): Promise<MockResult> {
           }),
         };
       }
+    }
+  }
+
+  // ── Receipts (fe-receipt-editor) — voucher write surface ───────────────────
+  //
+  // Minimum viable write mocks for FE-43 e2e: create a DRAFT (no number, no ledger),
+  // GET/PATCH/DELETE that DRAFT, then POST it — allocating a gapless `RCT/2526/nnnn`
+  // number and flipping status POSTED. Cancel/repost belong to FE-44's viewer and are
+  // not implemented here.
+  let nextReceiptSeq = MOCK_RECEIPTS.reduce((m, r) => {
+    const n = r.entryNo ? Number(r.entryNo.split("/").pop()) : 0;
+    return Number.isFinite(n) && n > m ? n : m;
+  }, 0);
+  function allocateReceiptEntryNo(): string {
+    nextReceiptSeq += 1;
+    return `RCT/2526/${String(nextReceiptSeq).padStart(4, "0")}`;
+  }
+
+  function receiptResource(r: MockReceipt) {
+    return {
+      id: r.id,
+      receiptType: r.receiptType,
+      receiptDate: r.receiptDate,
+      paymentMode: r.paymentMode,
+      depositAccountId: r.depositAccountId ?? null,
+      partyId: r.partyId,
+      projectId: r.projectId,
+      costCentreId: r.costCentreId ?? null,
+      purposeId: r.purposeId ?? null,
+      ipcId: r.ipcId,
+      generalTargetAccountId: r.generalTargetAccountId ?? null,
+      amountSettled: r.amountSettled,
+      cashReceived: r.cashReceived ?? r.amountSettled,
+      taxDeductedAtSource: r.taxDeductedAtSource,
+      chequeTxnRef: r.chequeTxnRef ?? null,
+      narration: r.narration ?? null,
+      status: r.status,
+      entryNo: r.entryNo,
+      journalEntryId: r.journalEntryId ?? null,
+      ipcOutstandingAfter: r.ipcOutstandingAfter ?? null,
+      postedAt: r.postedAt ?? null,
+      postedBy: r.postedBy ?? null,
+      version: r.version ?? 1,
+      linkage: r.status === "DRAFT" ? null : {
+        hasHistory: false,
+        currentEntryNo: r.entryNo,
+        originalEntryNo: r.entryNo,
+        entries: [],
+      },
+    };
+  }
+
+  if (pathname === "/receipt" && req.method === "POST") {
+    const b = (body ?? {}) as {
+      receiptType?: "IPC_LINKED" | "GENERAL";
+      receiptDate?: string;
+      paymentMode?: MockReceipt["paymentMode"];
+      depositAccountId?: string;
+      ipcId?: string;
+      partyId?: string;
+      generalTargetAccountId?: string;
+      projectId?: string | null;
+      costCentreId?: string;
+      purposeId?: string | null;
+      amountSettled?: string;
+      taxDeductedAtSource?: string;
+      chequeTxnRef?: string | null;
+      narration?: string | null;
+    };
+    if (!b.receiptType) return { status: 400, body: envelope("VALIDATION_ERROR", "Missing receiptType.") };
+    if (Number(b.amountSettled ?? 0) <= 0)
+      return { status: 400, body: envelope("VALIDATION_ERROR", "Amount settled must be greater than zero.") };
+    if (b.paymentMode !== "CASH" && !b.chequeTxnRef)
+      return { status: 400, body: envelope("CHEQUE_REF_REQUIRED", "Enter a reference for this payment mode.") };
+    const id = `rec-new-${MOCK_RECEIPTS.length + 1}`;
+    let receipt: MockReceipt;
+    if (b.receiptType === "IPC_LINKED") {
+      if (!b.ipcId) return { status: 400, body: envelope("REFERENCE_XOR_VIOLATION", "ipcId required.") };
+      const ipc = MOCK_IPCS.find((i) => i.id === b.ipcId);
+      if (!ipc) return { status: 404, body: envelope("NOT_FOUND", "IPC not found.") };
+      if (ipc.status !== "POSTED")
+        return { status: 409, body: envelope("IPC_NOT_POSTED", "This IPC is no longer posted.") };
+      const settled = Number(b.amountSettled);
+      const tds = Number(b.taxDeductedAtSource ?? 0);
+      if (tds > settled)
+        return { status: 400, body: envelope("VALIDATION_ERROR", "Tax deducted can't exceed the amount settled.") };
+      const due = Number(ipcCurrentlyDue(ipc));
+      const applied = MOCK_RECEIPTS.filter((r) => r.ipcId === ipc.id && r.status === "POSTED")
+        .reduce((s, r) => s + Number(r.amountSettled), 0);
+      if (settled > due - applied)
+        return { status: 409, body: envelope("RECEIPT_EXCEEDS_OUTSTANDING", `This exceeds the IPC's remaining outstanding of ৳${(due - applied).toFixed(4)}.`) };
+      receipt = {
+        id,
+        receiptType: "IPC_LINKED",
+        receiptDate: String(b.receiptDate ?? ""),
+        paymentMode: b.paymentMode!,
+        depositAccountId: b.depositAccountId,
+        partyId: ipc.customerId,
+        projectId: ipc.projectId,
+        costCentreId: ipc.costCentreId,
+        purposeId: ipc.purposeId,
+        ipcId: ipc.id,
+        amountSettled: String(b.amountSettled),
+        cashReceived: (settled - tds).toFixed(4),
+        taxDeductedAtSource: tds.toFixed(4),
+        chequeTxnRef: b.chequeTxnRef ?? null,
+        narration: b.narration ?? null,
+        status: "DRAFT",
+        entryNo: null,
+        version: 1,
+      };
+    } else {
+      if (!b.generalTargetAccountId)
+        return { status: 400, body: envelope("VALIDATION_ERROR", "Choose an income account or the advance-from-customer liability.") };
+      if (!b.partyId)
+        return { status: 400, body: envelope("VALIDATION_ERROR", "Choose a party.") };
+      if (!b.costCentreId)
+        return { status: 400, body: envelope("VALIDATION_ERROR", "Choose a cost centre.") };
+      receipt = {
+        id,
+        receiptType: "GENERAL",
+        receiptDate: String(b.receiptDate ?? ""),
+        paymentMode: b.paymentMode!,
+        depositAccountId: b.depositAccountId,
+        partyId: b.partyId,
+        projectId: b.projectId ?? null,
+        costCentreId: b.costCentreId,
+        purposeId: b.purposeId ?? null,
+        ipcId: null,
+        generalTargetAccountId: b.generalTargetAccountId,
+        amountSettled: String(b.amountSettled),
+        cashReceived: String(b.amountSettled),
+        taxDeductedAtSource: "0.0000",
+        chequeTxnRef: b.chequeTxnRef ?? null,
+        narration: b.narration ?? null,
+        status: "DRAFT",
+        entryNo: null,
+        version: 1,
+      };
+    }
+    MOCK_RECEIPTS.unshift(receipt);
+    return { status: 201, body: success({ id }) };
+  }
+
+  const receiptMatch = /^\/receipt\/([^/]+)(?:\/(post))?$/.exec(pathname ?? "");
+  if (receiptMatch && !pathname?.startsWith("/receipt/ipc/")) {
+    const id = receiptMatch[1]!;
+    const action = receiptMatch[2];
+    const receipt = MOCK_RECEIPTS.find((r) => r.id === id);
+    if (!receipt) return { status: 404, body: envelope("NOT_FOUND", "Receipt not found.") };
+    if (receipt.projectId != null && !scopeOk(receipt.projectId))
+      return { status: 403, body: envelope("FORBIDDEN", "You don't have access to this receipt.") };
+
+    if (req.method === "GET" && !action) {
+      return { status: 200, body: success(receiptResource(receipt)) };
+    }
+    if (req.method === "PATCH" && !action) {
+      if (receipt.status !== "DRAFT")
+        return { status: 409, body: envelope("VOUCHER_POSTED_IMMUTABLE", "This receipt has been posted and can no longer be edited.") };
+      const b = (body ?? {}) as Record<string, unknown> & { version?: number };
+      if (b.version !== undefined && b.version !== (receipt.version ?? 1))
+        return { status: 409, body: envelope("OPTIMISTIC_LOCK_CONFLICT", "This receipt was just changed by someone else.") };
+      Object.assign(receipt, {
+        receiptDate: (b.receiptDate as string | undefined) ?? receipt.receiptDate,
+        amountSettled: (b.amountSettled as string | undefined) ?? receipt.amountSettled,
+        taxDeductedAtSource: (b.taxDeductedAtSource as string | undefined) ?? receipt.taxDeductedAtSource,
+        chequeTxnRef: (b.chequeTxnRef as string | undefined) ?? receipt.chequeTxnRef ?? null,
+        narration: (b.narration as string | undefined) ?? receipt.narration ?? null,
+        depositAccountId: (b.depositAccountId as string | undefined) ?? receipt.depositAccountId,
+        version: (receipt.version ?? 1) + 1,
+      });
+      const settled = Number(receipt.amountSettled);
+      const tds = Number(receipt.taxDeductedAtSource);
+      receipt.cashReceived = (settled - tds).toFixed(4);
+      return { status: 200, body: success(receiptResource(receipt)) };
+    }
+    if (req.method === "DELETE" && !action) {
+      if (receipt.status !== "DRAFT")
+        return { status: 409, body: envelope("VOUCHER_POSTED_IMMUTABLE", "This receipt has been posted and can no longer be deleted.") };
+      const idx = MOCK_RECEIPTS.findIndex((r) => r.id === id);
+      MOCK_RECEIPTS.splice(idx, 1);
+      return { status: 204, body: null };
+    }
+    if (req.method === "POST" && action === "post") {
+      if (receipt.status !== "DRAFT")
+        return { status: 409, body: envelope("VOUCHER_POSTED_IMMUTABLE", "This receipt has already been posted.") };
+      // Re-check outstanding for IPC-linked (edge case 8).
+      let outstandingAfter: string | null = null;
+      if (receipt.receiptType === "IPC_LINKED" && receipt.ipcId) {
+        const ipc = MOCK_IPCS.find((i) => i.id === receipt.ipcId);
+        if (!ipc || ipc.status !== "POSTED")
+          return { status: 409, body: envelope("IPC_NOT_POSTED", "This IPC is no longer posted.") };
+        const due = Number(ipcCurrentlyDue(ipc));
+        const applied = MOCK_RECEIPTS.filter(
+          (r) => r.ipcId === ipc.id && r.status === "POSTED" && r.id !== receipt.id,
+        ).reduce((s, r) => s + Number(r.amountSettled), 0);
+        if (Number(receipt.amountSettled) > due - applied)
+          return { status: 409, body: envelope("RECEIPT_EXCEEDS_OUTSTANDING", `The IPC's remaining outstanding has changed since you started — refresh and re-check the amount.`) };
+        outstandingAfter = (due - applied - Number(receipt.amountSettled)).toFixed(4);
+      }
+      const entryNo = allocateReceiptEntryNo();
+      receipt.status = "POSTED";
+      receipt.entryNo = entryNo;
+      receipt.journalEntryId = `je-${id}`;
+      receipt.ipcOutstandingAfter = outstandingAfter;
+      receipt.postedAt = new Date().toISOString();
+      receipt.postedBy = user.id;
+      receipt.version = (receipt.version ?? 1) + 1;
+      return { status: 200, body: success({
+        id,
+        entryNo,
+        journalEntryId: receipt.journalEntryId,
+        status: "POSTED",
+        ipcOutstandingAfter: outstandingAfter,
+      }) };
     }
   }
 
