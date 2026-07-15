@@ -2841,9 +2841,27 @@ export async function mockNestjsFetch(req: MockReq): Promise<MockResult> {
           supportsDateRange: true,
         },
         {
+          name: "attendance-summary",
+          title: "Attendance summary",
+          description: "Monthly present / leave / absent + head count per project.",
+          category: "HR",
+          viewerRoute: "/reports/hr",
+          requiredPermission: "reports",
+          parameters: [],
+        },
+        {
           name: "salary-register",
           title: "Salary register",
           description: "Salary sheet lines with earnings + deductions per employee.",
+          category: "HR",
+          viewerRoute: "/reports/hr",
+          requiredPermission: "reports",
+          parameters: [],
+        },
+        {
+          name: "employee-payment-history",
+          title: "Employee payment history",
+          description: "Per-employee salary / payable settlements over a date range.",
           category: "HR",
           viewerRoute: "/reports/hr",
           requiredPermission: "reports",
@@ -3461,6 +3479,106 @@ export async function mockNestjsFetch(req: MockReq): Promise<MockResult> {
           page: 1, pageSize: rows.length, total: rows.length,
           generatedAt: new Date().toISOString(),
           totals: { budgeted: "2550000000.0000", actual: "2338500000.0000", variance: "223500000.0000" },
+        },
+      }),
+    };
+  }
+  // FE-60 fe-hr-reports — Attendance summary
+  if (req.path.startsWith("/reports/attendance-summary") && req.method === "GET") {
+    const query = req.path.split("?")[1] ?? "";
+    const qs = new URLSearchParams(query);
+    const month = qs.get("month");
+    if (!month) {
+      return { status: 400, body: envelope("VALIDATION_ERROR", "month is required (YYYY-MM)") };
+    }
+    if (qs.get("employeeId") === "emp-empty") {
+      return {
+        status: 200,
+        body: success({
+          reportName: "attendance-summary",
+          parameters: { month },
+          rows: [],
+          meta: { page: 1, pageSize: 25, total: 0, generatedAt: new Date().toISOString(), totals: { present: 0, paidLeave: 0, unpaidLeave: 0, absent: 0, headCount: 0 } },
+        }),
+      };
+    }
+    const rows = [
+      { projectId: "proj-a", projectName: "Bridge-04 — Buriganga", employeeId: "emp-1", employeeName: "Ashraf Uddin", partyId: null, partyName: null, costCentreId: "cc-lab", costCentreCode: "CC-02", costCentreName: "শ্রমিক মজুরি — Site Labour", present: 22, paidLeave: 1, unpaidLeave: 0, absent: 3, headCount: 1, mode: "OFFICE" },
+      { projectId: "proj-a", projectName: "Bridge-04 — Buriganga", employeeId: "emp-2", employeeName: "Rahim Ali", partyId: null, partyName: null, costCentreId: "cc-lab", costCentreCode: "CC-02", costCentreName: "শ্রমিক মজুরি — Site Labour", present: 24, paidLeave: 2, unpaidLeave: 0, absent: 0, headCount: 1, mode: "OFFICE", employeeInactive: true },
+      { projectId: "proj-a", projectName: "Bridge-04 — Buriganga", employeeId: null, employeeName: null, partyId: "sub-1", partyName: "Star Subcontractors", costCentreId: "cc-sub", costCentreCode: "CC-04", costCentreName: "Subcontractor Works", present: 40, paidLeave: 0, unpaidLeave: 0, absent: 5, headCount: 8, mode: "SUBCONTRACTOR" },
+      { projectId: "proj-b", projectName: "Tower-A — Gulshan", employeeId: null, employeeName: null, partyId: null, partyName: null, costCentreId: "cc-lab", costCentreCode: "CC-02", costCentreName: "শ্রমিক মজুরি — Site Labour", present: 380, paidLeave: 0, unpaidLeave: 0, absent: 20, headCount: 15, mode: "DAILY_LABOUR" },
+      // Partial: unresolved employee name
+      { projectId: "proj-b", projectName: "Tower-A — Gulshan", employeeId: "emp-gone", employeeName: null, partyId: null, partyName: null, costCentreId: "cc-lab", costCentreCode: "CC-02", costCentreName: "শ্রমিক মজুরি — Site Labour", present: 15, paidLeave: 0, unpaidLeave: 2, absent: 1, headCount: 1, mode: "OFFICE" },
+    ];
+    return {
+      status: 200,
+      body: success({
+        reportName: "attendance-summary",
+        parameters: { month },
+        rows,
+        meta: {
+          page: 1, pageSize: rows.length, total: rows.length,
+          generatedAt: new Date().toISOString(),
+          totals: { present: 481, paidLeave: 3, unpaidLeave: 2, absent: 29, headCount: 26 },
+        },
+      }),
+    };
+  }
+  // FE-60 — Salary register
+  if (req.path.startsWith("/reports/salary-register") && req.method === "GET") {
+    const query = req.path.split("?")[1] ?? "";
+    const qs = new URLSearchParams(query);
+    const salaryRunId = qs.get("salaryRunId");
+    const month = qs.get("month");
+    if (!salaryRunId && !month) {
+      return {
+        status: 400,
+        body: envelope("VALIDATION_ERROR", "Provide either salaryRunId, or financialYearId + month."),
+      };
+    }
+    const rows = [
+      { salaryRunId: salaryRunId ?? "run-1", journalEntryId: "je-sal-1", journalEntryNo: "JV/2526/0089", employeeId: "emp-1", employeeName: "Ashraf Uddin", projectId: "proj-a", projectName: "Bridge-04 — Buriganga", costCentreId: "cc-lab", costCentreCode: "CC-02", costCentreName: "শ্রমিক মজুরি — Site Labour", grossPay: "60000.0000", allowances: "5000.0000", tds: "6000.0000", pf: "3000.0000", advanceRecovery: "2000.0000", otherDeductions: "500.0000", netPay: "53500.0000" },
+      { salaryRunId: salaryRunId ?? "run-1", journalEntryId: "je-sal-1", journalEntryNo: "JV/2526/0089", employeeId: "emp-2", employeeName: "Rahim Ali", projectId: "proj-a", projectName: "Bridge-04 — Buriganga", costCentreId: "cc-lab", costCentreCode: "CC-02", costCentreName: "শ্রমিক মজুরি — Site Labour", grossPay: "45000.0000", allowances: "3000.0000", tds: "4500.0000", pf: "2250.0000", advanceRecovery: "0.0000", otherDeductions: "250.0000", netPay: "41000.0000" },
+      { salaryRunId: salaryRunId ?? "run-1", journalEntryId: "je-sal-1", journalEntryNo: "JV/2526/0089", employeeId: "emp-3", employeeName: "Karim Sheikh", projectId: "proj-b", projectName: "Tower-A — Gulshan", costCentreId: "cc-lab", costCentreCode: "CC-02", costCentreName: "শ্রমিক মজুরি — Site Labour", grossPay: "70000.0000", allowances: "6000.0000", tds: "7000.0000", pf: "3500.0000", advanceRecovery: "0.0000", otherDeductions: "0.0000", netPay: "65500.0000" },
+    ];
+    return {
+      status: 200,
+      body: success({
+        reportName: "salary-register",
+        parameters: {},
+        rows,
+        meta: {
+          page: 1, pageSize: rows.length, total: rows.length,
+          generatedAt: new Date().toISOString(),
+          totals: { gross: "175000.0000", net: "160000.0000" },
+        },
+      }),
+    };
+  }
+  // FE-60 — Employee payment history
+  if (req.path.startsWith("/reports/employee-payment-history") && req.method === "GET") {
+    const query = req.path.split("?")[1] ?? "";
+    const qs = new URLSearchParams(query);
+    const dateFrom = qs.get("dateFrom");
+    const dateTo = qs.get("dateTo");
+    if (!dateFrom || !dateTo) {
+      return { status: 400, body: envelope("VALIDATION_ERROR", "dateFrom and dateTo are required.") };
+    }
+    const rows = [
+      { paymentId: "pmt-1", paymentVoucherId: "pv-1", payableRef: "PV/2526/0121", employeeId: "emp-1", employeeName: "Ashraf Uddin", paymentDate: "2026-05-05", paidAmount: "53500.0000" },
+      { paymentId: "pmt-2", paymentVoucherId: "pv-2", payableRef: "PV/2526/0122", employeeId: "emp-2", employeeName: "Rahim Ali", paymentDate: "2026-05-05", paidAmount: "41000.0000" },
+      { paymentId: "pmt-3", paymentVoucherId: "pv-3", payableRef: "PV/2526/0124", employeeId: "emp-3", employeeName: "Karim Sheikh", paymentDate: "2026-06-05", paidAmount: "65500.0000" },
+    ];
+    return {
+      status: 200,
+      body: success({
+        reportName: "employee-payment-history",
+        parameters: {},
+        rows,
+        meta: {
+          page: 1, pageSize: rows.length, total: rows.length,
+          generatedAt: new Date().toISOString(),
+          totals: { paidCount: rows.length, totalPaid: "160000.0000" },
         },
       }),
     };
