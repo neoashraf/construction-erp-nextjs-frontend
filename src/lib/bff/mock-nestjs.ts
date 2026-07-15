@@ -2789,9 +2789,29 @@ export async function mockNestjsFetch(req: MockReq): Promise<MockResult> {
           supportsDateRange: true,
         },
         {
-          name: "stock-ledger-report",
-          title: "Stock ledger",
-          description: "Movements + running qty per item.",
+          name: "stock-valuation",
+          title: "Stock valuation",
+          description: "Qty on hand, total value + weighted-avg rate per godown/item, as-of a date.",
+          category: "INVENTORY",
+          viewerRoute: "/reports/inventory",
+          requiredPermission: "reports",
+          parameters: [],
+          supportsAsOf: true,
+        },
+        {
+          name: "low-stock",
+          title: "Low-stock / re-order",
+          description: "Items at or below their re-order level.",
+          category: "INVENTORY",
+          viewerRoute: "/reports/inventory",
+          requiredPermission: "reports",
+          parameters: [],
+          supportsAsOf: true,
+        },
+        {
+          name: "stock-transfer-summary",
+          title: "Stock transfer summary",
+          description: "Posted transfers/issues over a period, with from → to godown.",
           category: "INVENTORY",
           viewerRoute: "/reports/inventory",
           requiredPermission: "reports",
@@ -3237,6 +3257,127 @@ export async function mockNestjsFetch(req: MockReq): Promise<MockResult> {
           total: rows.length,
           generatedAt: new Date().toISOString(),
           totals: { labourCost: "656500000.0000" },
+        },
+      }),
+    };
+  }
+  // FE-58 fe-inventory-reports — Stock valuation (as-of)
+  if (req.path.startsWith("/reports/stock-valuation") && req.method === "GET") {
+    const query = req.path.split("?")[1] ?? "";
+    const qs = new URLSearchParams(query);
+    const asOf = qs.get("asOf") ?? "2026-06-30";
+    if (qs.get("projectId") === "proj-forbidden") {
+      return { status: 403, body: envelope("FORBIDDEN", "You don't have access to this project.") };
+    }
+    if (qs.get("godownId") === "gd-empty") {
+      return {
+        status: 200,
+        body: success({
+          reportName: "stock-valuation",
+          parameters: { asOf },
+          rows: [],
+          meta: {
+            page: 1,
+            pageSize: 25,
+            total: 0,
+            generatedAt: new Date().toISOString(),
+            totals: { totalValue: "0.0000" },
+          },
+        }),
+      };
+    }
+    const rows = [
+      { godownId: "gd-a", godownCode: "G-Site-A", godownName: "Site A store", itemId: "it-1", itemCode: "IT-101", itemName: "Cement — 50 kg bag", quantityOnHand: "1200.000", totalValue: "780000.0000", weightedAverageRate: "650.0000", asOf },
+      { godownId: "gd-a", godownCode: "G-Site-A", godownName: "Site A store", itemId: "it-2", itemCode: "IT-102", itemName: "MS Rod 12mm", quantityOnHand: "8500.000", totalValue: "6970000.0000", weightedAverageRate: "820.0000", asOf },
+      { godownId: "gd-a", godownCode: "G-Site-A", godownName: "Site A store", itemId: "it-3", itemCode: "IT-103", itemName: "Sand — cft", quantityOnHand: "0.000", totalValue: "0.0000", weightedAverageRate: null, asOf },
+      { godownId: "gd-b", godownCode: "G-Site-B", godownName: "Site B store", itemId: "it-1", itemCode: "IT-101", itemName: "Cement — 50 kg bag", quantityOnHand: "450.000", totalValue: "292500.0000", weightedAverageRate: "650.0000", asOf },
+      { godownId: "gd-b", godownCode: "G-Site-B", godownName: "Site B store", itemId: "gone", itemCode: "IT-999", itemName: null, quantityOnHand: "100.000", totalValue: "50000.0000", weightedAverageRate: "500.0000", asOf, itemInactive: true },
+    ];
+    return {
+      status: 200,
+      body: success({
+        reportName: "stock-valuation",
+        parameters: { asOf },
+        rows,
+        meta: {
+          page: 1,
+          pageSize: rows.length,
+          total: rows.length,
+          generatedAt: new Date().toISOString(),
+          totals: { totalValue: "8092500.0000" },
+        },
+      }),
+    };
+  }
+  // FE-58 — Low-stock / re-order
+  if (req.path.startsWith("/reports/low-stock") && req.method === "GET") {
+    const query = req.path.split("?")[1] ?? "";
+    const qs = new URLSearchParams(query);
+    if (qs.get("projectId") === "proj-forbidden") {
+      return { status: 403, body: envelope("FORBIDDEN", "You don't have access to this project.") };
+    }
+    const reorderLevel = qs.get("reorderLevel") ?? "500";
+    const asOf = qs.get("asOf") ?? "2026-06-30";
+    // Filter to rows where qty <= reorderLevel — mock fixture.
+    const all = [
+      { godownId: "gd-a", godownCode: "G-Site-A", godownName: "Site A store", itemId: "it-3", itemCode: "IT-103", itemName: "Sand — cft", quantityOnHand: "0.000", totalValue: "0.0000", weightedAverageRate: null, reorderLevel: reorderLevel, asOf },
+      { godownId: "gd-b", godownCode: "G-Site-B", godownName: "Site B store", itemId: "it-1", itemCode: "IT-101", itemName: "Cement — 50 kg bag", quantityOnHand: "450.000", totalValue: "292500.0000", weightedAverageRate: "650.0000", reorderLevel: reorderLevel, asOf },
+      { godownId: "gd-c", godownCode: "G-Central", godownName: "Central warehouse", itemId: "it-4", itemCode: "IT-104", itemName: "Nails — kg", quantityOnHand: "150.000", totalValue: "22500.0000", weightedAverageRate: "150.0000", reorderLevel: reorderLevel, asOf },
+      { godownId: "gd-a", godownCode: "G-Site-A", godownName: "Site A store", itemId: "it-5", itemCode: "IT-105", itemName: "Paint — 20 L bucket", quantityOnHand: "80.000", totalValue: "560000.0000", weightedAverageRate: "7000.0000", reorderLevel: reorderLevel, asOf },
+    ];
+    return {
+      status: 200,
+      body: success({
+        reportName: "low-stock",
+        parameters: { asOf, reorderLevel },
+        rows: all,
+        meta: {
+          page: 1,
+          pageSize: all.length,
+          total: all.length,
+          generatedAt: new Date().toISOString(),
+          totals: { totalValue: "875000.0000", breachedCount: all.length },
+        },
+      }),
+    };
+  }
+  // FE-58 — Stock transfer summary (flow)
+  if (req.path.startsWith("/reports/stock-transfer-summary") && req.method === "GET") {
+    const query = req.path.split("?")[1] ?? "";
+    const qs = new URLSearchParams(query);
+    if (qs.get("projectId") === "proj-forbidden") {
+      return { status: 403, body: envelope("FORBIDDEN", "You don't have access to this project.") };
+    }
+    if (qs.get("itemId") === "it-empty") {
+      return {
+        status: 200,
+        body: success({
+          reportName: "stock-transfer-summary",
+          parameters: {},
+          rows: [],
+          meta: {
+            page: 1, pageSize: 25, total: 0,
+            generatedAt: new Date().toISOString(),
+            totals: { totalValueMoved: "0.0000" },
+          },
+        }),
+      };
+    }
+    const rows = [
+      { stockJournalId: "sj-1", voucherNo: "SJ/2526/000001", voucherDate: "2026-04-05", fromGodownId: "gd-a", fromGodownName: "Site A store", toGodownId: "gd-b", toGodownName: "Site B store", itemId: "it-1", itemName: "Cement — 50 kg bag", quantity: "200.000", value: "130000.0000", mode: "TRANSFER", approverId: "u-1", approverName: "Store Manager" },
+      { stockJournalId: "sj-2", voucherNo: "SJ/2526/000002", voucherDate: "2026-04-12", fromGodownId: "gd-b", fromGodownName: "Site B store", toGodownId: null, toGodownName: null, itemId: "it-2", itemName: "MS Rod 12mm", quantity: "500.000", value: "410000.0000", mode: "ISSUE", approverId: "u-2", approverName: "Project Manager" },
+      { stockJournalId: "sj-3", voucherNo: "SJ/2526/000003", voucherDate: "2026-05-01", fromGodownId: "gd-c", fromGodownName: "Central warehouse", toGodownId: "gd-a", toGodownName: "Site A store", itemId: "gone", itemName: null, quantity: "100.000", value: "50000.0000", mode: "TRANSFER", approverId: "u-3", approverName: null },
+    ];
+    return {
+      status: 200,
+      body: success({
+        reportName: "stock-transfer-summary",
+        parameters: {},
+        rows,
+        meta: {
+          page: 1, pageSize: rows.length, total: rows.length,
+          generatedAt: new Date().toISOString(),
+          totals: { totalValueMoved: "590000.0000" },
         },
       }),
     };
