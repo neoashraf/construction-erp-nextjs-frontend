@@ -2745,13 +2745,47 @@ export async function mockNestjsFetch(req: MockReq): Promise<MockResult> {
           supportsDateRange: true,
         },
         {
-          name: "ipc-register",
-          title: "IPC register & retention",
-          description: "Every IPC over the period with retention held.",
+          name: "ipc-billing",
+          title: "IPC report",
+          description: "Per-IPC certified / billed / received / outstanding + ageing.",
           category: "PROJECT_IPC",
           viewerRoute: "/reports/project-ipc",
           requiredPermission: "reports",
           parameters: [],
+          projectScoped: true,
+          supportsDateRange: true,
+        },
+        {
+          name: "outstanding",
+          title: "Outstanding",
+          description: "Per-IPC outstanding grouped by project, as-of a date.",
+          category: "PROJECT_IPC",
+          viewerRoute: "/reports/project-ipc",
+          requiredPermission: "reports",
+          parameters: [],
+          projectScoped: true,
+          supportsAsOf: true,
+        },
+        {
+          name: "material-consumption-vs-budget",
+          title: "Material consumption vs budget",
+          description: "Consumed material cost vs CC budget per cost centre.",
+          category: "PROJECT_IPC",
+          viewerRoute: "/reports/project-ipc",
+          requiredPermission: "reports",
+          parameters: [],
+          projectScoped: true,
+          supportsDateRange: true,
+        },
+        {
+          name: "labour-cost",
+          title: "Labour cost",
+          description: "Labour EXPENSE grouped by cost centre.",
+          category: "PROJECT_IPC",
+          viewerRoute: "/reports/project-ipc",
+          requiredPermission: "reports",
+          parameters: [],
+          projectScoped: true,
           supportsDateRange: true,
         },
         {
@@ -3003,6 +3037,206 @@ export async function mockNestjsFetch(req: MockReq): Promise<MockResult> {
             liabilities: totals.liabilities.toFixed(4),
             equity: totals.equity.toFixed(4),
           },
+        },
+      }),
+    };
+  }
+  // FE-57 fe-project-ipc-reports — Project P&L
+  if (req.path.startsWith("/reports/project-pnl") && req.method === "GET") {
+    const query = req.path.split("?")[1] ?? "";
+    const qs = new URLSearchParams(query);
+    const projectId = qs.get("projectId");
+    if (!projectId) {
+      return {
+        status: 400,
+        body: envelope("VALIDATION_ERROR", "projectId is required"),
+      };
+    }
+    if (projectId === "proj-forbidden") {
+      return {
+        status: 403,
+        body: envelope("FORBIDDEN", "You don't have access to this project."),
+      };
+    }
+    const rows = [
+      { costCentreId: "cc-mat", costCentreCode: "CC-01", costCentreName: "Materials — Cement & Steel", revenue: "480000000.0000", cost: "618000000.0000", profit: "-138000000.0000" },
+      { costCentreId: "cc-lab", costCentreCode: "CC-02", costCentreName: "শ্রমিক মজুরি — Site Labour", revenue: "320000000.0000", cost: "176000000.0000", profit: "144000000.0000" },
+      { costCentreId: "cc-sub", costCentreCode: "CC-04", costCentreName: "Subcontractor Works", revenue: "960000000.0000", cost: "772000000.0000", profit: "188000000.0000" },
+      { costCentreId: "cc-equip", costCentreCode: "CC-06", costCentreName: "Equipment Rental & Hire", revenue: "240000000.0000", cost: "185000000.0000", profit: "55000000.0000" },
+      { costCentreId: "gone-cc", costCentreCode: "CC-99", costCentreName: null, revenue: "10000000.0000", cost: "7500000.0000", profit: "2500000.0000" },
+      // The project-total row (costCentreId=null) — FE renders as a distinct row.
+      { costCentreId: null, costCentreCode: null, costCentreName: "Project total", revenue: "2010000000.0000", cost: "1758500000.0000", profit: "251500000.0000" },
+    ];
+    return {
+      status: 200,
+      body: success({
+        reportName: "project-pnl",
+        parameters: { projectId },
+        rows,
+        meta: {
+          page: 1,
+          pageSize: rows.length,
+          total: rows.length,
+          generatedAt: new Date().toISOString(),
+          totals: { revenue: "2010000000.0000", cost: "1758500000.0000", profit: "251500000.0000" },
+        },
+      }),
+    };
+  }
+  // FE-57 — IPC billing report (per-IPC billing + ageing badge + cumulative)
+  if (req.path.startsWith("/reports/ipc-billing") && req.method === "GET") {
+    const query = req.path.split("?")[1] ?? "";
+    const qs = new URLSearchParams(query);
+    const projectId = qs.get("projectId");
+    if (projectId === "proj-forbidden") {
+      return { status: 403, body: envelope("FORBIDDEN", "You don't have access to this project.") };
+    }
+    if (projectId === "proj-empty") {
+      return {
+        status: 200,
+        body: success({
+          reportName: "ipc-billing",
+          parameters: { projectId },
+          rows: [],
+          meta: {
+            page: 1,
+            pageSize: 25,
+            total: 0,
+            generatedAt: new Date().toISOString(),
+            totals: { certified: "0.0000", billed: "0.0000", received: "0.0000", outstanding: "0.0000", retentionHeld: "0.0000" },
+          },
+        }),
+      };
+    }
+    const rows = [
+      { ipcId: "ipc-1", ipcNo: "IPC-2026-000007", ipcDate: "2026-04-05", dueDate: "2026-05-05", status: "OPEN", certifiedAmount: "12000000.0000", billedAmount: "12000000.0000", receivedAmount: "6000000.0000", outstandingAmount: "6000000.0000", retentionHeldAmount: "1200000.0000", ageingBucket: "CURRENT" },
+      { ipcId: "ipc-2", ipcNo: "IPC-2026-000006", ipcDate: "2026-03-20", dueDate: "2026-04-20", status: "OPEN", certifiedAmount: "8500000.0000", billedAmount: "8500000.0000", receivedAmount: "4000000.0000", outstandingAmount: "4500000.0000", retentionHeldAmount: "850000.0000", ageingBucket: "D31_60" },
+      { ipcId: "ipc-3", ipcNo: "IPC-2026-000005", ipcDate: "2026-02-14", dueDate: "2026-03-14", status: "OPEN", certifiedAmount: "10500000.0000", billedAmount: "10500000.0000", receivedAmount: "3500000.0000", outstandingAmount: "7000000.0000", retentionHeldAmount: "1050000.0000", ageingBucket: "D61_90" },
+      { ipcId: "ipc-4", ipcNo: "IPC-2026-000004", ipcDate: "2025-12-30", dueDate: "2026-01-30", status: "OPEN", certifiedAmount: "6000000.0000", billedAmount: "6000000.0000", receivedAmount: "0.0000", outstandingAmount: "6000000.0000", retentionHeldAmount: "600000.0000", ageingBucket: "D90_PLUS" },
+      // Row without a projectId/name resolved (partial state)
+      { ipcId: "ipc-5", ipcNo: "IPC-2026-000003", ipcDate: "2025-11-10", dueDate: "2025-12-10", status: "OPEN", projectId: "gone", projectName: null, certifiedAmount: "4500000.0000", billedAmount: "4500000.0000", receivedAmount: "500000.0000", outstandingAmount: "4000000.0000", retentionHeldAmount: "450000.0000", ageingBucket: "D90_PLUS" },
+    ];
+    return {
+      status: 200,
+      body: success({
+        reportName: "ipc-billing",
+        parameters: { projectId },
+        rows,
+        meta: {
+          page: 1,
+          pageSize: rows.length,
+          total: rows.length,
+          generatedAt: new Date().toISOString(),
+          totals: {
+            certified: "41500000.0000",
+            billed: "41500000.0000",
+            received: "14000000.0000",
+            outstanding: "27500000.0000",
+            retentionHeld: "4150000.0000",
+          },
+        },
+      }),
+    };
+  }
+  // FE-57 — Outstanding (as-of; grouped by project)
+  if (req.path.startsWith("/reports/outstanding") && req.method === "GET") {
+    const query = req.path.split("?")[1] ?? "";
+    const qs = new URLSearchParams(query);
+    if (qs.get("projectId") === "proj-forbidden") {
+      return { status: 403, body: envelope("FORBIDDEN", "You don't have access to this project.") };
+    }
+    const rows = [
+      { ipcId: "ipc-1", ipcNo: "IPC-2026-000007", ipcDate: "2026-04-05", dueDate: "2026-05-05", projectId: "proj-a", projectName: "Bridge-04 — Buriganga", certifiedAmount: "12000000.0000", billedAmount: "12000000.0000", receivedAmount: "6000000.0000", outstandingAmount: "6000000.0000", retentionHeldAmount: "1200000.0000", ageingBucket: "CURRENT" },
+      { ipcId: "ipc-2", ipcNo: "IPC-2026-000006", ipcDate: "2026-03-20", dueDate: "2026-04-20", projectId: "proj-a", projectName: "Bridge-04 — Buriganga", certifiedAmount: "8500000.0000", billedAmount: "8500000.0000", receivedAmount: "4000000.0000", outstandingAmount: "4500000.0000", retentionHeldAmount: "850000.0000", ageingBucket: "D31_60" },
+      { ipcId: "ipc-6", ipcNo: "IPC-2026-000011", ipcDate: "2026-04-10", dueDate: "2026-05-10", projectId: "proj-b", projectName: "Tower-A — Gulshan", certifiedAmount: "15000000.0000", billedAmount: "15000000.0000", receivedAmount: "10000000.0000", outstandingAmount: "5000000.0000", retentionHeldAmount: "1500000.0000", ageingBucket: "CURRENT" },
+    ];
+    return {
+      status: 200,
+      body: success({
+        reportName: "outstanding",
+        parameters: {},
+        rows,
+        meta: {
+          page: 1,
+          pageSize: rows.length,
+          total: rows.length,
+          generatedAt: new Date().toISOString(),
+          totals: {
+            outstanding: "15500000.0000",
+            certified: "35500000.0000",
+            billed: "35500000.0000",
+            received: "20000000.0000",
+            retentionHeld: "3550000.0000",
+          },
+          projectTotals: {
+            "proj-a": { outstanding: "10500000.0000", certified: "20500000.0000", billed: "20500000.0000", received: "10000000.0000", retentionHeld: "2050000.0000" },
+            "proj-b": { outstanding: "5000000.0000", certified: "15000000.0000", billed: "15000000.0000", received: "10000000.0000", retentionHeld: "1500000.0000" },
+          },
+        },
+      }),
+    };
+  }
+  // FE-57 — Material consumption vs budget
+  if (req.path.startsWith("/reports/material-consumption-vs-budget") && req.method === "GET") {
+    const query = req.path.split("?")[1] ?? "";
+    const qs = new URLSearchParams(query);
+    if (qs.get("projectId") === "proj-forbidden") {
+      return { status: 403, body: envelope("FORBIDDEN", "You don't have access to this project.") };
+    }
+    const statusFilter = qs.get("status");
+    const allRows = [
+      { projectId: "proj-a", projectName: "Bridge-04 — Buriganga", costCentreId: "cc-mat", costCentreCode: "CC-01", costCentreName: "Materials — Cement & Steel", budgetedAmount: "1200000000.0000", actualAmount: "1296000000.0000", variance: "-96000000.0000", utilisationPct: "108.0000", status: "OVER" },
+      { projectId: "proj-a", projectName: "Bridge-04 — Buriganga", costCentreId: "cc-lab", costCentreCode: "CC-02", costCentreName: "শ্রমিক মজুরি — Site Labour", budgetedAmount: "450000000.0000", actualAmount: "418500000.0000", variance: "31500000.0000", utilisationPct: "93.0000", status: "APPROACHING" },
+      { projectId: "proj-a", projectName: "Bridge-04 — Buriganga", costCentreId: "cc-sub", costCentreCode: "CC-04", costCentreName: "Subcontractor Works", budgetedAmount: "900000000.0000", actualAmount: "612000000.0000", variance: "288000000.0000", utilisationPct: "68.0000", status: "OK" },
+      { projectId: "proj-a", projectName: "Bridge-04 — Buriganga", costCentreId: "cc-power", costCentreCode: "CC-11", costCentreName: "Utilities & Site Power", budgetedAmount: null, actualAmount: "12000000.0000", variance: null, utilisationPct: null, status: "UNBUDGETED" },
+    ];
+    const rows = statusFilter
+      ? allRows.filter((r) => statusFilter.split(",").includes(r.status))
+      : allRows;
+    return {
+      status: 200,
+      body: success({
+        reportName: "material-consumption-vs-budget",
+        parameters: {},
+        rows,
+        meta: {
+          page: 1,
+          pageSize: rows.length,
+          total: rows.length,
+          generatedAt: new Date().toISOString(),
+          totals: {
+            budgeted: "2550000000.0000",
+            actual: "2338500000.0000",
+            variance: "211500000.0000",
+          },
+        },
+      }),
+    };
+  }
+  // FE-57 — Labour cost
+  if (req.path.startsWith("/reports/labour-cost") && req.method === "GET") {
+    const query = req.path.split("?")[1] ?? "";
+    const qs = new URLSearchParams(query);
+    if (qs.get("projectId") === "proj-forbidden") {
+      return { status: 403, body: envelope("FORBIDDEN", "You don't have access to this project.") };
+    }
+    const rows = [
+      { projectId: "proj-a", projectName: "Bridge-04 — Buriganga", costCentreId: "cc-lab", costCentreCode: "CC-02", costCentreName: "শ্রমিক মজুরি — Site Labour", labourCost: "418500000.0000" },
+      { projectId: "proj-a", projectName: "Bridge-04 — Buriganga", costCentreId: "cc-transport", costCentreCode: "CC-08", costCentreName: "Transport & Logistics", labourCost: "18000000.0000" },
+      { projectId: "proj-b", projectName: "Tower-A — Gulshan", costCentreId: "cc-lab", costCentreCode: "CC-02", costCentreName: "শ্রমিক মজুরি — Site Labour", labourCost: "220000000.0000" },
+    ];
+    return {
+      status: 200,
+      body: success({
+        reportName: "labour-cost",
+        parameters: {},
+        rows,
+        meta: {
+          page: 1,
+          pageSize: rows.length,
+          total: rows.length,
+          generatedAt: new Date().toISOString(),
+          totals: { labourCost: "656500000.0000" },
         },
       }),
     };
