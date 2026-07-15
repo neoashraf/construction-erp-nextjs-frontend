@@ -191,7 +191,7 @@ describe("DailyLabourGrid — capture / confirm / reverse", () => {
     await screen.findByTestId("daily-labour-empty");
     await userEvent.click(screen.getByTestId("daily-labour-add"));
     const draftRow = await screen.findByTestId("daily-labour-draft-row");
-    await userEvent.selectOptions(within(draftRow).getByRole("combobox", { name: "" }), "cc-lab");
+    await userEvent.selectOptions(within(draftRow).getByTestId(/^draft-cc-/), "cc-lab");
     const hcInput = within(draftRow).getByRole("spinbutton");
     await userEvent.clear(hcInput);
     await userEvent.type(hcInput, "10");
@@ -378,6 +378,7 @@ describe("Subcontractor tab has no Confirm control anywhere (FR-HR-005)", () => 
         projects={[{ id: "proj-a", name: "Bridge-04" }]}
         costCentres={[{ id: "cc-sub", code: "CC-04", name: "Subcontractor Works" }]}
         parties={[{ id: "pa-4", name: "Alpha Subs" }]}
+        purposeOptions={[{ id: "pp-1", name: "Casting" }]}
         isLoadingMasters={false}
       />,
     );
@@ -400,6 +401,7 @@ describe("Subcontractor tab has no Confirm control anywhere (FR-HR-005)", () => 
         projects={[{ id: "proj-a", name: "Bridge-04" }]}
         costCentres={[{ id: "cc-sub", code: "CC-04", name: "Subcontractor Works" }]}
         parties={[{ id: "pa-4", name: "Alpha" }]}
+        purposeOptions={[{ id: "pp-1", name: "Casting" }]}
         isLoadingMasters={false}
       />,
     );
@@ -440,7 +442,8 @@ describe("Office biometric reconciliation (FR-HR-004; edge §12.9)", () => {
     saveOfficeMock.mockResolvedValue({ ids: ["ok"] });
     renderWith(<AttendanceShell />);
     await screen.findByTestId("attendance-tabs");
-    // OFFICE is the default mode.
+    // OFFICE is the default mode; the import panel is an overlay toggled by "Biometric import".
+    await userEvent.click(await screen.findByTestId("office-toggle-import"));
     const jsonBox = await screen.findByTestId("biometric-json");
     fireEvent.change(jsonBox, {
       target: { value: '[{"employeeId":"emp-1","attendanceDate":"2026-07-13","projectId":"proj-a","dayStatus":"PRESENT"}]' },

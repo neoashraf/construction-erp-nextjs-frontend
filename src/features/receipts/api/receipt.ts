@@ -1,15 +1,26 @@
 import { apiClient } from "@/lib/api";
 import { DEFAULT_PAGE_SIZE } from "@/lib/api/pagination";
-import { type ReceiptPage, type ReceiptSummary, type ReceiptsForIpc } from "../types";
+import { readCsrfToken } from "@/lib/auth/csrf-client";
+import {
+  type PaymentMode,
+  type Receipt,
+  type ReceiptPage,
+  type ReceiptStatus,
+  type ReceiptSummary,
+  type ReceiptType,
+  type ReceiptsForIpc,
+} from "../types";
 
 /**
  * Receipt API bindings (API contract 11 § "Receipt (ReceiptVoucher)" / "Receipts
- * against an IPC"; FR-REC-016/-018/-025). This brief binds the two READ surfaces the
- * list needs — `GET /api/receipt` (paginated, filtered) and `GET /api/receipt/ipc/{ipcId}`
- * (the IPC deep-link context). `fe-receipt-editor` (FE-43) and `fe-receipt-viewer`
- * (FE-44) extend this file with create/patch/delete/post/cancel/repost/get-by-id —
- * do not add write bindings here (this list mutates nothing).
+ * against an IPC"; FR-REC-001…-025). Extended by FE-43 (this file) with the editor's
+ * write surface: create/get/patch/delete a DRAFT + post it. Cancel/repost are added by
+ * FE-44 (viewer). The lifecycle is server-authoritative — no debit/credit logic here.
  */
+
+function csrf() {
+  return { csrfToken: readCsrfToken() };
+}
 
 const BASE = "/receipt";
 
@@ -71,4 +82,182 @@ export async function getReceiptsForIpc(ipcId: string): Promise<ReceiptsForIpc> 
 /** A DRAFT row (no legal number yet — FR-REC-013) routes to the editor, not the viewer. */
 export function isReceiptDraft(status: ReceiptSummary["status"]): boolean {
   return status === "DRAFT";
+}
+
+// ── Editor write surface (FE-43) ─────────────────────────────────────────────────────
+
+/**
+ * Body of `POST /api/receipt` and `PATCH /api/receipt/{id}` — one payload discriminated
+ * by `receiptType`. IPC-linked resolves `partyId`/`projectId`/`costCentreId`/`purposeId`
+ * server-side from the referenced posted IPC (never supplied by the client); general
+ * requires `generalTargetAccountId`, `costCentreId`, and (optional) `projectId`. Money
+ * is `Decimal(18,4)` JSON strings; dates are `YYYY-MM-DD`. `chequeTxnRef` is required
+ * for non-cash modes (server backstop `CHEQUE_REF_REQUIRED`).
+ */
+export interface IpcLinkedWriteInput {
+  receiptType: "IPC_LINKED";
+  receiptDate: string;
+  paymentMode: PaymentMode;
+  depositAccountId: string;
+  ipcId: string;
+  amountSettled: string;
+  taxDeductedAtSource: string;
+  chequeTxnRef: string | null;
+  narration: string | null;
+}
+export interface GeneralWriteInput {
+  receiptType: "GENERAL";
+  receiptDate: string;
+  paymentMode: PaymentMode;
+  depositAccountId: string;
+  partyId: string;
+  generalTargetAccountId: string;
+  projectId: string | null;
+  costCentreId: string;
+  purposeId: string | null;
+  amountSettled: string;
+  chequeTxnRef: string | null;
+  narration: string | null;
+}
+export type ReceiptWriteInput = IpcLinkedWriteInput | GeneralWriteInput;
+
+export async function getReceipt(id: string): Promise<Receipt> {
+  const res = await apiClient.get<{ data: Receipt }>(`${BASE}/${id}`);
+  return res.data;
+}
+
+/** Create a DRAFT receipt — no number, no ledger impact (FR-REC-001). */
+export async function createReceipt(input: ReceiptWriteInput): Promise<{ id: string }> {
+  const res = await apiClient.post<{ data: { id: string } }>(BASE, input, csrf());
+  return res.data;
+}
+
+/** Edit a DRAFT receipt (FR-REC-024). Posted/cancelled are immutable. */
+export async function updateReceipt(
+  id: string,
+  input: ReceiptWriteInput & { version: number },
+): Promise<Receipt> {
+  const res = await apiClient.patch<{ data: Receipt }>(`${BASE}/${id}`, input, csrf());
+  return res.data;
+}
+
+/** Hard-delete a DRAFT receipt (FR-REC-024). Posted/cancelled cannot be deleted. */
+export async function deleteReceipt(id: string): Promise<void> {
+  await apiClient.delete(`${BASE}/${id}`, csrf());
+}
+
+export interface ReceiptPostResult {
+  id: string;
+  entryNo: string;
+  journalEntryId: string;
+  status: Extract<ReceiptStatus, "POSTED">;
+  ipcOutstandingAfter: string | null;
+}
+
+/**
+ * Post the receipt — allocate the gapless `RECEIPT` number and write the balanced
+ * journal entry atomically (FR-REC-009…-014). Server-confirmed; the UI never
+ * optimistically flips the status.
+ */
+export async function postReceipt(id: string, version: number): Promise<ReceiptPostResult> {
+  const res = await apiClient.post<{ data: ReceiptPostResult }>(
+    `${BASE}/${id}/post`,
+    { version },
+    csrf(),
+  );
+  return res.data;
+}
+
+/** A POSTED/CANCELLED id can never re-open in the editor — it routes to the viewer. */
+export function isReceiptEditable(status: ReceiptType extends never ? never : ReceiptStatus): boolean {
+  return status === "DRAFT";
+}
+
+// ── Viewer correction surface (FE-44) ────────────────────────────────────────────────
+
+export interface ReceiptCancelResult {
+  id: string;
+  status: Extract<ReceiptStatus, "CANCELLED">;
+  reversalEntryId: string;
+  reversalEntryNo: string;
+  ipcOutstandingAfter: string | null;
+}
+
+/**
+ * Cancel a POSTED receipt — LED reverses its journal entry; the receipt retains its
+ * original number, an IPC-linked receipt's outstanding is restored (FR-REC-021/-022/-023).
+ * `reason` is mandatory.
+ */
+export async function cancelReceipt(
+  id: string,
+  input: { reason: string; version: number },
+): Promise<ReceiptCancelResult> {
+  const res = await apiClient.post<{ data: ReceiptCancelResult }>(
+    `${BASE}/${id}/cancel`,
+    input,
+    csrf(),
+  );
+  return res.data;
+}
+
+export interface ReceiptRepostResult {
+  id: string;
+  status: Extract<ReceiptStatus, "POSTED">;
+  entryNo: string;
+  reversalEntryNo: string;
+  ipcOutstandingAfter: string | null;
+}
+
+/**
+ * Correct a POSTED receipt — reverse-and-repost in one transaction; each new entry
+ * takes its own number, the original number is retained (FR-REC-021/-023). Body = the
+ * corrected fields + a reason + the current `version` for optimistic concurrency.
+ */
+export async function repostReceipt(
+  id: string,
+  input: ReceiptWriteInput & { reason: string; version: number },
+): Promise<ReceiptRepostResult> {
+  const res = await apiClient.post<{ data: ReceiptRepostResult }>(
+    `${BASE}/${id}/repost`,
+    input,
+    csrf(),
+  );
+  return res.data;
+}
+
+/**
+ * Thin LED binding for the viewer's ledger-lines panel (API contract 02 §
+ * `GET /api/ledger/entries/{id}`). REC owns this local wrapper rather than importing
+ * `features/ledger` (skill §2.4 import boundary). READ-ONLY (LED writes are internal
+ * via PostingService — the FE never sends debit/credit). The endpoint is guarded by
+ * `ledger.journal_entries:READ` (distinct from `receipts:READ`, gap G2 in the brief) —
+ * a PM may `403` on this call while succeeding on the receipt read; the viewer renders
+ * that as its own in-panel state instead of blanking the whole screen.
+ */
+export interface JournalEntryLine {
+  id: string;
+  lineNo: number;
+  accountId: string;
+  projectId: string | null;
+  costCentreId: string | null;
+  purposeId: string | null;
+  godownId: string | null;
+  partyId: string | null;
+  debit: string;
+  credit: string;
+  narration: string | null;
+}
+export interface JournalEntry {
+  id: string;
+  entryNo: string;
+  voucherType: string;
+  voucherDate: string;
+  postedAt: string;
+  totalDebit: string;
+  totalCredit: string;
+  lines: JournalEntryLine[];
+}
+
+export async function getReceiptJournalEntry(id: string): Promise<JournalEntry> {
+  return apiClient.get<JournalEntry>(`/ledger/entries/${id}`);
 }

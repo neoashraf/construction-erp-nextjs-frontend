@@ -30,3 +30,13 @@ export function canWriteReceipt(user: Viewer): boolean {
 export function canPrintReceipt(user: Viewer): boolean {
   return allow(user, "POST", ["ACCOUNTS_TEAM", "ACCOUNTS_MANAGER"]);
 }
+
+/** Post a draft receipt (`receipts:POST` — spec §11). Save-draft still works without it. */
+export function canPostReceipt(user: Viewer): boolean {
+  return allow(user, "POST", ["ACCOUNTS_TEAM", "ACCOUNTS_MANAGER"]);
+}
+
+/** Cancel or repost a posted receipt (`receipts:CANCEL` — FE-44 viewer). PM never. */
+export function canCancelReceipt(user: Viewer): boolean {
+  return allow(user, "CANCEL", ["ACCOUNTS_TEAM", "ACCOUNTS_MANAGER"]);
+}

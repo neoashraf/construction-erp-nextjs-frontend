@@ -1,17 +1,11 @@
+import { DashboardScreen } from "@/features/dashboard/components/DashboardScreen";
+
 /**
- * App home inside the shell. NO dashboard screen ships in the scaffold — this is a
- * placeholder landing so the shell has a default route. The real Dashboard (DSH)
- * is a later per-screen brief.
+ * FE-61 fe-dashboard — the role-scoped KPI-tile landing (post-login home).
+ * Guarded on `dashboard:READ` by the module registry.
  */
-export default function DashboardPlaceholder() {
-  return (
-    <section aria-labelledby="dash-h" data-testid="dashboard-placeholder">
-      <h1 id="dash-h" className="text-xl font-semibold">
-        Welcome
-      </h1>
-      <p className="mt-2 text-sm text-muted-foreground">
-        The application shell is ready. Module screens are added by their per-screen briefs.
-      </p>
-    </section>
-  );
+export const dynamic = "force-dynamic";
+
+export default function DashboardPage() {
+  return <DashboardScreen />;
 }

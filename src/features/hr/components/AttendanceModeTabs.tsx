@@ -55,7 +55,7 @@ export function AttendanceModeTabs({
     <div
       role="tablist"
       aria-label="Attendance mode"
-      className="inline-flex items-center gap-1 rounded-token border border-border bg-surface p-1"
+      className="flex items-center gap-[22px] border-b border-border"
       data-testid="attendance-tabs"
     >
       {ATTENDANCE_MODE_TABS.map((t, i) => {
@@ -76,11 +76,11 @@ export function AttendanceModeTabs({
             onClick={() => onChange(t.key)}
             onKeyDown={(e) => onKey(e, i)}
             className={cn(
-              "inline-flex h-9 min-w-[110px] items-center justify-center rounded-token px-3 text-[13px] font-semibold transition-colors",
+              "-mb-px inline-flex h-9 items-center border-b-2 px-0.5 text-[13.5px] font-semibold transition-colors",
               "focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-ring",
               isActive
-                ? "bg-primary text-primary-foreground"
-                : "text-muted-foreground hover:bg-muted hover:text-foreground",
+                ? "border-accent text-foreground"
+                : "border-transparent font-medium text-muted-foreground hover:text-foreground",
             )}
           >
             {t.label}

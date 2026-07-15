@@ -52,7 +52,7 @@ export function ReverseSalaryDialog({
 
   return (
     <Dialog open={open} onOpenChange={(v) => (!isReversing ? onOpenChange(v) : undefined)}>
-      <DialogContent data-testid="reverse-salary-dialog">
+      <DialogContent data-testid="reverse-salary-dialog" className="max-w-[460px]">
         <DialogTitle>Reverse this salary run?</DialogTitle>
         <DialogDescription>
           This posts a reversing entry against {entryNo ? <span className="font-mono">{entryNo}</span> : "this run"}.
@@ -73,7 +73,7 @@ export function ReverseSalaryDialog({
               setReason(e.target.value);
               if (error) setError(null);
             }}
-            placeholder="e.g. TDS applied to the wrong staff group."
+            placeholder="e.g. TDS rate applied wrong for 3 staff."
           />
           {error && (
             <p id="rev-reason-err" className="mt-1 text-[12px] text-destructive" data-testid="rev-reason-err">
@@ -87,11 +87,11 @@ export function ReverseSalaryDialog({
         )}
 
         <div className="mt-5 flex items-center justify-end gap-2">
-          <Button variant="outline" onClick={() => onOpenChange(false)} disabled={isReversing} data-testid="rev-cancel">
+          <Button variant="ghost" onClick={() => onOpenChange(false)} disabled={isReversing} data-testid="rev-cancel">
             Cancel
           </Button>
           <Button
-            variant="destructive"
+            variant="destructive-outline"
             onClick={submit}
             disabled={isReversing}
             data-testid="rev-confirm"

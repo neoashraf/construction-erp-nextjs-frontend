@@ -1,5 +1,6 @@
 "use client";
 
+import { cn } from "@/lib/utils";
 import { formatMoney } from "@/lib/money";
 
 /**
@@ -30,7 +31,7 @@ export function SalaryTotalsFooter({
       }
     >
       <TotalCell label="Gross" value={totalGross} testId="total-gross" />
-      <TotalCell label="Deductions" value={totalDeductions} testId="total-deductions" />
+      <TotalCell label="Deductions" value={totalDeductions} testId="total-deductions" negative />
       <TotalCell label="Net" value={totalNet} testId="total-net" bold />
     </div>
   );
@@ -41,20 +42,26 @@ function TotalCell({
   value,
   testId,
   bold,
+  negative,
 }: {
   label: string;
   value: string;
   testId: string;
   bold?: boolean;
+  negative?: boolean;
 }) {
   return (
     <div className="flex items-baseline gap-2">
       <span className="text-[11px] font-semibold uppercase tracking-[0.4px] text-muted-foreground">{label}</span>
       <span
         data-testid={testId}
-        className={"font-mono tabular-nums " + (bold ? "text-[15px] font-bold text-foreground" : "text-[13px] text-foreground")}
+        className={cn(
+          "font-mono tabular-nums",
+          bold ? "text-[15px] font-bold text-foreground" : "text-[13px]",
+          negative ? "text-destructive" : "text-foreground",
+        )}
       >
-        ৳ {formatMoney(value, { withSymbol: false })}
+        {negative && "− "}৳ {formatMoney(value, { withSymbol: false })}
       </span>
     </div>
   );

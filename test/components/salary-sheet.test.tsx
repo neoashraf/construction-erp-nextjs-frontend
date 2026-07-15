@@ -143,7 +143,8 @@ describe("SalaryRunsList — landing & empties", () => {
     renderWith(<SalaryRunsList />);
     await screen.findByTestId("salary-runs-empty-firstuse");
     await userEvent.type(screen.getByTestId("filter-period"), "1999-01");
-    // Re-fires with periodLabel=1999-01
+    await userEvent.click(screen.getByTestId("filter-apply"));
+    // Re-fires with periodLabel=1999-01 only after Apply (Salary Sheet.dc.html filter bar)
     await waitFor(() => {
       expect(screen.getByTestId("salary-runs-empty-filtered")).toBeInTheDocument();
     });
@@ -178,8 +179,13 @@ describe("Generate dialog — server-confirmed & duplicate-draft", () => {
     await screen.findByTestId("salary-runs-empty-firstuse");
     await userEvent.click(screen.getByTestId("salary-generate"));
     await screen.findByTestId("generate-sheet-dialog");
+    await userEvent.selectOptions(screen.getByTestId("gen-project"), "proj-a");
+    await userEvent.selectOptions(await screen.findByTestId("gen-purpose"), "pp-1");
     await userEvent.click(screen.getByTestId("gen-submit"));
     await waitFor(() => expect(generateMock).toHaveBeenCalled());
+    expect(generateMock).toHaveBeenCalledWith(
+      expect.objectContaining({ projectId: "proj-a", purposeId: "pp-1" }),
+    );
   });
 
   it("surfaces DUPLICATE_DRAFT_SHEET with the existing-draft link", async () => {
@@ -195,6 +201,8 @@ describe("Generate dialog — server-confirmed & duplicate-draft", () => {
     await screen.findByTestId("salary-runs-empty-firstuse");
     await userEvent.click(screen.getByTestId("salary-generate"));
     await screen.findByTestId("generate-sheet-dialog");
+    await userEvent.selectOptions(screen.getByTestId("gen-project"), "proj-a");
+    await userEvent.selectOptions(await screen.findByTestId("gen-purpose"), "pp-1");
     await userEvent.click(screen.getByTestId("gen-submit"));
     const err = await screen.findByTestId("gen-server-err");
     expect(err).toHaveTextContent("A draft salary sheet already exists");

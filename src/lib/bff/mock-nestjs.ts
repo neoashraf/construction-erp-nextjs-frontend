@@ -151,6 +151,11 @@ const MOCK_COST_CENTRES = [
 const MOCK_FINANCIAL_YEARS = [
   { id: "fy-2025-26", label: "FY 2025–26", isActive: true },
   { id: "fy-2024-25", label: "FY 2024–25", isActive: false },
+  // FE-52 — the auth-mock USER carries this UUID as its default FY; include it
+  // so the profile screen resolves `financialYearId` → label (rather than
+  // falling back to the raw UUID). Not shown in the FY switcher (`isActive`
+  // + FY switch list still keys off the two shorter ids above).
+  { id: "22222222-2222-2222-2222-222222222222", label: "FY 2025–26 · Zakir Enterprise", isActive: false },
 ];
 
 /** Budget-vs-actual rows for Bridge-04 (proj-a) — mirrors the design sample. */
@@ -1565,6 +1570,234 @@ function billToJournalEntry(b: MockBill) {
   };
 }
 
+/**
+ * Synthesize a balanced journal entry for a posted/cancelled receipt (fe-receipt-viewer
+ * G2). IPC-linked: Dr deposit + Dr tax-recoverable / Cr Accounts Receivable (party-
+ * tagged); General: Dr deposit / Cr general target (party-tagged for advance liabilities).
+ * The mock has no ledger-write layer — the receipt POST allocates a `journalEntryId`
+ * synthetically, so this hydration is what the viewer reads back.
+ */
+function receiptToJournalEntry(r: MockReceipt, entryId: string) {
+  const zero = "0.0000";
+  const settled = r.amountSettled;
+  const cash = r.cashReceived ?? r.amountSettled;
+  const tds = r.taxDeductedAtSource ?? zero;
+  const lines: Array<{
+    id: string;
+    lineNo: number;
+    accountId: string;
+    projectId: string | null;
+    costCentreId: string | null;
+    purposeId: string | null;
+    godownId: null;
+    partyId: string | null;
+    debit: string;
+    credit: string;
+    narration: null;
+  }> = [];
+  // Dr deposit
+  lines.push({
+    id: `${entryId}-l1`,
+    lineNo: 1,
+    accountId: r.depositAccountId ?? "1010",
+    projectId: null,
+    costCentreId: null,
+    purposeId: null,
+    godownId: null,
+    partyId: null,
+    debit: cash,
+    credit: zero,
+    narration: null,
+  });
+  if (r.receiptType === "IPC_LINKED") {
+    if (Number(tds) > 0) {
+      lines.push({
+        id: `${entryId}-l2`,
+        lineNo: 2,
+        accountId: "1450",
+        projectId: r.projectId ?? null,
+        costCentreId: r.costCentreId ?? null,
+        purposeId: r.purposeId ?? null,
+        godownId: null,
+        partyId: null,
+        debit: tds,
+        credit: zero,
+        narration: null,
+      });
+    }
+    lines.push({
+      id: `${entryId}-lar`,
+      lineNo: lines.length + 1,
+      accountId: "1200",
+      projectId: null,
+      costCentreId: null,
+      purposeId: null,
+      godownId: null,
+      partyId: r.partyId,
+      debit: zero,
+      credit: settled,
+      narration: null,
+    });
+  } else {
+    lines.push({
+      id: `${entryId}-lgen`,
+      lineNo: 2,
+      accountId: r.generalTargetAccountId ?? "4100",
+      projectId: r.projectId ?? null,
+      costCentreId: r.costCentreId ?? null,
+      purposeId: r.purposeId ?? null,
+      godownId: null,
+      partyId: r.partyId,
+      debit: zero,
+      credit: settled,
+      narration: null,
+    });
+  }
+  const totalDebit = lines.reduce((s, l) => s + Number(l.debit), 0).toFixed(4);
+  const totalCredit = lines.reduce((s, l) => s + Number(l.credit), 0).toFixed(4);
+  return {
+    id: entryId,
+    entryNo: r.entryNo ?? r.id,
+    financialYearId: "fy-1",
+    voucherType: "RECEIPT",
+    voucherDate: r.receiptDate,
+    sourceType: "receipts",
+    sourceId: r.id,
+    isReversal: false,
+    reversalOf: null,
+    isReversed: r.status === "CANCELLED",
+    reversedByEntryId: null,
+    reversedBy: null,
+    narration: r.narration ?? null,
+    postedAt: r.postedAt ?? "2026-07-01T10:22:11Z",
+    postedBy: r.postedBy ?? null,
+    totalDebit,
+    totalCredit,
+    lines,
+  };
+}
+
+/**
+ * Synthesize a balanced journal entry for a posted/cancelled payment (fe-payment-viewer
+ * G2). One control/liability debit per allocation (AP for supplier bills, Labour Payable
+ * for labour, Salary Payable for salary — never re-expensed), an optional bank-charge
+ * debit, and the bank/cash/MFS credit for the remainder. The mock synthesises this on
+ * demand from MOCK_PAYMENTS (no ledger-write layer).
+ */
+function paymentToJournalEntry(
+  p: {
+    id: string;
+    partyId: string;
+    paymentDate: string;
+    paymentAccountId: string;
+    paymentAmount: string;
+    bankChargesAmount: string;
+    allocations: Array<{
+      payableType: string;
+      payableId: string;
+      amountAllocated: string;
+      partyId: string | null;
+    }>;
+    entryNo: string | null;
+    journalEntryId: string | null;
+    postedAt: string | null;
+    postedBy: string | null;
+    narration: string | null;
+    status: string;
+  },
+  entryId: string,
+) {
+  const zero = "0.0000";
+  const CONTROL: Record<string, string> = {
+    PURCHASE_BILL: "2100", // Accounts Payable
+    LABOUR_PAYABLE: "2110", // Labour Payable
+    SALARY: "2120", // Salary Payable
+  };
+  const lines: Array<{
+    id: string;
+    lineNo: number;
+    accountId: string;
+    projectId: string | null;
+    costCentreId: string | null;
+    purposeId: string | null;
+    godownId: null;
+    partyId: string | null;
+    debit: string;
+    credit: string;
+    narration: null;
+  }> = [];
+  let ln = 1;
+  for (const a of p.allocations) {
+    lines.push({
+      id: `${entryId}-l${ln}`,
+      lineNo: ln,
+      accountId: CONTROL[a.payableType] ?? "2100",
+      projectId: null,
+      costCentreId: null,
+      purposeId: null,
+      godownId: null,
+      partyId: a.partyId ?? p.partyId,
+      debit: a.amountAllocated,
+      credit: zero,
+      narration: null,
+    });
+    ln += 1;
+  }
+  if (Number(p.bankChargesAmount) > 0) {
+    lines.push({
+      id: `${entryId}-lbc`,
+      lineNo: ln++,
+      accountId: "5300", // Bank charges (expense)
+      projectId: null,
+      costCentreId: null,
+      purposeId: null,
+      godownId: null,
+      partyId: null,
+      debit: p.bankChargesAmount,
+      credit: zero,
+      narration: null,
+    });
+  }
+  // Cash out = Σ allocations + bank charges (matches paymentAmount because the FE gates
+  // Post on full allocation — Phase-1 rule).
+  const totalDr = lines.reduce((s, l) => s + Number(l.debit), 0);
+  lines.push({
+    id: `${entryId}-lcash`,
+    lineNo: ln,
+    accountId: p.paymentAccountId,
+    projectId: null,
+    costCentreId: null,
+    purposeId: null,
+    godownId: null,
+    partyId: null,
+    debit: zero,
+    credit: totalDr.toFixed(4),
+    narration: null,
+  });
+  const totalDebit = lines.reduce((s, l) => s + Number(l.debit), 0).toFixed(4);
+  const totalCredit = lines.reduce((s, l) => s + Number(l.credit), 0).toFixed(4);
+  return {
+    id: entryId,
+    entryNo: p.entryNo ?? p.id,
+    financialYearId: "fy-1",
+    voucherType: "PAYMENT",
+    voucherDate: p.paymentDate,
+    sourceType: "payments",
+    sourceId: p.id,
+    isReversal: false,
+    reversalOf: null,
+    isReversed: p.status === "CANCELLED",
+    reversedByEntryId: null,
+    reversedBy: null,
+    narration: p.narration,
+    postedAt: p.postedAt ?? "2026-07-01T10:22:11Z",
+    postedBy: p.postedBy,
+    totalDebit,
+    totalCredit,
+    lines,
+  };
+}
+
 // ── GRN seed (dev/preview only) — the fe-grn-matching store ───────────────────
 //
 // A GRN records goods physically received against a PO/Bill; Post drives INV
@@ -1922,13 +2155,25 @@ interface MockReceipt {
   receiptType: "IPC_LINKED" | "GENERAL";
   receiptDate: string;
   paymentMode: "CASH" | "MFS" | "BANK_TRANSFER" | "CHEQUE";
+  depositAccountId?: string;
   partyId: string;
   projectId: string | null;
+  costCentreId?: string | null;
+  purposeId?: string | null;
   ipcId: string | null;
+  generalTargetAccountId?: string | null;
   amountSettled: string;
+  cashReceived?: string;
   taxDeductedAtSource: string;
+  chequeTxnRef?: string | null;
+  narration?: string | null;
   status: "DRAFT" | "POSTED" | "CANCELLED";
   entryNo: string | null;
+  journalEntryId?: string | null;
+  ipcOutstandingAfter?: string | null;
+  postedAt?: string | null;
+  postedBy?: string | null;
+  version?: number;
 }
 const MOCK_RECEIPTS: MockReceipt[] = [
   {
@@ -2135,6 +2380,203 @@ function readRefresh(token: string): { userKey: string; jti: string } | null {
   return { userKey: m[1]!, jti: m[2]! };
 }
 
+// ── FE-53 notifications store (mock) ─────────────────────────────────────────
+interface MockNotification {
+  id: string;
+  type: string;
+  severity: "HIGH" | "NORMAL" | "LOW";
+  sourceModule: string;
+  title: string;
+  body: string;
+  deepLink: { route: string; params?: Record<string, string> | null } | null;
+  payload: Record<string, string> | null;
+  createdAt: string;
+  readAt: string | null;
+}
+interface MockNotifStore {
+  rows: MockNotification[];
+}
+const gNtf = globalThis as unknown as { __MOCK_NOTIFS__?: Record<string, MockNotifStore> };
+function getMockNotifStore(userKey: string): MockNotifStore {
+  if (!gNtf.__MOCK_NOTIFS__) gNtf.__MOCK_NOTIFS__ = {};
+  if (!gNtf.__MOCK_NOTIFS__[userKey]) {
+    const now = Date.now();
+    const mk = (
+      i: number,
+      seed: Omit<MockNotification, "id" | "createdAt" | "readAt"> & { agoMin: number; read?: boolean },
+    ): MockNotification => ({
+      id: `ntf-${userKey}-${i}`,
+      type: seed.type,
+      severity: seed.severity,
+      sourceModule: seed.sourceModule,
+      title: seed.title,
+      body: seed.body,
+      deepLink: seed.deepLink,
+      payload: seed.payload,
+      createdAt: new Date(now - seed.agoMin * 60_000).toISOString(),
+      readAt: seed.read ? new Date(now - seed.agoMin * 30_000).toISOString() : null,
+    });
+    gNtf.__MOCK_NOTIFS__[userKey] = {
+      rows: [
+        mk(1, {
+          type: "BUDGET_BREACH",
+          severity: "HIGH",
+          sourceModule: "CC",
+          title: "Budget breach — Flooring, Tower A",
+          body: "Actuals ৳ 12,45,000 exceed the budget ৳ 10,00,000 (+24.5%). Review the cost centre.",
+          deepLink: { route: "/cost-control/budget-vs-actual", params: { costCentre: "cc-mat" } },
+          payload: null,
+          agoMin: 4,
+        }),
+        mk(2, {
+          type: "REQUISITION_APPROVAL",
+          severity: "NORMAL",
+          sourceModule: "REQ",
+          title: "Requisition REQ-2025/0324 — Awaiting your approval",
+          body: "Rahim Uddin submitted for Bridge-04 · 12 items · ৳ 5,20,000.",
+          deepLink: { route: "/requisitions/approvals" },
+          payload: null,
+          agoMin: 22,
+        }),
+        mk(3, {
+          type: "IPC_SUBMITTED",
+          severity: "NORMAL",
+          sourceModule: "SAL",
+          title: "IPC IPC/2526/0018 submitted",
+          body: "National Housing Authority · Bridge-04 · ৳ 92,00,000 certified this month.",
+          deepLink: { route: "/sales/ipcs" },
+          payload: null,
+          agoMin: 65,
+        }),
+        mk(4, {
+          type: "GRN_MISMATCH",
+          severity: "NORMAL",
+          sourceModule: "PUR",
+          title: "GRN mismatch — PO-2025/0141",
+          body: "Received 480 bags vs ordered 500. Short-received 20 bags of cement.",
+          deepLink: { route: "/purchase/grn" },
+          payload: null,
+          agoMin: 130,
+        }),
+        mk(5, {
+          type: "PAYMENT_POSTED",
+          severity: "LOW",
+          sourceModule: "PAY",
+          title: "কর্মচারী বেতন পোস্ট হয়েছে",
+          body: "Salary payment posted for the July 2025 cycle · ৳ 18,45,000 disbursed.",
+          deepLink: { route: "/payments" },
+          payload: null,
+          agoMin: 300,
+          read: true,
+        }),
+        mk(6, {
+          type: "AUDIT_EVENT",
+          severity: "LOW",
+          sourceModule: "AUD",
+          title: "New sign-in on your account",
+          body: "A new session started from Dhaka, Bangladesh at 14/07/2026 09:12.",
+          deepLink: null,
+          payload: null,
+          agoMin: 900,
+          read: true,
+        }),
+        mk(7, {
+          type: "IPC_REVERSED",
+          severity: "NORMAL",
+          sourceModule: "SAL",
+          title: "IPC IPC/2526/0007 reversed",
+          body: "This IPC has been reversed; the underlying record was replaced.",
+          deepLink: { route: "/sales/ipcs/ipc-gone" },
+          payload: null,
+          agoMin: 1500,
+          read: true,
+        }),
+      ],
+    };
+  }
+  return gNtf.__MOCK_NOTIFS__[userKey]!;
+}
+
+// ── FE-52 profile store (mock) ────────────────────────────────────────────────
+interface MockProfile {
+  id: string;
+  email: string;
+  name: string;
+  phone: string | null;
+  avatarUrl: string | null;
+  role: string;
+  isUnscoped: boolean;
+  isActive: boolean;
+  financialYearId: string;
+  lastLoginAt: string | null;
+  version: number;
+}
+
+const gProfile = globalThis as unknown as { __MOCK_PROFILES__?: Record<string, MockProfile> };
+
+function seedProfile(u: MockUser): MockProfile {
+  return {
+    id: u.id,
+    email: u.email,
+    name: u.name,
+    phone: u.email === "admin@ze.test" ? "+8801712345678" : null,
+    avatarUrl: null,
+    role: u.role,
+    isUnscoped: u.assignedProjectIds.length === 0,
+    isActive: u.isActive,
+    financialYearId: u.financialYearId,
+    lastLoginAt: u.email === "admin@ze.test" ? "2026-07-14T10:15:00Z" : null,
+    version: 1,
+  };
+}
+
+export function mockGetProfile(userKey: string): MockProfile {
+  if (!gProfile.__MOCK_PROFILES__) gProfile.__MOCK_PROFILES__ = {};
+  if (!gProfile.__MOCK_PROFILES__[userKey]) {
+    const u = USERS[userKey];
+    if (!u) throw new Error(`Unknown mock user: ${userKey}`);
+    gProfile.__MOCK_PROFILES__[userKey] = seedProfile(u);
+  }
+  return gProfile.__MOCK_PROFILES__[userKey]!;
+}
+
+export function mockProfileSetAvatar(accessToken: string, dataUri: string): unknown | null {
+  const parsed = readAccess(accessToken);
+  if (!parsed || parsed.expired) return null;
+  const profile = mockGetProfile(parsed.userKey);
+  profile.avatarUrl = dataUri;
+  profile.version += 1;
+  return profileToView(profile);
+}
+
+const MOCK_PROJECT_NAMES: Record<string, string> = {
+  "proj-a": "Bridge-04 (Meghna river approach)",
+  "proj-b": "টাওয়ার-১২ (Uttara)",
+};
+
+function profileToView(p: MockProfile) {
+  const assignedProjects = p.isUnscoped
+    ? { scope: "ALL" as const }
+    : (USERS[p.email]?.assignedProjectIds ?? []).map((id) => ({
+        projectId: id,
+        projectName: MOCK_PROJECT_NAMES[id] ?? id,
+      }));
+  return {
+    id: p.id,
+    email: p.email,
+    name: p.name,
+    phone: p.phone,
+    avatarUrl: p.avatarUrl,
+    role: p.role,
+    isUnscoped: p.isUnscoped,
+    isActive: p.isActive,
+    financialYearId: p.financialYearId,
+    lastLoginAt: p.lastLoginAt,
+    assignedProjects,
+    version: p.version,
+  };
+}
+
 interface MockReq {
   path: string;
   method: string;
@@ -2244,6 +2686,1179 @@ export async function mockNestjsFetch(req: MockReq): Promise<MockResult> {
     return { status: 200, body: success({ user: safeUser(user) }) };
   }
 
+  // ── FE-54 fe-report-catalog — /reports/catalog + /reports/<name> ──
+  if (req.path === "/reports/catalog" && req.method === "GET") {
+    return {
+      status: 200,
+      body: success([
+        {
+          name: "trial-balance",
+          title: "Trial balance",
+          description: "Debit + credit balance per account for the period; must tie.",
+          category: "LEDGERS_REGISTERS",
+          viewerRoute: "/reports/trial-balance-ledgers",
+          requiredPermission: "reports",
+          parameters: [],
+          projectScoped: false,
+          supportsAsOf: true,
+          supportsDateRange: true,
+        },
+        {
+          name: "profit-and-loss",
+          title: "Profit & loss",
+          description: "Revenue vs cost of services + operating expenses for the period.",
+          category: "FINANCIAL_STATEMENTS",
+          viewerRoute: "/reports/financial-statements",
+          requiredPermission: "reports",
+          parameters: [],
+          supportsDateRange: true,
+        },
+        {
+          name: "balance-sheet",
+          title: "Balance sheet",
+          description: "Assets = Liabilities + Equity as at a date.",
+          category: "FINANCIAL_STATEMENTS",
+          viewerRoute: "/reports/financial-statements",
+          requiredPermission: "reports",
+          parameters: [],
+          supportsAsOf: true,
+        },
+        {
+          name: "journal-register",
+          title: "Journal register",
+          description: "Every posted journal entry over the period, oldest first.",
+          category: "LEDGERS_REGISTERS",
+          viewerRoute: "/reports/trial-balance-ledgers",
+          requiredPermission: "reports",
+          parameters: [],
+          supportsDateRange: true,
+        },
+        {
+          name: "project-pnl",
+          title: "Project P&L",
+          description: "Revenue vs cost per project; PM sees assigned only.",
+          category: "PROJECT_IPC",
+          viewerRoute: "/reports/project-ipc",
+          requiredPermission: "reports",
+          parameters: [],
+          projectScoped: true,
+          supportsDateRange: true,
+        },
+        {
+          name: "ipc-billing",
+          title: "IPC report",
+          description: "Per-IPC certified / billed / received / outstanding + ageing.",
+          category: "PROJECT_IPC",
+          viewerRoute: "/reports/project-ipc",
+          requiredPermission: "reports",
+          parameters: [],
+          projectScoped: true,
+          supportsDateRange: true,
+        },
+        {
+          name: "outstanding",
+          title: "Outstanding",
+          description: "Per-IPC outstanding grouped by project, as-of a date.",
+          category: "PROJECT_IPC",
+          viewerRoute: "/reports/project-ipc",
+          requiredPermission: "reports",
+          parameters: [],
+          projectScoped: true,
+          supportsAsOf: true,
+        },
+        {
+          name: "material-consumption-vs-budget",
+          title: "Material consumption vs budget",
+          description: "Consumed material cost vs CC budget per cost centre.",
+          category: "PROJECT_IPC",
+          viewerRoute: "/reports/project-ipc",
+          requiredPermission: "reports",
+          parameters: [],
+          projectScoped: true,
+          supportsDateRange: true,
+        },
+        {
+          name: "labour-cost",
+          title: "Labour cost",
+          description: "Labour EXPENSE grouped by cost centre.",
+          category: "PROJECT_IPC",
+          viewerRoute: "/reports/project-ipc",
+          requiredPermission: "reports",
+          parameters: [],
+          projectScoped: true,
+          supportsDateRange: true,
+        },
+        {
+          name: "stock-valuation",
+          title: "Stock valuation",
+          description: "Qty on hand, total value + weighted-avg rate per godown/item, as-of a date.",
+          category: "INVENTORY",
+          viewerRoute: "/reports/inventory",
+          requiredPermission: "reports",
+          parameters: [],
+          supportsAsOf: true,
+        },
+        {
+          name: "low-stock",
+          title: "Low-stock / re-order",
+          description: "Items at or below their re-order level.",
+          category: "INVENTORY",
+          viewerRoute: "/reports/inventory",
+          requiredPermission: "reports",
+          parameters: [],
+          supportsAsOf: true,
+        },
+        {
+          name: "stock-transfer-summary",
+          title: "Stock transfer summary",
+          description: "Posted transfers/issues over a period, with from → to godown.",
+          category: "INVENTORY",
+          viewerRoute: "/reports/inventory",
+          requiredPermission: "reports",
+          parameters: [],
+          supportsDateRange: true,
+        },
+        {
+          name: "requisition-vs-issue",
+          title: "Requisition vs issue",
+          description: "Requested / issued / variance per requisition line.",
+          category: "REQUISITION_COST_CONTROL",
+          viewerRoute: "/reports/requisition-cost-control",
+          requiredPermission: "reports",
+          parameters: [],
+          projectScoped: true,
+          supportsDateRange: true,
+        },
+        {
+          name: "cost-centre-variance",
+          title: "Cost-centre variance",
+          description: "Budgeted vs actual per cost centre + status.",
+          category: "REQUISITION_COST_CONTROL",
+          viewerRoute: "/reports/requisition-cost-control",
+          requiredPermission: "reports",
+          parameters: [],
+          projectScoped: true,
+          supportsDateRange: true,
+        },
+        {
+          name: "attendance-summary",
+          title: "Attendance summary",
+          description: "Monthly present / leave / absent + head count per project.",
+          category: "HR",
+          viewerRoute: "/reports/hr",
+          requiredPermission: "reports",
+          parameters: [],
+        },
+        {
+          name: "salary-register",
+          title: "Salary register",
+          description: "Salary sheet lines with earnings + deductions per employee.",
+          category: "HR",
+          viewerRoute: "/reports/hr",
+          requiredPermission: "reports",
+          parameters: [],
+        },
+        {
+          name: "employee-payment-history",
+          title: "Employee payment history",
+          description: "Per-employee salary / payable settlements over a date range.",
+          category: "HR",
+          viewerRoute: "/reports/hr",
+          requiredPermission: "reports",
+          parameters: [],
+          supportsDateRange: true,
+        },
+      ]),
+    };
+  }
+  if (req.path.startsWith("/reports/trial-balance") && req.method === "GET") {
+    // Any query string is accepted; the mock returns a canonical, ties-out dataset.
+    const baseRows = [
+      { accountId: "1010", accountCode: "1010", accountName: "Cash on hand", debit: "500000.0000", credit: "0.0000" },
+      { accountId: "1201", accountCode: "1201", accountName: "HSBC Current 001", debit: "8500000.0000", credit: "0.0000" },
+      { accountId: "1200", accountCode: "1200", accountName: "Accounts Receivable", debit: "2500000.0000", credit: "0.0000" },
+      { accountId: "2100", accountCode: "2100", accountName: "Accounts payable", debit: "0.0000", credit: "800000.0000" },
+      { accountId: "3100", accountCode: "3100", accountName: "Opening balance equity", debit: "0.0000", credit: "10800000.0000" },
+      { accountId: "gone-42", accountCode: "9999", accountName: null, debit: "100000.0000", credit: "100000.0000" },
+    ];
+    const rows = baseRows.map((r) => ({
+      ...r,
+      net: (Number(r.debit) - Number(r.credit)).toFixed(4),
+    }));
+    const totals = rows.reduce(
+      (acc, r) => ({
+        debit: (Number(acc.debit) + Number(r.debit)).toFixed(4),
+        credit: (Number(acc.credit) + Number(r.credit)).toFixed(4),
+      }),
+      { debit: "0.0000", credit: "0.0000" },
+    );
+    return {
+      status: 200,
+      body: success({
+        reportName: "trial-balance",
+        parameters: {},
+        rows,
+        meta: {
+          page: 1,
+          pageSize: rows.length,
+          total: rows.length,
+          generatedAt: new Date().toISOString(),
+          totals,
+        },
+      }),
+    };
+  }
+  // FE-56 fe-trial-balance-ledgers — account ledger
+  if (req.path.startsWith("/reports/account-ledger") && req.method === "GET") {
+    const [, rawQ = ""] = req.path.split("?");
+    const qs = new URLSearchParams(rawQ);
+    const accountId = qs.get("accountId");
+    const page = Math.max(1, Number(qs.get("page") ?? "1"));
+    const pageSize = Math.max(1, Number(qs.get("pageSize") ?? "25"));
+    if (!accountId) {
+      return {
+        status: 400,
+        body: envelope("VALIDATION_ERROR", "accountId is required"),
+      };
+    }
+    const allRows = [
+      { entryId: "je-1001", journalEntryId: "je-1001", entryNo: "JV/2526/0001", voucherDate: "2026-04-02", voucherType: "Journal", accountId, accountCode: "1200", accountName: "Accounts Receivable", partyId: "party-1", partyName: "National Housing Authority", debit: "250000.0000", credit: "0.0000", runningBalance: "1250000.0000" },
+      { entryId: "je-1002", journalEntryId: "je-1002", entryNo: "RV/2526/0007", voucherDate: "2026-04-15", voucherType: "Receipt", accountId, accountCode: "1200", accountName: "Accounts Receivable", partyId: "party-1", partyName: "National Housing Authority", debit: "0.0000", credit: "150000.0000", runningBalance: "1100000.0000" },
+      { entryId: "je-1003", journalEntryId: "je-1003", entryNo: "PV/2526/0011", voucherDate: "2026-05-01", voucherType: "Payment", accountId, accountCode: "1200", accountName: "Accounts Receivable", partyId: "party-2", partyName: "M/s Rahman Traders", debit: "80000.0000", credit: "0.0000", runningBalance: "1180000.0000", isReversal: true },
+      { entryId: "je-1004", entryNo: "JV/2526/0021", voucherDate: "2026-05-20", voucherType: "Journal", accountId, accountCode: "1200", accountName: null, debit: "45000.0000", credit: "0.0000", runningBalance: "1225000.0000" },
+    ];
+    const rows = allRows.slice((page - 1) * pageSize, (page - 1) * pageSize + pageSize);
+    return {
+      status: 200,
+      body: success({
+        reportName: "account-ledger",
+        parameters: {},
+        rows,
+        meta: {
+          page,
+          pageSize,
+          total: allRows.length,
+          generatedAt: new Date().toISOString(),
+          openingBalance: "1000000.0000",
+          openingAsOf: "2026-04-01",
+          dateFrom: qs.get("dateFrom") ?? "2026-04-01",
+          dateTo: qs.get("dateTo") ?? "2026-06-30",
+        },
+      }),
+    };
+  }
+  // FE-56 — daybook
+  if (req.path.startsWith("/reports/daybook") && req.method === "GET") {
+    const rows = [
+      { entryId: "je-1001", journalEntryId: "je-1001", entryNo: "JV/2526/0001", voucherDate: "2026-04-02", voucherType: "Journal", accountId: "1200", accountCode: "1200", accountName: "Accounts Receivable", debit: "250000.0000", credit: "0.0000", runningBalance: "0.0000" },
+      { entryId: "je-1002", journalEntryId: "je-1002", entryNo: "RV/2526/0007", voucherDate: "2026-04-15", voucherType: "Receipt", accountId: "1101", accountCode: "1101", accountName: "HSBC Current 001", debit: "150000.0000", credit: "0.0000", runningBalance: "0.0000" },
+      { entryId: "je-1003", journalEntryId: "je-1003", entryNo: "PV/2526/0011", voucherDate: "2026-05-01", voucherType: "Payment", accountId: "2100", accountCode: "2100", accountName: "Accounts payable", debit: "0.0000", credit: "80000.0000", runningBalance: "0.0000" },
+    ];
+    return {
+      status: 200,
+      body: success({
+        reportName: "daybook",
+        parameters: {},
+        rows,
+        meta: {
+          page: 1,
+          pageSize: rows.length,
+          total: rows.length,
+          generatedAt: new Date().toISOString(),
+        },
+      }),
+    };
+  }
+  // FE-56 — cash & bank book
+  if (req.path.startsWith("/reports/cash-bank-book") && req.method === "GET") {
+    const [, rawQ = ""] = req.path.split("?");
+    const qs = new URLSearchParams(rawQ);
+    const rows = [
+      { entryId: "je-2001", journalEntryId: "je-2001", entryNo: "RV/2526/0007", voucherDate: "2026-04-15", voucherType: "Receipt", accountId: "1101", accountCode: "1101", accountName: "HSBC Current 001", partyId: "party-1", partyName: "National Housing Authority", debit: "150000.0000", credit: "0.0000", runningBalance: "8650000.0000" },
+      { entryId: "je-2002", journalEntryId: "je-2002", entryNo: "PV/2526/0011", voucherDate: "2026-05-01", voucherType: "Payment", accountId: "1101", accountCode: "1101", accountName: "HSBC Current 001", partyId: "party-2", partyName: "M/s Rahman Traders", debit: "0.0000", credit: "80000.0000", runningBalance: "8570000.0000" },
+    ];
+    return {
+      status: 200,
+      body: success({
+        reportName: "cash-bank-book",
+        parameters: {},
+        rows,
+        meta: {
+          page: 1,
+          pageSize: rows.length,
+          total: rows.length,
+          generatedAt: new Date().toISOString(),
+          openingBalance: "8500000.0000",
+          openingAsOf: "2026-04-01",
+          dateFrom: qs.get("dateFrom") ?? "2026-04-01",
+          dateTo: qs.get("dateTo") ?? "2026-06-30",
+        },
+      }),
+    };
+  }
+  // FE-55 fe-financial-statements — P&L
+  if (req.path.startsWith("/reports/profit-and-loss") && req.method === "GET") {
+    const query = req.path.split("?")[1] ?? "";
+    const qs = new URLSearchParams(query);
+    const projectId = qs.get("projectId");
+    const groupBy = qs.get("groupBy") ?? "account";
+    // Two dataset shapes so the tab exercises both a profit (consolidated) and
+    // a loss (single project) surface.
+    const rows = projectId
+      ? [
+          { accountId: "4000", accountCode: "4000", accountName: "Contract revenue", section: "INCOME", amount: "2500000.0000", projectId, projectName: "Bridge-04" },
+          { accountId: "5100", accountCode: "5100", accountName: "Materials", section: "EXPENSE", amount: "2200000.0000", projectId, projectName: "Bridge-04", ...(groupBy.includes("cost_centre") ? { costCentreId: "cc-mat", costCentreName: "Materials CC" } : {}) },
+          { accountId: "5200", accountCode: "5200", accountName: "Labour", section: "EXPENSE", amount: "600000.0000", projectId, projectName: "Bridge-04", ...(groupBy.includes("cost_centre") ? { costCentreId: "cc-lab", costCentreName: "Labour CC" } : {}) },
+          { accountId: "5300", accountCode: "5300", accountName: null, section: "EXPENSE", amount: "100000.0000", projectId, projectName: "Bridge-04" },
+        ]
+      : [
+          { accountId: "4000", accountCode: "4000", accountName: "Contract revenue", section: "INCOME", amount: "18500000.0000" },
+          { accountId: "4200", accountCode: "4200", accountName: "Other income", section: "INCOME", amount: "150000.0000" },
+          { accountId: "5100", accountCode: "5100", accountName: "Materials", section: "EXPENSE", amount: "9200000.0000" },
+          { accountId: "5200", accountCode: "5200", accountName: "Labour", section: "EXPENSE", amount: "3400000.0000" },
+          { accountId: "5300", accountCode: "5300", accountName: "Fuel & operating", section: "EXPENSE", amount: "760000.0000" },
+          { accountId: "5400", accountCode: "5400", accountName: "কর্মচারী বেতন", section: "EXPENSE", amount: "1900000.0000", isActive: false },
+        ];
+    const revenue = rows.filter((r) => r.section === "INCOME").reduce((a, r) => a + Number(r.amount), 0);
+    const cost = rows.filter((r) => r.section === "EXPENSE").reduce((a, r) => a + Number(r.amount), 0);
+    return {
+      status: 200,
+      body: success({
+        reportName: "profit-and-loss",
+        parameters: {},
+        rows,
+        meta: {
+          page: 1,
+          pageSize: rows.length,
+          total: rows.length,
+          generatedAt: new Date().toISOString(),
+          totals: {
+            revenue: revenue.toFixed(4),
+            cost: cost.toFixed(4),
+            profit: (revenue - cost).toFixed(4),
+          },
+        },
+      }),
+    };
+  }
+  // FE-55 fe-financial-statements — Balance sheet
+  if (req.path.startsWith("/reports/balance-sheet") && req.method === "GET") {
+    const query = req.path.split("?")[1] ?? "";
+    const qs = new URLSearchParams(query);
+    const projectId = qs.get("projectId");
+    const rows = projectId
+      ? [
+          { accountId: "1200", accountCode: "1200", accountName: "Retention receivable — Bridge-04", groupKind: "ASSET", groupLabel: "Current assets", amount: "620000.0000" },
+          { accountId: "1201", accountCode: "1201", accountName: "Advance from customer — Bridge-04", groupKind: "LIABILITY", groupLabel: "Current liabilities", amount: "1200000.0000" },
+        ]
+      : [
+          { accountId: "1010", accountCode: "1010", accountName: "Cash on hand", groupKind: "ASSET", groupLabel: "Current assets", amount: "500000.0000" },
+          { accountId: "1101", accountCode: "1101", accountName: "HSBC Current 001", groupKind: "ASSET", groupLabel: "Current assets", amount: "8500000.0000" },
+          { accountId: "1200", accountCode: "1200", accountName: "Accounts Receivable", groupKind: "ASSET", groupLabel: "Current assets", amount: "12400000.0000" },
+          { accountId: "1500", accountCode: "1500", accountName: "Plant & equipment", groupKind: "ASSET", groupLabel: "Non-current assets", amount: "9600000.0000" },
+          { accountId: "2100", accountCode: "2100", accountName: "Accounts payable", groupKind: "LIABILITY", groupLabel: "Current liabilities", amount: "3400000.0000" },
+          { accountId: "2200", accountCode: "2200", accountName: "Retention payable", groupKind: "LIABILITY", groupLabel: "Current liabilities", amount: "600000.0000" },
+          { accountId: "3100", accountCode: "3100", accountName: "Opening equity", groupKind: "EQUITY", groupLabel: "Equity", amount: "22500000.0000" },
+          { accountId: "3200", accountCode: "3200", accountName: "Retained earnings", groupKind: "EQUITY", groupLabel: "Equity", amount: "4500000.0000" },
+        ];
+    const totals = rows.reduce(
+      (acc, r) => {
+        const n = Number(r.amount);
+        if (r.groupKind === "ASSET") acc.assets += n;
+        else if (r.groupKind === "LIABILITY") acc.liabilities += n;
+        else acc.equity += n;
+        return acc;
+      },
+      { assets: 0, liabilities: 0, equity: 0 },
+    );
+    return {
+      status: 200,
+      body: success({
+        reportName: "balance-sheet",
+        parameters: {},
+        rows,
+        meta: {
+          page: 1,
+          pageSize: rows.length,
+          total: rows.length,
+          generatedAt: new Date().toISOString(),
+          totals: {
+            assets: totals.assets.toFixed(4),
+            liabilities: totals.liabilities.toFixed(4),
+            equity: totals.equity.toFixed(4),
+          },
+        },
+      }),
+    };
+  }
+  // FE-57 fe-project-ipc-reports — Project P&L
+  if (req.path.startsWith("/reports/project-pnl") && req.method === "GET") {
+    const query = req.path.split("?")[1] ?? "";
+    const qs = new URLSearchParams(query);
+    const projectId = qs.get("projectId");
+    if (!projectId) {
+      return {
+        status: 400,
+        body: envelope("VALIDATION_ERROR", "projectId is required"),
+      };
+    }
+    if (projectId === "proj-forbidden") {
+      return {
+        status: 403,
+        body: envelope("FORBIDDEN", "You don't have access to this project."),
+      };
+    }
+    const rows = [
+      { costCentreId: "cc-mat", costCentreCode: "CC-01", costCentreName: "Materials — Cement & Steel", revenue: "480000000.0000", cost: "618000000.0000", profit: "-138000000.0000" },
+      { costCentreId: "cc-lab", costCentreCode: "CC-02", costCentreName: "শ্রমিক মজুরি — Site Labour", revenue: "320000000.0000", cost: "176000000.0000", profit: "144000000.0000" },
+      { costCentreId: "cc-sub", costCentreCode: "CC-04", costCentreName: "Subcontractor Works", revenue: "960000000.0000", cost: "772000000.0000", profit: "188000000.0000" },
+      { costCentreId: "cc-equip", costCentreCode: "CC-06", costCentreName: "Equipment Rental & Hire", revenue: "240000000.0000", cost: "185000000.0000", profit: "55000000.0000" },
+      { costCentreId: "gone-cc", costCentreCode: "CC-99", costCentreName: null, revenue: "10000000.0000", cost: "7500000.0000", profit: "2500000.0000" },
+      // The project-total row (costCentreId=null) — FE renders as a distinct row.
+      { costCentreId: null, costCentreCode: null, costCentreName: "Project total", revenue: "2010000000.0000", cost: "1758500000.0000", profit: "251500000.0000" },
+    ];
+    return {
+      status: 200,
+      body: success({
+        reportName: "project-pnl",
+        parameters: { projectId },
+        rows,
+        meta: {
+          page: 1,
+          pageSize: rows.length,
+          total: rows.length,
+          generatedAt: new Date().toISOString(),
+          totals: { revenue: "2010000000.0000", cost: "1758500000.0000", profit: "251500000.0000" },
+        },
+      }),
+    };
+  }
+  // FE-57 — IPC billing report (per-IPC billing + ageing badge + cumulative)
+  if (req.path.startsWith("/reports/ipc-billing") && req.method === "GET") {
+    const query = req.path.split("?")[1] ?? "";
+    const qs = new URLSearchParams(query);
+    const projectId = qs.get("projectId");
+    if (projectId === "proj-forbidden") {
+      return { status: 403, body: envelope("FORBIDDEN", "You don't have access to this project.") };
+    }
+    if (projectId === "proj-empty") {
+      return {
+        status: 200,
+        body: success({
+          reportName: "ipc-billing",
+          parameters: { projectId },
+          rows: [],
+          meta: {
+            page: 1,
+            pageSize: 25,
+            total: 0,
+            generatedAt: new Date().toISOString(),
+            totals: { certified: "0.0000", billed: "0.0000", received: "0.0000", outstanding: "0.0000", retentionHeld: "0.0000" },
+          },
+        }),
+      };
+    }
+    const rows = [
+      { ipcId: "ipc-1", ipcNo: "IPC-2026-000007", ipcDate: "2026-04-05", dueDate: "2026-05-05", status: "OPEN", certifiedAmount: "12000000.0000", billedAmount: "12000000.0000", receivedAmount: "6000000.0000", outstandingAmount: "6000000.0000", retentionHeldAmount: "1200000.0000", ageingBucket: "CURRENT" },
+      { ipcId: "ipc-2", ipcNo: "IPC-2026-000006", ipcDate: "2026-03-20", dueDate: "2026-04-20", status: "OPEN", certifiedAmount: "8500000.0000", billedAmount: "8500000.0000", receivedAmount: "4000000.0000", outstandingAmount: "4500000.0000", retentionHeldAmount: "850000.0000", ageingBucket: "D31_60" },
+      { ipcId: "ipc-3", ipcNo: "IPC-2026-000005", ipcDate: "2026-02-14", dueDate: "2026-03-14", status: "OPEN", certifiedAmount: "10500000.0000", billedAmount: "10500000.0000", receivedAmount: "3500000.0000", outstandingAmount: "7000000.0000", retentionHeldAmount: "1050000.0000", ageingBucket: "D61_90" },
+      { ipcId: "ipc-4", ipcNo: "IPC-2026-000004", ipcDate: "2025-12-30", dueDate: "2026-01-30", status: "OPEN", certifiedAmount: "6000000.0000", billedAmount: "6000000.0000", receivedAmount: "0.0000", outstandingAmount: "6000000.0000", retentionHeldAmount: "600000.0000", ageingBucket: "D90_PLUS" },
+      // Row without a projectId/name resolved (partial state)
+      { ipcId: "ipc-5", ipcNo: "IPC-2026-000003", ipcDate: "2025-11-10", dueDate: "2025-12-10", status: "OPEN", projectId: "gone", projectName: null, certifiedAmount: "4500000.0000", billedAmount: "4500000.0000", receivedAmount: "500000.0000", outstandingAmount: "4000000.0000", retentionHeldAmount: "450000.0000", ageingBucket: "D90_PLUS" },
+    ];
+    return {
+      status: 200,
+      body: success({
+        reportName: "ipc-billing",
+        parameters: { projectId },
+        rows,
+        meta: {
+          page: 1,
+          pageSize: rows.length,
+          total: rows.length,
+          generatedAt: new Date().toISOString(),
+          totals: {
+            certified: "41500000.0000",
+            billed: "41500000.0000",
+            received: "14000000.0000",
+            outstanding: "27500000.0000",
+            retentionHeld: "4150000.0000",
+          },
+        },
+      }),
+    };
+  }
+  // FE-57 — Outstanding (as-of; grouped by project)
+  if (req.path.startsWith("/reports/outstanding") && req.method === "GET") {
+    const query = req.path.split("?")[1] ?? "";
+    const qs = new URLSearchParams(query);
+    if (qs.get("projectId") === "proj-forbidden") {
+      return { status: 403, body: envelope("FORBIDDEN", "You don't have access to this project.") };
+    }
+    const rows = [
+      { ipcId: "ipc-1", ipcNo: "IPC-2026-000007", ipcDate: "2026-04-05", dueDate: "2026-05-05", projectId: "proj-a", projectName: "Bridge-04 — Buriganga", certifiedAmount: "12000000.0000", billedAmount: "12000000.0000", receivedAmount: "6000000.0000", outstandingAmount: "6000000.0000", retentionHeldAmount: "1200000.0000", ageingBucket: "CURRENT" },
+      { ipcId: "ipc-2", ipcNo: "IPC-2026-000006", ipcDate: "2026-03-20", dueDate: "2026-04-20", projectId: "proj-a", projectName: "Bridge-04 — Buriganga", certifiedAmount: "8500000.0000", billedAmount: "8500000.0000", receivedAmount: "4000000.0000", outstandingAmount: "4500000.0000", retentionHeldAmount: "850000.0000", ageingBucket: "D31_60" },
+      { ipcId: "ipc-6", ipcNo: "IPC-2026-000011", ipcDate: "2026-04-10", dueDate: "2026-05-10", projectId: "proj-b", projectName: "Tower-A — Gulshan", certifiedAmount: "15000000.0000", billedAmount: "15000000.0000", receivedAmount: "10000000.0000", outstandingAmount: "5000000.0000", retentionHeldAmount: "1500000.0000", ageingBucket: "CURRENT" },
+    ];
+    return {
+      status: 200,
+      body: success({
+        reportName: "outstanding",
+        parameters: {},
+        rows,
+        meta: {
+          page: 1,
+          pageSize: rows.length,
+          total: rows.length,
+          generatedAt: new Date().toISOString(),
+          totals: {
+            outstanding: "15500000.0000",
+            certified: "35500000.0000",
+            billed: "35500000.0000",
+            received: "20000000.0000",
+            retentionHeld: "3550000.0000",
+          },
+          projectTotals: {
+            "proj-a": { outstanding: "10500000.0000", certified: "20500000.0000", billed: "20500000.0000", received: "10000000.0000", retentionHeld: "2050000.0000" },
+            "proj-b": { outstanding: "5000000.0000", certified: "15000000.0000", billed: "15000000.0000", received: "10000000.0000", retentionHeld: "1500000.0000" },
+          },
+        },
+      }),
+    };
+  }
+  // FE-57 — Material consumption vs budget
+  if (req.path.startsWith("/reports/material-consumption-vs-budget") && req.method === "GET") {
+    const query = req.path.split("?")[1] ?? "";
+    const qs = new URLSearchParams(query);
+    if (qs.get("projectId") === "proj-forbidden") {
+      return { status: 403, body: envelope("FORBIDDEN", "You don't have access to this project.") };
+    }
+    const statusFilter = qs.get("status");
+    const allRows = [
+      { projectId: "proj-a", projectName: "Bridge-04 — Buriganga", costCentreId: "cc-mat", costCentreCode: "CC-01", costCentreName: "Materials — Cement & Steel", budgetedAmount: "1200000000.0000", actualAmount: "1296000000.0000", variance: "-96000000.0000", utilisationPct: "108.0000", status: "OVER" },
+      { projectId: "proj-a", projectName: "Bridge-04 — Buriganga", costCentreId: "cc-lab", costCentreCode: "CC-02", costCentreName: "শ্রমিক মজুরি — Site Labour", budgetedAmount: "450000000.0000", actualAmount: "418500000.0000", variance: "31500000.0000", utilisationPct: "93.0000", status: "APPROACHING" },
+      { projectId: "proj-a", projectName: "Bridge-04 — Buriganga", costCentreId: "cc-sub", costCentreCode: "CC-04", costCentreName: "Subcontractor Works", budgetedAmount: "900000000.0000", actualAmount: "612000000.0000", variance: "288000000.0000", utilisationPct: "68.0000", status: "OK" },
+      { projectId: "proj-a", projectName: "Bridge-04 — Buriganga", costCentreId: "cc-power", costCentreCode: "CC-11", costCentreName: "Utilities & Site Power", budgetedAmount: null, actualAmount: "12000000.0000", variance: null, utilisationPct: null, status: "UNBUDGETED" },
+    ];
+    const rows = statusFilter
+      ? allRows.filter((r) => statusFilter.split(",").includes(r.status))
+      : allRows;
+    return {
+      status: 200,
+      body: success({
+        reportName: "material-consumption-vs-budget",
+        parameters: {},
+        rows,
+        meta: {
+          page: 1,
+          pageSize: rows.length,
+          total: rows.length,
+          generatedAt: new Date().toISOString(),
+          totals: {
+            budgeted: "2550000000.0000",
+            actual: "2338500000.0000",
+            variance: "211500000.0000",
+          },
+        },
+      }),
+    };
+  }
+  // FE-57 — Labour cost
+  if (req.path.startsWith("/reports/labour-cost") && req.method === "GET") {
+    const query = req.path.split("?")[1] ?? "";
+    const qs = new URLSearchParams(query);
+    if (qs.get("projectId") === "proj-forbidden") {
+      return { status: 403, body: envelope("FORBIDDEN", "You don't have access to this project.") };
+    }
+    const rows = [
+      { projectId: "proj-a", projectName: "Bridge-04 — Buriganga", costCentreId: "cc-lab", costCentreCode: "CC-02", costCentreName: "শ্রমিক মজুরি — Site Labour", labourCost: "418500000.0000" },
+      { projectId: "proj-a", projectName: "Bridge-04 — Buriganga", costCentreId: "cc-transport", costCentreCode: "CC-08", costCentreName: "Transport & Logistics", labourCost: "18000000.0000" },
+      { projectId: "proj-b", projectName: "Tower-A — Gulshan", costCentreId: "cc-lab", costCentreCode: "CC-02", costCentreName: "শ্রমিক মজুরি — Site Labour", labourCost: "220000000.0000" },
+    ];
+    return {
+      status: 200,
+      body: success({
+        reportName: "labour-cost",
+        parameters: {},
+        rows,
+        meta: {
+          page: 1,
+          pageSize: rows.length,
+          total: rows.length,
+          generatedAt: new Date().toISOString(),
+          totals: { labourCost: "656500000.0000" },
+        },
+      }),
+    };
+  }
+  // FE-58 fe-inventory-reports — Stock valuation (as-of)
+  if (req.path.startsWith("/reports/stock-valuation") && req.method === "GET") {
+    const query = req.path.split("?")[1] ?? "";
+    const qs = new URLSearchParams(query);
+    const asOf = qs.get("asOf") ?? "2026-06-30";
+    if (qs.get("projectId") === "proj-forbidden") {
+      return { status: 403, body: envelope("FORBIDDEN", "You don't have access to this project.") };
+    }
+    if (qs.get("godownId") === "gd-empty") {
+      return {
+        status: 200,
+        body: success({
+          reportName: "stock-valuation",
+          parameters: { asOf },
+          rows: [],
+          meta: {
+            page: 1,
+            pageSize: 25,
+            total: 0,
+            generatedAt: new Date().toISOString(),
+            totals: { totalValue: "0.0000" },
+          },
+        }),
+      };
+    }
+    const rows = [
+      { godownId: "gd-a", godownCode: "G-Site-A", godownName: "Site A store", itemId: "it-1", itemCode: "IT-101", itemName: "Cement — 50 kg bag", quantityOnHand: "1200.000", totalValue: "780000.0000", weightedAverageRate: "650.0000", asOf },
+      { godownId: "gd-a", godownCode: "G-Site-A", godownName: "Site A store", itemId: "it-2", itemCode: "IT-102", itemName: "MS Rod 12mm", quantityOnHand: "8500.000", totalValue: "6970000.0000", weightedAverageRate: "820.0000", asOf },
+      { godownId: "gd-a", godownCode: "G-Site-A", godownName: "Site A store", itemId: "it-3", itemCode: "IT-103", itemName: "Sand — cft", quantityOnHand: "0.000", totalValue: "0.0000", weightedAverageRate: null, asOf },
+      { godownId: "gd-b", godownCode: "G-Site-B", godownName: "Site B store", itemId: "it-1", itemCode: "IT-101", itemName: "Cement — 50 kg bag", quantityOnHand: "450.000", totalValue: "292500.0000", weightedAverageRate: "650.0000", asOf },
+      { godownId: "gd-b", godownCode: "G-Site-B", godownName: "Site B store", itemId: "gone", itemCode: "IT-999", itemName: null, quantityOnHand: "100.000", totalValue: "50000.0000", weightedAverageRate: "500.0000", asOf, itemInactive: true },
+    ];
+    return {
+      status: 200,
+      body: success({
+        reportName: "stock-valuation",
+        parameters: { asOf },
+        rows,
+        meta: {
+          page: 1,
+          pageSize: rows.length,
+          total: rows.length,
+          generatedAt: new Date().toISOString(),
+          totals: { totalValue: "8092500.0000" },
+        },
+      }),
+    };
+  }
+  // FE-58 — Low-stock / re-order
+  if (req.path.startsWith("/reports/low-stock") && req.method === "GET") {
+    const query = req.path.split("?")[1] ?? "";
+    const qs = new URLSearchParams(query);
+    if (qs.get("projectId") === "proj-forbidden") {
+      return { status: 403, body: envelope("FORBIDDEN", "You don't have access to this project.") };
+    }
+    const reorderLevel = qs.get("reorderLevel") ?? "500";
+    const asOf = qs.get("asOf") ?? "2026-06-30";
+    // Filter to rows where qty <= reorderLevel — mock fixture.
+    const all = [
+      { godownId: "gd-a", godownCode: "G-Site-A", godownName: "Site A store", itemId: "it-3", itemCode: "IT-103", itemName: "Sand — cft", quantityOnHand: "0.000", totalValue: "0.0000", weightedAverageRate: null, reorderLevel: reorderLevel, asOf },
+      { godownId: "gd-b", godownCode: "G-Site-B", godownName: "Site B store", itemId: "it-1", itemCode: "IT-101", itemName: "Cement — 50 kg bag", quantityOnHand: "450.000", totalValue: "292500.0000", weightedAverageRate: "650.0000", reorderLevel: reorderLevel, asOf },
+      { godownId: "gd-c", godownCode: "G-Central", godownName: "Central warehouse", itemId: "it-4", itemCode: "IT-104", itemName: "Nails — kg", quantityOnHand: "150.000", totalValue: "22500.0000", weightedAverageRate: "150.0000", reorderLevel: reorderLevel, asOf },
+      { godownId: "gd-a", godownCode: "G-Site-A", godownName: "Site A store", itemId: "it-5", itemCode: "IT-105", itemName: "Paint — 20 L bucket", quantityOnHand: "80.000", totalValue: "560000.0000", weightedAverageRate: "7000.0000", reorderLevel: reorderLevel, asOf },
+    ];
+    return {
+      status: 200,
+      body: success({
+        reportName: "low-stock",
+        parameters: { asOf, reorderLevel },
+        rows: all,
+        meta: {
+          page: 1,
+          pageSize: all.length,
+          total: all.length,
+          generatedAt: new Date().toISOString(),
+          totals: { totalValue: "875000.0000", breachedCount: all.length },
+        },
+      }),
+    };
+  }
+  // FE-58 — Stock transfer summary (flow)
+  if (req.path.startsWith("/reports/stock-transfer-summary") && req.method === "GET") {
+    const query = req.path.split("?")[1] ?? "";
+    const qs = new URLSearchParams(query);
+    if (qs.get("projectId") === "proj-forbidden") {
+      return { status: 403, body: envelope("FORBIDDEN", "You don't have access to this project.") };
+    }
+    if (qs.get("itemId") === "it-empty") {
+      return {
+        status: 200,
+        body: success({
+          reportName: "stock-transfer-summary",
+          parameters: {},
+          rows: [],
+          meta: {
+            page: 1, pageSize: 25, total: 0,
+            generatedAt: new Date().toISOString(),
+            totals: { totalValueMoved: "0.0000" },
+          },
+        }),
+      };
+    }
+    const rows = [
+      { stockJournalId: "sj-1", voucherNo: "SJ/2526/000001", voucherDate: "2026-04-05", fromGodownId: "gd-a", fromGodownName: "Site A store", toGodownId: "gd-b", toGodownName: "Site B store", itemId: "it-1", itemName: "Cement — 50 kg bag", quantity: "200.000", value: "130000.0000", mode: "TRANSFER", approverId: "u-1", approverName: "Store Manager" },
+      { stockJournalId: "sj-2", voucherNo: "SJ/2526/000002", voucherDate: "2026-04-12", fromGodownId: "gd-b", fromGodownName: "Site B store", toGodownId: null, toGodownName: null, itemId: "it-2", itemName: "MS Rod 12mm", quantity: "500.000", value: "410000.0000", mode: "ISSUE", approverId: "u-2", approverName: "Project Manager" },
+      { stockJournalId: "sj-3", voucherNo: "SJ/2526/000003", voucherDate: "2026-05-01", fromGodownId: "gd-c", fromGodownName: "Central warehouse", toGodownId: "gd-a", toGodownName: "Site A store", itemId: "gone", itemName: null, quantity: "100.000", value: "50000.0000", mode: "TRANSFER", approverId: "u-3", approverName: null },
+    ];
+    return {
+      status: 200,
+      body: success({
+        reportName: "stock-transfer-summary",
+        parameters: {},
+        rows,
+        meta: {
+          page: 1, pageSize: rows.length, total: rows.length,
+          generatedAt: new Date().toISOString(),
+          totals: { totalValueMoved: "590000.0000" },
+        },
+      }),
+    };
+  }
+  // FE-59 fe-requisition-cost-control-reports — Requisition vs issue
+  if (req.path.startsWith("/reports/requisition-vs-issue") && req.method === "GET") {
+    const query = req.path.split("?")[1] ?? "";
+    const qs = new URLSearchParams(query);
+    if (qs.get("projectId") === "proj-forbidden") {
+      return { status: 403, body: envelope("FORBIDDEN", "You don't have access to this project.") };
+    }
+    if (qs.get("requisitionId") === "req-empty") {
+      return {
+        status: 200,
+        body: success({
+          reportName: "requisition-vs-issue",
+          parameters: {},
+          rows: [],
+          meta: {
+            page: 1, pageSize: 25, total: 0,
+            generatedAt: new Date().toISOString(),
+            totals: { lineCount: 0, fullyIssued: 0, outstanding: 0 },
+          },
+        }),
+      };
+    }
+    const rows = [
+      { requisitionId: "req-1", requisitionNo: "RQ/2526/000001", projectId: "proj-a", projectName: "Bridge-04 — Buriganga", costCentreId: "cc-mat", costCentreCode: "CC-01", costCentreName: "Materials — Cement & Steel", itemId: "it-1", itemCode: "IT-101", itemName: "Cement — 50 kg bag", unit: "bag", requestedQty: "500.000", issuedQty: "500.000", varianceQty: "0.000" },
+      { requisitionId: "req-1", requisitionNo: "RQ/2526/000001", projectId: "proj-a", projectName: "Bridge-04 — Buriganga", costCentreId: "cc-mat", costCentreCode: "CC-01", costCentreName: "Materials — Cement & Steel", itemId: "it-2", itemCode: "IT-102", itemName: "MS Rod 12mm", unit: "kg", requestedQty: "1000.000", issuedQty: "800.000", varianceQty: "200.000" },
+      { requisitionId: "req-2", requisitionNo: "RQ/2526/000002", projectId: "proj-a", projectName: "Bridge-04 — Buriganga", costCentreId: "cc-lab", costCentreCode: "CC-02", costCentreName: "শ্রমিক মজুরি — Site Labour", itemId: "it-3", itemCode: "IT-103", itemName: "Sand — cft", unit: "cft", requestedQty: "200.000", issuedQty: "250.000", varianceQty: "-50.000" },
+      { requisitionId: "req-3", requisitionNo: "RQ/2526/000003", projectId: "proj-a", projectName: "Bridge-04 — Buriganga", costCentreId: "gone-cc", costCentreCode: "CC-99", costCentreName: null, itemId: "it-4", itemCode: "IT-104", itemName: "Nails — kg", unit: "kg", requestedQty: "100.000", issuedQty: "50.000", varianceQty: "50.000", costCentreInactive: true },
+    ];
+    return {
+      status: 200,
+      body: success({
+        reportName: "requisition-vs-issue",
+        parameters: {},
+        rows,
+        meta: {
+          page: 1, pageSize: rows.length, total: rows.length,
+          generatedAt: new Date().toISOString(),
+          totals: { lineCount: 4, fullyIssued: 1, outstanding: 3 },
+        },
+      }),
+    };
+  }
+  // FE-59 — Cost-centre variance
+  if (req.path.startsWith("/reports/cost-centre-variance") && req.method === "GET") {
+    const query = req.path.split("?")[1] ?? "";
+    const qs = new URLSearchParams(query);
+    if (qs.get("projectId") === "proj-forbidden") {
+      return { status: 403, body: envelope("FORBIDDEN", "You don't have access to this project.") };
+    }
+    const statusFilter = qs.get("status");
+    const all = [
+      { projectId: "proj-a", projectName: "Bridge-04 — Buriganga", costCentreId: "cc-mat", costCentreCode: "CC-01", costCentreName: "Materials — Cement & Steel", budgetedAmount: "1200000000.0000", actualCost: "1296000000.0000", variance: "-96000000.0000", utilisationPct: "108.0000", status: "OVER" },
+      { projectId: "proj-a", projectName: "Bridge-04 — Buriganga", costCentreId: "cc-lab", costCentreCode: "CC-02", costCentreName: "শ্রমিক মজুরি — Site Labour", budgetedAmount: "450000000.0000", actualCost: "418500000.0000", variance: "31500000.0000", utilisationPct: "93.0000", status: "APPROACHING" },
+      { projectId: "proj-a", projectName: "Bridge-04 — Buriganga", costCentreId: "cc-sub", costCentreCode: "CC-04", costCentreName: "Subcontractor Works", budgetedAmount: "900000000.0000", actualCost: "612000000.0000", variance: "288000000.0000", utilisationPct: "68.0000", status: "OK" },
+      { projectId: "proj-a", projectName: "Bridge-04 — Buriganga", costCentreId: "cc-power", costCentreCode: "CC-11", costCentreName: "Utilities & Site Power", budgetedAmount: null, actualCost: "12000000.0000", variance: null, utilisationPct: null, status: "UNBUDGETED" },
+    ];
+    const rows = statusFilter ? all.filter((r) => statusFilter.split(",").includes(r.status)) : all;
+    return {
+      status: 200,
+      body: success({
+        reportName: "cost-centre-variance",
+        parameters: {},
+        rows,
+        meta: {
+          page: 1, pageSize: rows.length, total: rows.length,
+          generatedAt: new Date().toISOString(),
+          totals: { budgeted: "2550000000.0000", actual: "2338500000.0000", variance: "223500000.0000" },
+        },
+      }),
+    };
+  }
+  // FE-60 fe-hr-reports — Attendance summary
+  if (req.path.startsWith("/reports/attendance-summary") && req.method === "GET") {
+    const query = req.path.split("?")[1] ?? "";
+    const qs = new URLSearchParams(query);
+    const month = qs.get("month");
+    if (!month) {
+      return { status: 400, body: envelope("VALIDATION_ERROR", "month is required (YYYY-MM)") };
+    }
+    if (qs.get("employeeId") === "emp-empty") {
+      return {
+        status: 200,
+        body: success({
+          reportName: "attendance-summary",
+          parameters: { month },
+          rows: [],
+          meta: { page: 1, pageSize: 25, total: 0, generatedAt: new Date().toISOString(), totals: { present: 0, paidLeave: 0, unpaidLeave: 0, absent: 0, headCount: 0 } },
+        }),
+      };
+    }
+    const rows = [
+      { projectId: "proj-a", projectName: "Bridge-04 — Buriganga", employeeId: "emp-1", employeeName: "Ashraf Uddin", partyId: null, partyName: null, costCentreId: "cc-lab", costCentreCode: "CC-02", costCentreName: "শ্রমিক মজুরি — Site Labour", present: 22, paidLeave: 1, unpaidLeave: 0, absent: 3, headCount: 1, mode: "OFFICE" },
+      { projectId: "proj-a", projectName: "Bridge-04 — Buriganga", employeeId: "emp-2", employeeName: "Rahim Ali", partyId: null, partyName: null, costCentreId: "cc-lab", costCentreCode: "CC-02", costCentreName: "শ্রমিক মজুরি — Site Labour", present: 24, paidLeave: 2, unpaidLeave: 0, absent: 0, headCount: 1, mode: "OFFICE", employeeInactive: true },
+      { projectId: "proj-a", projectName: "Bridge-04 — Buriganga", employeeId: null, employeeName: null, partyId: "sub-1", partyName: "Star Subcontractors", costCentreId: "cc-sub", costCentreCode: "CC-04", costCentreName: "Subcontractor Works", present: 40, paidLeave: 0, unpaidLeave: 0, absent: 5, headCount: 8, mode: "SUBCONTRACTOR" },
+      { projectId: "proj-b", projectName: "Tower-A — Gulshan", employeeId: null, employeeName: null, partyId: null, partyName: null, costCentreId: "cc-lab", costCentreCode: "CC-02", costCentreName: "শ্রমিক মজুরি — Site Labour", present: 380, paidLeave: 0, unpaidLeave: 0, absent: 20, headCount: 15, mode: "DAILY_LABOUR" },
+      // Partial: unresolved employee name
+      { projectId: "proj-b", projectName: "Tower-A — Gulshan", employeeId: "emp-gone", employeeName: null, partyId: null, partyName: null, costCentreId: "cc-lab", costCentreCode: "CC-02", costCentreName: "শ্রমিক মজুরি — Site Labour", present: 15, paidLeave: 0, unpaidLeave: 2, absent: 1, headCount: 1, mode: "OFFICE" },
+    ];
+    return {
+      status: 200,
+      body: success({
+        reportName: "attendance-summary",
+        parameters: { month },
+        rows,
+        meta: {
+          page: 1, pageSize: rows.length, total: rows.length,
+          generatedAt: new Date().toISOString(),
+          totals: { present: 481, paidLeave: 3, unpaidLeave: 2, absent: 29, headCount: 26 },
+        },
+      }),
+    };
+  }
+  // FE-60 — Salary register
+  if (req.path.startsWith("/reports/salary-register") && req.method === "GET") {
+    const query = req.path.split("?")[1] ?? "";
+    const qs = new URLSearchParams(query);
+    const salaryRunId = qs.get("salaryRunId");
+    const month = qs.get("month");
+    if (!salaryRunId && !month) {
+      return {
+        status: 400,
+        body: envelope("VALIDATION_ERROR", "Provide either salaryRunId, or financialYearId + month."),
+      };
+    }
+    const rows = [
+      { salaryRunId: salaryRunId ?? "run-1", journalEntryId: "je-sal-1", journalEntryNo: "JV/2526/0089", employeeId: "emp-1", employeeName: "Ashraf Uddin", projectId: "proj-a", projectName: "Bridge-04 — Buriganga", costCentreId: "cc-lab", costCentreCode: "CC-02", costCentreName: "শ্রমিক মজুরি — Site Labour", grossPay: "60000.0000", allowances: "5000.0000", tds: "6000.0000", pf: "3000.0000", advanceRecovery: "2000.0000", otherDeductions: "500.0000", netPay: "53500.0000" },
+      { salaryRunId: salaryRunId ?? "run-1", journalEntryId: "je-sal-1", journalEntryNo: "JV/2526/0089", employeeId: "emp-2", employeeName: "Rahim Ali", projectId: "proj-a", projectName: "Bridge-04 — Buriganga", costCentreId: "cc-lab", costCentreCode: "CC-02", costCentreName: "শ্রমিক মজুরি — Site Labour", grossPay: "45000.0000", allowances: "3000.0000", tds: "4500.0000", pf: "2250.0000", advanceRecovery: "0.0000", otherDeductions: "250.0000", netPay: "41000.0000" },
+      { salaryRunId: salaryRunId ?? "run-1", journalEntryId: "je-sal-1", journalEntryNo: "JV/2526/0089", employeeId: "emp-3", employeeName: "Karim Sheikh", projectId: "proj-b", projectName: "Tower-A — Gulshan", costCentreId: "cc-lab", costCentreCode: "CC-02", costCentreName: "শ্রমিক মজুরি — Site Labour", grossPay: "70000.0000", allowances: "6000.0000", tds: "7000.0000", pf: "3500.0000", advanceRecovery: "0.0000", otherDeductions: "0.0000", netPay: "65500.0000" },
+    ];
+    return {
+      status: 200,
+      body: success({
+        reportName: "salary-register",
+        parameters: {},
+        rows,
+        meta: {
+          page: 1, pageSize: rows.length, total: rows.length,
+          generatedAt: new Date().toISOString(),
+          totals: { gross: "175000.0000", net: "160000.0000" },
+        },
+      }),
+    };
+  }
+  // FE-60 — Employee payment history
+  if (req.path.startsWith("/reports/employee-payment-history") && req.method === "GET") {
+    const query = req.path.split("?")[1] ?? "";
+    const qs = new URLSearchParams(query);
+    const dateFrom = qs.get("dateFrom");
+    const dateTo = qs.get("dateTo");
+    if (!dateFrom || !dateTo) {
+      return { status: 400, body: envelope("VALIDATION_ERROR", "dateFrom and dateTo are required.") };
+    }
+    const rows = [
+      { paymentId: "pmt-1", paymentVoucherId: "pv-1", payableRef: "PV/2526/0121", employeeId: "emp-1", employeeName: "Ashraf Uddin", paymentDate: "2026-05-05", paidAmount: "53500.0000" },
+      { paymentId: "pmt-2", paymentVoucherId: "pv-2", payableRef: "PV/2526/0122", employeeId: "emp-2", employeeName: "Rahim Ali", paymentDate: "2026-05-05", paidAmount: "41000.0000" },
+      { paymentId: "pmt-3", paymentVoucherId: "pv-3", payableRef: "PV/2526/0124", employeeId: "emp-3", employeeName: "Karim Sheikh", paymentDate: "2026-06-05", paidAmount: "65500.0000" },
+    ];
+    return {
+      status: 200,
+      body: success({
+        reportName: "employee-payment-history",
+        parameters: {},
+        rows,
+        meta: {
+          page: 1, pageSize: rows.length, total: rows.length,
+          generatedAt: new Date().toISOString(),
+          totals: { paidCount: rows.length, totalPaid: "160000.0000" },
+        },
+      }),
+    };
+  }
+  // Every other /reports/<name> — return an empty well-formed result until the
+  // viewer brief for that report lands.
+  if (req.path.startsWith("/reports/") && req.method === "GET") {
+    const name = req.path.slice("/reports/".length).split("?")[0]!;
+    return {
+      status: 200,
+      body: success({
+        reportName: name,
+        parameters: {},
+        rows: [],
+        meta: {
+          page: 1,
+          pageSize: 25,
+          total: 0,
+          generatedAt: new Date().toISOString(),
+          totals: {},
+        },
+      }),
+    };
+  }
+
+  // ── FE-61 fe-dashboard — /api/dashboard (full tile set) + /tiles/{key} ──
+  const [dashPathRaw, dashRawQuery = ""] = req.path.split("?");
+  const dashPath = dashPathRaw ?? "";
+  const dashQs = new URLSearchParams(dashRawQuery);
+  const dashProjectId = dashQs.get("projectId");
+  if (dashProjectId === "proj-forbidden") {
+    if (dashPath === "/dashboard" && req.method === "GET") {
+      return { status: 403, body: envelope("FORBIDDEN", "You don't have access to this project.") };
+    }
+  }
+  function buildTile(key: string, role: string, projectId: string | null): Record<string, unknown> | null {
+    const gen = new Date().toISOString();
+    const fyId = dashQs.get("financialYearId") ?? "fy-1";
+    const scopedProject = projectId ?? "proj-a";
+    switch (key) {
+      case "project-cash-flow":
+        return {
+          key,
+          title: "Project Cash Flow",
+          kpi: { netInflow: "1250000.0000", cashBalance: "320000.0000", bankBalance: "4100000.0000" },
+          status: null,
+          drillTo: {
+            report: "cash-bank-book",
+            params: { financialYearId: fyId, projectId: scopedProject, dateFrom: "2026-06-01", dateTo: "2026-06-30" },
+          },
+          generatedAt: gen,
+        };
+      case "pending-ipcs":
+        return {
+          key,
+          title: "Pending IPCs",
+          kpi: { count: 4, totalOutstanding: "1875000.0000" },
+          status: null,
+          drillTo: { report: "ipc-billing", params: { financialYearId: fyId, projectId: scopedProject } },
+          generatedAt: gen,
+        };
+      case "retention-held":
+        return {
+          key,
+          title: "Retention Held",
+          kpi: { totalRetentionHeld: "412500.0000" },
+          status: null,
+          drillTo: {
+            report: "ipc-billing",
+            params: { financialYearId: fyId, projectId: scopedProject, view: "retention" },
+          },
+          generatedAt: gen,
+        };
+      case "low-stock":
+        return {
+          key,
+          title: "Low-stock Alerts",
+          kpi: { count: 3 },
+          status: "BREACH",
+          drillTo: { report: "low-stock", params: { financialYearId: fyId } },
+          generatedAt: gen,
+        };
+      case "over-budget":
+        return {
+          key,
+          title: "Over-budget Alerts",
+          kpi: { overCount: 2, approachingCount: 5 },
+          status: "OVER",
+          drillTo: {
+            report: "cost-centre-variance",
+            params: { financialYearId: fyId, projectId: scopedProject, status: "OVER,APPROACHING" },
+          },
+          generatedAt: gen,
+        };
+      case "attendance-summary":
+        return {
+          key,
+          title: "Attendance Summary",
+          kpi: { period: "2026-06", presentDays: 1840, headCountTotal: "560.0000" },
+          status: null,
+          drillTo: { report: "attendance-summary", params: { month: "2026-06", projectId: scopedProject } },
+          generatedAt: gen,
+        };
+      case "top-receivables-payables":
+        return {
+          key,
+          title: "Top Receivables / Payables",
+          kpi: {
+            topReceivables: [
+              { partyId: "pa-8", partyName: "National Housing Authority", outstanding: "920000.0000" },
+              { partyId: "pa-4", partyName: "Tower-A Developments Ltd.", outstanding: "530000.0000" },
+              { partyId: "pa-7", partyName: "করিম এন্টারপ্রাইজ", outstanding: "180000.0000" },
+            ],
+            topPayables: [
+              { partyId: "pa-11", partyName: "Padma Cement Ltd", outstanding: "640000.0000" },
+              { partyId: "pa-12", partyName: "Star Steel Traders", outstanding: "310000.0000" },
+            ],
+          },
+          status: null,
+          drillTo: { report: "account-ledger", params: { financialYearId: fyId } },
+          generatedAt: gen,
+        };
+      default:
+        return null;
+    }
+  }
+  function tilesForRole(role: string): string[] {
+    // Simplified role→tile map (server-authoritative — the FE renders whatever is returned).
+    switch (role) {
+      case "STORE_KEEPER":
+        return ["low-stock"];
+      case "HR_MANAGER":
+        return ["attendance-summary"];
+      case "PROJECT_MANAGER":
+      case "SITE_ENGINEER":
+        return ["project-cash-flow", "pending-ipcs", "low-stock", "over-budget", "attendance-summary"];
+      case "ACCOUNTS_TEAM":
+      case "ACCOUNTS_MANAGER":
+      case "ADMIN":
+      default:
+        return [
+          "project-cash-flow",
+          "pending-ipcs",
+          "retention-held",
+          "low-stock",
+          "over-budget",
+          "attendance-summary",
+          "top-receivables-payables",
+        ];
+    }
+  }
+  if (dashPath === "/dashboard" && req.method === "GET") {
+    const keys = tilesForRole(user.role);
+    const tiles = keys.map((k) => buildTile(k, user.role, dashProjectId)).filter(Boolean);
+    return { status: 200, body: success(tiles) };
+  }
+  const tileMatch = /^\/dashboard\/tiles\/([^/?]+)/.exec(dashPath);
+  if (tileMatch && req.method === "GET") {
+    const key = tileMatch[1]!;
+    const allowed = tilesForRole(user.role);
+    if (!allowed.includes(key)) {
+      const tile = buildTile(key, user.role, dashProjectId);
+      if (!tile) return { status: 404, body: envelope("NOT_FOUND", "Unknown tile key") };
+      return { status: 403, body: envelope("FORBIDDEN", "You don't have permission to view this tile.") };
+    }
+    if (dashProjectId === "proj-forbidden") {
+      return { status: 403, body: envelope("FORBIDDEN", "You don't have access to this project.") };
+    }
+    const tile = buildTile(key, user.role, dashProjectId);
+    if (!tile) return { status: 404, body: envelope("NOT_FOUND", "Unknown tile key") };
+    return { status: 200, body: success(tile) };
+  }
+
+  // ── FE-53 fe-notifications — /notifications feed + unread-count + mark-read ──
+  const notifStore = getMockNotifStore(access.userKey);
+  const [notifPath, notifRawQuery = ""] = req.path.split("?");
+  const notifParams = new URLSearchParams(notifRawQuery);
+  if (notifPath === "/notifications" && req.method === "GET") {
+    const isReadRaw = notifParams.get("isRead");
+    const isRead = isReadRaw === "true" ? true : isReadRaw === "false" ? false : null;
+    const typeF = notifParams.get("type");
+    const since = notifParams.get("since");
+    const page = Math.max(1, Number(notifParams.get("page") ?? "1"));
+    const pageSize = Math.max(1, Math.min(100, Number(notifParams.get("pageSize") ?? "25")));
+    const filtered = notifStore.rows.filter((n) => {
+      if (isRead === true && n.readAt === null) return false;
+      if (isRead === false && n.readAt !== null) return false;
+      if (typeF && n.type !== typeF) return false;
+      if (since && n.createdAt <= since) return false;
+      return true;
+    });
+    const start = (page - 1) * pageSize;
+    const slice = filtered.slice(start, start + pageSize);
+    return {
+      status: 200,
+      body: {
+        data: slice,
+        meta: { requestId: `mock-ntf-${jtiCounterSeed}`, page, pageSize, total: filtered.length },
+      },
+    };
+  }
+  if (req.path === "/notifications/unread-count" && req.method === "GET") {
+    const unread = notifStore.rows.filter((n) => n.readAt === null).length;
+    return { status: 200, body: success({ unreadCount: unread }) };
+  }
+  const singleMatch = /^\/notifications\/([^/]+)(\/read)?$/.exec(notifPath ?? "");
+  if (singleMatch && singleMatch[1] !== "unread-count" && singleMatch[1] !== "read-all") {
+    const id = singleMatch[1]!;
+    const row = notifStore.rows.find((n) => n.id === id);
+    if (req.method === "GET") {
+      if (!row) return { status: 404, body: envelope("NOT_FOUND", "Notification not found") };
+      return { status: 200, body: success(row) };
+    }
+    if (req.method === "POST" && singleMatch[2] === "/read") {
+      if (!row) return { status: 404, body: envelope("NOT_FOUND", "Notification not found") };
+      if (row.readAt === null) row.readAt = new Date().toISOString();
+      return { status: 200, body: success(row) };
+    }
+  }
+  if (req.path === "/notifications/read-all" && req.method === "POST") {
+    let updated = 0;
+    const now = new Date().toISOString();
+    for (const row of notifStore.rows) {
+      if (row.readAt === null) {
+        row.readAt = now;
+        updated += 1;
+      }
+    }
+    return { status: 200, body: success({ updated }) };
+  }
+
+  // ── FE-52 fe-account-profile — /profile self-service surface ──
+  // Reads the caller's own profile (self-scoped from the token; no :id) and
+  // permits name/phone-only edits. Avatar upload (POST /profile/image) is
+  // handled by the dedicated multipart route at app/api/profile/image/route.ts;
+  // DELETE /profile/image is idempotent here.
+  const profile = mockGetProfile(access.userKey);
+  if (req.path === "/profile" && req.method === "GET") {
+    return { status: 200, body: success(profileToView(profile)) };
+  }
+  if (req.path === "/profile" && req.method === "PATCH") {
+    const patch = body as { name?: unknown; phone?: unknown; version?: unknown };
+    // Privilege-escalation guard (FR-AUD-033): reject any authorization-bearing key.
+    const forbiddenKeys = ["role", "email", "isActive", "financialYearId", "assignedProjects", "avatarUrl", "permissions", "approvalLimit"] as const;
+    for (const key of forbiddenKeys) {
+      if (key in (patch as Record<string, unknown>)) {
+        return { status: 400, body: envelope("VALIDATION_ERROR", `Field "${key}" cannot be changed here.`) };
+      }
+    }
+    const versionOk = typeof patch.version === "number" && patch.version === profile.version;
+    if (typeof patch.version !== "number") {
+      return { status: 400, body: envelope("VALIDATION_ERROR", "version is required") };
+    }
+    if (!versionOk) {
+      return { status: 409, body: envelope("OPTIMISTIC_LOCK_CONFLICT", "Your profile was updated elsewhere") };
+    }
+    if ("name" in patch) {
+      const name = String(patch.name ?? "").trim();
+      if (!name) return { status: 400, body: envelope("VALIDATION_ERROR", "Name can't be empty.") };
+      profile.name = name;
+    }
+    if ("phone" in patch) {
+      if (patch.phone === null) profile.phone = null;
+      else if (typeof patch.phone === "string") {
+        const phone = patch.phone.trim();
+        if (phone && !/^\+[1-9]\d{1,14}$/.test(phone)) {
+          return { status: 400, body: envelope("VALIDATION_ERROR", "Enter a valid phone number, e.g. +8801712345678.") };
+        }
+        profile.phone = phone || null;
+      }
+    }
+    profile.version += 1;
+    return { status: 200, body: success(profileToView(profile)) };
+  }
+  if (req.path === "/profile/image" && req.method === "DELETE") {
+    profile.avatarUrl = null;
+    profile.version += 1;
+    return { status: 200, body: success(profileToView(profile)) };
+  }
+
   // ── Master-data sample endpoints (dev/preview only) ──
   // Split path from the querystring (the proxy forwards `?page=…` verbatim).
   const [pathname, rawQuery = ""] = req.path.split("?");
@@ -2314,6 +3929,42 @@ export async function mockNestjsFetch(req: MockReq): Promise<MockResult> {
       // Bill viewer's balanced-lines panel reads the same LED endpoint (fe-purchase-bills).
       const bill = MOCK_BILLS.find((b) => b.journalEntryId === entryId);
       if (bill) return { status: 200, body: billToJournalEntry(bill) };
+      // Receipt viewer's balanced-lines panel reads the same LED endpoint (fe-receipt-viewer).
+      const receipt = MOCK_RECEIPTS.find(
+        (r) => r.journalEntryId === entryId || `je-${r.id}` === entryId || `je-${r.id}-v2` === entryId,
+      );
+      if (receipt) return { status: 200, body: receiptToJournalEntry(receipt, entryId) };
+      // Payment viewer's balanced-lines panel reads the same LED endpoint (fe-payment-viewer).
+      // MOCK_PAYMENTS lives inside the fetch scope further down; read the stashed store.
+      const payStore = (globalThis as unknown as { __MOCK_PAYMENTS__?: unknown }).__MOCK_PAYMENTS__;
+      if (Array.isArray(payStore)) {
+        const p = (payStore as Array<{ id: string; journalEntryId: string | null }>).find(
+          (r) => r.journalEntryId === entryId || `je-${r.id}` === entryId || `je-${r.id}-v2` === entryId,
+        );
+        if (p) {
+          return {
+            status: 200,
+            body: paymentToJournalEntry(
+              p as unknown as {
+                id: string;
+                partyId: string;
+                paymentDate: string;
+                paymentAccountId: string;
+                paymentAmount: string;
+                bankChargesAmount: string;
+                allocations: Array<{ payableType: string; payableId: string; amountAllocated: string; partyId: string | null }>;
+                entryNo: string | null;
+                journalEntryId: string | null;
+                postedAt: string | null;
+                postedBy: string | null;
+                narration: string | null;
+                status: string;
+              },
+              entryId,
+            ),
+          };
+        }
+      }
       return { status: 404, body: envelope("NOT_FOUND", "Journal entry not found") };
     }
     const zero = "0.0000";
@@ -6448,6 +8099,300 @@ export async function mockNestjsFetch(req: MockReq): Promise<MockResult> {
     }
   }
 
+  // ── Receipts (fe-receipt-editor) — voucher write surface ───────────────────
+  //
+  // Minimum viable write mocks for FE-43 e2e: create a DRAFT (no number, no ledger),
+  // GET/PATCH/DELETE that DRAFT, then POST it — allocating a gapless `RCT/2526/nnnn`
+  // number and flipping status POSTED. Cancel/repost belong to FE-44's viewer and are
+  // not implemented here.
+  let nextReceiptSeq = MOCK_RECEIPTS.reduce((m, r) => {
+    const n = r.entryNo ? Number(r.entryNo.split("/").pop()) : 0;
+    return Number.isFinite(n) && n > m ? n : m;
+  }, 0);
+  function allocateReceiptEntryNo(): string {
+    nextReceiptSeq += 1;
+    return `RCT/2526/${String(nextReceiptSeq).padStart(4, "0")}`;
+  }
+
+  function receiptResource(r: MockReceipt) {
+    return {
+      id: r.id,
+      receiptType: r.receiptType,
+      receiptDate: r.receiptDate,
+      paymentMode: r.paymentMode,
+      depositAccountId: r.depositAccountId ?? null,
+      partyId: r.partyId,
+      projectId: r.projectId,
+      costCentreId: r.costCentreId ?? null,
+      purposeId: r.purposeId ?? null,
+      ipcId: r.ipcId,
+      generalTargetAccountId: r.generalTargetAccountId ?? null,
+      amountSettled: r.amountSettled,
+      cashReceived: r.cashReceived ?? r.amountSettled,
+      taxDeductedAtSource: r.taxDeductedAtSource,
+      chequeTxnRef: r.chequeTxnRef ?? null,
+      narration: r.narration ?? null,
+      status: r.status,
+      entryNo: r.entryNo,
+      // Seed receipts have no explicit journalEntryId; synthesize one for POSTED/CANCELLED
+      // so the viewer's LED lines fetch resolves — the LED entries endpoint recognises the
+      // `je-<id>` shape and hydrates receipt lines from receiptToJournalEntry.
+      journalEntryId:
+        r.journalEntryId ?? (r.status !== "DRAFT" ? `je-${r.id}` : null),
+      ipcOutstandingAfter: r.ipcOutstandingAfter ?? null,
+      postedAt: r.postedAt ?? null,
+      postedBy: r.postedBy ?? null,
+      version: r.version ?? 1,
+      linkage: r.status === "DRAFT" ? null : {
+        hasHistory: false,
+        currentEntryNo: r.entryNo,
+        originalEntryNo: r.entryNo,
+        entries: [],
+      },
+    };
+  }
+
+  if (pathname === "/receipt" && req.method === "POST") {
+    const b = (body ?? {}) as {
+      receiptType?: "IPC_LINKED" | "GENERAL";
+      receiptDate?: string;
+      paymentMode?: MockReceipt["paymentMode"];
+      depositAccountId?: string;
+      ipcId?: string;
+      partyId?: string;
+      generalTargetAccountId?: string;
+      projectId?: string | null;
+      costCentreId?: string;
+      purposeId?: string | null;
+      amountSettled?: string;
+      taxDeductedAtSource?: string;
+      chequeTxnRef?: string | null;
+      narration?: string | null;
+    };
+    if (!b.receiptType) return { status: 400, body: envelope("VALIDATION_ERROR", "Missing receiptType.") };
+    if (Number(b.amountSettled ?? 0) <= 0)
+      return { status: 400, body: envelope("VALIDATION_ERROR", "Amount settled must be greater than zero.") };
+    if (b.paymentMode !== "CASH" && !b.chequeTxnRef)
+      return { status: 400, body: envelope("CHEQUE_REF_REQUIRED", "Enter a reference for this payment mode.") };
+    const id = `rec-new-${MOCK_RECEIPTS.length + 1}`;
+    let receipt: MockReceipt;
+    if (b.receiptType === "IPC_LINKED") {
+      if (!b.ipcId) return { status: 400, body: envelope("REFERENCE_XOR_VIOLATION", "ipcId required.") };
+      const ipc = MOCK_IPCS.find((i) => i.id === b.ipcId);
+      if (!ipc) return { status: 404, body: envelope("NOT_FOUND", "IPC not found.") };
+      if (ipc.status !== "POSTED")
+        return { status: 409, body: envelope("IPC_NOT_POSTED", "This IPC is no longer posted.") };
+      const settled = Number(b.amountSettled);
+      const tds = Number(b.taxDeductedAtSource ?? 0);
+      if (tds > settled)
+        return { status: 400, body: envelope("VALIDATION_ERROR", "Tax deducted can't exceed the amount settled.") };
+      const due = Number(ipcCurrentlyDue(ipc));
+      const applied = MOCK_RECEIPTS.filter((r) => r.ipcId === ipc.id && r.status === "POSTED")
+        .reduce((s, r) => s + Number(r.amountSettled), 0);
+      if (settled > due - applied)
+        return { status: 409, body: envelope("RECEIPT_EXCEEDS_OUTSTANDING", `This exceeds the IPC's remaining outstanding of ৳${(due - applied).toFixed(4)}.`) };
+      receipt = {
+        id,
+        receiptType: "IPC_LINKED",
+        receiptDate: String(b.receiptDate ?? ""),
+        paymentMode: b.paymentMode!,
+        depositAccountId: b.depositAccountId,
+        partyId: ipc.customerId,
+        projectId: ipc.projectId,
+        costCentreId: ipc.costCentreId,
+        purposeId: ipc.purposeId,
+        ipcId: ipc.id,
+        amountSettled: String(b.amountSettled),
+        cashReceived: (settled - tds).toFixed(4),
+        taxDeductedAtSource: tds.toFixed(4),
+        chequeTxnRef: b.chequeTxnRef ?? null,
+        narration: b.narration ?? null,
+        status: "DRAFT",
+        entryNo: null,
+        version: 1,
+      };
+    } else {
+      if (!b.generalTargetAccountId)
+        return { status: 400, body: envelope("VALIDATION_ERROR", "Choose an income account or the advance-from-customer liability.") };
+      if (!b.partyId)
+        return { status: 400, body: envelope("VALIDATION_ERROR", "Choose a party.") };
+      if (!b.costCentreId)
+        return { status: 400, body: envelope("VALIDATION_ERROR", "Choose a cost centre.") };
+      receipt = {
+        id,
+        receiptType: "GENERAL",
+        receiptDate: String(b.receiptDate ?? ""),
+        paymentMode: b.paymentMode!,
+        depositAccountId: b.depositAccountId,
+        partyId: b.partyId,
+        projectId: b.projectId ?? null,
+        costCentreId: b.costCentreId,
+        purposeId: b.purposeId ?? null,
+        ipcId: null,
+        generalTargetAccountId: b.generalTargetAccountId,
+        amountSettled: String(b.amountSettled),
+        cashReceived: String(b.amountSettled),
+        taxDeductedAtSource: "0.0000",
+        chequeTxnRef: b.chequeTxnRef ?? null,
+        narration: b.narration ?? null,
+        status: "DRAFT",
+        entryNo: null,
+        version: 1,
+      };
+    }
+    MOCK_RECEIPTS.unshift(receipt);
+    return { status: 201, body: success({ id }) };
+  }
+
+  const receiptMatch = /^\/receipt\/([^/]+)(?:\/(post|cancel|repost))?$/.exec(pathname ?? "");
+  if (receiptMatch && !pathname?.startsWith("/receipt/ipc/")) {
+    const id = receiptMatch[1]!;
+    const action = receiptMatch[2];
+    const receipt = MOCK_RECEIPTS.find((r) => r.id === id);
+    if (!receipt) return { status: 404, body: envelope("NOT_FOUND", "Receipt not found.") };
+    if (receipt.projectId != null && !scopeOk(receipt.projectId))
+      return { status: 403, body: envelope("FORBIDDEN", "You don't have access to this receipt.") };
+
+    if (req.method === "GET" && !action) {
+      return { status: 200, body: success(receiptResource(receipt)) };
+    }
+    if (req.method === "PATCH" && !action) {
+      if (receipt.status !== "DRAFT")
+        return { status: 409, body: envelope("VOUCHER_POSTED_IMMUTABLE", "This receipt has been posted and can no longer be edited.") };
+      const b = (body ?? {}) as Record<string, unknown> & { version?: number };
+      if (b.version !== undefined && b.version !== (receipt.version ?? 1))
+        return { status: 409, body: envelope("OPTIMISTIC_LOCK_CONFLICT", "This receipt was just changed by someone else.") };
+      Object.assign(receipt, {
+        receiptDate: (b.receiptDate as string | undefined) ?? receipt.receiptDate,
+        amountSettled: (b.amountSettled as string | undefined) ?? receipt.amountSettled,
+        taxDeductedAtSource: (b.taxDeductedAtSource as string | undefined) ?? receipt.taxDeductedAtSource,
+        chequeTxnRef: (b.chequeTxnRef as string | undefined) ?? receipt.chequeTxnRef ?? null,
+        narration: (b.narration as string | undefined) ?? receipt.narration ?? null,
+        depositAccountId: (b.depositAccountId as string | undefined) ?? receipt.depositAccountId,
+        version: (receipt.version ?? 1) + 1,
+      });
+      const settled = Number(receipt.amountSettled);
+      const tds = Number(receipt.taxDeductedAtSource);
+      receipt.cashReceived = (settled - tds).toFixed(4);
+      return { status: 200, body: success(receiptResource(receipt)) };
+    }
+    if (req.method === "DELETE" && !action) {
+      if (receipt.status !== "DRAFT")
+        return { status: 409, body: envelope("VOUCHER_POSTED_IMMUTABLE", "This receipt has been posted and can no longer be deleted.") };
+      const idx = MOCK_RECEIPTS.findIndex((r) => r.id === id);
+      MOCK_RECEIPTS.splice(idx, 1);
+      return { status: 204, body: null };
+    }
+    if (req.method === "POST" && action === "post") {
+      if (receipt.status !== "DRAFT")
+        return { status: 409, body: envelope("VOUCHER_POSTED_IMMUTABLE", "This receipt has already been posted.") };
+      // Re-check outstanding for IPC-linked (edge case 8).
+      let outstandingAfter: string | null = null;
+      if (receipt.receiptType === "IPC_LINKED" && receipt.ipcId) {
+        const ipc = MOCK_IPCS.find((i) => i.id === receipt.ipcId);
+        if (!ipc || ipc.status !== "POSTED")
+          return { status: 409, body: envelope("IPC_NOT_POSTED", "This IPC is no longer posted.") };
+        const due = Number(ipcCurrentlyDue(ipc));
+        const applied = MOCK_RECEIPTS.filter(
+          (r) => r.ipcId === ipc.id && r.status === "POSTED" && r.id !== receipt.id,
+        ).reduce((s, r) => s + Number(r.amountSettled), 0);
+        if (Number(receipt.amountSettled) > due - applied)
+          return { status: 409, body: envelope("RECEIPT_EXCEEDS_OUTSTANDING", `The IPC's remaining outstanding has changed since you started — refresh and re-check the amount.`) };
+        outstandingAfter = (due - applied - Number(receipt.amountSettled)).toFixed(4);
+      }
+      const entryNo = allocateReceiptEntryNo();
+      receipt.status = "POSTED";
+      receipt.entryNo = entryNo;
+      receipt.journalEntryId = `je-${id}`;
+      receipt.ipcOutstandingAfter = outstandingAfter;
+      receipt.postedAt = new Date().toISOString();
+      receipt.postedBy = user.id;
+      receipt.version = (receipt.version ?? 1) + 1;
+      return { status: 200, body: success({
+        id,
+        entryNo,
+        journalEntryId: receipt.journalEntryId,
+        status: "POSTED",
+        ipcOutstandingAfter: outstandingAfter,
+      }) };
+    }
+    if (req.method === "POST" && action === "cancel") {
+      if (receipt.status === "DRAFT")
+        return { status: 409, body: envelope("VOUCHER_NOT_POSTED", "This receipt isn't posted, so it can't be cancelled or reposted.") };
+      if (receipt.status === "CANCELLED")
+        return { status: 409, body: envelope("ALREADY_REVERSED", "This receipt has already been cancelled.") };
+      const reversalNo = allocateReceiptEntryNo();
+      const reversalId = `je-rev-${id}`;
+      receipt.status = "CANCELLED";
+      receipt.version = (receipt.version ?? 1) + 1;
+      // Restore IPC outstanding (adding the receipt back) — surface the higher balance.
+      let restoredOutstanding: string | null = null;
+      if (receipt.receiptType === "IPC_LINKED" && receipt.ipcId) {
+        const ipc = MOCK_IPCS.find((i) => i.id === receipt.ipcId);
+        if (ipc) {
+          const due = Number(ipcCurrentlyDue(ipc));
+          const applied = MOCK_RECEIPTS.filter(
+            (r) => r.ipcId === ipc.id && r.status === "POSTED",
+          ).reduce((s, r) => s + Number(r.amountSettled), 0);
+          restoredOutstanding = (due - applied).toFixed(4);
+        }
+      }
+      return { status: 200, body: success({
+        id,
+        status: "CANCELLED",
+        reversalEntryId: reversalId,
+        reversalEntryNo: reversalNo,
+        ipcOutstandingAfter: restoredOutstanding,
+      }) };
+    }
+    if (req.method === "POST" && action === "repost") {
+      if (receipt.status === "DRAFT")
+        return { status: 409, body: envelope("VOUCHER_NOT_POSTED", "This receipt isn't posted, so it can't be reposted.") };
+      if (receipt.status === "CANCELLED")
+        return { status: 409, body: envelope("ALREADY_REVERSED", "This receipt has already been cancelled.") };
+      const b = (body ?? {}) as Record<string, unknown> & {
+        amountSettled?: string;
+        taxDeductedAtSource?: string;
+        reason?: string;
+        version?: number;
+      };
+      if (!b.reason || !String(b.reason).trim())
+        return { status: 400, body: envelope("VALIDATION_ERROR", "Reason is required.") };
+      if (b.version !== undefined && b.version !== (receipt.version ?? 1))
+        return { status: 409, body: envelope("OPTIMISTIC_LOCK_CONFLICT", "This receipt was just changed by someone else.") };
+      // Over-application re-check for IPC-linked (edge case 8).
+      if (receipt.receiptType === "IPC_LINKED" && receipt.ipcId) {
+        const ipc = MOCK_IPCS.find((i) => i.id === receipt.ipcId);
+        if (ipc) {
+          const due = Number(ipcCurrentlyDue(ipc));
+          const applied = MOCK_RECEIPTS.filter(
+            (r) => r.ipcId === ipc.id && r.status === "POSTED" && r.id !== receipt.id,
+          ).reduce((s, r) => s + Number(r.amountSettled), 0);
+          if (Number(b.amountSettled ?? receipt.amountSettled) > due - applied) {
+            return { status: 409, body: envelope("RECEIPT_EXCEEDS_OUTSTANDING", "This exceeds the IPC's remaining outstanding.") };
+          }
+        }
+      }
+      const reversalNo = allocateReceiptEntryNo();
+      const newEntryNo = allocateReceiptEntryNo();
+      const settled = String(b.amountSettled ?? receipt.amountSettled);
+      const tds = String(b.taxDeductedAtSource ?? receipt.taxDeductedAtSource);
+      receipt.amountSettled = settled;
+      receipt.taxDeductedAtSource = tds;
+      receipt.cashReceived = (Number(settled) - Number(tds)).toFixed(4);
+      receipt.entryNo = newEntryNo;
+      receipt.journalEntryId = `je-${id}-v2`;
+      receipt.version = (receipt.version ?? 1) + 1;
+      return { status: 200, body: success({
+        id,
+        status: "POSTED",
+        entryNo: newEntryNo,
+        reversalEntryNo: reversalNo,
+        ipcOutstandingAfter: null,
+      }) };
+    }
+  }
+
   // ── Receipts (fe-receipt-list) — read-only collection register ─────────────
   //
   // GET /receipt: paginated + AND-combined filters (contract 11). PM is scoped to
@@ -6524,6 +8469,1180 @@ export async function mockNestjsFetch(req: MockReq): Promise<MockResult> {
         balanceDue: (due - totalApplied).toFixed(4),
       }),
     };
+  }
+
+  // ── Payments (fe-payment-list) — read/navigate + delete-draft ───────────────
+  //
+  // Minimum viable payment endpoints for FE-45 e2e/RTL: GET /payment (paginated,
+  // filtered), GET /payment/{id}, DELETE /payment/{id} (DRAFT only),
+  // GET /payment/open-payables (open PUR bills + HR labour/salary payables),
+  // GET /payment/payables/{type}/{id}/applied. Create/patch/post/cancel/repost
+  // arrive with FE-46/FE-47. Seed a small mix of DRAFT/POSTED/CANCELLED payments
+  // + a couple of open PUR bills against the seed suppliers so the Outstanding
+  // view has something to render.
+  interface MockPaymentAllocation {
+    lineNo: number;
+    payableType: "PURCHASE_BILL" | "LABOUR_PAYABLE" | "SALARY";
+    payableId: string;
+    amountAllocated: string;
+    accruedAmount: string | null;
+    partyId: string | null;
+    projectId: string | null;
+    costCentreId: string | null;
+    purposeId: string | null;
+  }
+  interface MockPayment {
+    id: string;
+    partyId: string;
+    paymentDate: string;
+    paymentMode: "CASH" | "MFS" | "BANK_TRANSFER" | "CHEQUE" | "RTGS";
+    paymentAccountId: string;
+    chequeTxnRef: string | null;
+    bankChargesAmount: string;
+    paymentAmount: string;
+    narration: string | null;
+    status: "DRAFT" | "POSTED" | "CANCELLED";
+    entryNo: string | null;
+    journalEntryId: string | null;
+    postedAt: string | null;
+    postedBy: string | null;
+    version: number;
+    allocations: MockPaymentAllocation[];
+  }
+  // A stable seed on first pass so hot-reload doesn't multiply rows.
+  const gPay = globalThis as unknown as { __MOCK_PAYMENTS__?: MockPayment[] };
+  if (!gPay.__MOCK_PAYMENTS__) {
+    gPay.__MOCK_PAYMENTS__ = [
+      {
+        id: "pay-1",
+        partyId: "pa-1",
+        paymentDate: "2026-07-11",
+        paymentMode: "RTGS",
+        paymentAccountId: "1201",
+        chequeTxnRef: "RTGS-99815",
+        bankChargesAmount: "150.0000",
+        paymentAmount: "200150.0000",
+        narration: "Part-payment — Sup-A bill 0042",
+        status: "POSTED",
+        entryNo: "PAY/2526/0031",
+        journalEntryId: "je-pay-1",
+        postedAt: "2026-07-11T10:22:11Z",
+        postedBy: "u1",
+        version: 2,
+        allocations: [
+          {
+            lineNo: 1,
+            payableType: "PURCHASE_BILL",
+            payableId: "bill-1",
+            amountAllocated: "200000.0000",
+            accruedAmount: null,
+            partyId: "pa-1",
+            projectId: null,
+            costCentreId: null,
+            purposeId: null,
+          },
+        ],
+      },
+      {
+        id: "pay-2",
+        partyId: "pa-1",
+        paymentDate: "2026-07-09",
+        paymentMode: "CHEQUE",
+        paymentAccountId: "1201",
+        chequeTxnRef: "CHQ-0912",
+        bankChargesAmount: "0.0000",
+        paymentAmount: "50000.0000",
+        narration: null,
+        status: "DRAFT",
+        entryNo: null,
+        journalEntryId: null,
+        postedAt: null,
+        postedBy: null,
+        version: 1,
+        allocations: [
+          {
+            lineNo: 1,
+            payableType: "PURCHASE_BILL",
+            payableId: "bill-2",
+            amountAllocated: "50000.0000",
+            accruedAmount: null,
+            partyId: "pa-1",
+            projectId: null,
+            costCentreId: null,
+            purposeId: null,
+          },
+        ],
+      },
+      {
+        id: "pay-3",
+        partyId: "pa-2",
+        paymentDate: "2026-06-30",
+        paymentMode: "BANK_TRANSFER",
+        paymentAccountId: "1201",
+        chequeTxnRef: "TXN-88170",
+        bankChargesAmount: "0.0000",
+        paymentAmount: "120000.0000",
+        narration: "Advance payment",
+        status: "CANCELLED",
+        entryNo: "PAY/2526/0028",
+        journalEntryId: "je-pay-3",
+        postedAt: "2026-06-30T09:00:00Z",
+        postedBy: "u1",
+        version: 3,
+        allocations: [
+          {
+            lineNo: 1,
+            payableType: "PURCHASE_BILL",
+            payableId: "bill-3",
+            amountAllocated: "120000.0000",
+            accruedAmount: null,
+            partyId: "pa-2",
+            projectId: null,
+            costCentreId: null,
+            purposeId: null,
+          },
+        ],
+      },
+    ];
+  }
+  const MOCK_PAYMENTS: MockPayment[] = gPay.__MOCK_PAYMENTS__;
+
+  function paymentAllocated(p: MockPayment): string {
+    return p.allocations
+      .reduce((s, a) => s + Number(a.amountAllocated), 0)
+      .toFixed(4);
+  }
+  function paymentUnallocated(p: MockPayment): string {
+    return (Number(p.paymentAmount) - Number(paymentAllocated(p))).toFixed(4);
+  }
+  function paymentSummary(p: MockPayment) {
+    return {
+      id: p.id,
+      entryNo: p.entryNo,
+      partyId: p.partyId,
+      paymentDate: p.paymentDate,
+      paymentMode: p.paymentMode,
+      paymentAccountId: p.paymentAccountId,
+      chequeTxnRef: p.chequeTxnRef,
+      paymentAmount: p.paymentAmount,
+      allocatedAmount: paymentAllocated(p),
+      unallocatedAmount: paymentUnallocated(p),
+      status: p.status,
+    };
+  }
+  function paymentResource(p: MockPayment) {
+    return {
+      id: p.id,
+      partyId: p.partyId,
+      paymentDate: p.paymentDate,
+      paymentMode: p.paymentMode,
+      paymentAccountId: p.paymentAccountId,
+      chequeTxnRef: p.chequeTxnRef,
+      bankChargesAmount: p.bankChargesAmount,
+      bankChargesProjectId: null,
+      bankChargesCostCentreId: null,
+      bankChargesPurposeId: null,
+      paymentAmount: p.paymentAmount,
+      narration: p.narration,
+      status: p.status,
+      entryNo: p.entryNo,
+      journalEntryId: p.journalEntryId,
+      allocatedAmount: paymentAllocated(p),
+      unallocatedAmount: paymentUnallocated(p),
+      allocations: p.allocations,
+      postedAt: p.postedAt,
+      postedBy: p.postedBy,
+      version: p.version,
+      linkage: p.status === "DRAFT" ? null : {
+        hasHistory: p.status === "CANCELLED",
+        currentEntryNo: p.entryNo,
+        originalEntryNo: p.entryNo,
+        entries: [],
+      },
+    };
+  }
+
+  if (pathname === "/payment" && req.method === "GET") {
+    let rows = MOCK_PAYMENTS.slice();
+    const partyId = params.get("partyId");
+    const paymentMode = params.get("paymentMode");
+    const statusCsv = params.get("status");
+    const paymentAccountId = params.get("paymentAccountId");
+    const entryNo = params.get("entryNo");
+    const dateFrom = params.get("dateFrom");
+    const dateTo = params.get("dateTo");
+    if (partyId) rows = rows.filter((r) => r.partyId === partyId);
+    if (paymentMode) {
+      const wanted = new Set(paymentMode.split(","));
+      rows = rows.filter((r) => wanted.has(r.paymentMode));
+    }
+    if (statusCsv) {
+      const wanted = new Set(statusCsv.split(","));
+      rows = rows.filter((r) => wanted.has(r.status));
+    }
+    if (paymentAccountId) rows = rows.filter((r) => r.paymentAccountId === paymentAccountId);
+    if (entryNo) rows = rows.filter((r) => r.entryNo === entryNo);
+    if (dateFrom) rows = rows.filter((r) => r.paymentDate >= dateFrom);
+    if (dateTo) rows = rows.filter((r) => r.paymentDate <= dateTo);
+    rows.sort((a, b) => (a.paymentDate < b.paymentDate ? 1 : -1)); // newest-first
+    return { status: 200, body: pageEnvelope(rows.map(paymentSummary)) };
+  }
+
+  // /payment/open-payables — synthesised from a small fixed catalogue that mirrors
+  // the seed suppliers. Real PAY BE queries `payment_allocation` + owning modules'
+  // payables; the mock only needs to feed the Outstanding view + drill-in.
+  if (pathname === "/payment/open-payables" && req.method === "GET") {
+    const partyId = params.get("partyId");
+    const payableTypeCsv = params.get("payableType");
+    const seed: Array<{
+      payableType: "PURCHASE_BILL" | "LABOUR_PAYABLE" | "SALARY";
+      payableId: string;
+      reference: string;
+      partyId: string | null;
+      originalAmount: string;
+      payableDate: string;
+      accruedAmount: string | null;
+    }> = [
+      {
+        payableType: "PURCHASE_BILL",
+        payableId: "bill-1",
+        reference: "PUR/2526/0042",
+        partyId: "pa-1",
+        originalAmount: "231150.0000",
+        payableDate: "2026-06-29",
+        accruedAmount: null,
+      },
+      {
+        payableType: "PURCHASE_BILL",
+        payableId: "bill-2",
+        reference: "PUR/2526/0055",
+        partyId: "pa-1",
+        originalAmount: "150000.0000",
+        payableDate: "2026-07-01",
+        accruedAmount: null,
+      },
+      {
+        payableType: "PURCHASE_BILL",
+        payableId: "bill-3",
+        reference: "PUR/2526/0060",
+        partyId: "pa-2",
+        originalAmount: "120000.0000",
+        payableDate: "2026-06-25",
+        accruedAmount: null,
+      },
+      {
+        payableType: "LABOUR_PAYABLE",
+        payableId: "lbr-1",
+        reference: "LBR/2026-07-10",
+        partyId: null,
+        originalAmount: "45000.0000",
+        payableDate: "2026-07-10",
+        accruedAmount: "45000.0000",
+      },
+      {
+        payableType: "SALARY",
+        payableId: "sal-1",
+        reference: "SAL/2026-06",
+        partyId: null,
+        originalAmount: "820000.0000",
+        payableDate: "2026-06-30",
+        accruedAmount: null,
+      },
+    ];
+    const wantedTypes = payableTypeCsv ? new Set(payableTypeCsv.split(",")) : null;
+    const rows = seed
+      .filter((s) => (partyId ? s.partyId === partyId : true))
+      .filter((s) => (wantedTypes ? wantedTypes.has(s.payableType) : true))
+      .map((s) => {
+        const applied = MOCK_PAYMENTS.filter((p) => p.status === "POSTED").reduce(
+          (sum, p) =>
+            sum +
+            p.allocations
+              .filter((a) => a.payableType === s.payableType && a.payableId === s.payableId)
+              .reduce((x, a) => x + Number(a.amountAllocated), 0),
+          0,
+        );
+        return {
+          payableType: s.payableType,
+          payableId: s.payableId,
+          reference: s.reference,
+          partyId: s.partyId,
+          originalAmount: s.originalAmount,
+          appliedAmount: applied.toFixed(4),
+          remainingOutstanding: (Number(s.originalAmount) - applied).toFixed(4),
+          accruedAmount: s.accruedAmount,
+          payableDate: s.payableDate,
+        };
+      })
+      .filter((r) => Number(r.remainingOutstanding) > 0);
+    return { status: 200, body: success(rows) };
+  }
+
+  const payAppliedMatch = /^\/payment\/payables\/([^/]+)\/([^/]+)\/applied$/.exec(
+    pathname ?? "",
+  );
+  if (payAppliedMatch && req.method === "GET") {
+    const [, payableType, payableId] = payAppliedMatch;
+    const applications = MOCK_PAYMENTS.filter(
+      (p) =>
+        p.status === "POSTED" &&
+        p.allocations.some((a) => a.payableType === payableType && a.payableId === payableId),
+    ).map((p) => {
+      const alloc = p.allocations.find(
+        (a) => a.payableType === payableType && a.payableId === payableId,
+      );
+      return {
+        paymentId: p.id,
+        entryNo: p.entryNo ?? "",
+        paymentDate: p.paymentDate,
+        amountAllocated: alloc?.amountAllocated ?? "0.0000",
+        status: p.status,
+      };
+    });
+    // Cross-ref the open-payables seed for the totals.
+    const seedOpen = {
+      "bill-1": "231150.0000",
+      "bill-2": "150000.0000",
+      "bill-3": "120000.0000",
+      "lbr-1": "45000.0000",
+      "sal-1": "820000.0000",
+    } as Record<string, string>;
+    const originalAmount = seedOpen[payableId ?? ""] ?? "0.0000";
+    const appliedAmount = applications
+      .reduce((s, a) => s + Number(a.amountAllocated), 0)
+      .toFixed(4);
+    return {
+      status: 200,
+      body: success({
+        payableType,
+        payableId,
+        originalAmount,
+        appliedAmount,
+        remainingOutstanding: (Number(originalAmount) - Number(appliedAmount)).toFixed(4),
+        applications,
+      }),
+    };
+  }
+
+  // Allocate the next gapless PAYMENT number from a stable counter.
+  const gPaySeq = globalThis as unknown as { __MOCK_PAY_SEQ__?: number };
+  if (typeof gPaySeq.__MOCK_PAY_SEQ__ !== "number") {
+    gPaySeq.__MOCK_PAY_SEQ__ = MOCK_PAYMENTS.reduce((m, r) => {
+      const n = r.entryNo ? Number(r.entryNo.split("/").pop()) : 0;
+      return Number.isFinite(n) && n > m ? n : m;
+    }, 0);
+  }
+  function allocatePaymentEntryNo(): string {
+    gPaySeq.__MOCK_PAY_SEQ__ = (gPaySeq.__MOCK_PAY_SEQ__ ?? 0) + 1;
+    return `PAY/2526/${String(gPaySeq.__MOCK_PAY_SEQ__).padStart(4, "0")}`;
+  }
+
+  interface PaymentAllocationInputBody {
+    payableType: MockPaymentAllocation["payableType"];
+    payableId: string;
+    amountAllocated?: string;
+  }
+  interface PaymentWriteBody {
+    partyId?: string;
+    paymentDate?: string;
+    paymentMode?: MockPayment["paymentMode"];
+    paymentAccountId?: string;
+    chequeTxnRef?: string | null;
+    bankChargesAmount?: string;
+    bankChargesProjectId?: string | null;
+    bankChargesCostCentreId?: string | null;
+    bankChargesPurposeId?: string | null;
+    paymentAmount?: string;
+    narration?: string | null;
+    allocations?: PaymentAllocationInputBody[];
+    version?: number;
+    reason?: string;
+  }
+
+  function applyBody(target: MockPayment, b: PaymentWriteBody): void {
+    if (b.partyId !== undefined) target.partyId = b.partyId;
+    if (b.paymentDate !== undefined) target.paymentDate = b.paymentDate;
+    if (b.paymentMode !== undefined) target.paymentMode = b.paymentMode;
+    if (b.paymentAccountId !== undefined) target.paymentAccountId = b.paymentAccountId;
+    if (b.chequeTxnRef !== undefined) target.chequeTxnRef = b.chequeTxnRef;
+    if (b.bankChargesAmount !== undefined) target.bankChargesAmount = b.bankChargesAmount;
+    if (b.paymentAmount !== undefined) target.paymentAmount = b.paymentAmount;
+    if (b.narration !== undefined) target.narration = b.narration;
+    if (b.allocations !== undefined) {
+      target.allocations = b.allocations.map((a, i) => ({
+        lineNo: i + 1,
+        payableType: a.payableType,
+        payableId: a.payableId,
+        amountAllocated: a.amountAllocated ?? "0.0000",
+        accruedAmount: a.payableType === "LABOUR_PAYABLE" ? "0.0000" : null,
+        partyId: target.partyId,
+        projectId: null,
+        costCentreId: null,
+        purposeId: null,
+      }));
+    }
+  }
+
+  function validateWrite(b: PaymentWriteBody): { status: number; body: unknown } | null {
+    if (b.paymentMode !== undefined && b.paymentMode !== "CASH" && !b.chequeTxnRef) {
+      return { status: 400, body: envelope("CHEQUE_REF_REQUIRED", "Enter a reference for this payment mode.") };
+    }
+    if (b.paymentAmount !== undefined && Number(b.paymentAmount) < 0) {
+      return { status: 400, body: envelope("VALIDATION_ERROR", "Payment amount can't be negative.") };
+    }
+    if (b.allocations) {
+      const sum = b.allocations.reduce((s, a) => s + Number(a.amountAllocated ?? 0), 0);
+      const total = Number(b.paymentAmount ?? 0);
+      if (total > 0 && sum > total)
+        return { status: 400, body: envelope("OVER_ALLOCATION", "Total allocations exceed the payment amount.") };
+    }
+    if (b.bankChargesAmount !== undefined && Number(b.bankChargesAmount) < 0) {
+      return { status: 400, body: envelope("VALIDATION_ERROR", "Bank charges can't be negative.") };
+    }
+    if (b.bankChargesAmount !== undefined && Number(b.bankChargesAmount) > 0) {
+      if (!b.bankChargesProjectId || !b.bankChargesCostCentreId || !b.bankChargesPurposeId) {
+        return { status: 400, body: envelope("VALIDATION_ERROR", "Bank charges need project, cost centre and purpose.") };
+      }
+    }
+    return null;
+  }
+
+  if (pathname === "/payment" && req.method === "POST") {
+    const b = (body ?? {}) as PaymentWriteBody;
+    const err = validateWrite(b);
+    if (err) return err;
+    const id = `pay-new-${MOCK_PAYMENTS.length + 1}`;
+    const draft: MockPayment = {
+      id,
+      partyId: b.partyId ?? "",
+      paymentDate: b.paymentDate ?? "",
+      paymentMode: b.paymentMode ?? "BANK_TRANSFER",
+      paymentAccountId: b.paymentAccountId ?? "",
+      chequeTxnRef: b.chequeTxnRef ?? null,
+      bankChargesAmount: b.bankChargesAmount ?? "0.0000",
+      paymentAmount: b.paymentAmount ?? "0.0000",
+      narration: b.narration ?? null,
+      status: "DRAFT",
+      entryNo: null,
+      journalEntryId: null,
+      postedAt: null,
+      postedBy: null,
+      version: 1,
+      allocations: [],
+    };
+    applyBody(draft, b);
+    MOCK_PAYMENTS.unshift(draft);
+    return { status: 201, body: success({ id }) };
+  }
+
+  const paymentActionMatch = /^\/payment\/([^/]+)(?:\/(post|cancel|repost))?$/.exec(pathname ?? "");
+  if (
+    paymentActionMatch &&
+    !pathname?.startsWith("/payment/payables/") &&
+    !pathname?.startsWith("/payment/open")
+  ) {
+    const id = paymentActionMatch[1]!;
+    const action = paymentActionMatch[2];
+    const p = MOCK_PAYMENTS.find((r) => r.id === id);
+    if (!p) return { status: 404, body: envelope("NOT_FOUND", "Payment not found.") };
+    if (req.method === "GET" && !action) {
+      return { status: 200, body: success(paymentResource(p)) };
+    }
+    if (req.method === "PATCH" && !action) {
+      if (p.status !== "DRAFT")
+        return { status: 409, body: envelope("VOUCHER_POSTED_IMMUTABLE", "This payment has been posted and can no longer be edited.") };
+      const b = (body ?? {}) as PaymentWriteBody;
+      if (b.version !== undefined && b.version !== p.version)
+        return { status: 409, body: envelope("OPTIMISTIC_LOCK_CONFLICT", "This payment was just changed by someone else.") };
+      const err = validateWrite(b);
+      if (err) return err;
+      applyBody(p, b);
+      p.version += 1;
+      return { status: 200, body: success(paymentResource(p)) };
+    }
+    if (req.method === "DELETE" && !action) {
+      if (p.status !== "DRAFT")
+        return { status: 409, body: envelope("VOUCHER_POSTED_IMMUTABLE", "This payment has been posted and can no longer be deleted.") };
+      const idx = MOCK_PAYMENTS.findIndex((r) => r.id === id);
+      MOCK_PAYMENTS.splice(idx, 1);
+      return { status: 204, body: null };
+    }
+    if (req.method === "POST" && action === "post") {
+      if (p.status !== "DRAFT")
+        return { status: 409, body: envelope("VOUCHER_POSTED_IMMUTABLE", "This payment has already been posted.") };
+      const sum = p.allocations.reduce((s, a) => s + Number(a.amountAllocated), 0);
+      if (sum > Number(p.paymentAmount))
+        return { status: 400, body: envelope("OVER_ALLOCATION", "Total allocations exceed the payment amount.") };
+      const entryNo = allocatePaymentEntryNo();
+      p.status = "POSTED";
+      p.entryNo = entryNo;
+      p.journalEntryId = `je-${id}`;
+      p.postedAt = new Date().toISOString();
+      p.postedBy = user.id;
+      p.version += 1;
+      return {
+        status: 200,
+        body: success({
+          id,
+          entryNo,
+          journalEntryId: p.journalEntryId,
+          status: "POSTED",
+          paymentAmount: p.paymentAmount,
+          allocatedAmount: sum.toFixed(4),
+        }),
+      };
+    }
+    if (req.method === "POST" && action === "cancel") {
+      if (p.status === "DRAFT")
+        return { status: 409, body: envelope("VOUCHER_NOT_POSTED", "This payment isn't posted, so it can't be cancelled.") };
+      if (p.status === "CANCELLED")
+        return { status: 409, body: envelope("ALREADY_REVERSED", "This payment has already been cancelled.") };
+      const reversalNo = allocatePaymentEntryNo();
+      p.status = "CANCELLED";
+      p.version += 1;
+      return {
+        status: 200,
+        body: success({
+          id,
+          status: "CANCELLED",
+          reversalEntryId: `je-rev-${id}`,
+          reversalEntryNo: reversalNo,
+        }),
+      };
+    }
+    if (req.method === "POST" && action === "repost") {
+      if (p.status === "DRAFT")
+        return { status: 409, body: envelope("VOUCHER_NOT_POSTED", "This payment isn't posted, so it can't be reposted.") };
+      if (p.status === "CANCELLED")
+        return { status: 409, body: envelope("ALREADY_REVERSED", "This payment has already been cancelled.") };
+      const b = (body ?? {}) as PaymentWriteBody;
+      if (!b.reason || !String(b.reason).trim())
+        return { status: 400, body: envelope("VALIDATION_ERROR", "Reason is required.") };
+      const err = validateWrite(b);
+      if (err) return err;
+      const reversalNo = allocatePaymentEntryNo();
+      const newEntryNo = allocatePaymentEntryNo();
+      applyBody(p, b);
+      p.entryNo = newEntryNo;
+      p.journalEntryId = `je-${id}-v2`;
+      p.version += 1;
+      return {
+        status: 200,
+        body: success({
+          id,
+          status: "POSTED",
+          entryNo: newEntryNo,
+          reversalEntryNo: reversalNo,
+          paymentAmount: p.paymentAmount,
+        }),
+      };
+    }
+  }
+
+  // ── Contra & Journal (fe-voucher-list) — read-only unified list ─────────────
+  //
+  // Minimum viable read for FE-48: seeded contra + journal + opening vouchers,
+  // filtered by status + date + entry number (+ voucherType for journals). Sibling
+  // briefs (FE-49/FE-50/FE-51) will add create/patch/delete/post/reverse.
+  interface MockContraSeed {
+    id: string;
+    voucherType: "CONTRA";
+    voucherDate: string;
+    narration: string | null;
+    status: "DRAFT" | "POSTED" | "CANCELLED";
+    entryNo: string | null;
+    journalEntryId: string | null;
+    totalDebit: string;
+    version: number;
+  }
+  interface MockJournalSeed {
+    id: string;
+    voucherType: "JOURNAL" | "OPENING";
+    voucherDate: string;
+    narration: string | null;
+    status: "DRAFT" | "POSTED" | "CANCELLED";
+    entryNo: string | null;
+    journalEntryId: string | null;
+    totalDebit: string;
+    version: number;
+  }
+  const gCJ = globalThis as unknown as {
+    __MOCK_CONTRA__?: MockContraSeed[];
+    __MOCK_JOURNAL__?: MockJournalSeed[];
+  };
+  if (!gCJ.__MOCK_CONTRA__) {
+    gCJ.__MOCK_CONTRA__ = [
+      {
+        id: "ctr-1",
+        voucherType: "CONTRA",
+        voucherDate: "2026-07-10",
+        narration: "Cash deposited to City Bank A/C",
+        status: "POSTED",
+        entryNo: "CTR/2526/0007",
+        journalEntryId: "je-ctr-1",
+        totalDebit: "500000.0000",
+        version: 2,
+      },
+      {
+        id: "ctr-2",
+        voucherType: "CONTRA",
+        voucherDate: "2026-07-08",
+        narration: "Bank to petty cash",
+        status: "DRAFT",
+        entryNo: null,
+        journalEntryId: null,
+        totalDebit: "50000.0000",
+        version: 1,
+      },
+    ];
+  }
+  if (!gCJ.__MOCK_JOURNAL__) {
+    gCJ.__MOCK_JOURNAL__ = [
+      {
+        id: "jnl-1",
+        voucherType: "JOURNAL",
+        voucherDate: "2026-07-05",
+        narration: "Accrue June electricity",
+        status: "POSTED",
+        entryNo: "JNL/2526/0022",
+        journalEntryId: "je-jnl-1",
+        totalDebit: "18500.0000",
+        version: 2,
+      },
+      {
+        id: "jnl-2",
+        voucherType: "JOURNAL",
+        voucherDate: "2026-06-30",
+        narration: "Reclassify prepayment",
+        status: "CANCELLED",
+        entryNo: "JNL/2526/0019",
+        journalEntryId: "je-jnl-2",
+        totalDebit: "12000.0000",
+        version: 3,
+      },
+      {
+        id: "opn-1",
+        voucherType: "OPENING",
+        voucherDate: "2025-07-01",
+        narration: "Go-live opening balances",
+        status: "POSTED",
+        entryNo: "OPN/2526/0001",
+        journalEntryId: "je-opn-1",
+        totalDebit: "12500000.0000",
+        version: 1,
+      },
+    ];
+  }
+  const MOCK_CONTRA = gCJ.__MOCK_CONTRA__;
+  const MOCK_JOURNAL = gCJ.__MOCK_JOURNAL__;
+
+  function applyCommonFilters<T extends { status: string; voucherDate: string; entryNo: string | null }>(
+    rows: T[],
+  ): T[] {
+    let out = rows.slice();
+    const statusCsv = params.get("status");
+    const dateFrom = params.get("dateFrom");
+    const dateTo = params.get("dateTo");
+    const entryNo = params.get("entryNo");
+    if (statusCsv) {
+      const wanted = new Set(statusCsv.split(","));
+      out = out.filter((r) => wanted.has(r.status));
+    }
+    if (dateFrom) out = out.filter((r) => r.voucherDate >= dateFrom);
+    if (dateTo) out = out.filter((r) => r.voucherDate <= dateTo);
+    if (entryNo) out = out.filter((r) => r.entryNo === entryNo);
+    out.sort((a, b) => (a.voucherDate < b.voucherDate ? 1 : -1));
+    return out;
+  }
+
+  // Allocate the next gapless CTR number.
+  const gCtrSeq = globalThis as unknown as { __MOCK_CTR_SEQ__?: number };
+  if (typeof gCtrSeq.__MOCK_CTR_SEQ__ !== "number") {
+    gCtrSeq.__MOCK_CTR_SEQ__ = MOCK_CONTRA.reduce((m, r) => {
+      const n = r.entryNo ? Number(r.entryNo.split("/").pop()) : 0;
+      return Number.isFinite(n) && n > m ? n : m;
+    }, 0);
+  }
+  function allocateCtrEntryNo(): string {
+    gCtrSeq.__MOCK_CTR_SEQ__ = (gCtrSeq.__MOCK_CTR_SEQ__ ?? 0) + 1;
+    return `CTR/2526/${String(gCtrSeq.__MOCK_CTR_SEQ__).padStart(4, "0")}`;
+  }
+
+  interface MockContraLine {
+    lineNo: number;
+    accountId: string;
+    debit: string;
+    credit: string;
+    narration: string | null;
+  }
+  interface MockContraFull extends MockContraSeed {
+    lines: MockContraLine[];
+  }
+  const gCtrFull = globalThis as unknown as { __MOCK_CONTRA_FULL__?: Record<string, MockContraFull> };
+  if (!gCtrFull.__MOCK_CONTRA_FULL__) {
+    gCtrFull.__MOCK_CONTRA_FULL__ = {
+      "ctr-1": {
+        ...MOCK_CONTRA[0]!,
+        lines: [
+          { lineNo: 1, accountId: "1201", debit: "500000.0000", credit: "0.0000", narration: null },
+          { lineNo: 2, accountId: "1010", debit: "0.0000", credit: "500000.0000", narration: null },
+        ],
+      },
+      "ctr-2": {
+        ...MOCK_CONTRA[1]!,
+        lines: [
+          { lineNo: 1, accountId: "1010", debit: "50000.0000", credit: "0.0000", narration: null },
+          { lineNo: 2, accountId: "1201", debit: "0.0000", credit: "50000.0000", narration: null },
+        ],
+      },
+    };
+  }
+  const MOCK_CONTRA_FULL = gCtrFull.__MOCK_CONTRA_FULL__;
+
+  function contraResource(r: MockContraFull) {
+    return {
+      id: r.id,
+      voucherType: r.voucherType,
+      voucherDate: r.voucherDate,
+      narration: r.narration,
+      status: r.status,
+      entryNo: r.entryNo,
+      journalEntryId: r.journalEntryId,
+      postedAt: r.status !== "DRAFT" ? "2026-07-11T10:22:11Z" : null,
+      postedBy: r.status !== "DRAFT" ? user?.id ?? null : null,
+      lines: r.lines,
+      version: r.version,
+      createdAt: "2026-07-10T10:00:00Z",
+      updatedAt: "2026-07-10T10:00:00Z",
+      totalDebit: r.totalDebit,
+    };
+  }
+
+  if (pathname === "/contra" && req.method === "GET") {
+    const rows = applyCommonFilters(MOCK_CONTRA);
+    return { status: 200, body: pageEnvelope(rows) };
+  }
+  if (pathname === "/contra" && req.method === "POST") {
+    const b = (body ?? {}) as { voucherDate?: string; narration?: string | null; lines?: MockContraLine[] };
+    const id = `ctr-new-${Object.keys(MOCK_CONTRA_FULL).length + 1}`;
+    const lines = (b.lines ?? []).map((l, i) => ({
+      lineNo: i + 1,
+      accountId: l.accountId,
+      debit: l.debit ?? "0.0000",
+      credit: l.credit ?? "0.0000",
+      narration: l.narration ?? null,
+    }));
+    const totalDebit = lines.reduce((s, l) => s + Number(l.debit), 0).toFixed(4);
+    const rec: MockContraFull = {
+      id,
+      voucherType: "CONTRA",
+      voucherDate: b.voucherDate ?? "2026-07-11",
+      narration: b.narration ?? null,
+      status: "DRAFT",
+      entryNo: null,
+      journalEntryId: null,
+      totalDebit,
+      version: 1,
+      lines,
+    };
+    MOCK_CONTRA_FULL[id] = rec;
+    MOCK_CONTRA.unshift({
+      id,
+      voucherType: "CONTRA",
+      voucherDate: rec.voucherDate,
+      narration: rec.narration,
+      status: rec.status,
+      entryNo: rec.entryNo,
+      journalEntryId: rec.journalEntryId,
+      totalDebit,
+      version: 1,
+    });
+    return { status: 201, body: success({ id }) };
+  }
+
+  const contraIdMatch = /^\/contra\/([^/]+)(?:\/(post|reverse))?$/.exec(pathname ?? "");
+  if (contraIdMatch) {
+    const id = contraIdMatch[1]!;
+    const action = contraIdMatch[2];
+    const r = MOCK_CONTRA_FULL[id];
+    if (!r) return { status: 404, body: envelope("NOT_FOUND", "Contra voucher not found.") };
+    if (req.method === "GET" && !action) return { status: 200, body: success(contraResource(r)) };
+    if (req.method === "PATCH" && !action) {
+      if (r.status !== "DRAFT")
+        return { status: 409, body: envelope("VOUCHER_POSTED_IMMUTABLE", "This voucher has been posted and can no longer be edited.") };
+      const b = (body ?? {}) as { voucherDate?: string; narration?: string | null; lines?: MockContraLine[]; version?: number };
+      if (b.version !== undefined && b.version !== r.version)
+        return { status: 409, body: envelope("OPTIMISTIC_LOCK_CONFLICT", "This voucher was changed by someone else.") };
+      if (b.voucherDate) r.voucherDate = b.voucherDate;
+      if (b.narration !== undefined) r.narration = b.narration ?? null;
+      if (b.lines)
+        r.lines = b.lines.map((l, i) => ({
+          lineNo: i + 1,
+          accountId: l.accountId,
+          debit: l.debit ?? "0.0000",
+          credit: l.credit ?? "0.0000",
+          narration: l.narration ?? null,
+        }));
+      r.totalDebit = r.lines.reduce((s, l) => s + Number(l.debit), 0).toFixed(4);
+      r.version += 1;
+      const summary = MOCK_CONTRA.find((c) => c.id === id);
+      if (summary) {
+        summary.voucherDate = r.voucherDate;
+        summary.narration = r.narration;
+        summary.totalDebit = r.totalDebit;
+        summary.version = r.version;
+      }
+      return { status: 200, body: success(contraResource(r)) };
+    }
+    if (req.method === "DELETE" && !action) {
+      if (r.status !== "DRAFT")
+        return { status: 409, body: envelope("VOUCHER_POSTED_IMMUTABLE", "This voucher has been posted and can no longer be deleted.") };
+      delete MOCK_CONTRA_FULL[id];
+      const idx = MOCK_CONTRA.findIndex((c) => c.id === id);
+      if (idx >= 0) MOCK_CONTRA.splice(idx, 1);
+      return { status: 204, body: null };
+    }
+    if (req.method === "POST" && action === "post") {
+      if (r.status !== "DRAFT")
+        return { status: 409, body: envelope("VOUCHER_POSTED_IMMUTABLE", "This voucher has already been posted.") };
+      const sumDr = r.lines.reduce((s, l) => s + Number(l.debit), 0);
+      const sumCr = r.lines.reduce((s, l) => s + Number(l.credit), 0);
+      if (Math.abs(sumDr - sumCr) > 0.0001)
+        return { status: 400, body: envelope("UNBALANCED_ENTRY", "Σ debit ≠ Σ credit.") };
+      const entryNo = allocateCtrEntryNo();
+      r.status = "POSTED";
+      r.entryNo = entryNo;
+      r.journalEntryId = `je-${id}`;
+      r.version += 1;
+      const summary = MOCK_CONTRA.find((c) => c.id === id);
+      if (summary) {
+        summary.status = "POSTED";
+        summary.entryNo = entryNo;
+        summary.journalEntryId = r.journalEntryId;
+        summary.version = r.version;
+      }
+      return {
+        status: 200,
+        body: success({ id, entryNo, journalEntryId: r.journalEntryId, status: "POSTED" }),
+      };
+    }
+    if (req.method === "POST" && action === "reverse") {
+      if (r.status === "DRAFT")
+        return { status: 409, body: envelope("VOUCHER_NOT_POSTED", "This voucher isn't posted, so it can't be reversed.") };
+      if (r.status === "CANCELLED")
+        return { status: 409, body: envelope("ALREADY_REVERSED", "This voucher has already been reversed.") };
+      const b = (body ?? {}) as { reason?: string; version?: number };
+      if (!b.reason || !String(b.reason).trim())
+        return { status: 400, body: envelope("VALIDATION_ERROR", "Reason is required.") };
+      if (b.version !== undefined && b.version !== r.version)
+        return { status: 409, body: envelope("OPTIMISTIC_LOCK_CONFLICT", "This voucher was changed by someone else.") };
+      const reversalNo = allocateCtrEntryNo();
+      r.status = "CANCELLED";
+      r.version += 1;
+      const summary = MOCK_CONTRA.find((c) => c.id === id);
+      if (summary) {
+        summary.status = "CANCELLED";
+        summary.version = r.version;
+      }
+      return {
+        status: 200,
+        body: success({
+          id,
+          status: "CANCELLED",
+          reversalEntryId: `je-rev-${id}`,
+          reversalEntryNo: reversalNo,
+        }),
+      };
+    }
+  }
+
+  // Allocate the next gapless JNL number.
+  const gJnlSeq = globalThis as unknown as { __MOCK_JNL_SEQ__?: number };
+  if (typeof gJnlSeq.__MOCK_JNL_SEQ__ !== "number") {
+    gJnlSeq.__MOCK_JNL_SEQ__ = MOCK_JOURNAL.reduce((m, r) => {
+      const n = r.entryNo ? Number(r.entryNo.split("/").pop()) : 0;
+      return Number.isFinite(n) && n > m ? n : m;
+    }, 0);
+  }
+  function allocateJnlEntryNo(): string {
+    gJnlSeq.__MOCK_JNL_SEQ__ = (gJnlSeq.__MOCK_JNL_SEQ__ ?? 0) + 1;
+    return `JNL/2526/${String(gJnlSeq.__MOCK_JNL_SEQ__).padStart(4, "0")}`;
+  }
+
+  interface MockJournalLine {
+    lineNo: number;
+    accountId: string;
+    debit: string;
+    credit: string;
+    partyId: string | null;
+    projectId: string | null;
+    costCentreId: string | null;
+    purposeId: string | null;
+    narration: string | null;
+  }
+  interface MockJournalFull extends MockJournalSeed {
+    lines: MockJournalLine[];
+  }
+  const gJnlFull = globalThis as unknown as { __MOCK_JOURNAL_FULL__?: Record<string, MockJournalFull> };
+  if (!gJnlFull.__MOCK_JOURNAL_FULL__) {
+    gJnlFull.__MOCK_JOURNAL_FULL__ = {
+      "jnl-1": {
+        ...MOCK_JOURNAL[0]!,
+        lines: [
+          { lineNo: 1, accountId: "5100", debit: "18500.0000", credit: "0.0000", partyId: null, projectId: "proj-a", costCentreId: "cc-1", purposeId: "pp-1", narration: null },
+          { lineNo: 2, accountId: "2100", debit: "0.0000", credit: "18500.0000", partyId: "pa-1", projectId: null, costCentreId: null, purposeId: null, narration: null },
+        ],
+      },
+      "jnl-2": {
+        ...MOCK_JOURNAL[1]!,
+        lines: [
+          { lineNo: 1, accountId: "1500", debit: "12000.0000", credit: "0.0000", partyId: null, projectId: null, costCentreId: null, purposeId: null, narration: null },
+          { lineNo: 2, accountId: "1010", debit: "0.0000", credit: "12000.0000", partyId: null, projectId: null, costCentreId: null, purposeId: null, narration: null },
+        ],
+      },
+      "opn-1": {
+        ...MOCK_JOURNAL[2]!,
+        lines: [],
+      },
+    };
+  }
+  const MOCK_JOURNAL_FULL = gJnlFull.__MOCK_JOURNAL_FULL__;
+
+  function journalResource(r: MockJournalFull) {
+    return {
+      id: r.id,
+      voucherType: r.voucherType,
+      voucherDate: r.voucherDate,
+      narration: r.narration,
+      status: r.status,
+      entryNo: r.entryNo,
+      journalEntryId: r.journalEntryId,
+      postedAt: r.status !== "DRAFT" ? "2026-07-05T10:22:11Z" : null,
+      postedBy: r.status !== "DRAFT" ? user?.id ?? null : null,
+      lines: r.lines,
+      version: r.version,
+      createdAt: "2026-07-05T10:00:00Z",
+      updatedAt: "2026-07-05T10:00:00Z",
+      totalDebit: r.totalDebit,
+    };
+  }
+
+  // ── Opening journal (fe-opening-journal) — preview + one-time post ──────────
+  //
+  // Phase-1 mock shim: /journal/opening/preview returns a derived-lines fixture; the
+  // real backend either supplies a preview endpoint or the FE derives from MAS
+  // `opening_balance` (SRS §15/§16 — PENDING). POST /journal/opening posts once per
+  // company and stores the derived voucher in MOCK_JOURNAL + MOCK_JOURNAL_FULL.
+  if (pathname === "/journal/opening/preview" && req.method === "GET") {
+    // If an OPENING already exists, the wizard renders the recap instead — the preview
+    // is still useful for tests, so we return an empty (posted) shape here.
+    const alreadyPosted = MOCK_JOURNAL.some((j) => j.voucherType === "OPENING");
+    const lines = alreadyPosted
+      ? []
+      : [
+          { lineNo: 1, section: "ACCOUNT", accountLabel: "1010 · Cash on hand", partyLabel: null, debit: "500000.0000", credit: "0.0000" },
+          { lineNo: 2, section: "ACCOUNT", accountLabel: "1201 · HSBC Current 001", partyLabel: null, debit: "8500000.0000", credit: "0.0000" },
+          { lineNo: 3, section: "ACCOUNT", accountLabel: "2100 · Accounts payable", partyLabel: null, debit: "0.0000", credit: "1200000.0000" },
+          { lineNo: 4, section: "PARTY_AR", accountLabel: "1200 · Accounts Receivable", partyLabel: "National Housing Authority", debit: "2500000.0000", credit: "0.0000" },
+          { lineNo: 5, section: "PARTY_AP", accountLabel: "2100 · Accounts payable", partyLabel: "M/s Rahman Traders", debit: "0.0000", credit: "800000.0000" },
+          { lineNo: 6, section: "EQUITY", accountLabel: "3100 · Opening balance equity", partyLabel: null, debit: "0.0000", credit: "9500000.0000" },
+        ];
+    const totalDebit = lines.reduce((s, l) => s + Number(l.debit), 0).toFixed(4);
+    const totalCredit = lines.reduce((s, l) => s + Number(l.credit), 0).toFixed(4);
+    return {
+      status: 200,
+      body: success({ lines, totalDebit, totalCredit, configGap: false }),
+    };
+  }
+  if (pathname === "/journal/opening" && req.method === "POST") {
+    if (MOCK_JOURNAL.some((j) => j.voucherType === "OPENING")) {
+      return { status: 409, body: envelope("OPENING_ALREADY_EXISTS", "An opening journal already exists for this company.") };
+    }
+    const b = (body ?? {}) as { voucherDate?: string; narration?: string | null };
+    const id = `opn-new-${Object.keys(MOCK_JOURNAL_FULL).length + 1}`;
+    const entryNo = allocateJnlEntryNo();
+    const lines = [
+      { lineNo: 1, accountId: "1010", debit: "500000.0000", credit: "0.0000", partyId: null, projectId: null, costCentreId: null, purposeId: null, narration: null },
+      { lineNo: 2, accountId: "1201", debit: "8500000.0000", credit: "0.0000", partyId: null, projectId: null, costCentreId: null, purposeId: null, narration: null },
+      { lineNo: 3, accountId: "2100", debit: "0.0000", credit: "1200000.0000", partyId: null, projectId: null, costCentreId: null, purposeId: null, narration: null },
+      { lineNo: 4, accountId: "1200", debit: "2500000.0000", credit: "0.0000", partyId: "pa-8", projectId: null, costCentreId: null, purposeId: null, narration: null },
+      { lineNo: 5, accountId: "2100", debit: "0.0000", credit: "800000.0000", partyId: "pa-1", projectId: null, costCentreId: null, purposeId: null, narration: null },
+      { lineNo: 6, accountId: "3100", debit: "0.0000", credit: "9500000.0000", partyId: null, projectId: null, costCentreId: null, purposeId: null, narration: null },
+    ];
+    const totalDebit = lines.reduce((s, l) => s + Number(l.debit), 0).toFixed(4);
+    const rec: MockJournalFull = {
+      id,
+      voucherType: "OPENING",
+      voucherDate: b.voucherDate ?? "2025-07-01",
+      narration: b.narration ?? "Go-live opening balances",
+      status: "POSTED",
+      entryNo,
+      journalEntryId: `je-${id}`,
+      totalDebit,
+      version: 1,
+      lines,
+    };
+    MOCK_JOURNAL_FULL[id] = rec;
+    MOCK_JOURNAL.unshift({
+      id,
+      voucherType: "OPENING",
+      voucherDate: rec.voucherDate,
+      narration: rec.narration,
+      status: rec.status,
+      entryNo: rec.entryNo,
+      journalEntryId: rec.journalEntryId,
+      totalDebit,
+      version: 1,
+    });
+    return { status: 201, body: success(journalResource(rec)) };
+  }
+
+  if (pathname === "/journal" && req.method === "GET") {
+    let rows = applyCommonFilters(MOCK_JOURNAL);
+    const voucherType = params.get("voucherType");
+    if (voucherType) rows = rows.filter((r) => r.voucherType === voucherType);
+    return { status: 200, body: pageEnvelope(rows) };
+  }
+  if (pathname === "/journal" && req.method === "POST") {
+    const b = (body ?? {}) as { voucherDate?: string; narration?: string | null; lines?: MockJournalLine[] };
+    const id = `jnl-new-${Object.keys(MOCK_JOURNAL_FULL).length + 1}`;
+    const lines = (b.lines ?? []).map((l, i) => ({
+      lineNo: i + 1,
+      accountId: l.accountId,
+      debit: l.debit ?? "0.0000",
+      credit: l.credit ?? "0.0000",
+      partyId: l.partyId ?? null,
+      projectId: l.projectId ?? null,
+      costCentreId: l.costCentreId ?? null,
+      purposeId: l.purposeId ?? null,
+      narration: l.narration ?? null,
+    }));
+    const totalDebit = lines.reduce((s, l) => s + Number(l.debit), 0).toFixed(4);
+    const rec: MockJournalFull = {
+      id,
+      voucherType: "JOURNAL",
+      voucherDate: b.voucherDate ?? "2026-07-05",
+      narration: b.narration ?? null,
+      status: "DRAFT",
+      entryNo: null,
+      journalEntryId: null,
+      totalDebit,
+      version: 1,
+      lines,
+    };
+    MOCK_JOURNAL_FULL[id] = rec;
+    MOCK_JOURNAL.unshift({
+      id,
+      voucherType: "JOURNAL",
+      voucherDate: rec.voucherDate,
+      narration: rec.narration,
+      status: rec.status,
+      entryNo: rec.entryNo,
+      journalEntryId: rec.journalEntryId,
+      totalDebit,
+      version: 1,
+    });
+    return { status: 201, body: success({ id }) };
+  }
+
+  const journalIdMatch = /^\/journal\/([^/]+)(?:\/(post|reverse))?$/.exec(pathname ?? "");
+  if (journalIdMatch) {
+    const id = journalIdMatch[1]!;
+    const action = journalIdMatch[2];
+    const r = MOCK_JOURNAL_FULL[id];
+    if (!r) return { status: 404, body: envelope("NOT_FOUND", "Journal voucher not found.") };
+    if (req.method === "GET" && !action) return { status: 200, body: success(journalResource(r)) };
+    if (req.method === "PATCH" && !action) {
+      if (r.status !== "DRAFT")
+        return { status: 409, body: envelope("VOUCHER_POSTED_IMMUTABLE", "This voucher has been posted and can no longer be edited.") };
+      const b = (body ?? {}) as { voucherDate?: string; narration?: string | null; lines?: MockJournalLine[]; version?: number };
+      if (b.version !== undefined && b.version !== r.version)
+        return { status: 409, body: envelope("OPTIMISTIC_LOCK_CONFLICT", "This voucher was changed by someone else.") };
+      if (b.voucherDate) r.voucherDate = b.voucherDate;
+      if (b.narration !== undefined) r.narration = b.narration ?? null;
+      if (b.lines)
+        r.lines = b.lines.map((l, i) => ({
+          lineNo: i + 1,
+          accountId: l.accountId,
+          debit: l.debit ?? "0.0000",
+          credit: l.credit ?? "0.0000",
+          partyId: l.partyId ?? null,
+          projectId: l.projectId ?? null,
+          costCentreId: l.costCentreId ?? null,
+          purposeId: l.purposeId ?? null,
+          narration: l.narration ?? null,
+        }));
+      r.totalDebit = r.lines.reduce((s, l) => s + Number(l.debit), 0).toFixed(4);
+      r.version += 1;
+      const summary = MOCK_JOURNAL.find((j) => j.id === id);
+      if (summary) {
+        summary.voucherDate = r.voucherDate;
+        summary.narration = r.narration;
+        summary.totalDebit = r.totalDebit;
+        summary.version = r.version;
+      }
+      return { status: 200, body: success(journalResource(r)) };
+    }
+    if (req.method === "DELETE" && !action) {
+      if (r.status !== "DRAFT")
+        return { status: 409, body: envelope("VOUCHER_POSTED_IMMUTABLE", "This voucher has been posted and can no longer be deleted.") };
+      delete MOCK_JOURNAL_FULL[id];
+      const idx = MOCK_JOURNAL.findIndex((j) => j.id === id);
+      if (idx >= 0) MOCK_JOURNAL.splice(idx, 1);
+      return { status: 204, body: null };
+    }
+    if (req.method === "POST" && action === "post") {
+      if (r.status !== "DRAFT")
+        return { status: 409, body: envelope("VOUCHER_POSTED_IMMUTABLE", "This voucher has already been posted.") };
+      const sumDr = r.lines.reduce((s, l) => s + Number(l.debit), 0);
+      const sumCr = r.lines.reduce((s, l) => s + Number(l.credit), 0);
+      if (Math.abs(sumDr - sumCr) > 0.0001)
+        return { status: 400, body: envelope("UNBALANCED_ENTRY", "Σ debit ≠ Σ credit.") };
+      const entryNo = allocateJnlEntryNo();
+      r.status = "POSTED";
+      r.entryNo = entryNo;
+      r.journalEntryId = `je-${id}`;
+      r.version += 1;
+      const summary = MOCK_JOURNAL.find((j) => j.id === id);
+      if (summary) {
+        summary.status = "POSTED";
+        summary.entryNo = entryNo;
+        summary.journalEntryId = r.journalEntryId;
+        summary.version = r.version;
+      }
+      return {
+        status: 200,
+        body: success({ id, entryNo, journalEntryId: r.journalEntryId, status: "POSTED" }),
+      };
+    }
+    if (req.method === "POST" && action === "reverse") {
+      if (r.status === "DRAFT")
+        return { status: 409, body: envelope("VOUCHER_NOT_POSTED", "This voucher isn't posted, so it can't be reversed.") };
+      if (r.status === "CANCELLED")
+        return { status: 409, body: envelope("ALREADY_REVERSED", "This voucher has already been reversed.") };
+      const b = (body ?? {}) as { reason?: string; version?: number };
+      if (!b.reason || !String(b.reason).trim())
+        return { status: 400, body: envelope("VALIDATION_ERROR", "Reason is required.") };
+      if (b.version !== undefined && b.version !== r.version)
+        return { status: 409, body: envelope("OPTIMISTIC_LOCK_CONFLICT", "This voucher was changed by someone else.") };
+      const reversalNo = allocateJnlEntryNo();
+      r.status = "CANCELLED";
+      r.version += 1;
+      const summary = MOCK_JOURNAL.find((j) => j.id === id);
+      if (summary) {
+        summary.status = "CANCELLED";
+        summary.version = r.version;
+      }
+      return {
+        status: 200,
+        body: success({
+          id,
+          status: "CANCELLED",
+          reversalEntryId: `je-rev-${id}`,
+          reversalEntryNo: reversalNo,
+        }),
+      };
+    }
   }
 
   return { status: 200, body: success({ ok: true, path: req.path }) };

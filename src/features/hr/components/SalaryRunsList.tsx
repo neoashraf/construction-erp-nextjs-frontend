@@ -74,7 +74,7 @@ export function SalaryRunsList() {
       router.push(`/hr/salary-sheets/${res.id}`);
     } catch (e) {
       if (e instanceof ApiError) {
-        setGenError(mapSalaryError(String(e.code)));
+        setGenError(mapSalaryError(String(e.code), undefined, e.message));
         const existing =
           (e.details as { existingId?: string } | undefined)?.existingId ??
           (e.details as { existingSheetId?: string } | undefined)?.existingSheetId ??

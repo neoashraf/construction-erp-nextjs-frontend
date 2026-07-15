@@ -73,3 +73,89 @@ export interface CustomerOption {
   name: string;
   isActive: boolean;
 }
+
+/**
+ * Full Receipt resource returned by `GET /api/receipt/{id}` (contract 11 § "Receipt
+ * (ReceiptVoucher)"). Read by the editor to load an existing draft (edit) and by the
+ * viewer (FE-44) for the posted read. The `linkage` chain is `null` while `DRAFT`;
+ * populated once the receipt is cancelled/reposted (drives FE-44's linkage panel).
+ */
+export interface ReceiptLinkageEntry {
+  entryId: string;
+  entryNo: string;
+  isReversal: boolean;
+  isReversed: boolean;
+  isCurrent: boolean;
+  reversalOfEntryNo: string | null;
+  reversedByEntryNo: string | null;
+  postedAt: string;
+}
+export interface ReceiptLinkage {
+  hasHistory: boolean;
+  currentEntryNo: string | null;
+  originalEntryNo: string | null;
+  entries: ReceiptLinkageEntry[];
+}
+export interface Receipt {
+  id: string;
+  receiptType: ReceiptType;
+  receiptDate: string;
+  paymentMode: PaymentMode;
+  depositAccountId: string;
+  partyId: string;
+  projectId: string | null;
+  costCentreId: string | null;
+  purposeId: string | null;
+  ipcId: string | null;
+  generalTargetAccountId: string | null;
+  amountSettled: string;
+  cashReceived: string;
+  taxDeductedAtSource: string;
+  chequeTxnRef: string | null;
+  narration: string | null;
+  status: ReceiptStatus;
+  entryNo: string | null;
+  journalEntryId: string | null;
+  ipcOutstandingAfter: string | null;
+  postedAt: string | null;
+  postedBy: string | null;
+  version: number;
+  linkage: ReceiptLinkage | null;
+}
+
+/** Editor picker option for a deposit account (bank/cash/MFS) or general target (INCOME/LIABILITY). */
+export interface AccountOption {
+  id: string;
+  code: string;
+  name: string;
+  type: "ASSET" | "LIABILITY" | "EQUITY" | "INCOME" | "EXPENSE";
+  isActive: boolean;
+}
+
+export interface CostCentreOption {
+  id: string;
+  name: string;
+}
+
+export interface PurposeOption {
+  id: string;
+  name: string;
+}
+
+/** One posted IPC selectable in §A's picker — carries the customer's currently-due outstanding. */
+export interface IpcPickerRow {
+  id: string;
+  entryNo: string | null;
+  projectId: string;
+  projectName: string;
+  projectCode: string;
+  customerId: string;
+  customerName: string;
+  costCentreId: string;
+  costCentreName: string;
+  purposeId: string;
+  purposeName: string;
+  workCompletedPct: string;
+  ipcDate: string;
+  currentlyDueAmount: string;
+}

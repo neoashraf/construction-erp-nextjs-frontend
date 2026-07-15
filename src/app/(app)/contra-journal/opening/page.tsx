@@ -1,10 +1,12 @@
-import { ComingSoon } from "@/components/shell/coming-soon";
+import { requireModuleAccess } from "@/lib/auth/guard-module-page";
+import { OpeningJournalWizard } from "@/features/contra-journal/components/OpeningJournalWizard";
 
 /**
- * Placeholder route for the "Opening balances" screen (nav-tree route /contra-journal/opening). The real
- * screen ships with its per-screen brief; until then this renders the shared
- * ComingSoon placeholder so the nav item navigates to a real page, not a dead link.
+ * Opening journal wizard route (GEN; FR-GEN-009…-013). Guarded on
+ * `contra-journal:READ`; only Admin + Accounts Manager can Post (server-authoritative).
+ * Once an OPENING voucher exists the wizard renders the read-only recap only.
  */
-export default function ContraJournalOpeningPage() {
-  return <ComingSoon title="Opening balances" />;
+export default async function ContraJournalOpeningPage() {
+  await requireModuleAccess("contra-journal");
+  return <OpeningJournalWizard />;
 }
