@@ -227,7 +227,7 @@ function AccordionModule({
         <ul id={listId} className="mb-1 ml-[26px] flex flex-col border-l border-sidebar-border pl-1.5">
           {module.items.map((item) => (
             <li key={item.route}>
-              <SubItemLink item={item} activePath={activePath} />
+              <SubItemLink item={item} activePath={activePath} siblings={module.items} />
             </li>
           ))}
         </ul>
@@ -236,14 +236,27 @@ function AccordionModule({
   );
 }
 
-/** Whether a sub-item is the active route (exact or a nested detail route). */
-function isItemActive(item: NavSubItem, pathname: string): boolean {
-  return pathname === item.route || pathname.startsWith(`${item.route}/`);
+/**
+ * Whether a sub-item is the active route: exact match, or a nested detail route
+ * (e.g. `/requisitions/<id>`) — but not a sibling sub-item's own route (e.g.
+ * `/requisitions/approvals` belongs to "Approvals", not "Requisitions"). Ties are
+ * broken by picking the longest matching route among the module's siblings.
+ */
+function isItemActive(item: NavSubItem, pathname: string, siblings: readonly NavSubItem[]): boolean {
+  if (pathname === item.route) return true;
+  if (!pathname.startsWith(`${item.route}/`)) return false;
+  const closerSibling = siblings.some(
+    (other) =>
+      other.route !== item.route &&
+      other.route.length > item.route.length &&
+      (pathname === other.route || pathname.startsWith(`${other.route}/`)),
+  );
+  return !closerSibling;
 }
 
 /** A sub-item link (or a de-emphasised, non-navigating "Coming soon" for unbuilt). */
-function SubItemLink({ item, activePath }: { item: NavSubItem; activePath: string }) {
-  const active = isItemActive(item, activePath);
+function SubItemLink({ item, activePath, siblings }: { item: NavSubItem; activePath: string; siblings: readonly NavSubItem[] }) {
+  const active = isItemActive(item, activePath, siblings);
 
   if (!item.built) {
     return (
@@ -366,7 +379,7 @@ function RailModule({
           <ul className="flex flex-col">
             {module.items.map((item) => (
               <li key={item.route}>
-                <SubItemLink item={item} activePath={activePath} />
+                <SubItemLink item={item} activePath={activePath} siblings={module.items} />
               </li>
             ))}
           </ul>

@@ -4,7 +4,7 @@ import { Printer, X } from "lucide-react";
 import { Button } from "@/components/ui/button";
 import { Dialog, DialogContent, DialogTitle } from "@/components/ui/dialog";
 import { formatDate } from "@/lib/format";
-import { formatMoney } from "@/lib/money";
+import { amountInWords, formatMoney } from "@/lib/money";
 import { paymentModeLabel } from "./PaymentModeTag";
 import { type Receipt } from "../types";
 
@@ -164,62 +164,4 @@ function Field({ label, value, bn }: { label: string; value: string; bn?: boolea
       <div className={`mt-0.5 text-[12.5px] text-foreground [overflow-wrap:anywhere] ${bn ? "bn" : ""}`}>{value}</div>
     </div>
   );
-}
-
-/**
- * A minimal amount-in-words helper (Indian numbering: lakh/crore). Sufficient for the
- * money-receipt convention (Open item 2 in the brief). Not a general-purpose i18n
- * helper — the RPT-produced PDF will use its own template.
- */
-function amountInWords(amount: string): string {
-  const n = Math.floor(Number(amount || "0"));
-  if (!Number.isFinite(n) || n <= 0) return "zero";
-  const ones = [
-    "",
-    "one",
-    "two",
-    "three",
-    "four",
-    "five",
-    "six",
-    "seven",
-    "eight",
-    "nine",
-    "ten",
-    "eleven",
-    "twelve",
-    "thirteen",
-    "fourteen",
-    "fifteen",
-    "sixteen",
-    "seventeen",
-    "eighteen",
-    "nineteen",
-  ];
-  const tens = ["", "", "twenty", "thirty", "forty", "fifty", "sixty", "seventy", "eighty", "ninety"];
-  const twoDigit = (v: number): string => {
-    if (v === 0) return "";
-    if (v < 20) return ones[v]!;
-    const t = Math.floor(v / 10);
-    const o = v % 10;
-    return o === 0 ? tens[t]! : `${tens[t]}-${ones[o]}`;
-  };
-  const threeDigit = (v: number): string => {
-    const h = Math.floor(v / 100);
-    const rest = v % 100;
-    const parts: string[] = [];
-    if (h > 0) parts.push(`${ones[h]} hundred`);
-    if (rest > 0) parts.push(twoDigit(rest));
-    return parts.join(" ");
-  };
-  const crore = Math.floor(n / 10_000_000);
-  const lakh = Math.floor((n % 10_000_000) / 100_000);
-  const thousand = Math.floor((n % 100_000) / 1000);
-  const rest = n % 1000;
-  const parts: string[] = [];
-  if (crore) parts.push(`${threeDigit(crore)} crore`);
-  if (lakh) parts.push(`${twoDigit(lakh)} lakh`);
-  if (thousand) parts.push(`${twoDigit(thousand)} thousand`);
-  if (rest) parts.push(threeDigit(rest));
-  return parts.join(" ").trim();
 }

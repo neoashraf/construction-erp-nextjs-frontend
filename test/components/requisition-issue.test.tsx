@@ -73,6 +73,7 @@ function req(over: Partial<Requisition> = {}): Requisition {
     status: "APPROVED",
     estimatedValue: "54200.0000",
     approvalTier: "PM",
+    requestedById: "u-rafiq",
     submittedAt: "2026-07-10T08:00:00Z",
     submittedById: "u-rafiq",
     closedAt: null,

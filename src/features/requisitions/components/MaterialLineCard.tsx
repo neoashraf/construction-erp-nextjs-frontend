@@ -6,7 +6,8 @@ import { Select } from "@/components/ui/select";
 import { Input } from "@/components/ui/input";
 import { cn } from "@/lib/utils";
 import { formatMoney, toDecimal } from "@/lib/money";
-import { type IndicativeRate } from "../hooks/useRequisitionOptions";
+import { OnHandBadge } from "./OnHandBadge";
+import { type IndicativeRate, type OnHandResult } from "../hooks/useRequisitionOptions";
 import { type ItemOption } from "../types";
 
 export interface LineError {
@@ -30,6 +31,7 @@ export function MaterialLineCard({
   itemId,
   quantity,
   rate,
+  onHand,
   items,
   error,
   disabled,
@@ -41,6 +43,7 @@ export function MaterialLineCard({
   itemId: string;
   quantity: string;
   rate: IndicativeRate;
+  onHand?: OnHandResult;
   items: ItemOption[];
   error?: LineError;
   disabled?: boolean;
@@ -51,6 +54,8 @@ export function MaterialLineCard({
   const item = items.find((i) => i.id === itemId);
   const uom = item?.uom ?? "";
   const val = lineValue(quantity, rate.rate);
+  const requestedQty = Number(quantity || 0);
+  const insufficient = !!onHand?.onHand && requestedQty > Number(onHand.onHand.quantityOnHand);
 
   return (
     <div className="rounded-card border border-border bg-surface p-3" data-testid="req-line-card">
@@ -81,6 +86,12 @@ export function MaterialLineCard({
         )}
       </div>
       {error?.qty && <p className="mt-1 text-[12px] text-destructive-ink" role="alert">{error.qty}</p>}
+
+      {itemId && onHand && (
+        <div className="mt-2">
+          <OnHandBadge onHand={onHand.onHand} uom={uom} loading={onHand.isLoading} insufficient={insufficient} />
+        </div>
+      )}
 
       <div className="mt-2 flex items-center justify-between text-[12px]">
         <span className="text-faint">
