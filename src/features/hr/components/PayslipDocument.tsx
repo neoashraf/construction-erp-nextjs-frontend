@@ -1,12 +1,14 @@
 "use client";
 
+import { useEffect, useRef } from "react";
 import Link from "next/link";
+import { useSearchParams } from "next/navigation";
 import { Card } from "@/components/ui/card";
 import { Button } from "@/components/ui/button";
 import { Skeleton } from "@/components/ui/skeleton";
 import { Alert } from "@/components/ui/alert";
 import { Breadcrumb } from "@/components/ui/breadcrumb";
-import { formatMoney } from "@/lib/money";
+import { amountInWords, formatMoney, toDecimal } from "@/lib/money";
 import { formatDate } from "@/lib/format";
 import { useAuthenticatedUser } from "@/providers/session-provider";
 import { roleMatches } from "@/lib/auth/roles";
@@ -37,6 +39,23 @@ export function PayslipDocument({
   const user = useAuthenticatedUser();
   const denied = roleMatches(["SITE_ENGINEER", "STORE_KEEPER", "PROJECT_MANAGER"], user.role);
   const q = usePayslips(sheetId);
+  const searchParams = useSearchParams();
+  const autoPrint = searchParams.get("print") === "1";
+  const hasPrinted = useRef(false);
+
+  const payslipForPrint = (q.payslips ?? []).find((p) => p.employeeId === employeeId);
+  useEffect(() => {
+    if (!autoPrint || hasPrinted.current || !payslipForPrint) return;
+    // Wait a frame so the just-navigated document has actually painted before print()
+    // opens the OS dialog. Only flip the guard once print() actually runs — marking it
+    // eagerly (before the raf fires) meant a cleanup-cancelled first run silently ate
+    // the request, since the guard already read true when the effect re-ran.
+    const raf = window.requestAnimationFrame(() => {
+      hasPrinted.current = true;
+      window.print();
+    });
+    return () => window.cancelAnimationFrame(raf);
+  }, [autoPrint, payslipForPrint]);
 
   if (denied) {
     return (
@@ -140,6 +159,13 @@ export function PayslipDocument({
     );
   }
 
+  const totalEarnings = toDecimal(payslip.grossAmount).plus(payslip.allowances).toString();
+  const totalDeductions = toDecimal(payslip.deductions.tds)
+    .plus(payslip.deductions.pf)
+    .plus(payslip.deductions.advanceRecovery)
+    .plus(payslip.deductions.other)
+    .toString();
+
   return (
     <div className="mx-auto max-w-3xl" data-testid="payslip-doc">
       <div className="print-hide">
@@ -169,49 +195,71 @@ export function PayslipDocument({
       {isReversed && <ReversedRunBanner sheetId={sheet.id} />}
 
       {/* The paper. `.print-paper` is the DOM node that survives @media print; chrome above uses .print-hide. */}
-      <Card className="print-paper overflow-hidden" data-testid="payslip-paper">
+      <Card className="print-paper mx-auto max-w-[780px] overflow-hidden" data-testid="payslip-paper">
         {/* Masthead */}
-        <div className="border-b border-border px-6 py-4">
-          <p className="text-[11px] uppercase tracking-wide text-muted-foreground">Payslip</p>
-          <p className="mt-1 text-[16px] font-bold text-foreground" data-testid="payslip-period">
-            {payslip.periodLabel}
-          </p>
-          <p className="mt-0.5 text-[12px] text-muted-foreground">
-            {formatDate(sheet.periodStart)} — {formatDate(sheet.periodEnd)}
-          </p>
+        <div className="flex flex-wrap items-start justify-between gap-4 border-b-2 border-primary px-6 py-4">
+          <div className="flex items-center gap-3">
+            <span
+              className="grid h-11 w-11 flex-none place-items-center rounded-token bg-accent text-[15px] font-bold tracking-tight text-accent-foreground"
+              aria-hidden
+            >
+              ZE
+            </span>
+            <div>
+              <p className="text-[16px] font-bold leading-tight text-foreground">Zakir Enterprise</p>
+              <p className="text-[10px] font-semibold uppercase tracking-wide text-muted-foreground">
+                Construction ERP · Dhaka, Bangladesh
+              </p>
+            </div>
+          </div>
+          <div className="text-right">
+            <p className="text-[11px] font-bold uppercase tracking-[0.06em] text-muted-foreground">Payslip</p>
+            <p className="mt-0.5 text-[14px] font-bold text-foreground" data-testid="payslip-period">
+              {payslip.periodLabel}
+            </p>
+            <p className="mt-0.5 font-mono text-[11px] tabular-nums text-muted-foreground">
+              {formatDate(sheet.periodStart)} – {formatDate(sheet.periodEnd)}
+            </p>
+          </div>
+        </div>
 
-          <dl className="mt-3 grid grid-cols-2 gap-x-4 gap-y-1 text-[12.5px]">
+        {/* Employee block */}
+        <div className="grid grid-cols-1 gap-3 border-b border-border px-6 py-4 sm:grid-cols-2">
+          <div>
+            <p className="text-[10.5px] font-semibold uppercase tracking-[0.4px] text-faint">Employee</p>
+            <p className="mt-0.5 text-[15px] font-bold text-foreground" data-testid="payslip-emp-name">
+              {payslip.name}
+            </p>
+            <p className="text-[12px] text-muted-foreground" data-testid="payslip-emp-designation">
+              {payslip.designation ?? ""}
+            </p>
+          </div>
+          <div className="grid grid-cols-2 gap-3">
             <div>
-              <dt className="text-faint">Employee code</dt>
-              <dd className="font-mono font-medium text-foreground" data-testid="payslip-emp-code">
+              <p className="text-[10.5px] font-semibold uppercase tracking-[0.4px] text-faint">Employee code</p>
+              <p className="mt-0.5 font-mono text-[13px] font-semibold text-foreground" data-testid="payslip-emp-code">
                 {payslip.employeeCode}
-              </dd>
+              </p>
             </div>
             <div>
-              <dt className="text-faint">Name</dt>
-              <dd className="font-medium text-foreground" data-testid="payslip-emp-name">
-                {payslip.name}
-              </dd>
+              <p className="text-[10.5px] font-semibold uppercase tracking-[0.4px] text-faint">
+                {PAYSLIP_LABELS.paidDaysLabel}
+              </p>
+              <p className="mt-0.5 font-mono text-[13px] font-semibold tabular-nums text-foreground" data-testid="payslip-paid-days">
+                {payslip.paidDays}
+              </p>
             </div>
-            <div>
-              <dt className="text-faint">Designation</dt>
-              <dd className="text-foreground" data-testid="payslip-emp-designation">
-                {payslip.designation ?? ""}
-              </dd>
-            </div>
-            <div>
-              <dt className="text-faint">{PAYSLIP_LABELS.paidDaysLabel}</dt>
-              <dd className="text-foreground" data-testid="payslip-paid-days">
-                {`${PAYSLIP_LABELS.paidDaysLabel}: ${payslip.paidDays}`}
-              </dd>
-            </div>
-          </dl>
+          </div>
         </div>
 
         {/* Earnings + Deductions two-column (single-column on tablet/mobile) */}
         <div className="grid grid-cols-1 gap-0 md:grid-cols-2 md:divide-x md:divide-border">
           <PayslipBlock
             title={PAYSLIP_LABELS.earnings}
+            titleClassName="text-success-ink"
+            totalClassName="text-success-ink"
+            totalLabel="Total earnings"
+            total={totalEarnings}
             testId="payslip-earnings"
             rows={[
               { label: PAYSLIP_LABELS.grossSalary, value: payslip.grossAmount, testId: "gross" },
@@ -220,6 +268,10 @@ export function PayslipDocument({
           />
           <PayslipBlock
             title={PAYSLIP_LABELS.deductions}
+            titleClassName="text-destructive-ink"
+            totalClassName="text-destructive-ink"
+            totalLabel="Total deductions"
+            total={totalDeductions}
             testId="payslip-deductions"
             rows={[
               { label: PAYSLIP_LABELS.tds, value: payslip.deductions.tds, testId: "tds" },
@@ -240,17 +292,22 @@ export function PayslipDocument({
 
         {/* Net pay — bolded + heading level so it's announced as the document's summary value. */}
         <div
-          className="flex items-center justify-between border-t border-border bg-surface-2 px-6 py-4"
+          className="mx-6 mb-5 mt-2 flex items-center justify-between gap-4 rounded-token border border-[#DCE9BD] bg-accent-soft px-5 py-4"
           data-testid="payslip-net-row"
         >
-          <h2
-            className="text-[13px] font-bold uppercase tracking-wide text-foreground"
-            data-testid="payslip-net-label"
-          >
-            {PAYSLIP_LABELS.netPay}
-          </h2>
+          <div>
+            <h2
+              className="text-[13px] font-bold uppercase tracking-wide text-accent-ink"
+              data-testid="payslip-net-label"
+            >
+              {PAYSLIP_LABELS.netPay}
+            </h2>
+            <p className="mt-0.5 text-[11px] text-accent-ink opacity-85">
+              {amountInWords(payslip.netAmount)} taka only
+            </p>
+          </div>
           <span
-            className="text-[19px] font-bold tabular-nums text-foreground"
+            className="font-mono text-[24px] font-bold tabular-nums tracking-tight text-accent-ink"
             data-testid="payslip-net-value"
             aria-label={`${PAYSLIP_LABELS.netPay} ৳${formatMoney(payslip.netAmount, {
               withSymbol: false,
@@ -259,6 +316,19 @@ export function PayslipDocument({
           >
             {formatMoney(payslip.netAmount, { fractionDigits: 2 })}
           </span>
+        </div>
+
+        {/* Footer note */}
+        <div className="flex flex-wrap items-center justify-between gap-3 border-t border-dashed border-border-strong px-6 py-3">
+          <p className="max-w-[52ch] text-[10.5px] leading-relaxed text-faint">
+            System-generated from the posted {payslip.periodLabel} salary sheet. Figures reflect the
+            salary lines captured at posting and match the general ledger to the same precision.
+          </p>
+          {sheet.postedAt && (
+            <p className="whitespace-nowrap font-mono text-[10px] text-faint">
+              Posted {formatDate(sheet.postedAt)}
+            </p>
+          )}
         </div>
       </Card>
 
@@ -287,28 +357,38 @@ export function PayslipDocument({
 
 function PayslipBlock({
   title,
+  titleClassName,
   rows,
+  total,
+  totalLabel,
+  totalClassName,
   testId,
 }: {
   title: string;
+  titleClassName?: string;
   rows: Array<{ label: string; value: string; testId: string }>;
+  total: string;
+  totalLabel: string;
+  totalClassName?: string;
   testId: string;
 }) {
   return (
     <div className="px-6 py-4" data-testid={testId}>
-      <h2 className="mb-2 text-[13px] font-bold uppercase tracking-wide text-foreground">
+      <h2
+        className={`mb-1 border-b border-border pb-2 text-[12px] font-bold uppercase tracking-wide ${titleClassName ?? "text-foreground"}`}
+      >
         {title}
       </h2>
-      <dl className="flex flex-col gap-1.5">
+      <dl className="flex flex-col">
         {rows.map((r) => (
           <div
             key={r.testId}
-            className="flex items-baseline justify-between text-[12.5px]"
+            className="flex items-baseline justify-between border-b border-muted py-2 text-[12.5px]"
             data-testid={`${testId}-${r.testId}`}
           >
-            <dt className="text-muted-foreground">{r.label}</dt>
+            <dt className="text-foreground">{r.label}</dt>
             <dd
-              className="tabular-nums font-medium text-foreground"
+              className="font-mono tabular-nums text-foreground"
               aria-label={`${r.label} ৳${formatMoney(r.value, {
                 withSymbol: false,
                 fractionDigits: 2,
@@ -318,6 +398,18 @@ function PayslipBlock({
             </dd>
           </div>
         ))}
+        <div
+          className="flex items-baseline justify-between pt-2.5 text-[12.5px]"
+          data-testid={`${testId}-total`}
+        >
+          <dt className="font-bold text-foreground">{totalLabel}</dt>
+          <dd
+            className={`font-mono text-[13.5px] font-bold tabular-nums ${totalClassName ?? "text-foreground"}`}
+            aria-label={`${totalLabel} ৳${formatMoney(total, { withSymbol: false, fractionDigits: 2 })}`}
+          >
+            {formatMoney(total, { fractionDigits: 2 })}
+          </dd>
+        </div>
       </dl>
     </div>
   );

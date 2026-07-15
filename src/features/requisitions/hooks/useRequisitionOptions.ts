@@ -11,8 +11,8 @@ import {
   listPurposeOptions,
   listUserOptions,
 } from "../api/masters";
-import { checkBudget, getIndicativeRate } from "../api/requisition";
-import { type BudgetStatus } from "../types";
+import { checkBudget, getIndicativeRate, getOnHand } from "../api/requisition";
+import { type BudgetStatus, type OnHand } from "../types";
 
 /**
  * Picker-option + derived-value hooks for the entry form (skill §7). Masters change rarely
@@ -102,6 +102,41 @@ export function useIndicativeRates(itemIds: string[], godownId: string): Indicat
       }),
     // eslint-disable-next-line react-hooks/exhaustive-deps
     [itemIds.join("|"), results.map((r) => `${r.isLoading}:${String(r.data)}`).join("|")],
+  );
+}
+
+export interface OnHandResult {
+  onHand: OnHand | null;
+  isLoading: boolean;
+}
+
+/**
+ * The current on-hand balance for each line's item at the selected deliver-from godown, shown at
+ * draft/compose time (the design's "On-hand @ deliver" column) — advisory only here; INV enforces
+ * the real guard at issue. Mirrors `useIndicativeRates` (one query per distinct item, aligned to
+ * the input order). Disabled with no godown selected — on-hand is unknown until a deliver point is
+ * picked, matching the mockup's implied "@ deliver" dependency.
+ */
+export function useOnHandBalances(itemIds: string[], godownId: string): OnHandResult[] {
+  const scope = useScope();
+  const results = useQueries({
+    queries: itemIds.map((itemId) => ({
+      queryKey: queryKeys.list("requisitions", "on-hand", scope, { itemId, godownId }),
+      queryFn: () => getOnHand(godownId, itemId),
+      enabled: !!itemId && !!godownId,
+      staleTime: 30_000,
+      retry: false,
+    })),
+  });
+  return useMemo(
+    () =>
+      itemIds.map((itemId, i) => {
+        if (!itemId || !godownId) return { onHand: null, isLoading: false };
+        const r = results[i];
+        return { onHand: (r?.data as OnHand | null | undefined) ?? null, isLoading: !!r?.isLoading };
+      }),
+    // eslint-disable-next-line react-hooks/exhaustive-deps
+    [itemIds.join("|"), godownId, results.map((r) => `${r.isLoading}:${String(r.data)}`).join("|")],
   );
 }
 

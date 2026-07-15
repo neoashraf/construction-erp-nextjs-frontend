@@ -32,7 +32,7 @@ test("requisition — create draft, add line, save, submit", async ({ page }) =>
   await page.getByTestId("req-cost-centre").selectOption("cc-mat");
   await expect(page.getByTestId("req-purpose")).toBeEnabled();
   await page.getByTestId("req-purpose").selectOption("pp-1");
-  await page.getByLabel(/Required date/i).fill("20/07/2026");
+  await page.getByLabel(/Required by/i).fill("20/07/2026");
   await page.getByTestId("req-line-item").first().selectOption("it-cement");
   await page.getByTestId("req-line-qty").first().fill("100");
 

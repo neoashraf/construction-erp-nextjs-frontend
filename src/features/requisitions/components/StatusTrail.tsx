@@ -142,17 +142,16 @@ export function StatusTrail({
               <span
                 className={cn(
                   "grid h-6 w-6 place-items-center rounded-full",
-                  n.state === "done" && "bg-success-soft text-success",
+                  n.state === "done" && n.key === "submitted" && "bg-info-soft text-info",
+                  n.state === "done" && n.key !== "submitted" && "bg-success-soft text-success",
                   n.state === "reversed" && "bg-muted text-muted-foreground",
-                  n.state === "pending" && "border border-border-strong bg-surface text-faint",
+                  n.state === "pending" && "bg-muted text-faint",
                 )}
                 aria-hidden
               >
                 {n.state === "reversed" ? (
                   <RotateCcw className="h-3 w-3" />
-                ) : n.state === "pending" ? (
-                  <CircleDot className="h-3 w-3" />
-                ) : (
+                ) : n.state === "pending" ? null : (
                   <Check className="h-3.5 w-3.5" />
                 )}
               </span>

@@ -12,6 +12,7 @@ import { Breadcrumb } from "@/components/ui/breadcrumb";
 import { Sheet, SheetContent } from "@/components/ui/sheet";
 import { useToast } from "@/components/ui/toast";
 import { formatQty, toDecimal } from "@/lib/money";
+import { cn } from "@/lib/utils";
 import { useOnline } from "@/lib/hooks/use-online";
 import { useIsMobile } from "@/lib/hooks/use-media-query";
 import { asApiError } from "@/lib/api";
@@ -346,8 +347,16 @@ export function RequisitionIssueDetail({ requisitionId }: { requisitionId: strin
         <Button
           variant="outline"
           size="sm"
-          className="ml-auto gap-1.5 lg:hidden"
-          onClick={() => setHistoryOpen(true)}
+          className="ml-auto gap-1.5"
+          onClick={() => {
+            if (isMobile) {
+              setHistoryOpen(true);
+            } else {
+              document
+                .querySelector('[data-testid="req-trail-card"]')
+                ?.scrollIntoView({ behavior: "smooth", block: "start" });
+            }
+          }}
           data-testid="req-view-history"
         >
           <History className="h-4 w-4" aria-hidden />
@@ -370,16 +379,20 @@ export function RequisitionIssueDetail({ requisitionId }: { requisitionId: strin
       )}
 
       {/* Header detail + posting dimensions */}
-      <Card className="mb-4 flex flex-col gap-4 p-5 lg:flex-row lg:items-start lg:justify-between">
-        <dl className="grid flex-1 gap-x-8 gap-y-4 sm:grid-cols-2 lg:grid-cols-4">
+      <Card className="mb-4 flex flex-col gap-4 p-5 lg:flex-row lg:items-center lg:gap-6">
+        <dl className="grid flex-1 gap-x-8 gap-y-4 sm:grid-cols-2 lg:flex lg:items-center lg:gap-6">
           <Field label="Requisition no" value={req.requisitionNo ?? "—"} />
+          <HeaderDivider />
           <Field label="Project" value={projectName} />
+          <HeaderDivider />
           <Field label="Requested by" value={requesterName} />
+          <HeaderDivider />
           <Field label="Priority">
             <PriorityBadge priority={req.priority} />
           </Field>
         </dl>
-        <div className="lg:text-right">
+        <HeaderDivider className="hidden lg:block" />
+        <div className="lg:ml-auto lg:text-right">
           <div className="text-[10.5px] font-semibold uppercase tracking-[0.4px] text-muted-foreground">
             Posting dimensions
           </div>
@@ -575,6 +588,10 @@ function useLineItemMap(
   }, [lines, items]);
 }
 
+function HeaderDivider({ className }: { className?: string }) {
+  return <span className={cn("hidden h-[30px] w-px flex-none bg-border lg:block", className)} aria-hidden />;
+}
+
 function Field({
   label,
   value,
@@ -598,7 +615,7 @@ function Field({
 
 function Dim({ children }: { children: React.ReactNode }) {
   return (
-    <span className="inline-flex items-center rounded-pill bg-success-soft px-2.5 py-1 text-[11.5px] font-medium text-success-ink [overflow-wrap:anywhere]">
+    <span className="inline-flex items-center rounded-pill bg-accent-soft px-2.5 py-1 text-[11.5px] font-medium text-accent-ink [overflow-wrap:anywhere]">
       {children}
     </span>
   );

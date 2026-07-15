@@ -95,3 +95,63 @@ export function isNonNegativeMoney(value: DecimalInput): boolean {
     return false;
   }
 }
+
+const WORDS_ONES = [
+  "",
+  "one",
+  "two",
+  "three",
+  "four",
+  "five",
+  "six",
+  "seven",
+  "eight",
+  "nine",
+  "ten",
+  "eleven",
+  "twelve",
+  "thirteen",
+  "fourteen",
+  "fifteen",
+  "sixteen",
+  "seventeen",
+  "eighteen",
+  "nineteen",
+];
+const WORDS_TENS = ["", "", "twenty", "thirty", "forty", "fifty", "sixty", "seventy", "eighty", "ninety"];
+
+function twoDigitWords(v: number): string {
+  if (v === 0) return "";
+  if (v < 20) return WORDS_ONES[v]!;
+  const t = Math.floor(v / 10);
+  const o = v % 10;
+  return o === 0 ? WORDS_TENS[t]! : `${WORDS_TENS[t]}-${WORDS_ONES[o]}`;
+}
+
+function threeDigitWords(v: number): string {
+  const h = Math.floor(v / 100);
+  const rest = v % 100;
+  const parts: string[] = [];
+  if (h > 0) parts.push(`${WORDS_ONES[h]} hundred`);
+  if (rest > 0) parts.push(twoDigitWords(rest));
+  return parts.join(" ");
+}
+
+/**
+ * A minimal amount-in-words helper (Indian numbering: lakh/crore) for print/document
+ * templates. Whole-taka only (fraction is dropped) — not a general-purpose i18n helper.
+ */
+export function amountInWords(amount: DecimalInput): string {
+  const n = toDecimal(amount).floor().toNumber();
+  if (!Number.isFinite(n) || n <= 0) return "zero";
+  const crore = Math.floor(n / 10_000_000);
+  const lakh = Math.floor((n % 10_000_000) / 100_000);
+  const thousand = Math.floor((n % 100_000) / 1000);
+  const rest = n % 1000;
+  const parts: string[] = [];
+  if (crore) parts.push(`${threeDigitWords(crore)} crore`);
+  if (lakh) parts.push(`${twoDigitWords(lakh)} lakh`);
+  if (thousand) parts.push(`${twoDigitWords(thousand)} thousand`);
+  if (rest) parts.push(threeDigitWords(rest));
+  return parts.join(" ").trim();
+}

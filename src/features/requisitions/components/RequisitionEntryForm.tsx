@@ -24,8 +24,10 @@ import {
   useGodownOptions,
   useIndicativeRates,
   useItemOptions,
+  useOnHandBalances,
   useProjectOptions,
   usePurposeOptions,
+  useUserOptions,
 } from "../hooks/useRequisitionOptions";
 import {
   emptyRequisitionForm,
@@ -36,6 +38,7 @@ import {
   STATUS_LABEL,
   type RequisitionFormValues,
 } from "../schemas/requisition.schema";
+import { Badge } from "@/components/ui/badge";
 import { RequisitionHeaderFields } from "./RequisitionHeaderFields";
 import { MaterialLinesGrid } from "./MaterialLinesGrid";
 import { EstimatedValueSummary } from "./EstimatedValueSummary";
@@ -104,14 +107,16 @@ export function RequisitionEntryForm({ requisitionId }: { requisitionId: string 
   const projects = useProjectOptions().data ?? [];
   const costCentres = useCostCentreOptions().data ?? [];
   const items = useItemOptions().data ?? [];
+  const users = useUserOptions().data ?? [];
   const purposesQuery = usePurposeOptions(form.projectId);
   const purposes = purposesQuery.data ?? [];
   const godowns = useGodownOptions(form.projectId || undefined).data ?? [];
   const createPurpose = useCreatePurpose();
 
-  // Derived: indicative rates + estimated value + advisory budget check.
+  // Derived: indicative rates + on-hand @ deliver + estimated value + advisory budget check.
   const itemIds = form.lines.map((l) => l.itemId);
   const rates = useIndicativeRates(itemIds, form.fromGodownId);
+  const onHand = useOnHandBalances(itemIds, form.fromGodownId);
   const estimating = form.lines.some((l, i) => l.itemId && rates[i]?.isLoading);
   const estimatedValue = useMemo(() => {
     if (estimating) return null;
@@ -253,12 +258,12 @@ export function RequisitionEntryForm({ requisitionId }: { requisitionId: string 
   // ── Render ──
   if (requisitionId && detail.isLoading) {
     return (
-      <div className="mx-auto max-w-4xl">
+      <div className="pb-24 lg:pb-6">
         <div className="mb-4 mt-1 flex flex-col gap-2">
           <Skeleton className="h-6 w-48" />
           <Skeleton className="h-4 w-64" />
         </div>
-        <Card className="flex flex-col gap-4 p-5">
+        <Card className="flex flex-col gap-4 p-4">
           {Array.from({ length: 4 }).map((_, i) => <Skeleton key={i} className="h-9 w-full" />)}
           <Skeleton className="h-12 w-full" />
         </Card>
@@ -270,7 +275,7 @@ export function RequisitionEntryForm({ requisitionId }: { requisitionId: string 
     const e = asApiError(detail.error);
     const msg = e.code === "FORBIDDEN" ? "You don't have access to this requisition." : "This requisition could not be loaded.";
     return (
-      <div className="mx-auto max-w-4xl">
+      <div>
         <Breadcrumb items={[{ label: "Requisitions", href: "/requisitions" }, { label: "Requisition" }]} />
         <Alert tone="destructive" title={msg} className="mt-4" data-testid="req-detail-error">
           <Button size="sm" variant="outline" className="mt-2" onClick={() => router.push("/requisitions")}>Back to requisitions</Button>
@@ -281,7 +286,7 @@ export function RequisitionEntryForm({ requisitionId }: { requisitionId: string 
 
   if (isNew && !canWrite) {
     return (
-      <div className="mx-auto max-w-4xl">
+      <div>
         <Breadcrumb items={[{ label: "Requisitions", href: "/requisitions" }, { label: "New" }]} />
         <Alert tone="destructive" title="You don't have permission to raise a requisition." className="mt-4" data-testid="req-403" />
       </div>
@@ -290,45 +295,72 @@ export function RequisitionEntryForm({ requisitionId }: { requisitionId: string 
 
   const title = isNew ? "New requisition" : readOnly ? saved?.requisitionNo ?? "Requisition" : "Edit requisition";
   const crumbTail = isNew ? "New" : saved?.requisitionNo ?? "Draft";
+  const isUrgent = form.priority === "URGENT";
 
   return (
-    <div className="mx-auto max-w-4xl pb-24 lg:pb-6">
+    <div className="pb-24 lg:pb-6">
       <Breadcrumb items={[{ label: "Requisitions", href: "/requisitions" }, { label: crumbTail }]} />
-      <div className="mb-4 mt-1 flex flex-wrap items-center gap-3">
-        <h1 className="text-[22px] font-bold tracking-[-0.02em]" data-testid="req-form-title">{title}</h1>
+      <div className="mb-3.5 mt-1 flex flex-wrap items-center gap-3">
+        <h1 className="text-[23px] font-bold tracking-[-0.02em]" data-testid="req-form-title">{title}</h1>
         {saved && <RequisitionStatusBadge status={saved.status} />}
-        {editable && (
-          <div className="ml-auto hidden gap-2 lg:flex">
-            <Button variant="outline" size="md" onClick={onSaveDraft} disabled={busy} data-testid="req-save">Save as draft</Button>
-            {canSubmit && (
-              <Button size="md" onClick={onSubmitClick} disabled={busy} data-testid="req-submit">Submit</Button>
-            )}
-          </div>
+        {isUrgent && (
+          <Badge tone="destructive" dot data-testid="req-urgent-badge">Urgent</Badge>
         )}
+        <div className="ml-auto hidden items-center gap-2 lg:flex">
+          <Button variant="ghost" size="md" onClick={() => router.push("/requisitions")} data-testid="req-back">Back to list</Button>
+          {editable && (
+            <>
+              <Button variant="outline" size="md" onClick={onSaveDraft} disabled={busy} data-testid="req-save">Save as draft</Button>
+              {canSubmit && (
+                <Button size="md" onClick={onSubmitClick} disabled={busy} data-testid="req-submit">Submit for approval</Button>
+              )}
+            </>
+          )}
+        </div>
       </div>
 
       {banner && (
-        <Alert tone="destructive" title={banner} className="mb-4" data-testid="req-banner" />
+        <Alert tone="destructive" title={banner} className="mb-3.5" data-testid="req-banner" />
       )}
 
       {readOnly && (
-        <Alert tone="info" title="This requisition has been submitted and can't be edited here." className="mb-4" data-testid="req-readonly-banner">
+        <Alert tone="info" title="This requisition has been submitted and can't be edited here." className="mb-3.5" data-testid="req-readonly-banner">
           <span className="text-[12.5px]">Status: {STATUS_LABEL[saved!.status]}.</span>
         </Alert>
       )}
 
-      <Card className="flex flex-col gap-5 p-5">
-        {readOnly ? (
+      {!readOnly && budget.data && budget.data !== "OK" && (
+        <Alert
+          tone={budget.data === "OVER" ? "destructive" : "warning"}
+          title={
+            budget.data === "OVER"
+              ? "This requisition takes its cost centre over budget."
+              : "This requisition brings its cost centre close to budget."
+          }
+          className="mb-3.5"
+          data-testid="req-budget-banner"
+        >
+          <span className="text-[12.5px]">It can still be submitted — Cost control will flag it for the approver.</span>
+        </Alert>
+      )}
+
+      {readOnly ? (
+        <Card className="flex flex-col gap-4 p-4">
           <ReadOnlyView requisition={saved!} items={new Map(items.map((i) => [i.id, i]))} projectName={projects.find((p) => p.id === saved!.projectId)?.name} />
-        ) : (
-          <>
+        </Card>
+      ) : (
+        <>
+          <Card className="p-4">
             <RequisitionHeaderFields
               values={form}
               errors={fieldErrors}
+              isNew={isNew}
+              createdAt={saved?.createdAt ?? null}
               projects={projects}
               costCentres={costCentres}
               purposes={purposes}
               godowns={godowns}
+              users={users}
               purposesLoading={purposesQuery.isLoading}
               onChange={patch}
               onAddPurpose={(name) =>
@@ -338,28 +370,25 @@ export function RequisitionEntryForm({ requisitionId }: { requisitionId: string 
                 )
               }
             />
+          </Card>
 
-            <div>
-              <div className="mb-2 flex items-center justify-between">
-                <h2 className="text-[13px] font-semibold uppercase tracking-[0.4px] text-muted-foreground">Requested items</h2>
-              </div>
-              <MaterialLinesGrid
-                lines={form.lines}
-                rates={rates}
-                items={items}
-                errors={lineErrors}
-                onLineChange={changeLine}
-                onAddLine={addLine}
-                onRemoveLine={removeLine}
-              />
-            </div>
-
-            <div className="flex flex-wrap items-center justify-between gap-3 border-t border-border pt-4">
-              <EstimatedValueSummary estimatedValue={estimatedValue} estimating={estimating} budgetStatus={budget.data} />
-            </div>
-          </>
-        )}
-      </Card>
+          <div className="mt-3.5">
+            <MaterialLinesGrid
+              lines={form.lines}
+              rates={rates}
+              onHand={onHand}
+              items={items}
+              errors={lineErrors}
+              onLineChange={changeLine}
+              onAddLine={addLine}
+              onRemoveLine={removeLine}
+              estimatedValue={estimatedValue}
+              estimating={estimating}
+              budgetStatus={budget.data}
+            />
+          </div>
+        </>
+      )}
 
       {/* Mobile sticky bottom bar (site-facing) */}
       {editable && (

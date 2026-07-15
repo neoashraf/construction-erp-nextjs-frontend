@@ -42,11 +42,14 @@ export interface Requisition {
   status: RequisitionStatus;
   estimatedValue: string | null;
   approvalTier: ApprovalTier | null;
+  requestedById: string | null;
   submittedAt: string | null;
   submittedById: string | null;
   closedAt: string | null;
   closedReason: string | null;
   narration: string | null;
+  /** ISO-8601 UTC; included on read/`:id`, omitted from the list summary. Drives the "Req. date" display. */
+  createdAt?: string;
   lines?: RequisitionLine[];
   version: number;
 }
@@ -143,6 +146,7 @@ export interface ProjectOption {
   name: string;
   projectCode: string;
   status?: string; // OPEN | CLOSED — CLOSED excluded from the picker
+  projectManagerId?: string | null;
 }
 export interface CostCentreOption {
   id: string;

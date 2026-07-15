@@ -1,5 +1,6 @@
 "use client";
 
+import { Printer } from "lucide-react";
 import { Button } from "@/components/ui/button";
 import { useToast } from "@/components/ui/toast";
 import { PAYSLIP_COPY } from "../schemas/payslip.schema";
@@ -22,8 +23,8 @@ export function PayslipPrintActions({
     <Button
       size="sm"
       variant="primary"
+      className="gap-1.5 print-hide"
       data-testid={testId}
-      className="print-hide"
       onClick={() => {
         try {
           if (typeof window !== "undefined" && typeof window.print === "function") {
@@ -34,6 +35,7 @@ export function PayslipPrintActions({
         }
       }}
     >
+      <Printer className="h-3.5 w-3.5" aria-hidden />
       {label}
     </Button>
   );

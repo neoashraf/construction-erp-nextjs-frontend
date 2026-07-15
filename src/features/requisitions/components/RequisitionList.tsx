@@ -16,7 +16,7 @@ export interface ReqNameMaps {
   users: Map<string, UserOption>;
 }
 
-const GRID = "minmax(110px,1.1fr) minmax(120px,1.3fr) 96px 128px 104px 120px 110px minmax(96px,1fr) 40px";
+const GRID = "minmax(90px,1.1fr) minmax(100px,1.3fr) 84px 104px 88px 100px 92px minmax(80px,1fr) 24px";
 const MONEY = "whitespace-nowrap font-mono text-[13px] tabular-nums";
 
 function projectName(maps: ReqNameMaps, id: string): string {
@@ -54,21 +54,21 @@ export function RequisitionList({
     <div data-testid="req-list">
       {/* ≥lg table */}
       <div className="hidden overflow-x-auto lg:block">
-        <div style={{ minWidth: 1000 }}>
+        <div>
           <div
             role="row"
             className="grid items-center gap-2 border-b border-border-strong bg-surface-2 px-4 text-[11px] font-semibold uppercase tracking-[0.4px] text-muted-foreground"
             style={{ gridTemplateColumns: GRID }}
           >
-            <div className="py-3">Requisition no</div>
-            <div className="py-3">Project</div>
-            <div className="py-3">Priority</div>
-            <div className="py-3">Status</div>
-            <div className="py-3">Required</div>
-            <div className="py-3 text-right">Est. value ৳</div>
-            <div className="py-3 text-right">Outstanding</div>
-            <div className="py-3">Requester</div>
-            <div className="py-3" />
+            <div className="min-w-0 py-3">Requisition no</div>
+            <div className="min-w-0 py-3">Project</div>
+            <div className="min-w-0 py-3">Priority</div>
+            <div className="min-w-0 py-3">Status</div>
+            <div className="min-w-0 py-3">Required</div>
+            <div className="min-w-0 py-3 text-right">Est. value ৳</div>
+            <div className="min-w-0 py-3 text-right">Outstanding</div>
+            <div className="min-w-0 py-3">Requester</div>
+            <div className="min-w-0 py-3" />
           </div>
           {rows.map((r) => {
             const out = outstanding(r);
@@ -92,17 +92,17 @@ export function RequisitionList({
                   </Link>
                 </div>
                 <div className="min-w-0 py-3 text-[13px] [overflow-wrap:anywhere]">{projectName(maps, r.projectId)}</div>
-                <div className="py-3"><PriorityBadge priority={r.priority} /></div>
-                <div className="py-3"><RequisitionStatusBadge status={r.status} /></div>
-                <div className="py-3 text-[12.5px] tabular-nums text-muted-foreground">{formatDate(r.requiredDate)}</div>
-                <div className="py-3 text-right">
+                <div className="min-w-0 py-3"><PriorityBadge priority={r.priority} /></div>
+                <div className="min-w-0 py-3"><RequisitionStatusBadge status={r.status} /></div>
+                <div className="min-w-0 py-3 text-[12.5px] tabular-nums text-muted-foreground">{formatDate(r.requiredDate)}</div>
+                <div className="min-w-0 py-3 text-right">
                   {r.estimatedValue ? <span className={MONEY}>{formatMoney(r.estimatedValue)}</span> : <span className="text-faint">—</span>}
                 </div>
-                <div className="py-3 text-right">
+                <div className="min-w-0 py-3 text-right">
                   {out ? <span className={cn(MONEY, "text-warning-ink")}>{out}</span> : <span className="text-faint">—</span>}
                 </div>
-                <div className="py-3 text-[13px] [overflow-wrap:anywhere]">{requesterName(maps, r.submittedById)}</div>
-                <div className="flex justify-end py-3 text-faint">
+                <div className="min-w-0 py-3 text-[13px] [overflow-wrap:anywhere]">{requesterName(maps, r.submittedById)}</div>
+                <div className="min-w-0 flex justify-end py-3 text-faint">
                   <ChevronRight className="h-4 w-4" aria-hidden />
                 </div>
               </div>

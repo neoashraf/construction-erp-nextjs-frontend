@@ -38,6 +38,7 @@ const getMock = reqApi.getRequisition as jest.Mock;
 const createMock = reqApi.createRequisition as jest.Mock;
 const submitMock = reqApi.submitRequisition as jest.Mock;
 const rateMock = reqApi.getIndicativeRate as jest.Mock;
+const onHandMock = reqApi.getOnHand as jest.Mock;
 const budgetMock = reqApi.checkBudget as jest.Mock;
 
 const PROJECTS = [{ id: "proj-a", name: "Bridge-04 — Buriganga", projectCode: "BR-04", status: "ACTIVE" }];
@@ -54,7 +55,7 @@ function req(over: Partial<Requisition> = {}): Requisition {
   return {
     id: "req-1", requisitionNo: null, projectId: "proj-a", costCentreId: "cc-mat", purposeId: "pp-1",
     fromGodownId: "gd-a", requiredDate: "2026-07-20", priority: "NORMAL", status: "DRAFT",
-    estimatedValue: null, approvalTier: null, submittedAt: null, submittedById: null, closedAt: null, closedReason: null,
+    estimatedValue: null, approvalTier: null, requestedById: "u-rafiq", submittedAt: null, submittedById: null, closedAt: null, closedReason: null,
     narration: "", version: 1,
     lines: [{ id: "rl-1", lineNo: 1, itemId: "it-cement", requestedQuantity: "100.0000", issuedQuantity: "0.0000", balanceQuantity: "100.0000", indicativeRate: "542.0000", uom: "bag" }],
     ...over,
@@ -85,6 +86,7 @@ beforeEach(() => {
   (mastersApi.listItemOptions as jest.Mock).mockResolvedValue(ITEMS);
   (mastersApi.listUserOptions as jest.Mock).mockResolvedValue(USERS);
   rateMock.mockResolvedValue("542.0000");
+  onHandMock.mockResolvedValue(null);
   budgetMock.mockResolvedValue("OK");
 });
 
@@ -131,7 +133,7 @@ describe("RequisitionEntryForm (spec §4/§6/§7)", () => {
     await userEvent.selectOptions(screen.getByTestId("req-cost-centre"), "cc-mat");
     await waitFor(() => expect(screen.getByTestId("req-purpose")).not.toBeDisabled());
     await userEvent.selectOptions(screen.getByTestId("req-purpose"), "pp-1");
-    await userEvent.type(screen.getByLabelText(/Required date/i), "20/07/2026");
+    await userEvent.type(screen.getByLabelText(/Required by/i), "20/07/2026");
     await userEvent.selectOptions(screen.getAllByTestId("req-line-item")[0]!, "it-cement");
     await userEvent.type(screen.getAllByTestId("req-line-qty")[0]!, "100");
   }
