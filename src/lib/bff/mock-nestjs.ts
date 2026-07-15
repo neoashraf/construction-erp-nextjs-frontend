@@ -3604,6 +3604,154 @@ export async function mockNestjsFetch(req: MockReq): Promise<MockResult> {
     };
   }
 
+  // ── FE-61 fe-dashboard — /api/dashboard (full tile set) + /tiles/{key} ──
+  const [dashPathRaw, dashRawQuery = ""] = req.path.split("?");
+  const dashPath = dashPathRaw ?? "";
+  const dashQs = new URLSearchParams(dashRawQuery);
+  const dashProjectId = dashQs.get("projectId");
+  if (dashProjectId === "proj-forbidden") {
+    if (dashPath === "/dashboard" && req.method === "GET") {
+      return { status: 403, body: envelope("FORBIDDEN", "You don't have access to this project.") };
+    }
+  }
+  function buildTile(key: string, role: string, projectId: string | null): Record<string, unknown> | null {
+    const gen = new Date().toISOString();
+    const fyId = dashQs.get("financialYearId") ?? "fy-1";
+    const scopedProject = projectId ?? "proj-a";
+    switch (key) {
+      case "project-cash-flow":
+        return {
+          key,
+          title: "Project Cash Flow",
+          kpi: { netInflow: "1250000.0000", cashBalance: "320000.0000", bankBalance: "4100000.0000" },
+          status: null,
+          drillTo: {
+            report: "cash-bank-book",
+            params: { financialYearId: fyId, projectId: scopedProject, dateFrom: "2026-06-01", dateTo: "2026-06-30" },
+          },
+          generatedAt: gen,
+        };
+      case "pending-ipcs":
+        return {
+          key,
+          title: "Pending IPCs",
+          kpi: { count: 4, totalOutstanding: "1875000.0000" },
+          status: null,
+          drillTo: { report: "ipc-billing", params: { financialYearId: fyId, projectId: scopedProject } },
+          generatedAt: gen,
+        };
+      case "retention-held":
+        return {
+          key,
+          title: "Retention Held",
+          kpi: { totalRetentionHeld: "412500.0000" },
+          status: null,
+          drillTo: {
+            report: "ipc-billing",
+            params: { financialYearId: fyId, projectId: scopedProject, view: "retention" },
+          },
+          generatedAt: gen,
+        };
+      case "low-stock":
+        return {
+          key,
+          title: "Low-stock Alerts",
+          kpi: { count: 3 },
+          status: "BREACH",
+          drillTo: { report: "low-stock", params: { financialYearId: fyId } },
+          generatedAt: gen,
+        };
+      case "over-budget":
+        return {
+          key,
+          title: "Over-budget Alerts",
+          kpi: { overCount: 2, approachingCount: 5 },
+          status: "OVER",
+          drillTo: {
+            report: "cost-centre-variance",
+            params: { financialYearId: fyId, projectId: scopedProject, status: "OVER,APPROACHING" },
+          },
+          generatedAt: gen,
+        };
+      case "attendance-summary":
+        return {
+          key,
+          title: "Attendance Summary",
+          kpi: { period: "2026-06", presentDays: 1840, headCountTotal: "560.0000" },
+          status: null,
+          drillTo: { report: "attendance-summary", params: { month: "2026-06", projectId: scopedProject } },
+          generatedAt: gen,
+        };
+      case "top-receivables-payables":
+        return {
+          key,
+          title: "Top Receivables / Payables",
+          kpi: {
+            topReceivables: [
+              { partyId: "pa-8", partyName: "National Housing Authority", outstanding: "920000.0000" },
+              { partyId: "pa-4", partyName: "Tower-A Developments Ltd.", outstanding: "530000.0000" },
+              { partyId: "pa-7", partyName: "করিম এন্টারপ্রাইজ", outstanding: "180000.0000" },
+            ],
+            topPayables: [
+              { partyId: "pa-11", partyName: "Padma Cement Ltd", outstanding: "640000.0000" },
+              { partyId: "pa-12", partyName: "Star Steel Traders", outstanding: "310000.0000" },
+            ],
+          },
+          status: null,
+          drillTo: { report: "account-ledger", params: { financialYearId: fyId } },
+          generatedAt: gen,
+        };
+      default:
+        return null;
+    }
+  }
+  function tilesForRole(role: string): string[] {
+    // Simplified role→tile map (server-authoritative — the FE renders whatever is returned).
+    switch (role) {
+      case "STORE_KEEPER":
+        return ["low-stock"];
+      case "HR_MANAGER":
+        return ["attendance-summary"];
+      case "PROJECT_MANAGER":
+      case "SITE_ENGINEER":
+        return ["project-cash-flow", "pending-ipcs", "low-stock", "over-budget", "attendance-summary"];
+      case "ACCOUNTS_TEAM":
+      case "ACCOUNTS_MANAGER":
+      case "ADMIN":
+      default:
+        return [
+          "project-cash-flow",
+          "pending-ipcs",
+          "retention-held",
+          "low-stock",
+          "over-budget",
+          "attendance-summary",
+          "top-receivables-payables",
+        ];
+    }
+  }
+  if (dashPath === "/dashboard" && req.method === "GET") {
+    const keys = tilesForRole(user.role);
+    const tiles = keys.map((k) => buildTile(k, user.role, dashProjectId)).filter(Boolean);
+    return { status: 200, body: success(tiles) };
+  }
+  const tileMatch = /^\/dashboard\/tiles\/([^/?]+)/.exec(dashPath);
+  if (tileMatch && req.method === "GET") {
+    const key = tileMatch[1]!;
+    const allowed = tilesForRole(user.role);
+    if (!allowed.includes(key)) {
+      const tile = buildTile(key, user.role, dashProjectId);
+      if (!tile) return { status: 404, body: envelope("NOT_FOUND", "Unknown tile key") };
+      return { status: 403, body: envelope("FORBIDDEN", "You don't have permission to view this tile.") };
+    }
+    if (dashProjectId === "proj-forbidden") {
+      return { status: 403, body: envelope("FORBIDDEN", "You don't have access to this project.") };
+    }
+    const tile = buildTile(key, user.role, dashProjectId);
+    if (!tile) return { status: 404, body: envelope("NOT_FOUND", "Unknown tile key") };
+    return { status: 200, body: success(tile) };
+  }
+
   // ── FE-53 fe-notifications — /notifications feed + unread-count + mark-read ──
   const notifStore = getMockNotifStore(access.userKey);
   const [notifPath, notifRawQuery = ""] = req.path.split("?");
