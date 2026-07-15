@@ -2819,13 +2819,25 @@ export async function mockNestjsFetch(req: MockReq): Promise<MockResult> {
           supportsDateRange: true,
         },
         {
-          name: "requisition-register",
-          title: "Requisition register",
-          description: "Every requisition + approval status over the period.",
+          name: "requisition-vs-issue",
+          title: "Requisition vs issue",
+          description: "Requested / issued / variance per requisition line.",
           category: "REQUISITION_COST_CONTROL",
           viewerRoute: "/reports/requisition-cost-control",
           requiredPermission: "reports",
           parameters: [],
+          projectScoped: true,
+          supportsDateRange: true,
+        },
+        {
+          name: "cost-centre-variance",
+          title: "Cost-centre variance",
+          description: "Budgeted vs actual per cost centre + status.",
+          category: "REQUISITION_COST_CONTROL",
+          viewerRoute: "/reports/requisition-cost-control",
+          requiredPermission: "reports",
+          parameters: [],
+          projectScoped: true,
           supportsDateRange: true,
         },
         {
@@ -3378,6 +3390,77 @@ export async function mockNestjsFetch(req: MockReq): Promise<MockResult> {
           page: 1, pageSize: rows.length, total: rows.length,
           generatedAt: new Date().toISOString(),
           totals: { totalValueMoved: "590000.0000" },
+        },
+      }),
+    };
+  }
+  // FE-59 fe-requisition-cost-control-reports — Requisition vs issue
+  if (req.path.startsWith("/reports/requisition-vs-issue") && req.method === "GET") {
+    const query = req.path.split("?")[1] ?? "";
+    const qs = new URLSearchParams(query);
+    if (qs.get("projectId") === "proj-forbidden") {
+      return { status: 403, body: envelope("FORBIDDEN", "You don't have access to this project.") };
+    }
+    if (qs.get("requisitionId") === "req-empty") {
+      return {
+        status: 200,
+        body: success({
+          reportName: "requisition-vs-issue",
+          parameters: {},
+          rows: [],
+          meta: {
+            page: 1, pageSize: 25, total: 0,
+            generatedAt: new Date().toISOString(),
+            totals: { lineCount: 0, fullyIssued: 0, outstanding: 0 },
+          },
+        }),
+      };
+    }
+    const rows = [
+      { requisitionId: "req-1", requisitionNo: "RQ/2526/000001", projectId: "proj-a", projectName: "Bridge-04 — Buriganga", costCentreId: "cc-mat", costCentreCode: "CC-01", costCentreName: "Materials — Cement & Steel", itemId: "it-1", itemCode: "IT-101", itemName: "Cement — 50 kg bag", unit: "bag", requestedQty: "500.000", issuedQty: "500.000", varianceQty: "0.000" },
+      { requisitionId: "req-1", requisitionNo: "RQ/2526/000001", projectId: "proj-a", projectName: "Bridge-04 — Buriganga", costCentreId: "cc-mat", costCentreCode: "CC-01", costCentreName: "Materials — Cement & Steel", itemId: "it-2", itemCode: "IT-102", itemName: "MS Rod 12mm", unit: "kg", requestedQty: "1000.000", issuedQty: "800.000", varianceQty: "200.000" },
+      { requisitionId: "req-2", requisitionNo: "RQ/2526/000002", projectId: "proj-a", projectName: "Bridge-04 — Buriganga", costCentreId: "cc-lab", costCentreCode: "CC-02", costCentreName: "শ্রমিক মজুরি — Site Labour", itemId: "it-3", itemCode: "IT-103", itemName: "Sand — cft", unit: "cft", requestedQty: "200.000", issuedQty: "250.000", varianceQty: "-50.000" },
+      { requisitionId: "req-3", requisitionNo: "RQ/2526/000003", projectId: "proj-a", projectName: "Bridge-04 — Buriganga", costCentreId: "gone-cc", costCentreCode: "CC-99", costCentreName: null, itemId: "it-4", itemCode: "IT-104", itemName: "Nails — kg", unit: "kg", requestedQty: "100.000", issuedQty: "50.000", varianceQty: "50.000", costCentreInactive: true },
+    ];
+    return {
+      status: 200,
+      body: success({
+        reportName: "requisition-vs-issue",
+        parameters: {},
+        rows,
+        meta: {
+          page: 1, pageSize: rows.length, total: rows.length,
+          generatedAt: new Date().toISOString(),
+          totals: { lineCount: 4, fullyIssued: 1, outstanding: 3 },
+        },
+      }),
+    };
+  }
+  // FE-59 — Cost-centre variance
+  if (req.path.startsWith("/reports/cost-centre-variance") && req.method === "GET") {
+    const query = req.path.split("?")[1] ?? "";
+    const qs = new URLSearchParams(query);
+    if (qs.get("projectId") === "proj-forbidden") {
+      return { status: 403, body: envelope("FORBIDDEN", "You don't have access to this project.") };
+    }
+    const statusFilter = qs.get("status");
+    const all = [
+      { projectId: "proj-a", projectName: "Bridge-04 — Buriganga", costCentreId: "cc-mat", costCentreCode: "CC-01", costCentreName: "Materials — Cement & Steel", budgetedAmount: "1200000000.0000", actualCost: "1296000000.0000", variance: "-96000000.0000", utilisationPct: "108.0000", status: "OVER" },
+      { projectId: "proj-a", projectName: "Bridge-04 — Buriganga", costCentreId: "cc-lab", costCentreCode: "CC-02", costCentreName: "শ্রমিক মজুরি — Site Labour", budgetedAmount: "450000000.0000", actualCost: "418500000.0000", variance: "31500000.0000", utilisationPct: "93.0000", status: "APPROACHING" },
+      { projectId: "proj-a", projectName: "Bridge-04 — Buriganga", costCentreId: "cc-sub", costCentreCode: "CC-04", costCentreName: "Subcontractor Works", budgetedAmount: "900000000.0000", actualCost: "612000000.0000", variance: "288000000.0000", utilisationPct: "68.0000", status: "OK" },
+      { projectId: "proj-a", projectName: "Bridge-04 — Buriganga", costCentreId: "cc-power", costCentreCode: "CC-11", costCentreName: "Utilities & Site Power", budgetedAmount: null, actualCost: "12000000.0000", variance: null, utilisationPct: null, status: "UNBUDGETED" },
+    ];
+    const rows = statusFilter ? all.filter((r) => statusFilter.split(",").includes(r.status)) : all;
+    return {
+      status: 200,
+      body: success({
+        reportName: "cost-centre-variance",
+        parameters: {},
+        rows,
+        meta: {
+          page: 1, pageSize: rows.length, total: rows.length,
+          generatedAt: new Date().toISOString(),
+          totals: { budgeted: "2550000000.0000", actual: "2338500000.0000", variance: "223500000.0000" },
         },
       }),
     };
