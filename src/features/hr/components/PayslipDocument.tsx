@@ -292,7 +292,7 @@ export function PayslipDocument({
 
         {/* Net pay — bolded + heading level so it's announced as the document's summary value. */}
         <div
-          className="mx-6 mb-5 mt-2 flex items-center justify-between gap-4 rounded-token border border-[#DCE9BD] bg-accent-soft px-5 py-4"
+          className="mx-6 mb-5 mt-2 flex items-center justify-between gap-4 rounded-token border border-accent/30 bg-accent-soft px-5 py-4"
           data-testid="payslip-net-row"
         >
           <div>
