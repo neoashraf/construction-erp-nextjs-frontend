@@ -83,10 +83,10 @@ export function VoucherListFilterBar({
                   onClick={() => patch({ type: t.key })}
                   data-testid={`voucher-filter-type-${t.key}`}
                   className={cn(
-                    "inline-flex h-8 items-center rounded-pill border px-3 text-[12.5px] font-semibold transition-colors",
+                    "inline-flex h-8 items-center rounded-pill border border-transparent px-3 text-[12.5px] font-semibold transition-colors focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-accent focus-visible:ring-offset-1",
                     active
                       ? "border-primary bg-primary text-primary-foreground"
-                      : "border-border-strong bg-background text-muted-foreground hover:bg-surface-2",
+                      : "text-muted-foreground hover:bg-surface-2",
                   )}
                 >
                   {t.label}

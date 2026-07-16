@@ -156,7 +156,44 @@ export function VoucherListScreen() {
             />
           </Card>
         ) : (
-          <VoucherList rows={rows} isLoading={listQuery.isLoading} />
+          <>
+            <VoucherList rows={rows} isLoading={listQuery.isLoading} />
+            {listQuery.data && rows.length > 0 && (
+              <div className="flex flex-none items-center justify-between rounded-card border border-border bg-surface px-4 py-3">
+                <span className="text-[12.5px] text-muted-foreground" data-testid="voucher-list-count">
+                  Showing{" "}
+                  <span className="font-semibold text-foreground">
+                    {(page - 1) * listQuery.data.pageSize + 1}
+                  </span>
+                  –
+                  <span className="font-semibold text-foreground">
+                    {Math.min(page * listQuery.data.pageSize, listQuery.data.total)}
+                  </span>{" "}
+                  of <span className="font-semibold text-foreground">{listQuery.data.total}</span>
+                </span>
+                <div className="flex items-center gap-1.5">
+                  <Button
+                    size="sm"
+                    variant="outline"
+                    disabled={page <= 1}
+                    onClick={() => setPage((p) => Math.max(1, p - 1))}
+                    data-testid="voucher-list-prev"
+                  >
+                    Prev
+                  </Button>
+                  <Button
+                    size="sm"
+                    variant="outline"
+                    disabled={page * listQuery.data.pageSize >= listQuery.data.total}
+                    onClick={() => setPage((p) => p + 1)}
+                    data-testid="voucher-list-next"
+                  >
+                    Next
+                  </Button>
+                </div>
+              </div>
+            )}
+          </>
         )}
       </div>
     </div>
