@@ -115,13 +115,13 @@ describe("quick-create + alerts-bell gating (spec §5/§11)", () => {
     expect(admin.every((t) => t.built)).toBe(true);
   });
 
-  it("alerts bell shows for CC actors only (Accounts, Admin, PM)", () => {
+  it("alerts bell (FE-53 rebind: the NTF surface) shows for every authenticated role", () => {
     expect(showsAlertsBell("ADMIN")).toBe(true);
     expect(showsAlertsBell("ACCOUNTS_TEAM")).toBe(true);
     expect(showsAlertsBell("PROJECT_MANAGER")).toBe(true);
-    expect(showsAlertsBell("SITE_ENGINEER")).toBe(false);
-    expect(showsAlertsBell("STORE_KEEPER")).toBe(false);
-    expect(showsAlertsBell("HR_MANAGER")).toBe(false);
+    expect(showsAlertsBell("SITE_ENGINEER")).toBe(true);
+    expect(showsAlertsBell("STORE_KEEPER")).toBe(true);
+    expect(showsAlertsBell("HR_MANAGER")).toBe(true);
   });
 
   it("cost-control is data-backed (FE-25 alerts screen shipped) → bell fires the live count fetch", () => {

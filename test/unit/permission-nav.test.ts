@@ -116,11 +116,11 @@ describe("quick-create + alerts bell + palette (spec §11)", () => {
     expect(quickCreateForRole(noGrant)).toHaveLength(0);
   });
 
-  it("alerts bell renders iff the set holds cost_control.alerts:READ (fallback: CC roles)", () => {
+  it("alerts bell (FE-53 rebind: the NTF surface) renders for any authenticated viewer, regardless of grants", () => {
     expect(showsAlertsBell({ role: "STORE_KEEPER", permissions: [grant("cost_control.alerts")] })).toBe(true);
-    expect(showsAlertsBell({ role: "PROJECT_MANAGER", permissions: [grant("dashboard")] })).toBe(false);
-    expect(showsAlertsBell("ACCOUNTS_TEAM")).toBe(true); // fallback
-    expect(showsAlertsBell("SITE_ENGINEER")).toBe(false);
+    expect(showsAlertsBell({ role: "PROJECT_MANAGER", permissions: [grant("dashboard")] })).toBe(true);
+    expect(showsAlertsBell("ACCOUNTS_TEAM")).toBe(true);
+    expect(showsAlertsBell("SITE_ENGINEER")).toBe(true);
   });
 
   it("the Ctrl+K palette lists only grant-visible destinations", () => {

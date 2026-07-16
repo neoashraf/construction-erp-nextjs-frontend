@@ -17,6 +17,9 @@ import { AlertsBell } from "@/components/shell/alerts-bell";
 import { UserMenu } from "@/components/shell/user-menu";
 import { NavCommand } from "@/components/shell/nav-command";
 import * as shellData from "@/lib/shell/shell-data";
+import { SessionProvider } from "@/providers/session-provider";
+import { type SafeUser } from "@/lib/auth/session";
+import { type Role } from "@/lib/auth/roles";
 
 const pushMock = jest.fn();
 const replaceMock = jest.fn();
@@ -144,25 +147,40 @@ describe("Quick-create (+ New) — dropped from the topbar in v3 (spec §5/§5a)
   });
 });
 
-describe("Alerts bell (spec §5/§6/§14-2)", () => {
-  it("renders for a CC role and degrades to a plain bell (no badge) while CC unbuilt", () => {
+function bellUser(role: Role): SafeUser {
+  return {
+    id: "u1",
+    email: "x@ze.test",
+    name: "X",
+    role,
+    companyId: "c1",
+    financialYearId: "fy-2025",
+    isActive: true,
+  };
+}
+
+describe("Alerts bell (FE-53 rebind: universal NotificationsBell, spec §5/§6/§14-2)", () => {
+  it("renders for every authenticated role, incl. a CC role (Accounts)", () => {
     useAlertCount.mockReturnValue({ count: null });
     render(
       <Providers>
-        <AlertsBell viewer={{ role: "ACCOUNTS_TEAM" }} />
+        <SessionProvider user={bellUser("ACCOUNTS_TEAM")}>
+          <AlertsBell viewer={{ role: "ACCOUNTS_TEAM" }} />
+        </SessionProvider>
       </Providers>,
     );
-    expect(screen.getByTestId("alerts-bell")).toBeInTheDocument();
-    expect(screen.queryByTestId("alerts-badge")).not.toBeInTheDocument();
+    expect(screen.getByTestId("notifications-bell")).toBeInTheDocument();
   });
 
-  it("does NOT render for a non-CC role (Site Engineer)", () => {
+  it("also renders for a non-CC role (Site Engineer) — the bell is no longer CC-gated", () => {
     render(
       <Providers>
-        <AlertsBell viewer={{ role: "SITE_ENGINEER" }} />
+        <SessionProvider user={bellUser("SITE_ENGINEER")}>
+          <AlertsBell viewer={{ role: "SITE_ENGINEER" }} />
+        </SessionProvider>
       </Providers>,
     );
-    expect(screen.queryByTestId("alerts-bell")).not.toBeInTheDocument();
+    expect(screen.getByTestId("notifications-bell")).toBeInTheDocument();
   });
 });
 
