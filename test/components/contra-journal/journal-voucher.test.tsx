@@ -192,10 +192,13 @@ describe("JournalVoucherEditor — posted read-only + Reverse (FR-GEN-018)", () 
     getMock.mockResolvedValue(postedJournal());
     renderWith(<JournalVoucherEditor voucherId="jnl-1" />);
     await screen.findByTestId("journal-editor-title");
-    expect(screen.getByTestId("journal-editor-immutability")).toBeInTheDocument();
+    expect(screen.getByTestId("journal-editor-posted-meta")).toBeInTheDocument();
+    expect(screen.queryByTestId("journal-editor-save-top")).not.toBeInTheDocument();
+    expect(screen.queryByTestId("journal-editor-post-top")).not.toBeInTheDocument();
     expect(screen.queryByTestId("journal-editor-save")).not.toBeInTheDocument();
     expect(screen.queryByTestId("journal-editor-post")).not.toBeInTheDocument();
     expect(screen.getByTestId("journal-editor-reverse")).toBeInTheDocument();
+    expect(screen.getByTestId("journal-editor-reverse-bottom")).toBeInTheDocument();
   });
 
   it("maps ALREADY_REVERSED to the friendly banner", async () => {

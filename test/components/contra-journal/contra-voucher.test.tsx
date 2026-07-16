@@ -167,11 +167,14 @@ describe("ContraVoucherEditor — lifecycle (FR-GEN-014/-015/-018)", () => {
     getMock.mockResolvedValue(postedContra());
     renderWith(<ContraVoucherEditor voucherId="ctr-1" />);
     await screen.findByTestId("contra-editor-title");
-    expect(screen.getByTestId("contra-editor-immutability")).toBeInTheDocument();
-    // No Save/Post buttons.
+    expect(screen.getByTestId("contra-editor-posted-meta")).toBeInTheDocument();
+    // No Save/Post buttons (neither the header nor the bottom-bar variants).
+    expect(screen.queryByTestId("contra-editor-save-top")).not.toBeInTheDocument();
+    expect(screen.queryByTestId("contra-editor-post-top")).not.toBeInTheDocument();
     expect(screen.queryByTestId("contra-editor-save")).not.toBeInTheDocument();
     expect(screen.queryByTestId("contra-editor-post")).not.toBeInTheDocument();
     expect(screen.getByTestId("contra-editor-reverse")).toBeInTheDocument();
+    expect(screen.getByTestId("contra-editor-reverse-bottom")).toBeInTheDocument();
   });
 
   it("maps ALREADY_REVERSED on Reverse to the friendly banner", async () => {

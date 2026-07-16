@@ -119,8 +119,7 @@ describe("OpeningJournalWizard — assembled review (FR-GEN-009/-010/-011)", () 
     renderWith();
     await screen.findByTestId("opening-lines-review");
     expect(screen.getByTestId("opening-group-ACCOUNT")).toBeInTheDocument();
-    expect(screen.getByTestId("opening-group-PARTY_AR")).toBeInTheDocument();
-    expect(screen.getByTestId("opening-group-PARTY_AP")).toBeInTheDocument();
+    expect(screen.getByTestId("opening-group-PARTY")).toBeInTheDocument();
     expect(screen.getByTestId("opening-group-EQUITY")).toBeInTheDocument();
     expect(screen.getByTestId("opening-balanced-ok")).toBeInTheDocument();
   });

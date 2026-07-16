@@ -2,7 +2,7 @@
 
 import { useState } from "react";
 import Link from "next/link";
-import { AlertCircle, ArrowRight, Inbox, Loader2, Lock, WifiOff } from "lucide-react";
+import { AlertCircle, ArrowRight, Check, Inbox, Loader2, Lock, Plus, WifiOff } from "lucide-react";
 import { Alert } from "@/components/ui/alert";
 import { Breadcrumb } from "@/components/ui/breadcrumb";
 import { Button } from "@/components/ui/button";
@@ -14,6 +14,7 @@ import { Textarea } from "@/components/ui/textarea";
 import { DatePickerInput } from "@/components/ui/date-picker";
 import { useToast } from "@/components/ui/toast";
 import { asApiError } from "@/lib/api/errors";
+import { cn } from "@/lib/utils";
 import { parseDate } from "@/lib/format";
 import { useOnline } from "@/lib/hooks/use-online";
 import { useAuthenticatedUser } from "@/providers/session-provider";
@@ -125,17 +126,24 @@ export function OpeningJournalWizard() {
   }
   function setBusy(v: boolean) { setPosting(v); }
 
+  const step: 1 | 2 = postOpen ? 2 : 1;
+
   return (
     <div className="mx-auto max-w-4xl pb-24" data-testid="opening-wizard">
       <Breadcrumb items={[{ label: "Contra & Journal" }, { label: "Opening journal" }]} />
-      <div className="mb-4 mt-1">
+      <div className="mb-4 mt-1 flex flex-wrap items-center gap-3">
         <h1 className="text-[23px] font-bold tracking-[-0.02em]" data-testid="opening-title">
           Opening journal
         </h1>
-        <p className="mt-1 text-[13px] text-muted-foreground">
-          Post every opening balance from Master Data as a single balanced voucher — once per company.
-        </p>
+        <span className="inline-flex h-[22px] items-center rounded-pill bg-accent-soft px-2.5 text-[11.5px] font-semibold text-accent-ink" data-testid="opening-step-pill">
+          {step === 1 ? "Step 1 · Review" : "Step 2 · Confirm"}
+        </span>
       </div>
+      <p className="-mt-2 mb-4 text-[13px] text-muted-foreground">
+        Post every opening balance from Master Data as a single balanced voucher — once per company.
+      </p>
+
+      <OpeningStepper step={step} />
 
       {!online && (
         <Alert tone="warning" title="You're offline." className="mb-4" data-testid="opening-offline">
@@ -153,13 +161,12 @@ export function OpeningJournalWizard() {
       {configGap && (
         <Alert
           tone="destructive"
-          title="Opening accounts aren't configured yet."
+          title="The AR control, AP control, or opening-balance-equity account isn&rsquo;t configured yet."
           className="mt-4"
           data-testid="opening-config-gap"
         >
-          <span className="text-[12.5px]">
-            The AR control, AP control, or opening-balance-equity account isn&rsquo;t configured for
-            this company. Ask a system administrator to set them up in Master Data before posting.
+          <span className="text-[12.5px] font-semibold text-destructive-ink">
+            Contact your system administrator before posting opening balances.
           </span>
         </Alert>
       )}
@@ -194,11 +201,14 @@ export function OpeningJournalWizard() {
         <Card className="mt-4 p-8" data-testid="opening-empty">
           <EmptyState
             icon={Inbox}
-            title="No opening balances to post yet."
-            description="Set opening balances on the account and party masters, then come back to post them here."
+            title="Nothing to post yet"
+            description="No opening balances to post yet. Enter opening balances on the account and party masters, then come back here to post them to the ledger."
             action={
-              <Button size="md" variant="outline" asChild>
-                <Link href="/master-data/chart-of-accounts">Go to Master Data</Link>
+              <Button size="md" asChild>
+                <Link href="/master-data/chart-of-accounts">
+                  <Plus className="h-4 w-4" aria-hidden />
+                  Go to Master Data
+                </Link>
               </Button>
             }
           />
@@ -227,26 +237,48 @@ export function OpeningJournalWizard() {
       )}
 
       <div className="fixed inset-x-0 bottom-0 z-40 border-t border-border bg-surface px-4 py-3 shadow-lg lg:pl-[var(--sidebar-w,0)]">
-        <div className="mx-auto flex max-w-4xl items-center justify-end gap-2">
-          <Button
-            size="md"
-            onClick={() => setPostOpen(true)}
-            disabled={
-              configGap ||
-              !online ||
-              posting ||
-              empty ||
-              !balanced ||
-              !preview.data ||
-              !voucherDate ||
-              !!existing.data
-            }
-            className="gap-1.5"
-            data-testid="opening-post"
-          >
-            <ArrowRight className="h-4 w-4" aria-hidden />
-            Post opening journal
-          </Button>
+        <div className="mx-auto flex max-w-4xl flex-wrap items-center gap-3">
+          {configGap ? (
+            <span className="inline-flex items-center gap-1.5 rounded-pill bg-muted px-3 py-1 text-[12px] font-semibold text-muted-foreground" data-testid="opening-balanced-unavailable">
+              Can&rsquo;t check — accounts not configured
+            </span>
+          ) : (
+            <span
+              className={cn(
+                "inline-flex items-center gap-1.5 rounded-pill px-3 py-1 text-[12px] font-semibold",
+                balanced ? "bg-success-soft text-success-ink" : "bg-muted text-muted-foreground",
+              )}
+              data-testid={balanced ? "opening-footer-balanced-ok" : "opening-footer-balanced-pending"}
+            >
+              {balanced ? <Check className="h-3.5 w-3.5" aria-hidden /> : null}
+              {balanced ? "Balanced ✓" : "Σ Dr = Σ Cr, server-checked at post."}
+            </span>
+          )}
+          {!empty && !configGap && <span className="text-[12.5px] text-muted-foreground">{lines.length} line{lines.length === 1 ? "" : "s"}</span>}
+          <div className="ml-auto flex items-center gap-2">
+            <Button variant="ghost" size="md" asChild data-testid="opening-cancel">
+              <Link href="/contra-journal/vouchers">Cancel</Link>
+            </Button>
+            <Button
+              size="md"
+              onClick={() => setPostOpen(true)}
+              disabled={
+                configGap ||
+                !online ||
+                posting ||
+                empty ||
+                !balanced ||
+                !preview.data ||
+                !voucherDate ||
+                !!existing.data
+              }
+              className="gap-1.5"
+              data-testid="opening-post"
+            >
+              <ArrowRight className="h-4 w-4" aria-hidden />
+              Post opening journal
+            </Button>
+          </div>
         </div>
       </div>
 
@@ -269,6 +301,36 @@ export function OpeningJournalWizard() {
         onConfirm={onPostConfirm}
         onCancel={() => setPostOpen(false)}
       />
+    </div>
+  );
+}
+
+/** Two-segment step progress (spec §4/§6; design "Opening Journal.dc.html" header). */
+function OpeningStepper({ step }: { step: 1 | 2 }) {
+  return (
+    <div className="mb-4 flex overflow-hidden rounded-card border border-border bg-surface" data-testid="opening-stepper">
+      <StepSegment n={1} label="Review opening balances" active={step === 1} done={step > 1} />
+      <StepSegment n={2} label="Confirm & post" active={step === 2} done={false} />
+    </div>
+  );
+}
+
+function StepSegment({ n, label, active, done }: { n: number; label: string; active: boolean; done: boolean }) {
+  return (
+    <div className={cn("flex flex-1 items-center gap-3 px-4 py-3", active && "bg-accent-soft/40")}>
+      <span
+        className={cn(
+          "grid h-6 w-6 flex-none place-items-center rounded-full text-[12px] font-bold",
+          done ? "bg-success text-success-foreground" : active ? "bg-accent text-accent-foreground" : "bg-muted text-muted-foreground",
+        )}
+        aria-hidden
+      >
+        {done ? <Check className="h-3.5 w-3.5" /> : n}
+      </span>
+      <div className="min-w-0">
+        <div className="text-[10.5px] font-semibold uppercase tracking-[0.4px] text-muted-foreground">Step {n}</div>
+        <div className={cn("text-[13px] font-semibold", active ? "text-foreground" : "text-muted-foreground")}>{label}</div>
+      </div>
     </div>
   );
 }
