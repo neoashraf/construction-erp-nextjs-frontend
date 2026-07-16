@@ -2,7 +2,7 @@
 
 import { useMemo, useState } from "react";
 import Link from "next/link";
-import { AlertCircle, Inbox, Plus, WifiOff } from "lucide-react";
+import { AlertCircle, FileText, Plus, Search, WifiOff } from "lucide-react";
 import { Alert } from "@/components/ui/alert";
 import { Button } from "@/components/ui/button";
 import { Card } from "@/components/ui/card";
@@ -45,12 +45,12 @@ export function VoucherListScreen() {
     return (
       <div className="mx-auto max-w-6xl">
         <div className="mb-4 mt-1 flex items-center gap-3">
-          <h1 className="text-[23px] font-bold tracking-[-0.02em]">Contra & Journal vouchers</h1>
+          <h1 className="text-[23px] font-bold tracking-[-0.02em]">Contra & journal vouchers</h1>
         </div>
         <Card className="p-10" data-testid="voucher-list-403">
           <EmptyState
             icon={AlertCircle}
-            title="You don't have access to Contra & Journal vouchers."
+            title="You don't have access to Contra & journal vouchers."
             description="This screen is visible to Accounts Manager and Admin only."
           />
         </Card>
@@ -63,7 +63,7 @@ export function VoucherListScreen() {
       <Breadcrumb items={[{ label: "Contra & Journal" }, { label: "Vouchers" }]} />
       <div className="mb-4 mt-1 flex flex-wrap items-center gap-3">
         <h1 className="text-[23px] font-bold tracking-[-0.02em]" data-testid="voucher-list-title">
-          Contra & Journal vouchers
+          Contra & journal vouchers
         </h1>
         <div className="ml-auto flex items-center gap-2">
           {canWrite && (
@@ -123,18 +123,17 @@ export function VoucherListScreen() {
         ) : rows.length === 0 && !listQuery.isLoading ? (
           <Card className="p-8" data-testid="voucher-list-empty">
             <EmptyState
-              icon={Inbox}
+              icon={isFiltered(applied) ? Search : FileText}
               title={isFiltered(applied) ? "No vouchers match these filters." : "No contra or journal vouchers yet."}
               description={
                 isFiltered(applied)
-                  ? undefined
-                  : "New contra or journal vouchers will appear here once you record them."
+                  ? "Try a wider date range or a different status."
+                  : "Create your first one to get started."
               }
               action={
                 isFiltered(applied) ? (
                   <Button
                     size="md"
-                    variant="outline"
                     onClick={() => {
                       setApplied(EMPTY_VOUCHER_FILTER);
                       setPage(1);
