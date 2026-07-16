@@ -18,8 +18,10 @@ import { PayslipDocument } from "@/features/hr/components/PayslipDocument";
 import * as salApi from "@/features/hr/api/salary";
 import type { Payslip, SalarySheet } from "@/features/hr/api/salary";
 
+const searchParamsGet = jest.fn<string | null, [string]>();
 jest.mock("next/navigation", () => ({
   useRouter: () => ({ replace: jest.fn(), push: jest.fn(), refresh: jest.fn() }),
+  useSearchParams: () => ({ get: searchParamsGet }),
 }));
 jest.mock("next/link", () => ({
   __esModule: true,
@@ -125,6 +127,7 @@ const twoPayslips: Payslip[] = [
 
 beforeEach(() => {
   jest.clearAllMocks();
+  searchParamsGet.mockImplementation(() => null);
 });
 
 // ── List ──
