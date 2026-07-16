@@ -297,7 +297,7 @@ export function JournalVoucherEditor({ voucherId }: { voucherId: string | null }
         <h1 className="text-[23px] font-bold tracking-[-0.02em]" data-testid="journal-editor-title">
           {title}
         </h1>
-        {saved && <VoucherStatusBadge status={saved.status} />}
+        <VoucherStatusBadge status={saved?.status ?? "DRAFT"} />
         <div className="ml-auto flex items-center gap-2">
           {canEdit && (
             <Button

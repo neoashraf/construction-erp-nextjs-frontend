@@ -1,7 +1,7 @@
 "use client";
 
 import Link from "next/link";
-import { ExternalLink, MoreVertical } from "lucide-react";
+import { ExternalLink, ListEnd } from "lucide-react";
 import { cn } from "@/lib/utils";
 import { formatDate } from "@/lib/format";
 import { formatMoney } from "@/lib/money";
@@ -166,10 +166,10 @@ export function VoucherList({
                     <DropdownMenu>
                       <DropdownMenuTrigger
                         aria-label="Row actions"
-                        className="grid h-8 w-8 place-items-center rounded-token text-muted-foreground hover:bg-muted hover:text-foreground focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-ring"
+                        className="grid h-8 w-8 place-items-center rounded-token border border-border-strong bg-background text-muted-foreground hover:bg-surface-2 hover:text-foreground focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-ring"
                         data-testid={`voucher-row-menu-${r.id}`}
                       >
-                        <MoreVertical className="h-4 w-4" aria-hidden />
+                        <ListEnd className="h-4 w-4" aria-hidden />
                       </DropdownMenuTrigger>
                       <DropdownMenuContent>
                         <DropdownMenuItem asChild>
