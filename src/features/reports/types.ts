@@ -69,10 +69,10 @@ export type ReportCategory =
 export const REPORT_CATEGORY_LABEL: Record<ReportCategory, string> = {
   FINANCIAL_STATEMENTS: "Financial statements",
   LEDGERS_REGISTERS: "Ledgers & registers",
-  PROJECT_IPC: "Projects & IPCs",
-  INVENTORY: "Inventory",
-  REQUISITION_COST_CONTROL: "Requisitions & cost control",
-  HR: "HR",
+  PROJECT_IPC: "Project reports",
+  INVENTORY: "Inventory reports",
+  REQUISITION_COST_CONTROL: "Requisition & cost-control reports",
+  HR: "HR reports",
 };
 
 export const REPORT_CATEGORY_ORDER: ReportCategory[] = [
