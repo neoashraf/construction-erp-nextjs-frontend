@@ -95,7 +95,8 @@ describe("AppShell v2 — frame + landmarks (spec §4/§10)", () => {
     expect(within(topbar).getByTestId("collapse-toggle")).toBeInTheDocument();
     expect(within(topbar).getByTestId("company-fy")).toBeInTheDocument();
     expect(within(topbar).getByTestId("nav-search-trigger")).toBeInTheDocument();
-    expect(within(topbar).getByTestId("alerts-bell")).toBeInTheDocument();
+    // FE-53 rebind: the bell is now the universal NotificationsBell (testid changed accordingly).
+    expect(within(topbar).getByTestId("notifications-bell")).toBeInTheDocument();
     expect(within(topbar).queryByTestId("quick-create")).not.toBeInTheDocument();
     expect(within(topbar).queryByTestId("user-menu")).not.toBeInTheDocument();
     expect(within(topbar).queryByTestId("breadcrumb")).not.toBeInTheDocument();

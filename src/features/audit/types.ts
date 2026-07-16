@@ -87,11 +87,18 @@ export const USER_ROLE_LABEL: Record<UserRole, string> = {
 
 /**
  * Display label for any user role — built-in or custom. Curated copy from
- * `USER_ROLE_LABEL` when present; otherwise the code is humanized (shared
- * `humanizeSnakeCase`) so the UI never shows a raw underscore-joined name.
+ * `USER_ROLE_LABEL` when present; a built-in-looking `SCREAMING_SNAKE_CASE` code
+ * with no curated entry is humanized (shared `humanizeSnakeCase`) so the UI never
+ * shows a raw underscore-joined name. A custom role's `name` is already Admin-typed,
+ * human-readable text (e.g. "Site Auditor") — humanizeSnakeCase assumes a
+ * `_`-joined, all-caps code and only capitalizes the first word of anything else,
+ * so it's detected here (contains a space or a lowercase letter) and returned as-is.
  */
 export function userRoleLabel(role: UserRole | string): string {
-  return USER_ROLE_LABEL[role as UserRole] ?? humanizeSnakeCase(role);
+  const curated = USER_ROLE_LABEL[role as UserRole];
+  if (curated) return curated;
+  if (/[a-z ]/.test(role)) return role;
+  return humanizeSnakeCase(role);
 }
 
 /**
