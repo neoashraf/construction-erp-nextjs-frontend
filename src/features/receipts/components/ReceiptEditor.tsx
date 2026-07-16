@@ -2,7 +2,7 @@
 
 import { useEffect, useMemo, useState } from "react";
 import { useRouter } from "next/navigation";
-import { ArrowRight, Loader2 } from "lucide-react";
+import { ArrowRight, Check, Info, Loader2 } from "lucide-react";
 import { Card } from "@/components/ui/card";
 import { Button } from "@/components/ui/button";
 import { Alert } from "@/components/ui/alert";
@@ -11,6 +11,7 @@ import { Breadcrumb } from "@/components/ui/breadcrumb";
 import { Badge } from "@/components/ui/badge";
 import { useToast } from "@/components/ui/toast";
 import { useOnline } from "@/lib/hooks/use-online";
+import { formatMoney } from "@/lib/money";
 import { asApiError } from "@/lib/api";
 import { useAuthenticatedUser } from "@/providers/session-provider";
 import { canPostReceipt, canWriteReceipt } from "../access";
@@ -27,6 +28,7 @@ import {
   usePurposeOptions,
 } from "../hooks/useReceiptEditorOptions";
 import {
+  balanceDueAfter,
   derivedCashReceived,
   emptyReceiptForm,
   formToWriteInput,
@@ -47,6 +49,8 @@ import { ReceiptMoneyBlock } from "./ReceiptMoneyBlock";
 import { BalanceDuePanel } from "./BalanceDuePanel";
 import { PostReceiptDialog } from "./PostReceiptDialog";
 import { DiscardDraftDialog } from "./DiscardDraftDialog";
+import { ReceiptLifecycleStepper } from "./ReceiptLifecycleStepper";
+import { ReceiptPrePostPreview } from "./ReceiptPrePostPreview";
 
 /**
  * Receipt editor / DRAFT capture (spec §4/§6; FR-REC-001…-020, -024). A blank DRAFT for
@@ -345,12 +349,22 @@ export function ReceiptEditor({ receiptId }: { receiptId: string | null }) {
     <div className="relative mx-auto max-w-6xl pb-28 lg:pb-24">
       <Breadcrumb items={[{ label: "Receipts", href: "/receipts" }, { label: crumbTail }]} />
 
-      <div className="mb-4 mt-1 flex flex-wrap items-center gap-3">
+      <div className="mb-1 mt-1 flex flex-wrap items-center gap-3">
         <h1 className="text-[23px] font-bold tracking-[-0.02em]" data-testid="receipt-editor-title">
           {title}
         </h1>
         <Badge tone="warning" data-testid="receipt-status-badge">Draft</Badge>
+        <div className="ml-auto hidden sm:block">
+          <ReceiptLifecycleStepper current="Draft" />
+        </div>
       </div>
+
+      <p className="mb-4 flex items-start gap-1.5 text-[12.5px] text-muted-foreground">
+        <Info className="mt-0.5 h-3.5 w-3.5 shrink-0" aria-hidden />
+        Only <strong className="font-semibold text-foreground">Post</strong> writes the balanced
+        entry to the ledger and allocates the gapless receipt number. Once posted, the receipt is
+        immutable and opens in the Receipt viewer.
+      </p>
 
       {!online && (
         <Alert tone="warning" title="You're offline. Changes weren't saved." className="mb-4" data-testid="receipt-offline-banner" />
@@ -484,6 +498,8 @@ export function ReceiptEditor({ receiptId }: { receiptId: string | null }) {
                 loading={outstandingQ.isLoading}
               />
             )}
+
+            <ReceiptPrePostPreview values={form} accounts={accounts} customers={customers} />
           </div>
         </div>
       )}
@@ -491,9 +507,21 @@ export function ReceiptEditor({ receiptId }: { receiptId: string | null }) {
       {/* Fixed action bar. */}
       <div className="fixed inset-x-0 bottom-0 z-40 border-t border-border bg-surface px-4 py-3 shadow-lg lg:pl-[var(--sidebar-w,0)]">
         <div className="mx-auto flex max-w-6xl flex-wrap items-center gap-3">
-          <p className="hidden max-w-lg text-[12.5px] text-muted-foreground sm:block">
-            Draft — no ledger impact and no number yet. The gapless RECEIPT number is allocated only when you Post.
-          </p>
+          {postReady ? (
+            <span
+              className="inline-flex items-center gap-1.5 rounded-pill bg-success-soft px-3 py-1.5 text-[12.5px] font-semibold text-success-ink"
+              data-testid="receipt-balanced-pill"
+            >
+              <Check className="h-3.5 w-3.5" aria-hidden />
+              Balanced {formatMoney(form.amountSettled || "0")}
+            </span>
+          ) : (
+            <p className="hidden max-w-lg text-[12.5px] text-muted-foreground sm:block">
+              {isIpc && form.customerId && !form.ipcId
+                ? "Pick a posted IPC before entering an amount. IPCs must be posted before a receipt can reference them."
+                : "Draft — no ledger impact and no number yet. Post writes the balanced entry and allocates the gapless receipt number."}
+            </p>
+          )}
           <div className="ml-auto flex items-center gap-2">
             {saved?.id && (
               <Button
@@ -560,7 +588,8 @@ export function ReceiptEditor({ receiptId }: { receiptId: string | null }) {
             <div>
               <div className="text-[13.5px] font-bold text-info">Posting… do not close this window.</div>
               <div className="mt-0.5 text-[11.5px] text-muted-foreground">
-                Allocating the gapless receipt number and writing the balanced ledger entry.
+                Allocating the gapless receipt number and writing the balanced ledger entry. On success
+                this becomes immutable and opens in the Receipt viewer.
               </div>
             </div>
           </div>
@@ -571,6 +600,7 @@ export function ReceiptEditor({ receiptId }: { receiptId: string | null }) {
         open={postOpen}
         amountSettled={form.amountSettled || "0"}
         cashReceived={cashReceived}
+        balanceDueAfter={isIpc && outstanding != null ? balanceDueAfter(outstanding, form.amountSettled || "0") : null}
         busy={savingBusy || posting}
         onConfirm={onPostConfirm}
         onCancel={() => setPostOpen(false)}

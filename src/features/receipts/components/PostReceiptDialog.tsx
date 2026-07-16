@@ -16,6 +16,7 @@ export function PostReceiptDialog({
   open,
   amountSettled,
   cashReceived,
+  balanceDueAfter = null,
   busy,
   onConfirm,
   onCancel,
@@ -23,6 +24,8 @@ export function PostReceiptDialog({
   open: boolean;
   amountSettled: string;
   cashReceived: string;
+  /** IPC-linked only — the optimistic outstanding-after preview (spec §5/§9 balance-due-after). */
+  balanceDueAfter?: string | null;
   busy: boolean;
   onConfirm: () => void;
   onCancel: () => void;
@@ -54,12 +57,16 @@ export function PostReceiptDialog({
 
         <div className="mt-4 grid grid-cols-2 gap-3 rounded-card border border-border bg-surface-2 px-4 py-3">
           <div>
-            <div className="text-[10.5px] font-semibold uppercase tracking-[0.4px] text-muted-foreground">Amount settled</div>
-            <div className="mt-0.5 font-mono text-[15px] font-bold tabular-nums text-foreground">{formatMoney(amountSettled)}</div>
-          </div>
-          <div className="border-l border-border pl-4">
             <div className="text-[10.5px] font-semibold uppercase tracking-[0.4px] text-muted-foreground">Cash received</div>
             <div className="mt-0.5 font-mono text-[15px] font-bold tabular-nums text-foreground">{formatMoney(cashReceived)}</div>
+          </div>
+          <div className="border-l border-border pl-4">
+            <div className="text-[10.5px] font-semibold uppercase tracking-[0.4px] text-muted-foreground">
+              {balanceDueAfter != null ? "Balance due after" : "Amount settled"}
+            </div>
+            <div className="mt-0.5 font-mono text-[15px] font-bold tabular-nums text-foreground">
+              {formatMoney(balanceDueAfter ?? amountSettled)}
+            </div>
           </div>
         </div>
 

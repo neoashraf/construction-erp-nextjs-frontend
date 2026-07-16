@@ -87,16 +87,17 @@ export const USER_ROLE_LABEL: Record<UserRole, string> = {
 
 /**
  * Display label for any user role — built-in or custom. Curated copy from
- * `USER_ROLE_LABEL` when present; otherwise the code is humanized (shared
- * `humanizeSnakeCase`) so the UI never shows a raw underscore-joined name.
+ * `USER_ROLE_LABEL` when present; a built-in-looking `SCREAMING_SNAKE_CASE` code
+ * with no curated entry is humanized (shared `humanizeSnakeCase`) so the UI never
+ * shows a raw underscore-joined name. Custom role names are free text a user typed
+ * in (see NewRoleDialog's "e.g. Site Auditor" placeholder) — already human-
+ * formatted, not a code. Only run the snake_case humanizer on strings that
+ * actually look like one (built-in-shaped codes missing from the curated map
+ * above).
  */
 export function userRoleLabel(role: UserRole | string): string {
   const curated = USER_ROLE_LABEL[role as UserRole];
   if (curated) return curated;
-  // Custom role names are free text a user typed in (see NewRoleDialog's
-  // "e.g. Site Auditor" placeholder) — already human-formatted, not a code.
-  // Only run the snake_case humanizer on strings that actually look like one
-  // (built-in-shaped codes missing from the curated map above).
   return role.includes("_") ? humanizeSnakeCase(role) : role;
 }
 

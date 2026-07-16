@@ -2,7 +2,7 @@
 
 import { useState } from "react";
 import Link from "next/link";
-import { AlertCircle, ChevronRight, ExternalLink } from "lucide-react";
+import { AlertCircle, Check, ChevronRight, ExternalLink } from "lucide-react";
 import { cn } from "@/lib/utils";
 import { formatMoney } from "@/lib/money";
 import { Alert } from "@/components/ui/alert";
@@ -151,6 +151,7 @@ function ReceiptLedgerLinesDesktop({
   totalDebit: string;
   totalCredit: string;
 }) {
+  const balanced = Number(totalDebit) === Number(totalCredit);
   return (
     <div>
       {/* Desktop grid ≥1024. */}
@@ -184,6 +185,13 @@ function ReceiptLedgerLinesDesktop({
           <span className="pr-4 text-right font-mono tabular-nums">{formatMoney(totalDebit)}</span>
           <span className="pr-4 text-right font-mono tabular-nums">{formatMoney(totalCredit)}</span>
         </div>
+        {balanced && (
+          <div className="flex items-center gap-1.5 px-4 py-2.5 text-[12px] font-semibold text-success-ink" data-testid="receipt-ledger-lines-balanced">
+            <Check className="h-3.5 w-3.5" aria-hidden />
+            Balanced
+            <span className="font-normal text-muted-foreground">· total debit equals total credit</span>
+          </div>
+        )}
       </div>
 
       {/* Tablet 768: per-line dimensions expander. */}

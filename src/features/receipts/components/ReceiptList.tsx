@@ -39,8 +39,35 @@ function targetRoute(r: ReceiptSummary): string {
   return isReceiptDraft(r.status) ? `/receipts/${r.id}` : `/receipts/${r.id}/view`;
 }
 
-const GRID = "112px 84px 104px 108px minmax(140px,1.4fr) 120px 110px 104px 88px 116px";
+const GRID = "104px 76px 106px 80px minmax(108px,1.1fr) 84px 100px 92px minmax(168px,auto)";
 const TABLET_GRID = "minmax(140px,1.3fr) minmax(120px,1fr) minmax(160px,1.6fr) 120px 100px 36px";
+
+/**
+ * Static sort-caret header (design-files/CLAUDE.md table pattern: "every sortable
+ * column shows small up/down sort carets"). The list has no backend sort param
+ * (contract 11-receipts has none) — this renders the design's affordance for the
+ * list's one real order, newest-first by `receiptDate`, without pretending other
+ * columns are interactively sortable.
+ */
+function SortHead({
+  label,
+  align = "left",
+  active = false,
+}: {
+  label: string;
+  align?: "left" | "right";
+  active?: boolean;
+}) {
+  return (
+    <div className={cn("flex items-center gap-1 py-3", align === "right" && "justify-end")}>
+      {label}
+      <span className="flex flex-col text-[8px] leading-[0.6]" aria-hidden>
+        <span className={active ? "text-foreground" : "text-border-strong"}>▲</span>
+        <span className="text-border-strong">▼</span>
+      </span>
+    </div>
+  );
+}
 
 /**
  * Receipt list (brief §Scope 3/8; spec §4/§5). Three tiers: full grid ≥1024, a
@@ -75,22 +102,21 @@ export function ReceiptList({
     <div data-testid="receipt-list">
       {/* ≥lg full data-grid */}
       <div className="hidden overflow-x-auto lg:block">
-        <div style={{ minWidth: 1190 }}>
+        <div style={{ minWidth: 960 }}>
           <div
             role="row"
             className="grid items-center gap-2 border-b border-border-strong bg-surface-2 px-4 text-[11px] font-semibold uppercase tracking-[0.4px] text-muted-foreground"
             style={{ gridTemplateColumns: GRID }}
           >
-            <div className="py-3">Number</div>
-            <div className="py-3">Date</div>
+            <SortHead label="Number" />
+            <SortHead label="Date" active />
             <div className="py-3">Type</div>
             <div className="py-3">Mode</div>
             <div className="py-3">Party</div>
             <div className="py-3">IPC</div>
-            <div className="py-3 text-right">Amount settled ৳</div>
-            <div className="py-3 text-right">Tax at source ৳</div>
+            <SortHead label="Amount settled ৳" align="right" />
+            <SortHead label="Tax at source ৳" align="right" />
             <div className="py-3">Status</div>
-            <div className="py-3" />
           </div>
           {rows.map((r) => {
             const draft = isReceiptDraft(r.status);
@@ -129,7 +155,7 @@ export function ReceiptList({
                 <div className="py-3 text-[12.5px] tabular-nums text-muted-foreground">
                   {formatDate(r.receiptDate)}
                 </div>
-                <div className="py-3">
+                <div className="whitespace-nowrap py-3">
                   <ReceiptTypeBadge type={r.receiptType} />
                 </div>
                 <div className="min-w-0 truncate py-3" title={paymentModeLabel(r.paymentMode)}>
@@ -159,13 +185,11 @@ export function ReceiptList({
                 >
                   {formatMoney(r.taxDeductedAtSource, { withSymbol: false })}
                 </div>
-                <div className="py-3">
-                  <ReceiptStatusBadge status={r.status} />
-                </div>
                 <div
-                  className="flex items-center justify-end gap-1 py-3"
+                  className="flex items-center gap-1.5 py-3"
                   onClick={(e) => e.stopPropagation()}
                 >
+                  <ReceiptStatusBadge status={r.status} />
                   <Link
                     href={href}
                     className="text-[12.5px] font-semibold text-accent-ink hover:underline"
@@ -329,7 +353,7 @@ export function ReceiptList({
       </div>
 
       {/* <md — read-only stacked cards (spec §4: back-office register, not phone-optimised) */}
-      <div className="flex flex-col md:hidden">
+      <div className="flex flex-col gap-3 p-4 md:hidden">
         {rows.map((r) => {
           const draft = isReceiptDraft(r.status);
           const href = targetRoute(r);
@@ -338,13 +362,13 @@ export function ReceiptList({
               key={r.id}
               href={href}
               data-testid={`receipt-card-${r.status}`}
-              className="border-b border-muted px-4 py-3 hover:bg-surface-2"
+              className="block rounded-card border border-border bg-surface shadow-sm hover:bg-surface-2"
             >
-              <div className="flex items-start justify-between gap-2">
+              <div className="flex items-center justify-between gap-2 border-b border-border px-4 py-3">
                 <span className="font-semibold text-accent-ink">{draft ? "Draft" : r.entryNo}</span>
                 <ReceiptStatusBadge status={r.status} />
               </div>
-              <div className="mt-1.5 grid gap-1 text-[12.5px]">
+              <div className="grid gap-1.5 px-4 py-3 text-[12.5px]">
                 <MobileRow label="Date" value={formatDate(r.receiptDate)} />
                 <div className="flex items-center justify-between gap-2">
                   <span className="text-muted-foreground">Type</span>
@@ -354,8 +378,8 @@ export function ReceiptList({
                 </div>
                 <MobileRow label="Party" value={customerName(maps, r.partyId)} />
               </div>
-              <div className="mt-2 flex items-center justify-between border-t border-muted pt-2">
-                <span className="text-[11.5px] text-muted-foreground">Amount settled</span>
+              <div className="flex items-center justify-between border-t border-border px-4 py-3">
+                <span className="text-muted-foreground">Amount settled</span>
                 <span className="font-mono text-[14px] font-bold tabular-nums text-foreground">
                   {formatMoney(r.amountSettled)}
                 </span>
