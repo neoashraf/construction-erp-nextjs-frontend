@@ -245,8 +245,9 @@ export function PayslipDocument({
               <p className="text-[10.5px] font-semibold uppercase tracking-[0.4px] text-faint">
                 {PAYSLIP_LABELS.paidDaysLabel}
               </p>
+              {/* Exact spec §8 microcopy — "Paid days: {paidDays}" as one combined string. */}
               <p className="mt-0.5 font-mono text-[13px] font-semibold tabular-nums text-foreground" data-testid="payslip-paid-days">
-                {payslip.paidDays}
+                {PAYSLIP_LABELS.paidDaysLabel}: {payslip.paidDays}
               </p>
             </div>
           </div>
