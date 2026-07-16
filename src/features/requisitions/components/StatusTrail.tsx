@@ -1,6 +1,6 @@
 "use client";
 
-import { Check, CircleDot, RotateCcw, Bell } from "lucide-react";
+import { Check, RotateCcw, Bell } from "lucide-react";
 import { Button } from "@/components/ui/button";
 import { cn } from "@/lib/utils";
 import { formatMoney } from "@/lib/money";
