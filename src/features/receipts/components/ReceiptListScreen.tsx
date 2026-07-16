@@ -193,6 +193,7 @@ export function ReceiptListScreen({ initialIpcId = "" }: { initialIpcId?: string
       <Card
         className={cn(
           "mt-4 flex flex-col overflow-hidden",
+          "max-md:border-0 max-md:bg-transparent max-md:shadow-none",
           query.isFetching && !query.isLoading && "opacity-60",
         )}
       >
