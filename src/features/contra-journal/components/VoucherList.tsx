@@ -1,12 +1,11 @@
 "use client";
 
 import Link from "next/link";
-import { ExternalLink, ListEnd } from "lucide-react";
+import { ListEnd } from "lucide-react";
 import { cn } from "@/lib/utils";
 import { formatDate } from "@/lib/format";
 import { formatMoney } from "@/lib/money";
 import { Skeleton } from "@/components/ui/skeleton";
-import { DropdownMenu, DropdownMenuTrigger, DropdownMenuContent, DropdownMenuItem } from "@/components/ui/dropdown-menu";
 import { VoucherStatusBadge } from "./VoucherStatusBadge";
 import { VoucherTypeBadge } from "./VoucherTypeBadge";
 import { type AnyVoucherSummary } from "../types";
@@ -168,34 +167,21 @@ export function VoucherList({
                 <span className="flex items-center justify-end gap-1">
                   <Link
                     href={rowHref}
-                    className="inline-flex h-8 items-center rounded-token border border-border-strong bg-background px-3 text-[12.5px] font-semibold text-foreground hover:bg-surface-2"
+                    className="inline-flex h-7 items-center rounded-[7px] border border-border-strong bg-background px-2.5 text-[12px] font-semibold text-foreground hover:border-border-strong hover:bg-surface-2"
                     data-testid={`voucher-row-open-${r.id}`}
                   >
                     Open
                   </Link>
-                  {r.status !== "DRAFT" && (
-                    <DropdownMenu>
-                      <DropdownMenuTrigger
-                        aria-label="Row actions"
-                        className="grid h-8 w-8 place-items-center rounded-token border border-border-strong bg-background text-muted-foreground hover:bg-surface-2 hover:text-foreground focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-ring"
-                        data-testid={`voucher-row-menu-${r.id}`}
-                      >
-                        <ListEnd className="h-4 w-4" aria-hidden />
-                      </DropdownMenuTrigger>
-                      <DropdownMenuContent>
-                        <DropdownMenuItem asChild>
-                          <Link href={rowHref}>Open</Link>
-                        </DropdownMenuItem>
-                        {r.journalEntryId && (
-                          <DropdownMenuItem asChild>
-                            <Link href={`/ledger/entry-viewer?id=${r.journalEntryId}`}>
-                              <ExternalLink className="mr-1.5 h-3.5 w-3.5" aria-hidden />
-                              View ledger entry
-                            </Link>
-                          </DropdownMenuItem>
-                        )}
-                      </DropdownMenuContent>
-                    </DropdownMenu>
+                  {r.status === "POSTED" && r.journalEntryId && (
+                    <Link
+                      href={`/ledger/entry-viewer?id=${r.journalEntryId}`}
+                      title="View ledger entry"
+                      aria-label="View ledger entry"
+                      className="grid h-7 w-7 flex-none place-items-center rounded-[7px] border border-border-strong bg-background text-muted-foreground hover:bg-surface-2 hover:text-info focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-ring"
+                      data-testid={`voucher-row-ledger-${r.id}`}
+                    >
+                      <ListEnd className="h-[15px] w-[15px]" aria-hidden />
+                    </Link>
                   )}
                 </span>
               </div>
