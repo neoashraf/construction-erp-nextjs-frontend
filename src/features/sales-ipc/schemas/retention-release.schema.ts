@@ -1,7 +1,7 @@
 import { z } from "zod";
 import Decimal from "decimal.js";
 import { parseDate } from "@/lib/format";
-import { toDecimal } from "@/lib/money";
+import { toDecimal, formatMoney } from "@/lib/money";
 import { type ReleaseRetentionInput } from "../api/ipc-register";
 
 /**
@@ -68,7 +68,8 @@ export const releaseFormSchema = z.object({
 export type ReleaseFieldErrors = Partial<Record<keyof RetentionReleaseFormValues, string>>;
 
 export function formatHeldOverError(retentionHeldAmount: string): string {
-  return `You can't release more than the retention held (৳${retentionHeldAmount}).`;
+  const held = formatMoney(retentionHeldAmount, { withSymbol: false, fractionDigits: 2 });
+  return `You can't release more than the retention held (৳ ${held}).`;
 }
 
 /**

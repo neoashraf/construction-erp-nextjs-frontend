@@ -127,7 +127,7 @@ describe("IpcRegisterScreen — register (spec §5/§6)", () => {
     renderWith();
     await screen.findByTestId("reg-grid");
     // Cumulative-retained (gross) column header — the register's running sum of gross
-    expect(screen.getByText(/Cum retained \(gross\)/)).toBeInTheDocument();
+    expect(screen.getByText(/Cum\. retained \(gross\)/)).toBeInTheDocument();
     // Retention panel's headline is labelled "Retention held" (net)
     expect(screen.getByTestId("retention-total-held")).toHaveTextContent(/Retention held/);
   });
@@ -183,15 +183,14 @@ describe("Retention panel + Release-retention dialog (spec §5/§6/§7/§8)", ()
     expect(screen.queryByTestId("ret-release-btn-ipc-5")).not.toBeInTheDocument();
   });
 
-  it("release happy path: dialog → confirm → panel + register invalidated + toast (FR-SAL-018/-020)", async () => {
+  it("release happy path: single-page dialog → post → panel + register invalidated + toast (FR-SAL-018/-020)", async () => {
     releaseMock.mockResolvedValueOnce({ id: "rel-1", ipcId: "ipc-5", entryNo: "IPC/2526/0011", releasedAmount: "80000.0000", status: "POSTED" });
     renderWith();
     await screen.findByTestId("reg-grid");
     await userEvent.click(await screen.findByTestId("ret-release-btn-ipc-5"));
     await screen.findByTestId("release-dialog");
     await userEvent.type(screen.getByLabelText(/Release date/), "20/06/2027");
-    await userEvent.click(screen.getByTestId("release-continue"));
-    expect(await screen.findByTestId("release-confirm-title")).toHaveTextContent(/Release .* for IPC #5/);
+    // Single-page modal: no separate confirm step — the primary posts directly.
     await userEvent.click(screen.getByTestId("release-confirm"));
     await waitFor(() => expect(releaseMock).toHaveBeenCalledWith(
       "ipc-5",
@@ -208,9 +207,8 @@ describe("Retention panel + Release-retention dialog (spec §5/§6/§7/§8)", ()
     await screen.findByTestId("release-dialog");
     await userEvent.type(screen.getByLabelText(/Release date/), "20/06/2027");
     await userEvent.type(screen.getByTestId("release-amount"), "70000");
-    await userEvent.click(screen.getByTestId("release-continue"));
     await userEvent.click(await screen.findByTestId("release-confirm"));
-    expect(await screen.findByTestId("release-amount-err")).toHaveTextContent(/You can't release more than the retention held \(৳80000.0000\)/);
+    expect(await screen.findByTestId("release-amount-err")).toHaveTextContent(/You can't release more than the retention held \(৳ 80,000\.00\)/);
     expect(screen.getByTestId("release-dialog")).toBeInTheDocument();
   });
 
@@ -221,9 +219,8 @@ describe("Retention panel + Release-retention dialog (spec §5/§6/§7/§8)", ()
     await userEvent.click(await screen.findByTestId("ret-release-btn-ipc-5"));
     await screen.findByTestId("release-dialog");
     await userEvent.type(screen.getByLabelText(/Release date/), "20/06/2027");
-    await userEvent.click(screen.getByTestId("release-continue"));
     await userEvent.click(await screen.findByTestId("release-confirm"));
-    // banner replaces confirm-mode content but keeps dialog open (the user is dropped back to confirm step)
+    // Banner surfaces inline; dialog stays open with entered values (spec §13).
     expect(await screen.findByTestId("release-banner")).toHaveTextContent(/This accounting period is closed — release isn't allowed/);
     expect(screen.getByTestId("release-dialog")).toBeInTheDocument();
   });
@@ -242,10 +239,18 @@ describe("Retention panel + Release-retention dialog (spec §5/§6/§7/§8)", ()
   });
 
   it("surfaces a per-IPC releases-list fetch failure inline with a retry (spec §6 partial)", async () => {
-    listReleasesMock.mockRejectedValueOnce(new ApiError({ code: "UNKNOWN", message: "boom", details: null, status: 500 }));
+    // The panel fetches each IPC's releases in parallel to derive held-net + the count; when
+    // one fails, that row surfaces a warning marker in the RELEASES cell that expands to the
+    // inline error + retry (shared query key → the expander reuses the same errored query).
+    listReleasesMock.mockImplementation((id: string) =>
+      id === "ipc-7"
+        ? Promise.reject(new ApiError({ code: "UNKNOWN", message: "boom", details: null, status: 500 }))
+        : Promise.resolve([]),
+    );
     renderWith();
     await screen.findByTestId("reg-grid");
-    await userEvent.click(screen.getByTestId("ret-row-toggle-ipc-7"));
+    // The errored row still exposes a toggle (to reach the inline error), even with 0 releases.
+    await userEvent.click(await screen.findByTestId("ret-row-toggle-ipc-7"));
     expect(await screen.findByTestId("releases-error-ipc-7")).toBeInTheDocument();
     expect(screen.getByTestId("releases-retry-ipc-7")).toBeInTheDocument();
   });
