@@ -9,6 +9,7 @@ import { Card } from "@/components/ui/card";
 import { EmptyState } from "@/components/ui/empty-state";
 import { Breadcrumb } from "@/components/ui/breadcrumb";
 import { parseDate } from "@/lib/format";
+import { cn } from "@/lib/utils";
 import { useOnline } from "@/lib/hooks/use-online";
 import { useAuthenticatedUser } from "@/providers/session-provider";
 import { canReadVoucher, canWriteVoucher } from "../access";
@@ -157,9 +158,18 @@ export function VoucherListScreen() {
           </Card>
         ) : (
           <>
-            <VoucherList rows={rows} isLoading={listQuery.isLoading} />
+            <VoucherList
+              rows={rows}
+              isLoading={listQuery.isLoading}
+              isDimmed={listQuery.isFetching && !listQuery.isLoading}
+            />
             {listQuery.data && rows.length > 0 && (
-              <div className="flex flex-none items-center justify-between rounded-card border border-border bg-surface px-4 py-3">
+              <div
+                className={cn(
+                  "flex flex-none items-center justify-between rounded-card border border-border bg-surface px-4 py-3 transition-opacity",
+                  listQuery.isFetching && !listQuery.isLoading && "opacity-60",
+                )}
+              >
                 <span className="text-[12.5px] text-muted-foreground" data-testid="voucher-list-count">
                   Showing{" "}
                   <span className="font-semibold text-foreground">

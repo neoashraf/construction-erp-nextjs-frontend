@@ -51,9 +51,13 @@ function href(r: AnyVoucherSummary): string {
 export function VoucherList({
   rows,
   isLoading,
+  isDimmed,
 }: {
   rows: AnyVoucherSummary[];
   isLoading: boolean;
+  /** Background refetch in flight (e.g. a filter/page change) — dim the stale rows
+   * until the fresh result lands, so a filtered list never lingers as if unchanged. */
+  isDimmed?: boolean;
 }) {
   if (isLoading && rows.length === 0) {
     return (
@@ -93,7 +97,14 @@ export function VoucherList({
   }
 
   return (
-    <div className="overflow-hidden rounded-card border border-border bg-surface" data-testid="voucher-list">
+    <div
+      className={cn(
+        "overflow-hidden rounded-card border border-border bg-surface transition-opacity",
+        isDimmed && "pointer-events-none opacity-60",
+      )}
+      aria-busy={isDimmed || undefined}
+      data-testid="voucher-list"
+    >
       {/* >=lg table */}
       <div className="hidden overflow-x-auto lg:block">
         <div style={{ minWidth: 900 }}>
