@@ -5,7 +5,6 @@ import { useRouter } from "next/navigation";
 import Link from "next/link";
 import { ArrowRight, ExternalLink, Loader2, Lock, Plus, XCircle } from "lucide-react";
 import { Alert } from "@/components/ui/alert";
-import { Badge } from "@/components/ui/badge";
 import { Breadcrumb } from "@/components/ui/breadcrumb";
 import { Button } from "@/components/ui/button";
 import { Card } from "@/components/ui/card";
@@ -15,6 +14,9 @@ import { Textarea } from "@/components/ui/textarea";
 import { DatePickerInput } from "@/components/ui/date-picker";
 import { EmptyState } from "@/components/ui/empty-state";
 import { useToast } from "@/components/ui/toast";
+import { cn } from "@/lib/utils";
+import { formatDateTime } from "@/lib/format";
+import { formatMoney } from "@/lib/money";
 import { useQuery } from "@tanstack/react-query";
 import { queryKeys } from "@/lib/query/keys";
 import { asApiError } from "@/lib/api/errors";
@@ -38,7 +40,7 @@ import {
   type JournalLineValues,
 } from "../schemas/journal.schema";
 import { BalancedIndicator } from "./BalancedIndicator";
-import { JournalLineRow } from "./JournalLineRow";
+import { JournalLineRow, JOURNAL_GRID } from "./JournalLineRow";
 import { PostVoucherDialog } from "./PostVoucherDialog";
 import { ReverseVoucherDialog } from "./ReverseVoucherDialog";
 import { DiscardChangesDialog } from "./DiscardChangesDialog";
@@ -73,6 +75,7 @@ export function JournalVoucherEditor({ voucherId }: { voucherId: string | null }
   const [reverseOpen, setReverseOpen] = useState(false);
   const [discardOpen, setDiscardOpen] = useState(false);
   const [clusterAnnouncement, setClusterAnnouncement] = useState<string>("");
+  const [postAttempted, setPostAttempted] = useState(false);
 
   const { create, update, remove, post, reverse } = useJournalMutations();
 
@@ -201,12 +204,14 @@ export function JournalVoucherEditor({ voucherId }: { voucherId: string | null }
   }
 
   function onPostClick() {
+    setPostAttempted(true);
     if (!online) {
       setBanner("You're offline. Post is blocked until you reconnect.");
       return;
     }
     setBanner(null);
     if (!validateNow()) return;
+    if (!t.balanced) return;
     setPostOpen(true);
   }
 
@@ -278,32 +283,128 @@ export function JournalVoucherEditor({ voucherId }: { voucherId: string | null }
     ? "New journal voucher"
     : readOnly
       ? `Journal voucher ${saved?.entryNo ?? ""}`
-      : "Edit journal voucher (draft)";
-  const crumbTail = isNew ? "New" : readOnly ? saved?.entryNo ?? "Voucher" : "Edit";
+      : "Journal voucher (draft)";
+  const crumbTail = isNew ? "New" : readOnly ? saved?.entryNo ?? "Voucher" : "Draft";
 
   return (
     <div className="relative mx-auto max-w-5xl pb-28 lg:pb-24" data-testid="journal-voucher-editor">
       <Breadcrumb items={[
         { label: "Contra & Journal", href: "/contra-journal/vouchers" },
-        { label: "Vouchers", href: "/contra-journal/vouchers" },
+        { label: "Journal vouchers", href: "/contra-journal/vouchers" },
         { label: crumbTail },
       ]} />
       <div className="mb-4 mt-1 flex flex-wrap items-center gap-3">
         <h1 className="text-[23px] font-bold tracking-[-0.02em]" data-testid="journal-editor-title">
           {title}
         </h1>
-        {saved && <VoucherStatusBadge status={saved.status} />}
-        {saved?.entryNo && <Badge tone="info" className="font-mono">{saved.entryNo}</Badge>}
+        <VoucherStatusBadge status={saved?.status ?? "DRAFT"} />
+        <div className="ml-auto flex items-center gap-2">
+          {canEdit && (
+            <Button
+              variant="ghost"
+              size="md"
+              onClick={() => (dirty ? setDiscardOpen(true) : router.push("/contra-journal/vouchers"))}
+              disabled={busy}
+              data-testid="journal-editor-cancel-top"
+            >
+              Cancel
+            </Button>
+          )}
+          {canEdit && (
+            <Button
+              variant="outline"
+              size="md"
+              onClick={onSaveDraft}
+              disabled={busy}
+              data-testid="journal-editor-save-top"
+            >
+              {busy && !posting ? (
+                <>
+                  <Loader2 className="mr-1.5 h-4 w-4 animate-spin" aria-hidden />
+                  Saving…
+                </>
+              ) : (
+                "Save draft"
+              )}
+            </Button>
+          )}
+          {canEdit && (
+            <Button
+              size="md"
+              onClick={onPostClick}
+              disabled={busy || !postReady}
+              title={!postReady ? "Balance the voucher and complete required tags to post." : undefined}
+              data-testid="journal-editor-post-top"
+            >
+              Post
+            </Button>
+          )}
+          {readOnly && saved && saved.journalEntryId && (
+            <Button variant="outline" size="md" asChild data-testid="journal-editor-view-ledger-top">
+              <Link href={`/ledger/entry-viewer?id=${saved.journalEntryId}`}>View ledger entry</Link>
+            </Button>
+          )}
+          {readOnly && saved && saved.status === "POSTED" && canWrite && (
+            <Button
+              variant="outline"
+              size="md"
+              onClick={() => setReverseOpen(true)}
+              className="border-destructive/40 text-destructive-ink hover:bg-destructive-soft"
+              data-testid="journal-editor-reverse"
+            >
+              Reverse
+            </Button>
+          )}
+        </div>
       </div>
 
       {!online && (
         <Alert tone="warning" title="You're offline. Changes weren't saved." className="mb-4" data-testid="journal-editor-offline" />
       )}
       {banner && <Alert tone="destructive" title={banner} className="mb-4" data-testid="journal-editor-banner" />}
-      {readOnly && (
-        <div className="mb-4 flex items-center gap-2 rounded-card border border-accent-soft bg-accent-soft/40 p-3 text-[12.5px] text-muted-foreground" data-testid="journal-editor-immutability">
-          <Lock className="h-4 w-4 text-accent-ink" aria-hidden />
-          Posted vouchers can&rsquo;t be edited. Reverse this voucher to correct it.
+      {!readOnly && postAttempted && !t.balanced && (
+        <Alert
+          tone="destructive"
+          title={`Out of balance by ${formatMoney(t.diff)}.`}
+          className="mb-4"
+          data-testid="journal-editor-unbalanced-banner"
+        >
+          Debits and credits must be equal before you can post.
+        </Alert>
+      )}
+
+      {readOnly && saved && (
+        <div
+          className="mb-4 flex flex-wrap items-center gap-x-6 gap-y-1 rounded-card border border-border bg-surface-2 px-4 py-3 text-[12.5px]"
+          data-testid="journal-editor-posted-meta"
+        >
+          <span className="inline-flex items-center gap-1.5">
+            <span className="h-1.5 w-1.5 rounded-full bg-success" aria-hidden />
+            <span className="text-muted-foreground">Posted</span>{" "}
+            <span className="font-mono tabular-nums text-foreground">
+              {saved.postedAt ? formatDateTime(saved.postedAt) : "—"}
+            </span>
+            {saved.postedBy && (
+              <>
+                <span className="text-muted-foreground">by</span>
+                <span className="font-semibold text-foreground">{saved.postedBy}</span>
+              </>
+            )}
+          </span>
+          {saved.journalEntryId && (
+            <Link
+              href={`/ledger/entry-viewer?id=${saved.journalEntryId}`}
+              className="inline-flex items-center gap-1 font-semibold text-accent-ink hover:underline"
+              data-testid="journal-editor-view-ledger"
+            >
+              <ExternalLink className="h-3.5 w-3.5" aria-hidden />
+              Ledger entry {saved.entryNo}
+            </Link>
+          )}
+          <span className="ml-auto inline-flex items-center gap-1.5 text-muted-foreground">
+            <Lock className="h-3.5 w-3.5" aria-hidden />
+            Posted vouchers are read-only — correct by Reverse.
+          </span>
         </div>
       )}
 
@@ -311,10 +412,12 @@ export function JournalVoucherEditor({ voucherId }: { voucherId: string | null }
         {clusterAnnouncement}
       </p>
 
-      <Card className="p-5">
-        <div className="grid gap-4 sm:grid-cols-[220px_1fr]">
-          <div>
-            <Label htmlFor="journal-date">Voucher date</Label>
+      <Card className="p-4">
+        <div className="flex flex-wrap items-start gap-3.5">
+          <div className="w-[168px]">
+            <Label htmlFor="journal-date">
+              Voucher date <span className="text-destructive">*</span>
+            </Label>
             <DatePickerInput
               id="journal-date"
               value={form.voucherDate}
@@ -326,8 +429,10 @@ export function JournalVoucherEditor({ voucherId }: { voucherId: string | null }
               <p className="mt-1 text-[12px] font-medium text-destructive">{errors.voucherDate}</p>
             )}
           </div>
-          <div>
-            <Label htmlFor="journal-narration">Narration</Label>
+          <div className="min-w-[260px] flex-[1_1_340px]">
+            <Label htmlFor="journal-narration">
+              Narration <span className="font-medium normal-case tracking-normal text-faint">— optional</span>
+            </Label>
             <Textarea
               id="journal-narration"
               value={form.narration}
@@ -341,57 +446,70 @@ export function JournalVoucherEditor({ voucherId }: { voucherId: string | null }
         </div>
       </Card>
 
-      <Card className="mt-5 p-5" data-testid="journal-editor-lines">
-        <div className="mb-3 flex items-center gap-2">
-          <h2 className="text-[13px] font-bold text-foreground">Lines</h2>
-          <span className="text-[11.5px] text-muted-foreground">Any account · debit or credit per line · dimensions per account type</span>
-          <Button
-            variant="outline"
-            size="sm"
-            className="ml-auto"
-            onClick={addLine}
-            disabled={!canEdit}
-            data-testid="journal-editor-add-line"
-          >
-            <Plus className="h-3.5 w-3.5" aria-hidden />
-            Add line
-          </Button>
+      <Card className="mt-3 overflow-hidden p-0" data-testid="journal-editor-lines">
+        <div className="overflow-x-auto">
+          <div className="min-w-[860px]">
+            {/* grid header — surface-2 bar, edge-to-edge (design "Journal Voucher.dc.html") */}
+            <div
+              className={cn(
+                "hidden border-b border-border-strong bg-surface-2 md:grid",
+                JOURNAL_GRID,
+              )}
+            >
+              <div className="flex h-11 items-center px-2.5 text-[11px] font-semibold uppercase tracking-[0.4px] text-muted-foreground">#</div>
+              <div className="flex h-11 items-center px-3 text-[11px] font-semibold uppercase tracking-[0.4px] text-muted-foreground">Account</div>
+              <div className="flex h-11 items-center gap-1.5 px-3 text-[11px] font-semibold uppercase tracking-[0.4px] text-muted-foreground">
+                Dimensions / Party <span className="font-medium normal-case tracking-normal text-faint">— per account</span>
+              </div>
+              <div className="flex h-11 items-center justify-end px-3 text-[11px] font-semibold uppercase tracking-[0.4px] text-muted-foreground">Debit ৳</div>
+              <div className="flex h-11 items-center justify-end px-3 text-[11px] font-semibold uppercase tracking-[0.4px] text-muted-foreground">Credit ৳</div>
+              <div className="flex h-11 items-center px-3 text-[11px] font-semibold uppercase tracking-[0.4px] text-muted-foreground">Over-budget</div>
+              <div className="h-11" />
+            </div>
+            {form.lines.map((l, i) => (
+              <JournalLineRow
+                key={l.key}
+                line={l}
+                lineNo={i + 1}
+                errors={errors.lines?.[l.key]}
+                accounts={accounts}
+                disabled={!canEdit}
+                canRemove={form.lines.length > 2}
+                onChange={(p) => patchLine(l.key, p)}
+                onRemove={() => removeLine(l.key)}
+              />
+            ))}
+            {/* add-line + totals footer — surface-2 bar */}
+            <div className="flex items-center gap-4 bg-surface-2 px-3.5 py-3">
+              {canEdit && (
+                <button
+                  type="button"
+                  onClick={addLine}
+                  className="inline-flex h-8 items-center gap-1.5 rounded-token border border-dashed border-border-strong bg-surface px-3 text-[12.5px] font-semibold text-foreground hover:bg-muted disabled:opacity-40"
+                  data-testid="journal-editor-add-line"
+                >
+                  <Plus className="h-[15px] w-[15px]" aria-hidden />
+                  Add line
+                </button>
+              )}
+              <div className="ml-auto flex items-center gap-6" data-testid="journal-editor-totals">
+                <span className="flex items-center gap-2">
+                  <span className="text-[11px] font-semibold uppercase tracking-[0.4px] text-muted-foreground">Total Dr</span>
+                  <span className="font-mono text-[15px] font-bold tabular-nums text-foreground">{formatMoney(t.debit)}</span>
+                </span>
+                <span className="flex items-center gap-2">
+                  <span className="text-[11px] font-semibold uppercase tracking-[0.4px] text-muted-foreground">Total Cr</span>
+                  <span className="font-mono text-[15px] font-bold tabular-nums text-foreground">{formatMoney(t.credit)}</span>
+                </span>
+              </div>
+            </div>
+          </div>
         </div>
-        <div className="grid grid-cols-[1.8fr_1fr_1fr_1fr_auto] gap-2 border-b border-border pb-2 text-[10.5px] font-semibold uppercase tracking-[0.4px] text-muted-foreground">
-          <span>Account</span>
-          <span className="text-right">Debit</span>
-          <span className="text-right">Credit</span>
-          <span>Narration</span>
-          <span />
-        </div>
-        {form.lines.map((l) => (
-          <JournalLineRow
-            key={l.key}
-            line={l}
-            errors={errors.lines?.[l.key]}
-            accounts={accounts}
-            disabled={!canEdit}
-            canRemove={form.lines.length > 2}
-            onChange={(p) => patchLine(l.key, p)}
-            onRemove={() => removeLine(l.key)}
-          />
-        ))}
       </Card>
-
-      {saved && saved.journalEntryId && (
-        <Link
-          href={`/ledger/entry-viewer?id=${saved.journalEntryId}`}
-          className="mt-4 inline-flex items-center gap-1 text-[12.5px] font-semibold text-accent-ink hover:underline"
-          data-testid="journal-editor-view-ledger"
-        >
-          <ExternalLink className="h-3.5 w-3.5" aria-hidden />
-          View ledger entry
-        </Link>
-      )}
 
       <div className="fixed inset-x-0 bottom-0 z-40 border-t border-border bg-surface px-4 py-3 shadow-lg lg:pl-[var(--sidebar-w,0)]">
         <div className="mx-auto flex max-w-5xl flex-wrap items-center gap-3">
-          <BalancedIndicator debit={t.debit} credit={t.credit} balanced={t.balanced} diff={t.diff} />
+          <BalancedIndicator debit={t.debit} credit={t.credit} balanced={t.balanced} diff={t.diff} lineCount={form.lines.length} posted={readOnly} />
           <div className="ml-auto flex items-center gap-2">
             {canEdit && (
               <Button
@@ -441,10 +559,10 @@ export function JournalVoucherEditor({ voucherId }: { voucherId: string | null }
                 size="md"
                 onClick={() => setReverseOpen(true)}
                 className="border-destructive/40 text-destructive-ink hover:bg-destructive-soft"
-                data-testid="journal-editor-reverse"
+                data-testid="journal-editor-reverse-bottom"
               >
                 <XCircle className="h-4 w-4" aria-hidden />
-                Reverse
+                Reverse voucher
               </Button>
             )}
           </div>

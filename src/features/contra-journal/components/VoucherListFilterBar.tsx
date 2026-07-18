@@ -5,6 +5,7 @@ import { SlidersHorizontal } from "lucide-react";
 import { Card } from "@/components/ui/card";
 import { Label } from "@/components/ui/label";
 import { Input } from "@/components/ui/input";
+import { Select } from "@/components/ui/select";
 import { Button } from "@/components/ui/button";
 import { DatePickerInput } from "@/components/ui/date-picker";
 import { cn } from "@/lib/utils";
@@ -26,9 +27,11 @@ const TYPE_CHIPS: { key: VoucherTypeFilter; label: string }[] = [
 const STATUS_OPTS: VoucherStatus[] = ["DRAFT", "POSTED", "CANCELLED"];
 
 /**
- * Voucher list filter bar (spec §7). Primary row: type chips + status chips + Filters
- * disclosure + Apply / Clear. Secondary: date range + entry number. `dateFrom >
- * dateTo` is a client pre-check with the exact inline copy.
+ * Voucher list filter bar (spec §7; design "Vouchers.dc.html"). One primary row —
+ * Type chips + Status select + Date from + Date to + Entry no — ending with a
+ * "Filters" disclosure (secondary filters: account/party/project), Apply (primary)
+ * and Clear filters (ghost, last). `dateFrom > dateTo` is a client pre-check with the
+ * exact inline copy.
  */
 export function VoucherListFilterBar({
   applied,
@@ -49,12 +52,6 @@ export function VoucherListFilterBar({
     setDraft((prev) => ({ ...prev, ...p }));
     setError(null);
   }
-  function toggleStatus(s: VoucherStatus) {
-    setDraft((prev) => ({
-      ...prev,
-      status: prev.status.includes(s) ? prev.status.filter((x) => x !== s) : [...prev.status, s],
-    }));
-  }
   function apply() {
     const err = validateDateRange(draft.dateFrom, draft.dateTo);
     if (err) {
@@ -71,93 +68,58 @@ export function VoucherListFilterBar({
 
   return (
     <Card className="p-4" data-testid="voucher-filter-bar">
-      <div className="flex flex-wrap items-end gap-3">
-        <div>
-          <Label>Type</Label>
-          <div className="mt-1 flex gap-1.5" role="group" aria-label="Voucher type filter">
-            {TYPE_CHIPS.map((t) => {
-              const active = draft.type === t.key;
-              return (
-                <button
-                  key={t.key}
-                  type="button"
-                  role="radio"
-                  aria-checked={active}
-                  onClick={() => patch({ type: t.key })}
-                  data-testid={`voucher-filter-type-${t.key}`}
-                  className={cn(
-                    "inline-flex h-8 items-center rounded-pill border px-3 text-[12.5px] font-semibold transition-colors",
-                    active
-                      ? "border-primary bg-primary text-primary-foreground"
-                      : "border-border-strong bg-background text-muted-foreground hover:bg-surface-2",
-                  )}
-                >
-                  {t.label}
-                </button>
-              );
-            })}
-          </div>
-        </div>
-        <div>
-          <Label>Status</Label>
-          <div className="mt-1 flex gap-1.5">
-            {STATUS_OPTS.map((s) => {
-              const active = draft.status.includes(s);
-              return (
-                <button
-                  key={s}
-                  type="button"
-                  role="checkbox"
-                  aria-checked={active}
-                  onClick={() => toggleStatus(s)}
-                  data-testid={`voucher-filter-status-${s}`}
-                  className={cn(
-                    "inline-flex h-8 items-center rounded-pill border px-3 text-[12.5px] font-semibold transition-colors",
-                    active
-                      ? "border-accent bg-accent-soft text-accent-ink"
-                      : "border-border-strong bg-background text-muted-foreground hover:bg-surface-2",
-                  )}
-                >
-                  {voucherStatusLabel(s)}
-                </button>
-              );
-            })}
-          </div>
-        </div>
-        <div className="min-w-[180px] flex-1">
-          <Label htmlFor="voucher-entry-no">Entry no.</Label>
-          <Input
-            id="voucher-entry-no"
-            value={draft.entryNo}
-            onChange={(e) => patch({ entryNo: e.target.value })}
-            placeholder="POSTED only"
-            data-testid="voucher-filter-entry-no"
-          />
-        </div>
-        <div className="ml-auto flex items-center gap-2">
-          <Button
-            variant="ghost"
-            size="md"
-            onClick={() => setShowMore((v) => !v)}
-            aria-expanded={showMore}
-            data-testid="voucher-filter-more"
-          >
-            <SlidersHorizontal className="h-4 w-4" aria-hidden />
-            Filters
-          </Button>
-          <Button variant="ghost" size="md" onClick={clear} data-testid="voucher-filter-clear">
-            Clear filters
-          </Button>
-          <Button size="md" onClick={apply} disabled={offline} data-testid="voucher-filter-apply">
-            Apply
-          </Button>
+      {/* Row 1 — Type strip (design "Vouchers.dc.html": TYPE label + segmented pill group) */}
+      <div className="mb-3 flex items-center gap-2.5">
+        <span className="text-[10.5px] font-semibold uppercase tracking-[0.4px] text-muted-foreground">Type</span>
+        <div
+          role="radiogroup"
+          aria-label="Voucher type filter"
+          className="inline-flex gap-0.5 rounded-[9px] bg-muted p-[3px]"
+        >
+          {TYPE_CHIPS.map((t) => {
+            const active = draft.type === t.key;
+            return (
+              <button
+                key={t.key}
+                type="button"
+                role="radio"
+                aria-checked={active}
+                onClick={() => patch({ type: t.key })}
+                data-testid={`voucher-filter-type-${t.key}`}
+                className={cn(
+                  "inline-flex h-7 items-center rounded-[7px] px-3.5 text-[12.5px] transition-colors focus-visible:outline-none",
+                  active
+                    ? "bg-primary font-semibold text-primary-foreground shadow-focus"
+                    : "font-medium text-muted-foreground hover:text-foreground",
+                )}
+              >
+                {t.label}
+              </button>
+            );
+          })}
         </div>
       </div>
 
-      {showMore && (
-        <div className="mt-3 grid gap-3 border-t border-border pt-3 sm:grid-cols-[1fr_1fr]" data-testid="voucher-filter-more-panel">
-          <div>
-            <Label htmlFor="voucher-date-from">Date from</Label>
+      {/* Row 2 — Status / Date from / Date to / Entry no + actions (all on one line, actions pinned right) */}
+      <div className="flex items-end gap-2">
+        <div className="min-w-[120px] flex-1">
+          <Label htmlFor="voucher-filter-status">Status</Label>
+          <Select
+            id="voucher-filter-status"
+            className="mt-1.5"
+            value={draft.status[0] ?? ""}
+            onChange={(e) => patch({ status: e.target.value ? [e.target.value as VoucherStatus] : [] })}
+            data-testid="voucher-filter-status"
+          >
+            <option value="">All statuses</option>
+            {STATUS_OPTS.map((s) => (
+              <option key={s} value={s}>{voucherStatusLabel(s)}</option>
+            ))}
+          </Select>
+        </div>
+        <div className="min-w-[112px] flex-1">
+          <Label htmlFor="voucher-date-from">Date from</Label>
+          <div className="mt-1.5">
             <DatePickerInput
               id="voucher-date-from"
               value={draft.dateFrom}
@@ -165,8 +127,10 @@ export function VoucherListFilterBar({
               data-testid="voucher-filter-date-from"
             />
           </div>
-          <div>
-            <Label htmlFor="voucher-date-to">Date to</Label>
+        </div>
+        <div className="min-w-[112px] flex-1">
+          <Label htmlFor="voucher-date-to">Date to</Label>
+          <div className="mt-1.5">
             <DatePickerInput
               id="voucher-date-to"
               value={draft.dateTo}
@@ -175,11 +139,79 @@ export function VoucherListFilterBar({
               data-testid="voucher-filter-date-to"
             />
           </div>
-          {error && (
-            <p role="alert" className="col-span-full text-[12px] font-medium text-destructive" data-testid="voucher-filter-date-err">
-              {error}
-            </p>
-          )}
+        </div>
+        <div className="min-w-[140px] flex-[1.15]">
+          <Label htmlFor="voucher-entry-no">Entry no.</Label>
+          <Input
+            id="voucher-entry-no"
+            className="mt-1.5"
+            value={draft.entryNo}
+            onChange={(e) => patch({ entryNo: e.target.value })}
+            placeholder="CV / JV number…"
+            data-testid="voucher-filter-entry-no"
+          />
+        </div>
+        <div className="flex flex-none items-center gap-1.5">
+          <Button
+            variant="outline"
+            size="md"
+            onClick={() => setShowMore((v) => !v)}
+            aria-expanded={showMore}
+            data-testid="voucher-filter-more"
+          >
+            <SlidersHorizontal className="h-4 w-4" aria-hidden />
+            Filters
+          </Button>
+          <Button size="md" onClick={apply} disabled={offline} data-testid="voucher-filter-apply">
+            Apply
+          </Button>
+          <Button variant="ghost" size="md" onClick={clear} data-testid="voucher-filter-clear">
+            Clear filters
+          </Button>
+        </div>
+      </div>
+
+      {error && (
+        <p role="alert" className="mt-2 text-[12px] font-medium text-destructive" data-testid="voucher-filter-date-err">
+          {error}
+        </p>
+      )}
+
+      {showMore && (
+        <div className="mt-3 grid gap-3 border-t border-border pt-3 sm:grid-cols-3" data-testid="voucher-filter-more-panel">
+          <div>
+            <Label htmlFor="voucher-filter-account">Account</Label>
+            <Input
+              id="voucher-filter-account"
+              className="mt-1"
+              value={draft.accountId}
+              onChange={(e) => patch({ accountId: e.target.value })}
+              placeholder="Account ID"
+              data-testid="voucher-filter-account"
+            />
+          </div>
+          <div>
+            <Label htmlFor="voucher-filter-party">Party</Label>
+            <Input
+              id="voucher-filter-party"
+              className="mt-1"
+              value={draft.partyId}
+              onChange={(e) => patch({ partyId: e.target.value })}
+              placeholder="Party ID"
+              data-testid="voucher-filter-party"
+            />
+          </div>
+          <div>
+            <Label htmlFor="voucher-filter-project">Project</Label>
+            <Input
+              id="voucher-filter-project"
+              className="mt-1"
+              value={draft.projectId}
+              onChange={(e) => patch({ projectId: e.target.value })}
+              placeholder="Project ID"
+              data-testid="voucher-filter-project"
+            />
+          </div>
         </div>
       )}
     </Card>

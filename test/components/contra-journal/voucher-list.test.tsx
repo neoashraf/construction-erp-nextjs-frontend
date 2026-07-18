@@ -5,7 +5,7 @@
  * inline validation, read-only assertion, PM permission-denied panel.
  */
 import React from "react";
-import { render, screen, waitFor } from "@testing-library/react";
+import { render, screen, waitFor, within } from "@testing-library/react";
 import userEvent from "@testing-library/user-event";
 import { QueryClient, QueryClientProvider } from "@tanstack/react-query";
 import { SessionProvider } from "@/providers/session-provider";
@@ -121,18 +121,21 @@ describe("VoucherListScreen — default (All merge) render (FR-GEN-020)", () => 
   it("merges contra + journal + opening rows newest-first with badges + amounts", async () => {
     renderWith();
     await screen.findByTestId("voucher-list");
-    expect(screen.getByTestId("voucher-type-CONTRA")).toBeInTheDocument();
-    expect(screen.getByTestId("voucher-type-JOURNAL")).toBeInTheDocument();
-    expect(screen.getByTestId("voucher-type-OPENING")).toBeInTheDocument();
-    // Contra row on top (2026-07-10) — newest-first.
+    // The list renders a >=lg grid table AND a <lg stacked-card list (same
+    // responsive convention as sales-ipc's IpcList) — jsdom has no viewport, so
+    // both are present in the DOM; scope assertions to the desktop table's rows.
     const rows = screen.getAllByRole("row");
-    // header row + 3 data rows.
-    expect(rows.length).toBeGreaterThanOrEqual(4);
+    expect(within(rows[0]!).getByText("Type")).toBeInTheDocument(); // header row
+    const dataRows = rows.slice(1);
+    expect(dataRows.length).toBe(3);
+    expect(within(rows[0]!.parentElement as HTMLElement).getByTestId("voucher-type-CONTRA")).toBeInTheDocument();
+    expect(within(rows[0]!.parentElement as HTMLElement).getByTestId("voucher-type-JOURNAL")).toBeInTheDocument();
+    expect(within(rows[0]!.parentElement as HTMLElement).getByTestId("voucher-type-OPENING")).toBeInTheDocument();
     // Amount right-aligned with formatted money.
     expect(screen.getByTestId("voucher-row-amount-ctr-1")).toHaveTextContent(/500,000\.0000/);
   });
 
-  it("routes a DRAFT row to the editor, POSTED to the read-only view", async () => {
+  it("routes a DRAFT row to the editor and a POSTED row to the same voucher route", async () => {
     contraMock.mockResolvedValue(
       page([
         { ...CONTRA[0]!, id: "ctr-d", status: "DRAFT", entryNo: null },
@@ -141,14 +144,14 @@ describe("VoucherListScreen — default (All merge) render (FR-GEN-020)", () => 
     );
     renderWith();
     await screen.findByTestId("voucher-list");
-    expect(screen.getByTestId("voucher-row-link-ctr-d")).toHaveAttribute(
-      "href",
-      "/contra-journal/vouchers/ctr-d?type=contra",
-    );
     expect(screen.getByTestId("voucher-row-link-ctr-1")).toHaveAttribute(
       "href",
-      "/contra-journal/vouchers/ctr-1/view?type=contra",
+      "/contra-journal/vouchers/ctr-1?type=contra",
     );
+    // The DRAFT row's entry no. is unposted (no entryNo yet) — it renders as
+    // plain "Draft" text, not a link (design: identifier cell is a link only once
+    // an entry number exists).
+    expect(screen.queryByTestId("voucher-row-link-ctr-d")).not.toBeInTheDocument();
   });
 });
 
@@ -187,7 +190,7 @@ describe("VoucherListScreen — empty + error + validation", () => {
       "No contra or journal vouchers yet.",
     );
     // Now apply a filter → filtered empty variant.
-    await userEvent.click(screen.getByTestId("voucher-filter-status-DRAFT"));
+    await userEvent.selectOptions(screen.getByTestId("voucher-filter-status"), "DRAFT");
     await userEvent.click(screen.getByTestId("voucher-filter-apply"));
     await waitFor(() =>
       expect(screen.getByTestId("voucher-list-empty")).toHaveTextContent(
@@ -199,7 +202,9 @@ describe("VoucherListScreen — empty + error + validation", () => {
   it("blocks Apply when dateFrom > dateTo with the exact inline message", async () => {
     renderWith();
     await screen.findByTestId("voucher-list");
-    await userEvent.click(screen.getByTestId("voucher-filter-more"));
+    // Date from/to are inline in the primary filter row (design: no disclosure
+    // needed for them — only secondary account/party/project filters live behind
+    // "Filters").
     await userEvent.type(screen.getByTestId("voucher-filter-date-from"), "10/07/2026");
     await userEvent.type(screen.getByTestId("voucher-filter-date-to"), "01/07/2026");
     await userEvent.click(screen.getByTestId("voucher-filter-apply"));

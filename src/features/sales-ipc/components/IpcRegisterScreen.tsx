@@ -153,15 +153,16 @@ export function IpcRegisterScreen() {
         <h1 className="text-[23px] font-bold tracking-[-0.02em]" data-testid="ipc-register-title">
           Project IPC register
         </h1>
+        {register && (
+          <span className="inline-flex h-[24px] items-center gap-1.5 rounded-pill bg-muted px-2.5 text-[11.5px] font-semibold text-muted-foreground">
+            {register.rows.length} IPC{register.rows.length === 1 ? "" : "s"}
+            {register.rows.length > 0 ? " · posted" : ""}
+          </span>
+        )}
         <span className="inline-flex h-[24px] items-center gap-1.5 rounded-pill bg-info-soft px-2.5 text-[11px] font-semibold text-info-ink">
           <Eye className="h-3 w-3" aria-hidden />
           Read / derived view
         </span>
-        {register && (
-          <span className="inline-flex h-[24px] items-center gap-1.5 rounded-pill bg-muted px-2.5 text-[11.5px] font-semibold text-muted-foreground">
-            {register.rows.length} IPC{register.rows.length === 1 ? "" : "s"}
-          </span>
-        )}
       </div>
 
       <RegisterFilterBar
@@ -214,6 +215,7 @@ export function IpcRegisterScreen() {
       <ReleaseRetentionDialog
         open={!!dialogItem}
         item={dialogItem}
+        projectName={project?.name}
         busy={release.isPending}
         bannerMessage={banner}
         fieldErrorFromServer={amountFieldError}

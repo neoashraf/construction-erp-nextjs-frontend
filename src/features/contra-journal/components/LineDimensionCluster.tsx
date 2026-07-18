@@ -3,6 +3,7 @@
 import { useEffect, useMemo } from "react";
 import { useQuery } from "@tanstack/react-query";
 import { Select } from "@/components/ui/select";
+import { Label } from "@/components/ui/label";
 import { queryKeys } from "@/lib/query/keys";
 import { useAuthenticatedUser } from "@/providers/session-provider";
 import {
@@ -21,6 +22,10 @@ import { type JournalLineErrors, type JournalLineValues } from "../schemas/journ
  * project+cost_centre+purpose (all required); AR/AP control → party (required); other
  * balance-sheet → nothing. The parent editor clears the now-inapplicable fields when
  * the account changes (spec §9), so this component only renders + validates.
+ *
+ * `JournalLineRow` mounts this once inside its `<md` stacked card AND once inside its
+ * `>=md` grid row (parallel DOM subtrees, CSS-gated) — `variant` suffixes every id/
+ * testid on the mobile copy so element ids and `data-testid`s stay unique in the DOM.
  */
 export function LineDimensionCluster({
   line,
@@ -28,12 +33,14 @@ export function LineDimensionCluster({
   accountsIndex,
   disabled,
   onChange,
+  variant = "desktop",
 }: {
   line: JournalLineValues;
   errors?: JournalLineErrors;
   accountsIndex: Map<string, AccountOption>;
   disabled: boolean;
   onChange: (p: Partial<JournalLineValues>) => void;
+  variant?: "desktop" | "mobile";
 }) {
   const user = useAuthenticatedUser();
   const scope = useMemo(
@@ -42,6 +49,7 @@ export function LineDimensionCluster({
   );
   const account = accountsIndex.get(line.accountId);
   const cls = classifyAccount(account);
+  const suffix = variant === "mobile" ? "-mobile" : "";
 
   const projectsQ = useQuery({
     queryKey: queryKeys.list("contra-journal", "projects", scope, {}),
@@ -75,22 +83,26 @@ export function LineDimensionCluster({
 
   if (cls === "OTHER_BS" || !line.accountId) {
     return (
-      <div className="text-[11.5px] text-muted-foreground" data-testid={`journal-line-cluster-none-${line.key}`}>
-        No tags required.
+      <div className="pt-2 text-[11.5px] text-muted-foreground" data-testid={`journal-line-cluster-none-${line.key}${suffix}`}>
+        {line.accountId ? "No dimensions — balance-sheet line." : "No tags required."}
       </div>
     );
   }
 
   if (cls === "CONTROL") {
     return (
-      <div className="flex flex-col gap-1" data-testid={`journal-line-cluster-control-${line.key}`}>
+      <div className="flex flex-col gap-1" data-testid={`journal-line-cluster-control-${line.key}${suffix}`}>
+        <Label htmlFor={`journal-line-party-${line.key}${suffix}`} className="text-[10px] normal-case tracking-normal">
+          Party
+        </Label>
         <Select
+          id={`journal-line-party-${line.key}${suffix}`}
           value={line.partyId}
           onChange={(e) => onChange({ partyId: e.target.value })}
           invalid={!!errors?.partyId}
           disabled={disabled}
           aria-label="Party (control account)"
-          data-testid={`journal-line-party-${line.key}`}
+          data-testid={`journal-line-party-${line.key}${suffix}`}
         >
           <option value="">Choose a party…</option>
           {(partiesQ.data ?? []).map((p) => (
@@ -98,7 +110,7 @@ export function LineDimensionCluster({
           ))}
         </Select>
         {errors?.partyId && (
-          <p role="alert" className="text-[11.5px] font-medium text-destructive" data-testid={`journal-line-party-err-${line.key}`}>
+          <p role="alert" className="text-[11.5px] font-medium text-destructive" data-testid={`journal-line-party-err-${line.key}${suffix}`}>
             {errors.partyId}
           </p>
         )}
@@ -106,17 +118,21 @@ export function LineDimensionCluster({
     );
   }
 
-  // PL
+  // PL — project + cost centre + purpose, stacked (the column is narrow at 1024).
   return (
-    <div className="grid grid-cols-3 gap-1.5" data-testid={`journal-line-cluster-pl-${line.key}`}>
+    <div className="flex flex-col gap-1.5" data-testid={`journal-line-cluster-pl-${line.key}${suffix}`}>
       <div className="flex flex-col gap-1">
+        <Label htmlFor={`journal-line-project-${line.key}${suffix}`} className="text-[10px] normal-case tracking-normal">
+          Project
+        </Label>
         <Select
+          id={`journal-line-project-${line.key}${suffix}`}
           value={line.projectId}
           onChange={(e) => onChange({ projectId: e.target.value, purposeId: "" })}
           invalid={!!errors?.projectId}
           disabled={disabled}
           aria-label="Project"
-          data-testid={`journal-line-project-${line.key}`}
+          data-testid={`journal-line-project-${line.key}${suffix}`}
         >
           <option value="">Project…</option>
           {(projectsQ.data ?? []).map((p) => (
@@ -124,19 +140,23 @@ export function LineDimensionCluster({
           ))}
         </Select>
         {errors?.projectId && (
-          <p role="alert" className="text-[11.5px] font-medium text-destructive" data-testid={`journal-line-project-err-${line.key}`}>
+          <p role="alert" className="text-[11.5px] font-medium text-destructive" data-testid={`journal-line-project-err-${line.key}${suffix}`}>
             {errors.projectId}
           </p>
         )}
       </div>
       <div className="flex flex-col gap-1">
+        <Label htmlFor={`journal-line-cost-centre-${line.key}${suffix}`} className="text-[10px] normal-case tracking-normal">
+          Cost centre
+        </Label>
         <Select
+          id={`journal-line-cost-centre-${line.key}${suffix}`}
           value={line.costCentreId}
           onChange={(e) => onChange({ costCentreId: e.target.value })}
           invalid={!!errors?.costCentreId}
           disabled={disabled}
           aria-label="Cost centre"
-          data-testid={`journal-line-cost-centre-${line.key}`}
+          data-testid={`journal-line-cost-centre-${line.key}${suffix}`}
         >
           <option value="">Cost centre…</option>
           {(costCentresQ.data ?? []).map((c) => (
@@ -144,19 +164,23 @@ export function LineDimensionCluster({
           ))}
         </Select>
         {errors?.costCentreId && (
-          <p role="alert" className="text-[11.5px] font-medium text-destructive" data-testid={`journal-line-cost-centre-err-${line.key}`}>
+          <p role="alert" className="text-[11.5px] font-medium text-destructive" data-testid={`journal-line-cost-centre-err-${line.key}${suffix}`}>
             {errors.costCentreId}
           </p>
         )}
       </div>
       <div className="flex flex-col gap-1">
+        <Label htmlFor={`journal-line-purpose-${line.key}${suffix}`} className="text-[10px] normal-case tracking-normal">
+          Purpose
+        </Label>
         <Select
+          id={`journal-line-purpose-${line.key}${suffix}`}
           value={line.purposeId}
           onChange={(e) => onChange({ purposeId: e.target.value })}
           invalid={!!errors?.purposeId}
           disabled={disabled || !line.projectId}
           aria-label="Purpose"
-          data-testid={`journal-line-purpose-${line.key}`}
+          data-testid={`journal-line-purpose-${line.key}${suffix}`}
         >
           <option value="">{line.projectId ? "Purpose…" : "—"}</option>
           {(purposesQ.data ?? []).map((p) => (
@@ -164,7 +188,7 @@ export function LineDimensionCluster({
           ))}
         </Select>
         {errors?.purposeId && (
-          <p role="alert" className="text-[11.5px] font-medium text-destructive" data-testid={`journal-line-purpose-err-${line.key}`}>
+          <p role="alert" className="text-[11.5px] font-medium text-destructive" data-testid={`journal-line-purpose-err-${line.key}${suffix}`}>
             {errors.purposeId}
           </p>
         )}

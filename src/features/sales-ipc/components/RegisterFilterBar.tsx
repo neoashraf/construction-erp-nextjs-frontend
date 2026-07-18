@@ -59,7 +59,7 @@ export function RegisterFilterBar({
 
       <div className="min-w-[180px]">
         <Label htmlFor="reg-f-fy">
-          Financial year <span className="font-normal text-faint">· optional</span>
+          Financial year <span className="font-normal normal-case text-faint">· optional</span>
         </Label>
         <div className="mt-1.5">
           <Select
