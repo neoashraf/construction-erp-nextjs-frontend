@@ -33,13 +33,12 @@ test("IPC register — release full held retention on an IPC → toast + panel r
   // Snapshot the total-held headline BEFORE the release for a delta assertion.
   const heldBefore = (await page.getByTestId("retention-total-held").textContent()) ?? "";
 
-  // Click Release on the first row that has a Release button rendered.
-  const first = page.locator('[data-testid^="ret-release-btn-"]').first();
+  // Click Release on the first row with an enabled Release button (held-net > 0).
+  const first = page.locator('[data-testid^="ret-release-btn-"]:not([disabled])').first();
   await first.click();
   await expect(page.getByTestId("release-dialog")).toBeVisible();
   await page.getByLabel(/Release date/).fill("20/06/2027");
-  await page.getByTestId("release-continue").click();
-  await expect(page.getByTestId("release-confirm-title")).toBeVisible();
+  // Single-page modal: the primary posts directly (no separate confirm step).
   await page.getByTestId("release-confirm").click();
 
   // Toast confirms the release.

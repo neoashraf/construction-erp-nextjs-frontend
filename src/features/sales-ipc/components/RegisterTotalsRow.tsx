@@ -26,7 +26,10 @@ export function RegisterTotalsRow({ totals, gridTemplate }: { totals: IpcRegiste
       className="sticky bottom-0 z-[1] grid items-center border-t-2 border-border-strong bg-surface-2"
       style={{ gridTemplateColumns: gridTemplate }}
     >
-      <div className="px-3 py-2.5 text-[11px] font-bold uppercase tracking-[0.4px] text-foreground">Totals</div>
+      <div className="px-3 py-2.5">
+        <div className="text-[12px] font-bold text-foreground">Totals</div>
+        <div className="text-[10px] text-faint">project lifetime</div>
+      </div>
       <TotalsCell label="Certified" value={totals.certified} />
       <TotalsCell label="Currently due" value={totals.billedDue} strong />
       <TotalsCell label="Retention (gross)" value={totals.retainedHeld} />
@@ -61,7 +64,7 @@ function TotalsCell({
         className={cn(
           MONEY,
           strong ? "font-semibold text-foreground" : "text-muted-foreground",
-          tone === "outstanding" && Number(value) > 0 && "text-warning-ink",
+          // Design: zero outstanding → success-ink; positive → plain bold foreground.
           tone === "outstanding" && Number(value) === 0 && "text-success-ink",
         )}
       >
