@@ -1,6 +1,6 @@
 "use client";
 
-import { useState } from "react";
+import { useMemo, useState } from "react";
 import Link from "next/link";
 import { useRouter } from "next/navigation";
 import { ChevronDown, ChevronRight, Copy, Printer } from "lucide-react";
@@ -39,34 +39,85 @@ function targetRoute(r: ReceiptSummary): string {
   return isReceiptDraft(r.status) ? `/receipts/${r.id}` : `/receipts/${r.id}/view`;
 }
 
-const GRID = "104px 76px 106px 80px minmax(108px,1.1fr) 84px 100px 92px minmax(168px,auto)";
+const GRID = "112px 92px 106px 80px minmax(108px,1.1fr) 84px 132px 122px minmax(168px,auto)";
 const TABLET_GRID = "minmax(140px,1.3fr) minmax(120px,1fr) minmax(160px,1.6fr) 120px 100px 36px";
 
+export type ReceiptSortKey = "entryNo" | "receiptDate" | "amountSettled" | "taxDeductedAtSource";
+export type SortDirection = "asc" | "desc";
+export interface ReceiptSortState {
+  key: ReceiptSortKey;
+  direction: SortDirection;
+}
+
 /**
- * Static sort-caret header (design-files/CLAUDE.md table pattern: "every sortable
- * column shows small up/down sort carets"). The list has no backend sort param
- * (contract 11-receipts has none) — this renders the design's affordance for the
- * list's one real order, newest-first by `receiptDate`, without pretending other
- * columns are interactively sortable.
+ * Clickable sort-caret header (design-files/CLAUDE.md table pattern: "every sortable
+ * column shows small up/down sort carets"). Sorting is client-side over the current
+ * page of rows only — the list has no backend sort param (contract 11-receipts has
+ * none), so it can't reorder across pages.
  */
 function SortHead({
   label,
+  sortKey,
+  sort,
+  onSort,
   align = "left",
-  active = false,
 }: {
   label: string;
+  sortKey: ReceiptSortKey;
+  sort: ReceiptSortState | null;
+  onSort: (key: ReceiptSortKey) => void;
   align?: "left" | "right";
-  active?: boolean;
 }) {
+  const active = sort?.key === sortKey;
+  const sortedState = active
+    ? sort.direction === "asc"
+      ? "sorted ascending"
+      : "sorted descending"
+    : "not sorted";
   return (
-    <div className={cn("flex items-center gap-1 py-3", align === "right" && "justify-end")}>
-      {label}
-      <span className="flex flex-col text-[8px] leading-[0.6]" aria-hidden>
-        <span className={active ? "text-foreground" : "text-border-strong"}>▲</span>
-        <span className="text-border-strong">▼</span>
+    <button
+      type="button"
+      onClick={() => onSort(sortKey)}
+      aria-label={`${label}, ${sortedState}. Click to sort.`}
+      data-testid={`receipt-sort-${sortKey}`}
+      className={cn(
+        "flex w-full items-center gap-1 py-3 text-left",
+        align === "right" && "justify-end",
+      )}
+    >
+      <span className="whitespace-nowrap">{label}</span>
+      <span className="flex shrink-0 flex-col text-[8px] leading-[0.6]" aria-hidden>
+        <span className={active && sort.direction === "asc" ? "text-foreground" : "text-border-strong"}>
+          ▲
+        </span>
+        <span className={active && sort.direction === "desc" ? "text-foreground" : "text-border-strong"}>
+          ▼
+        </span>
       </span>
-    </div>
+    </button>
   );
+}
+
+function compareRows(a: ReceiptSummary, b: ReceiptSummary, key: ReceiptSortKey): number {
+  switch (key) {
+    case "entryNo":
+      return (a.entryNo ?? "").localeCompare(b.entryNo ?? "");
+    case "receiptDate":
+      return a.receiptDate.localeCompare(b.receiptDate);
+    case "amountSettled":
+      return Number(a.amountSettled) - Number(b.amountSettled);
+    case "taxDeductedAtSource":
+      return Number(a.taxDeductedAtSource) - Number(b.taxDeductedAtSource);
+  }
+}
+
+export function sortRows(
+  rows: ReceiptSummary[],
+  sort: ReceiptSortState | null,
+): ReceiptSummary[] {
+  if (!sort) return rows;
+  const sorted = [...rows].sort((a, b) => compareRows(a, b, sort.key));
+  return sort.direction === "asc" ? sorted : sorted.reverse();
 }
 
 /**
@@ -88,6 +139,7 @@ export function ReceiptList({
 }) {
   const router = useRouter();
   const [expanded, setExpanded] = useState<Set<string>>(new Set());
+  const [sort, setSort] = useState<ReceiptSortState | null>(null);
 
   function toggleExpanded(id: string) {
     setExpanded((prev) => {
@@ -97,6 +149,16 @@ export function ReceiptList({
       return next;
     });
   }
+
+  function handleSort(key: ReceiptSortKey) {
+    setSort((prev) => {
+      if (prev?.key !== key) return { key, direction: "asc" };
+      if (prev.direction === "asc") return { key, direction: "desc" };
+      return null;
+    });
+  }
+
+  const sortedRows = useMemo(() => sortRows(rows, sort), [rows, sort]);
 
   return (
     <div data-testid="receipt-list">
@@ -108,17 +170,29 @@ export function ReceiptList({
             className="grid items-center gap-2 border-b border-border-strong bg-surface-2 px-4 text-[11px] font-semibold uppercase tracking-[0.4px] text-muted-foreground"
             style={{ gridTemplateColumns: GRID }}
           >
-            <SortHead label="Number" />
-            <SortHead label="Date" active />
+            <SortHead label="Number" sortKey="entryNo" sort={sort} onSort={handleSort} />
+            <SortHead label="Date" sortKey="receiptDate" sort={sort} onSort={handleSort} />
             <div className="py-3">Type</div>
             <div className="py-3">Mode</div>
             <div className="py-3">Party</div>
             <div className="py-3">IPC</div>
-            <SortHead label="Amount settled ৳" align="right" />
-            <SortHead label="Tax at source ৳" align="right" />
+            <SortHead
+              label="Amount settled ৳"
+              sortKey="amountSettled"
+              sort={sort}
+              onSort={handleSort}
+              align="right"
+            />
+            <SortHead
+              label="Tax at source ৳"
+              sortKey="taxDeductedAtSource"
+              sort={sort}
+              onSort={handleSort}
+              align="right"
+            />
             <div className="py-3">Status</div>
           </div>
-          {rows.map((r) => {
+          {sortedRows.map((r) => {
             const draft = isReceiptDraft(r.status);
             const href = targetRoute(r);
             return (
@@ -255,7 +329,7 @@ export function ReceiptList({
             <div className="py-3">Status</div>
             <div className="py-3" />
           </div>
-          {rows.map((r) => {
+          {sortedRows.map((r) => {
             const draft = isReceiptDraft(r.status);
             const href = targetRoute(r);
             const isOpen = expanded.has(r.id);
@@ -354,7 +428,7 @@ export function ReceiptList({
 
       {/* <md — read-only stacked cards (spec §4: back-office register, not phone-optimised) */}
       <div className="flex flex-col gap-3 p-4 md:hidden">
-        {rows.map((r) => {
+        {sortedRows.map((r) => {
           const draft = isReceiptDraft(r.status);
           const href = targetRoute(r);
           return (
