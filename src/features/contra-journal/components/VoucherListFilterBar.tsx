@@ -68,38 +68,45 @@ export function VoucherListFilterBar({
 
   return (
     <Card className="p-4" data-testid="voucher-filter-bar">
-      <div className="flex flex-wrap items-end gap-3">
-        <div>
-          <Label>Type</Label>
-          <div className="mt-1 flex gap-1.5" role="group" aria-label="Voucher type filter">
-            {TYPE_CHIPS.map((t) => {
-              const active = draft.type === t.key;
-              return (
-                <button
-                  key={t.key}
-                  type="button"
-                  role="radio"
-                  aria-checked={active}
-                  onClick={() => patch({ type: t.key })}
-                  data-testid={`voucher-filter-type-${t.key}`}
-                  className={cn(
-                    "inline-flex h-8 items-center rounded-pill border border-transparent px-3 text-[12.5px] font-semibold transition-colors focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-accent focus-visible:ring-offset-1",
-                    active
-                      ? "border-primary bg-primary text-primary-foreground"
-                      : "text-muted-foreground hover:bg-surface-2",
-                  )}
-                >
-                  {t.label}
-                </button>
-              );
-            })}
-          </div>
+      {/* Row 1 — Type strip (design "Vouchers.dc.html": TYPE label + segmented pill group) */}
+      <div className="mb-3 flex items-center gap-2.5">
+        <span className="text-[10.5px] font-semibold uppercase tracking-[0.4px] text-muted-foreground">Type</span>
+        <div
+          role="radiogroup"
+          aria-label="Voucher type filter"
+          className="inline-flex gap-0.5 rounded-[9px] bg-muted p-[3px]"
+        >
+          {TYPE_CHIPS.map((t) => {
+            const active = draft.type === t.key;
+            return (
+              <button
+                key={t.key}
+                type="button"
+                role="radio"
+                aria-checked={active}
+                onClick={() => patch({ type: t.key })}
+                data-testid={`voucher-filter-type-${t.key}`}
+                className={cn(
+                  "inline-flex h-7 items-center rounded-[7px] px-3.5 text-[12.5px] transition-colors focus-visible:outline-none",
+                  active
+                    ? "bg-primary font-semibold text-primary-foreground shadow-focus"
+                    : "font-medium text-muted-foreground hover:text-foreground",
+                )}
+              >
+                {t.label}
+              </button>
+            );
+          })}
         </div>
-        <div className="min-w-[150px]">
+      </div>
+
+      {/* Row 2 — Status / Date from / Date to / Entry no + actions (all on one line, actions pinned right) */}
+      <div className="flex items-end gap-2">
+        <div className="min-w-[120px] flex-1">
           <Label htmlFor="voucher-filter-status">Status</Label>
           <Select
             id="voucher-filter-status"
-            className="mt-1"
+            className="mt-1.5"
             value={draft.status[0] ?? ""}
             onChange={(e) => patch({ status: e.target.value ? [e.target.value as VoucherStatus] : [] })}
             data-testid="voucher-filter-status"
@@ -110,9 +117,9 @@ export function VoucherListFilterBar({
             ))}
           </Select>
         </div>
-        <div className="w-[150px]">
+        <div className="min-w-[112px] flex-1">
           <Label htmlFor="voucher-date-from">Date from</Label>
-          <div className="mt-1">
+          <div className="mt-1.5">
             <DatePickerInput
               id="voucher-date-from"
               value={draft.dateFrom}
@@ -121,9 +128,9 @@ export function VoucherListFilterBar({
             />
           </div>
         </div>
-        <div className="w-[150px]">
+        <div className="min-w-[112px] flex-1">
           <Label htmlFor="voucher-date-to">Date to</Label>
-          <div className="mt-1">
+          <div className="mt-1.5">
             <DatePickerInput
               id="voucher-date-to"
               value={draft.dateTo}
@@ -133,18 +140,18 @@ export function VoucherListFilterBar({
             />
           </div>
         </div>
-        <div className="min-w-[180px] flex-1">
+        <div className="min-w-[140px] flex-[1.15]">
           <Label htmlFor="voucher-entry-no">Entry no.</Label>
           <Input
             id="voucher-entry-no"
-            className="mt-1"
+            className="mt-1.5"
             value={draft.entryNo}
             onChange={(e) => patch({ entryNo: e.target.value })}
             placeholder="CV / JV number…"
             data-testid="voucher-filter-entry-no"
           />
         </div>
-        <div className="ml-auto flex items-end gap-2">
+        <div className="flex flex-none items-center gap-1.5">
           <Button
             variant="outline"
             size="md"
