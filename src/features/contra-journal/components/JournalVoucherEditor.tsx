@@ -14,6 +14,7 @@ import { Textarea } from "@/components/ui/textarea";
 import { DatePickerInput } from "@/components/ui/date-picker";
 import { EmptyState } from "@/components/ui/empty-state";
 import { useToast } from "@/components/ui/toast";
+import { cn } from "@/lib/utils";
 import { formatDateTime } from "@/lib/format";
 import { formatMoney } from "@/lib/money";
 import { useQuery } from "@tanstack/react-query";
@@ -39,8 +40,7 @@ import {
   type JournalLineValues,
 } from "../schemas/journal.schema";
 import { BalancedIndicator } from "./BalancedIndicator";
-import { JournalLineRow } from "./JournalLineRow";
-import { SortHeadCell } from "./SortHeadCell";
+import { JournalLineRow, JOURNAL_GRID } from "./JournalLineRow";
 import { PostVoucherDialog } from "./PostVoucherDialog";
 import { ReverseVoucherDialog } from "./ReverseVoucherDialog";
 import { DiscardChangesDialog } from "./DiscardChangesDialog";
@@ -412,10 +412,12 @@ export function JournalVoucherEditor({ voucherId }: { voucherId: string | null }
         {clusterAnnouncement}
       </p>
 
-      <Card className="p-5">
-        <div className="grid gap-4 sm:grid-cols-[220px_1fr]">
-          <div>
-            <Label htmlFor="journal-date">Voucher date *</Label>
+      <Card className="p-4">
+        <div className="flex flex-wrap items-start gap-3.5">
+          <div className="w-[168px]">
+            <Label htmlFor="journal-date">
+              Voucher date <span className="text-destructive">*</span>
+            </Label>
             <DatePickerInput
               id="journal-date"
               value={form.voucherDate}
@@ -427,8 +429,10 @@ export function JournalVoucherEditor({ voucherId }: { voucherId: string | null }
               <p className="mt-1 text-[12px] font-medium text-destructive">{errors.voucherDate}</p>
             )}
           </div>
-          <div>
-            <Label htmlFor="journal-narration">Narration — optional</Label>
+          <div className="min-w-[260px] flex-[1_1_340px]">
+            <Label htmlFor="journal-narration">
+              Narration <span className="font-medium normal-case tracking-normal text-faint">— optional</span>
+            </Label>
             <Textarea
               id="journal-narration"
               value={form.narration}
@@ -442,52 +446,64 @@ export function JournalVoucherEditor({ voucherId }: { voucherId: string | null }
         </div>
       </Card>
 
-      <Card className="mt-4 p-5" data-testid="journal-editor-lines">
-        <div className="mb-3 flex items-center gap-2">
-          <h2 className="text-[13px] font-bold text-foreground">Lines</h2>
-          <Button
-            variant="outline"
-            size="sm"
-            className="ml-auto"
-            onClick={addLine}
-            disabled={!canEdit}
-            data-testid="journal-editor-add-line"
-          >
-            <Plus className="h-3.5 w-3.5" aria-hidden />
-            Add line
-          </Button>
-        </div>
-        <div className="hidden grid-cols-[24px_1.6fr_1.4fr_1fr_1fr_0.8fr_auto] gap-2 border-b border-border pb-2 text-[10.5px] font-semibold uppercase tracking-[0.4px] text-muted-foreground md:grid">
-          <span>#</span>
-          <span>Account</span>
-          <span>Dimensions / party — per account</span>
-          <SortHeadCell label="Debit" />
-          <SortHeadCell label="Credit" />
-          <span>Over-budget</span>
-          <span />
-        </div>
-        {form.lines.map((l, i) => (
-          <JournalLineRow
-            key={l.key}
-            line={l}
-            lineNo={i + 1}
-            errors={errors.lines?.[l.key]}
-            accounts={accounts}
-            disabled={!canEdit}
-            canRemove={form.lines.length > 2}
-            onChange={(p) => patchLine(l.key, p)}
-            onRemove={() => removeLine(l.key)}
-          />
-        ))}
-        <div className="mt-2 flex justify-end gap-6 border-t border-border pt-3 text-[12.5px]" data-testid="journal-editor-totals">
-          <span className="text-muted-foreground">
-            TOTAL DR{" "}
-            <span className="font-mono font-bold tabular-nums text-foreground">{formatMoney(t.debit)}</span>
-          </span>
-          <span className="text-muted-foreground">
-            TOTAL CR{" "}
-            <span className="font-mono font-bold tabular-nums text-foreground">{formatMoney(t.credit)}</span>
-          </span>
+      <Card className="mt-3 overflow-hidden p-0" data-testid="journal-editor-lines">
+        <div className="overflow-x-auto">
+          <div className="min-w-[860px]">
+            {/* grid header — surface-2 bar, edge-to-edge (design "Journal Voucher.dc.html") */}
+            <div
+              className={cn(
+                "hidden border-b border-border-strong bg-surface-2 md:grid",
+                JOURNAL_GRID,
+              )}
+            >
+              <div className="flex h-11 items-center px-2.5 text-[11px] font-semibold uppercase tracking-[0.4px] text-muted-foreground">#</div>
+              <div className="flex h-11 items-center px-3 text-[11px] font-semibold uppercase tracking-[0.4px] text-muted-foreground">Account</div>
+              <div className="flex h-11 items-center gap-1.5 px-3 text-[11px] font-semibold uppercase tracking-[0.4px] text-muted-foreground">
+                Dimensions / Party <span className="font-medium normal-case tracking-normal text-faint">— per account</span>
+              </div>
+              <div className="flex h-11 items-center justify-end px-3 text-[11px] font-semibold uppercase tracking-[0.4px] text-muted-foreground">Debit ৳</div>
+              <div className="flex h-11 items-center justify-end px-3 text-[11px] font-semibold uppercase tracking-[0.4px] text-muted-foreground">Credit ৳</div>
+              <div className="flex h-11 items-center px-3 text-[11px] font-semibold uppercase tracking-[0.4px] text-muted-foreground">Over-budget</div>
+              <div className="h-11" />
+            </div>
+            {form.lines.map((l, i) => (
+              <JournalLineRow
+                key={l.key}
+                line={l}
+                lineNo={i + 1}
+                errors={errors.lines?.[l.key]}
+                accounts={accounts}
+                disabled={!canEdit}
+                canRemove={form.lines.length > 2}
+                onChange={(p) => patchLine(l.key, p)}
+                onRemove={() => removeLine(l.key)}
+              />
+            ))}
+            {/* add-line + totals footer — surface-2 bar */}
+            <div className="flex items-center gap-4 bg-surface-2 px-3.5 py-3">
+              {canEdit && (
+                <button
+                  type="button"
+                  onClick={addLine}
+                  className="inline-flex h-8 items-center gap-1.5 rounded-token border border-dashed border-border-strong bg-surface px-3 text-[12.5px] font-semibold text-foreground hover:bg-muted disabled:opacity-40"
+                  data-testid="journal-editor-add-line"
+                >
+                  <Plus className="h-[15px] w-[15px]" aria-hidden />
+                  Add line
+                </button>
+              )}
+              <div className="ml-auto flex items-center gap-6" data-testid="journal-editor-totals">
+                <span className="flex items-center gap-2">
+                  <span className="text-[11px] font-semibold uppercase tracking-[0.4px] text-muted-foreground">Total Dr</span>
+                  <span className="font-mono text-[15px] font-bold tabular-nums text-foreground">{formatMoney(t.debit)}</span>
+                </span>
+                <span className="flex items-center gap-2">
+                  <span className="text-[11px] font-semibold uppercase tracking-[0.4px] text-muted-foreground">Total Cr</span>
+                  <span className="font-mono text-[15px] font-bold tabular-nums text-foreground">{formatMoney(t.credit)}</span>
+                </span>
+              </div>
+            </div>
+          </div>
         </div>
       </Card>
 
