@@ -12,6 +12,12 @@ import { type JournalLineErrors, type JournalLineValues } from "../schemas/journ
 import { LineDimensionCluster } from "./LineDimensionCluster";
 import { OverBudgetBadge } from "./OverBudgetBadge";
 
+/** Shared column template for the journal line grid header + rows (design
+ * "Journal Voucher.dc.html": # · Account · Dimensions/Party · Debit · Credit ·
+ * Over-budget · remove). Header (in JournalVoucherEditor) and each row MUST use
+ * this exact template so columns align edge-to-edge. */
+export const JOURNAL_GRID = "grid-cols-[34px_minmax(0,1.75fr)_minmax(0,2.3fr)_120px_120px_148px_40px]";
+
 /**
  * One journal line (spec §5; design "Journal Voucher.dc.html"). # · Account ·
  * conditional Dimensions/Party cluster · Debit · Credit · over-budget badge (EXPENSE
@@ -80,24 +86,28 @@ export function JournalLineRow({
     );
   }
 
-  function noteField(variant: "desktop" | "mobile") {
+  function noteField(variant: "desktop" | "mobile", labelless = false) {
     const id = variant === "desktop" ? `journal-line-note-${line.key}` : `journal-line-note-${line.key}-mobile`;
     const testId = variant === "desktop" ? `journal-line-narration-${line.key}` : `journal-line-narration-${line.key}-mobile`;
+    const input = (
+      <Input
+        id={id}
+        className={cn("h-[30px] bg-surface-2 text-[12px]", !labelless && "mt-1")}
+        value={line.narration}
+        onChange={(e) => onChange({ narration: e.target.value })}
+        disabled={disabled}
+        placeholder="Add a note"
+        aria-label="Line narration"
+        data-testid={testId}
+      />
+    );
+    if (labelless) return input;
     return (
       <div>
         <Label htmlFor={id} className="text-[10px] normal-case tracking-normal">
           Line note
         </Label>
-        <Input
-          id={id}
-          className="mt-1"
-          value={line.narration}
-          onChange={(e) => onChange({ narration: e.target.value })}
-          disabled={disabled}
-          placeholder="Add a note"
-          aria-label="Line narration"
-          data-testid={testId}
-        />
+        {input}
       </div>
     );
   }
@@ -199,18 +209,22 @@ export function JournalLineRow({
       </div>
 
       {/* >=md grid row */}
-      <div className={cn("hidden items-start gap-2 border-b border-border py-3 last:border-b-0 md:grid", "grid-cols-[24px_1.6fr_1.4fr_1fr_1fr_0.8fr_auto]")}>
-        <span className="pt-2 text-[12.5px] text-muted-foreground" aria-hidden>{lineNo}</span>
-        <div>
-          {accountField("desktop")}
-          <div className="mt-2">{noteField("desktop")}</div>
+      <div className="hidden border-b border-border last:border-b-0 md:block">
+        <div className={cn("grid items-start", JOURNAL_GRID)}>
+          <span className="px-2.5 pt-[14px] text-[12.5px] font-semibold tabular-nums text-faint" aria-hidden>{lineNo}</span>
+          <div className="min-w-0 px-3 pt-[11px]">{accountField("desktop")}</div>
+          <div className="min-w-0 px-3 pt-[11px]">{dimensionCluster("desktop")}</div>
+          <div className="px-3 pt-[11px]">{debitField("desktop")}</div>
+          <div className="px-3 pt-[11px]">{creditField("desktop")}</div>
+          <div className="px-3 pt-[13px]">{overBudget}</div>
+          <div className="flex justify-center px-1 pt-[11px]">{removeButton("desktop")}</div>
         </div>
-        {dimensionCluster("desktop")}
-        {debitField("desktop")}
-        {creditField("desktop")}
-        <div>{overBudget}</div>
-        {removeButton("desktop")}
-        {amountError && <div className="col-span-7 -mt-1">{amountError}</div>}
+        {/* line note — spans under the account column (design's "Line note" row) */}
+        <div className="flex items-center gap-2.5 py-3 pl-[46px] pr-3">
+          <span className="flex-none text-[10px] font-semibold uppercase tracking-[0.4px] text-faint">Line note</span>
+          <div className="min-w-0 flex-1">{noteField("desktop", true)}</div>
+        </div>
+        {amountError && <div className="px-3 pb-2">{amountError}</div>}
       </div>
     </div>
   );
