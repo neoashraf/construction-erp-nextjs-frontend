@@ -88,11 +88,21 @@ function movementPage(rows: StockMovement[]) {
 }
 
 function user(role: Role): SafeUser {
-  return { id: "u1", email: "x@ze.test", name: "X", role, companyId: "c1", financialYearId: "fy-1", isActive: true };
+  return {
+    id: "u1",
+    email: "x@ze.test",
+    name: "X",
+    role,
+    companyId: "c1",
+    financialYearId: "fy-1",
+    isActive: true,
+  };
 }
 
 function renderScreen(role: Role = "ADMIN") {
-  const client = new QueryClient({ defaultOptions: { queries: { retry: false }, mutations: { retry: false } } });
+  const client = new QueryClient({
+    defaultOptions: { queries: { retry: false }, mutations: { retry: false } },
+  });
   return render(
     <QueryClientProvider client={client}>
       <ToastProvider>
@@ -117,7 +127,13 @@ describe("StockLedgerScreen — balances (spec §4.A/§5)", () => {
     listLedgerMock.mockResolvedValue(
       ledgerPage([
         bal({ godownId: "gd-a", itemId: "it-cement" }),
-        bal({ godownId: "gd-b", itemId: "it-rebar", quantityOnHand: "0.0000", totalValue: "0.0000", weightedAverageRate: null }),
+        bal({
+          godownId: "gd-b",
+          itemId: "it-rebar",
+          quantityOnHand: "0.0000",
+          totalValue: "0.0000",
+          weightedAverageRate: null,
+        }),
       ]),
     );
     renderScreen();
@@ -129,7 +145,9 @@ describe("StockLedgerScreen — balances (spec §4.A/§5)", () => {
   });
 
   it("grouping toggle re-sorts the same payload without refetching (spec §5)", async () => {
-    listLedgerMock.mockResolvedValue(ledgerPage([bal({ itemId: "it-cement" }), bal({ godownId: "gd-b", itemId: "it-cement" })]));
+    listLedgerMock.mockResolvedValue(
+      ledgerPage([bal({ itemId: "it-cement" }), bal({ godownId: "gd-b", itemId: "it-cement" })]),
+    );
     renderScreen();
     await screen.findByTestId("sl-balances");
     expect(listLedgerMock).toHaveBeenCalledTimes(1);
@@ -147,9 +165,14 @@ describe("StockLedgerScreen — balances (spec §4.A/§5)", () => {
     renderScreen();
     await screen.findByTestId("sl-balances");
 
-    await userEvent.type(screen.getByPlaceholderText("Latest"), "15/06/2026");
+    // Open the As-of popover, type a date, and apply it (design: label + button + popover).
+    await userEvent.click(screen.getByTestId("sl-asof-trigger"));
+    await userEvent.type(await screen.findByTestId("sl-asof-date"), "15/06/2026");
+    await userEvent.click(screen.getByTestId("sl-asof-apply"));
     await waitFor(() =>
-      expect(listLedgerMock).toHaveBeenCalledWith(expect.objectContaining({ asOfDate: "2026-06-15" })),
+      expect(listLedgerMock).toHaveBeenCalledWith(
+        expect.objectContaining({ asOfDate: "2026-06-15" }),
+      ),
     );
   });
 
@@ -168,11 +191,15 @@ describe("StockLedgerScreen — balances (spec §4.A/§5)", () => {
     listLedgerMock.mockResolvedValue(ledgerPage([]));
     renderScreen();
     expect(await screen.findByTestId("sl-empty-firstuse")).toBeInTheDocument();
-    expect(screen.getByText("No stock movements recorded yet for this project.")).toBeInTheDocument();
+    expect(
+      screen.getByText("No stock movements recorded yet for this project."),
+    ).toBeInTheDocument();
   });
 
   it("surfaces the assigned-project scope message on a 403 (spec §7)", async () => {
-    listLedgerMock.mockRejectedValue(new ApiError({ code: "FORBIDDEN", message: "no", status: 403 }));
+    listLedgerMock.mockRejectedValue(
+      new ApiError({ code: "FORBIDDEN", message: "no", status: 403 }),
+    );
     renderScreen("PROJECT_MANAGER");
     expect(await screen.findByTestId("sl-forbidden")).toBeInTheDocument();
     expect(screen.getByText("You can only view your assigned projects.")).toBeInTheDocument();
@@ -190,7 +217,9 @@ describe("StockLedgerScreen — balances (spec §4.A/§5)", () => {
     listLedgerMock.mockResolvedValue(ledgerPage([bal()]));
     renderScreen("STORE_KEEPER");
     await screen.findByTestId("sl-balances");
-    expect(screen.queryByRole("button", { name: /new|create|edit|delete|post|reverse|save/i })).not.toBeInTheDocument();
+    expect(
+      screen.queryByRole("button", { name: /new|create|edit|delete|post|reverse|save/i }),
+    ).not.toBeInTheDocument();
     expect(screen.getByText(/Nothing is written from this screen/i)).toBeInTheDocument();
   });
 });
@@ -231,12 +260,18 @@ describe("StockLedgerScreen — movement history (spec §4.B/§6)", () => {
       "/inventory/stock-journals/sj-4",
     );
     expect(p.getAllByTestId("sl-source-GRN")[0]).toHaveAttribute("href", "/purchase/bills/grn-9");
-    expect(p.getAllByTestId("sl-source-REQ_ISSUE")[0]).toHaveAttribute("href", "/requisitions/issues/req-3");
+    expect(p.getAllByTestId("sl-source-REQ_ISSUE")[0]).toHaveAttribute(
+      "href",
+      "/requisitions/issues/req-3",
+    );
   });
 
   it("shows a reversal as an additive badged row, original untouched (FR-INV-020)", async () => {
     listMovementsMock.mockResolvedValue(
-      movementPage([mv({ id: "m1", isReversal: false }), mv({ id: "m2", isReversal: true, reversalOf: "m1" })]),
+      movementPage([
+        mv({ id: "m1", isReversal: false }),
+        mv({ id: "m2", isReversal: true, reversalOf: "m1" }),
+      ]),
     );
     const panel = await openPanel();
     expect((await within(panel).findAllByTestId("sl-reversal-badge")).length).toBeGreaterThan(0);
@@ -246,11 +281,15 @@ describe("StockLedgerScreen — movement history (spec §4.B/§6)", () => {
     listMovementsMock.mockResolvedValue(movementPage([]));
     const panel = await openPanel();
     expect(await within(panel).findByTestId("sl-mv-empty")).toBeInTheDocument();
-    expect(within(panel).getByText("No movements recorded for this item at this godown.")).toBeInTheDocument();
+    expect(
+      within(panel).getByText("No movements recorded for this item at this godown."),
+    ).toBeInTheDocument();
   });
 
   it("keeps the balances table interactive when only the movement fetch fails (spec §6)", async () => {
-    listMovementsMock.mockRejectedValue(new ApiError({ code: "UNKNOWN", message: "boom", status: 500 }));
+    listMovementsMock.mockRejectedValue(
+      new ApiError({ code: "UNKNOWN", message: "boom", status: 500 }),
+    );
     const panel = await openPanel();
     expect(await within(panel).findByTestId("sl-mv-retry")).toBeInTheDocument();
     // Balances behind the panel are still rendered.

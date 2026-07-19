@@ -2,13 +2,17 @@
 
 import { useRef } from "react";
 import { cn } from "@/lib/utils";
-import { GROUP_BY_LABEL, LEDGER_GROUP_BY, type LedgerGroupBy } from "../schemas/stock-ledger.schema";
+import {
+  GROUP_BY_LABEL,
+  LEDGER_GROUP_BY,
+  type LedgerGroupBy,
+} from "../schemas/stock-ledger.schema";
 
 /**
  * "By godown" / "By item" grouping control (spec §5/§10). A proper `role="tablist"` —
  * arrow keys move + select, Home/End jump to the ends — because it re-sorts the same
  * fetched payload client-side (no refetch). Not colour-only: the active tab carries
- * `aria-selected` + a filled navy pill.
+ * `aria-selected` + a raised white pill (segmented control) on the grey track.
  */
 export function GroupingToggle({
   value,
@@ -21,8 +25,10 @@ export function GroupingToggle({
 
   function onKeyDown(e: React.KeyboardEvent, index: number) {
     let next = index;
-    if (e.key === "ArrowRight" || e.key === "ArrowDown") next = (index + 1) % LEDGER_GROUP_BY.length;
-    else if (e.key === "ArrowLeft" || e.key === "ArrowUp") next = (index - 1 + LEDGER_GROUP_BY.length) % LEDGER_GROUP_BY.length;
+    if (e.key === "ArrowRight" || e.key === "ArrowDown")
+      next = (index + 1) % LEDGER_GROUP_BY.length;
+    else if (e.key === "ArrowLeft" || e.key === "ArrowUp")
+      next = (index - 1 + LEDGER_GROUP_BY.length) % LEDGER_GROUP_BY.length;
     else if (e.key === "Home") next = 0;
     else if (e.key === "End") next = LEDGER_GROUP_BY.length - 1;
     else return;
@@ -36,7 +42,7 @@ export function GroupingToggle({
     <div
       role="tablist"
       aria-label="Group balances"
-      className="inline-flex h-9 items-center gap-1 rounded-token border border-border-strong bg-surface p-1"
+      className="inline-flex items-center gap-[3px] rounded-[9px] border border-border-strong bg-muted p-[3px]"
       data-testid="sl-grouping"
     >
       {LEDGER_GROUP_BY.map((mode, i) => {
@@ -55,10 +61,10 @@ export function GroupingToggle({
             onClick={() => onChange(mode)}
             onKeyDown={(e) => onKeyDown(e, i)}
             className={cn(
-              "h-7 rounded-[6px] px-3 text-[12.5px] font-semibold transition-colors",
+              "h-[30px] rounded-[7px] px-3 text-[12.5px] font-semibold transition-colors",
               active
-                ? "bg-primary text-primary-foreground"
-                : "text-muted-foreground hover:bg-muted hover:text-foreground",
+                ? "bg-surface text-foreground shadow-sm"
+                : "text-muted-foreground hover:text-foreground",
             )}
           >
             {GROUP_BY_LABEL[mode]}
