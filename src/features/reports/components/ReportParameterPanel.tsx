@@ -101,7 +101,9 @@ export function ReportParameterPanel({
 
           {descriptor.projectScoped && (
             <div>
-              <Label htmlFor="param-project">Project</Label>
+              <Label htmlFor="param-project">
+                Project{descriptor.projectRequired && <span className="ml-0.5 text-destructive">*</span>}
+              </Label>
               <select
                 id="param-project"
                 value={value.projectId ?? ""}

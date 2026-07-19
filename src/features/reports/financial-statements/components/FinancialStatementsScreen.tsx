@@ -32,10 +32,15 @@ import { StatementSwitcher } from "./StatementSwitcher";
  * from FE-54 verbatim; adds only the report-shape-specific bits (statement
  * bodies, the project-wise caveat, and the per-tab time-control gating).
  */
-export function FinancialStatementsScreen() {
+export function FinancialStatementsScreen({
+  embedded = false,
+  initialReport,
+}: { embedded?: boolean; initialReport?: string } = {}) {
   const online = useOnline();
   const user = useAuthenticatedUser();
-  const [tab, setTab] = useState<StatementTab>("PNL");
+  const [tab, setTab] = useState<StatementTab>(
+    () => (initialReport === "balance-sheet" ? "BS" : "PNL"),
+  );
   const [scope, setScope] = useState<Scope>("CONSOLIDATED");
   const [params, setParams] = useState<ReportParams>({
     financialYearId: user.financialYearId ?? "",
@@ -106,23 +111,27 @@ export function FinancialStatementsScreen() {
   const bsPartial = tab === "BS" && projectWise;
 
   return (
-    <div className="mx-auto max-w-[1400px] px-6 py-6" data-testid="financial-statements-screen">
-      <Breadcrumb
-        items={[
-          { label: "Reports", href: "/reports" },
-          { label: tab === "PNL" ? "Profit & loss" : "Balance sheet" },
-        ]}
-      />
+    <div className={embedded ? "" : "mx-auto max-w-[1400px] px-6 py-6"} data-testid="financial-statements-screen">
+      {!embedded && (
+        <Breadcrumb
+          items={[
+            { label: "Reports", href: "/reports" },
+            { label: tab === "PNL" ? "Profit & loss" : "Balance sheet" },
+          ]}
+        />
+      )}
       <div className="mb-4 mt-1 flex flex-wrap items-center justify-between gap-3">
-        <div>
-          <h1 className="text-[23px] font-bold tracking-[-0.02em]" data-testid="fs-title">
-            Financial statements
-          </h1>
-          <p className="mt-1 text-[13px] text-muted-foreground">
-            Profit & loss and Balance sheet — consolidated or project-wise. Read-only, always
-            server-computed.
-          </p>
-        </div>
+        {!embedded && (
+          <div>
+            <h1 className="text-[23px] font-bold tracking-[-0.02em]" data-testid="fs-title">
+              Financial statements
+            </h1>
+            <p className="mt-1 text-[13px] text-muted-foreground">
+              Profit & loss and Balance sheet — consolidated or project-wise. Read-only, always
+              server-computed.
+            </p>
+          </div>
+        )}
         <div className="flex items-center gap-3">
           <StatementSwitcher value={tab} onChange={onTabChange} />
           <ScopeToggle value={scope} onChange={onScopeChange} />
@@ -212,6 +221,7 @@ function buildDescriptor(tab: StatementTab, scope: Scope): ReportDescriptor {
     requiredPermission: "reports",
     parameters: [],
     projectScoped: scope === "PROJECT_WISE",
+    projectRequired: scope === "PROJECT_WISE",
     supportsDateRange: tab === "PNL",
     supportsAsOf: tab === "BS",
   };

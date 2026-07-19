@@ -39,6 +39,8 @@ const saveMock = reportsApi.saveBlob as jest.Mock;
 const fyMock = mastersApi.listFinancialYearOptions as jest.Mock;
 const projMock = mastersApi.listProjectOptions as jest.Mock;
 const ccMock = mastersApi.listCostCentreOptions as jest.Mock;
+const empMock = mastersApi.listEmployeeOptions as jest.Mock;
+const runOptMock = mastersApi.listSalaryRunOptions as jest.Mock;
 
 const ATT_RESULT = {
   reportName: "attendance-summary",
@@ -98,10 +100,26 @@ beforeEach(() => {
   fyMock.mockResolvedValue([{ id: "fy-1", label: "FY 2025–26", isActive: true }]);
   projMock.mockResolvedValue([]);
   ccMock.mockResolvedValue([]);
+  empMock.mockResolvedValue([
+    { id: "emp-1", label: "E01 · Ashraf Uddin" },
+    { id: "emp-2", label: "E02 · Rahim Ali" },
+  ]);
+  runOptMock.mockResolvedValue([
+    { id: "run-1", label: "2026-05 · posted" },
+    { id: "run-2", label: "2026-04 · posted" },
+  ]);
 });
 
+// The Salary-run options load async (masters fetch) — wait for them before selecting.
+async function selectRun(id = "run-1") {
+  await waitFor(() => {
+    const sel = screen.getByTestId("hr-filter-run") as HTMLSelectElement;
+    expect(Array.from(sel.options).some((o) => o.value === id)).toBe(true);
+  });
+  await userEvent.selectOptions(screen.getByTestId("hr-filter-run") as HTMLSelectElement, id);
+}
 async function runSalaryRun() {
-  await userEvent.selectOptions(screen.getByTestId("hr-filter-run") as HTMLSelectElement, "run-1");
+  await selectRun("run-1");
   await userEvent.click(screen.getByTestId("report-run"));
 }
 
@@ -150,7 +168,7 @@ describe("Salary register — mutual exclusion + totals from server (FR-RPT-027,
     expect(runMock).not.toHaveBeenCalled();
 
     // Pick run → month clears (mutual exclusion enforced by the filter panel).
-    await userEvent.selectOptions(screen.getByTestId("hr-filter-run") as HTMLSelectElement, "run-1");
+    await selectRun("run-1");
     await userEvent.click(screen.getByTestId("report-run"));
     await screen.findByTestId("hr-sr-table");
     const footer = screen.getByTestId("hr-sr-totals-footer");
@@ -165,7 +183,7 @@ describe("Salary register — mutual exclusion + totals from server (FR-RPT-027,
     // Set month first.
     fireEvent.change(screen.getByTestId("hr-filter-run-month") as HTMLInputElement, { target: { value: "2026-05" } });
     // Then set run — month should clear.
-    await userEvent.selectOptions(screen.getByTestId("hr-filter-run") as HTMLSelectElement, "run-1");
+    await selectRun("run-1");
     expect((screen.getByTestId("hr-filter-run-month") as HTMLInputElement).value).toBe("");
   });
 });

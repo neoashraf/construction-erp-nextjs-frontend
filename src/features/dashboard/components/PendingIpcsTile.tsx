@@ -1,10 +1,14 @@
 "use client";
 
-import { FileText } from "lucide-react";
 import { formatMoney } from "@/lib/money";
 import { DashboardTile } from "./DashboardTile";
 import { type PendingIpcKpi, type Tile } from "../types";
 
+/**
+ * FE-61 Pending IPCs — a big count with an "IPCs pending" noun, then the total
+ * outstanding pinned to a divider at the tile's base. Matches the design's
+ * `count` tile.
+ */
 export function PendingIpcsTile(props: {
   tile: Tile;
   onRefresh?: () => void;
@@ -16,25 +20,23 @@ export function PendingIpcsTile(props: {
   return (
     <DashboardTile
       tile={props.tile}
-      icon={<FileText className="h-4 w-4" aria-hidden />}
       onRefresh={props.onRefresh}
       refreshing={props.refreshing}
       error={props.error}
       stale={props.stale}
     >
-      <div className="space-y-1.5">
-        <div className="text-[22px] font-bold tabular-nums text-foreground">
+      <div className="flex items-baseline gap-2">
+        <span className="font-mono text-[32px] font-bold leading-none tabular-nums text-foreground">
           {kpi.count}
-          <span className="ml-2 text-[11.5px] font-normal text-muted-foreground">
-            IPC{kpi.count === 1 ? "" : "s"} pending
-          </span>
-        </div>
-        <div className="flex items-baseline justify-between gap-2">
-          <span className="text-[11.5px] text-muted-foreground">Total outstanding</span>
-          <span className="text-[13px] font-semibold tabular-nums text-foreground">
-            {formatMoney(kpi.totalOutstanding)}
-          </span>
-        </div>
+        </span>
+        <span className="text-[13px] text-muted-foreground">IPCs pending</span>
+      </div>
+      <div className="flex-1" />
+      <div className="flex items-baseline justify-between gap-2.5 border-t border-muted pt-[11px]">
+        <span className="text-[12.5px] text-muted-foreground">Total outstanding</span>
+        <span className="font-mono text-[14px] font-semibold tabular-nums text-foreground">
+          {formatMoney(kpi.totalOutstanding, { grouping: "lakh", fractionDigits: 2 })}
+        </span>
       </div>
     </DashboardTile>
   );

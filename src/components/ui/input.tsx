@@ -16,6 +16,11 @@ export const Input = React.forwardRef<HTMLInputElement, InputProps>(
     <input
       ref={ref}
       aria-invalid={invalid || undefined}
+      // Password managers / Grammarly / etc. inject attributes (data-lastpass-icon-root,
+      // data-gramm, data-1p-*) into fields BEFORE React hydrates — a descendant of
+      // <body>, so the layout's suppression doesn't reach here. Scoped to this element's
+      // own attributes only (does not cascade), so real value mismatches still surface.
+      suppressHydrationWarning
       className={cn(
         "flex h-9 w-full rounded-token border border-border-strong bg-background px-3 text-sm text-foreground",
         "placeholder:text-faint transition-colors",

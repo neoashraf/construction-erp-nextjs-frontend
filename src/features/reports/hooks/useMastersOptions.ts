@@ -3,8 +3,10 @@ import { queryKeys } from "@/lib/query/keys";
 import { useAuthenticatedUser } from "@/providers/session-provider";
 import {
   listCostCentreOptions,
+  listEmployeeOptions,
   listFinancialYearOptions,
   listProjectOptions,
+  listSalaryRunOptions,
 } from "../api/masters";
 
 /**
@@ -41,6 +43,28 @@ export function useCostCentreOptions() {
       financialYearId: user.financialYearId,
     }),
     queryFn: listCostCentreOptions,
+    staleTime: 5 * 60_000,
+  });
+}
+export function useEmployeeOptions() {
+  const user = useAuthenticatedUser();
+  return useQuery({
+    queryKey: queryKeys.list("reports", "employee-options", {
+      companyId: user.companyId,
+      financialYearId: user.financialYearId,
+    }),
+    queryFn: listEmployeeOptions,
+    staleTime: 5 * 60_000,
+  });
+}
+export function useSalaryRunOptions() {
+  const user = useAuthenticatedUser();
+  return useQuery({
+    queryKey: queryKeys.list("reports", "salary-run-options", {
+      companyId: user.companyId,
+      financialYearId: user.financialYearId,
+    }),
+    queryFn: () => listSalaryRunOptions(user.financialYearId ?? undefined),
     staleTime: 5 * 60_000,
   });
 }

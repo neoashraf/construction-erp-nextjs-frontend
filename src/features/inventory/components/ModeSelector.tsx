@@ -19,8 +19,13 @@ export function ModeSelector({
   onChange: (mode: StockJournalMode) => void;
 }) {
   return (
-    <div role="radiogroup" aria-label="Mode" className="inline-flex rounded-token bg-muted p-0.5" data-testid="sj-mode">
-      {STOCK_JOURNAL_MODES.map((m) => {
+    <div
+      role="radiogroup"
+      aria-label="Mode"
+      className="inline-flex h-9 overflow-hidden rounded-token border border-border-strong bg-surface"
+      data-testid="sj-mode"
+    >
+      {STOCK_JOURNAL_MODES.map((m, i) => {
         const active = m === value;
         return (
           <button
@@ -32,9 +37,10 @@ export function ModeSelector({
             onClick={() => onChange(m)}
             data-testid={`sj-mode-${m}`}
             className={cn(
-              "h-9 rounded-[6px] px-4 text-sm font-semibold transition-colors disabled:cursor-not-allowed disabled:opacity-70",
+              "h-full px-3.5 text-[13px] font-semibold transition-colors disabled:cursor-not-allowed disabled:opacity-70",
               "focus-visible:outline-none focus-visible:shadow-focus",
-              active ? "bg-primary text-primary-foreground shadow-sm" : "text-muted-foreground hover:text-foreground",
+              i > 0 && "border-l border-border",
+              active ? "bg-primary text-primary-foreground" : "text-muted-foreground hover:text-foreground",
             )}
           >
             {MODE_LABEL[m]}

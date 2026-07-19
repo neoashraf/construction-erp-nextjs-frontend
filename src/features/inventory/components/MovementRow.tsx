@@ -9,8 +9,7 @@ import { SourceLink } from "./SourceLink";
 import { type StockMovement } from "../types";
 
 /** Shared grid template for the ≥lg movement table (widths from the design drawer). */
-export const MOVEMENT_GRID =
-  "96px 52px 84px 78px 86px 80px 94px 80px minmax(140px,1fr)";
+export const MOVEMENT_GRID = "96px 52px 84px 78px 86px 80px 94px 80px minmax(140px,1fr)";
 
 const NUM = "font-mono text-[11.5px] tabular-nums";
 
@@ -36,7 +35,10 @@ export function MovementGridRow({ m, uom }: { m: StockMovement; uom: string }) {
     <div
       role="row"
       data-testid="sl-mv-row"
-      className="grid items-center gap-2 border-b border-muted px-5 py-2.5 hover:bg-surface-2"
+      className={cn(
+        "grid items-center gap-2 border-b border-muted px-5 py-2.5 hover:bg-surface-2",
+        m.isReversal && "bg-surface-2",
+      )}
       style={{ gridTemplateColumns: MOVEMENT_GRID }}
     >
       <div className={cn(NUM, "text-muted-foreground")}>{formatDate(m.voucherDate)}</div>
@@ -46,11 +48,21 @@ export function MovementGridRow({ m, uom }: { m: StockMovement; uom: string }) {
       <div className={cn(NUM, "text-right text-foreground")}>
         {formatQty(m.quantity, 4)} <span className="text-[10px] text-faint">{uom}</span>
       </div>
-      <div className={cn(NUM, "text-right text-muted-foreground")}>{formatMoney(m.rate, { withSymbol: false })}</div>
-      <div className={cn(NUM, "text-right font-medium text-foreground")}>{formatMoney(m.value, { withSymbol: false })}</div>
-      <div className={cn(NUM, "text-right text-muted-foreground")}>{formatQty(m.balanceQtyAfter, 4)}</div>
-      <div className={cn(NUM, "text-right text-muted-foreground")}>{formatMoney(m.balanceValueAfter, { withSymbol: false })}</div>
-      <div className={cn(NUM, "text-right text-muted-foreground")}>{formatMoney(m.avgRateAfter, { withSymbol: false })}</div>
+      <div className={cn(NUM, "text-right text-muted-foreground")}>
+        {formatMoney(m.rate, { withSymbol: false })}
+      </div>
+      <div className={cn(NUM, "text-right font-medium text-foreground")}>
+        {formatMoney(m.value, { withSymbol: false })}
+      </div>
+      <div className={cn(NUM, "text-right text-muted-foreground")}>
+        {formatQty(m.balanceQtyAfter, 4)}
+      </div>
+      <div className={cn(NUM, "text-right text-muted-foreground")}>
+        {formatMoney(m.balanceValueAfter, { withSymbol: false })}
+      </div>
+      <div className={cn(NUM, "text-right text-muted-foreground")}>
+        {formatMoney(m.avgRateAfter, { withSymbol: false })}
+      </div>
       <div className="min-w-0">
         <SourceLink sourceType={m.sourceType} sourceId={m.sourceId} isReversal={m.isReversal} />
       </div>
@@ -64,14 +76,18 @@ export function MovementCard({ m, uom }: { m: StockMovement; uom: string }) {
   return (
     <div data-testid="sl-mv-card" className="border-b border-muted px-4 py-3">
       <div className="flex items-center justify-between gap-2">
-        <span className={cn(NUM, "text-[12px] text-muted-foreground")}>{formatDate(m.voucherDate)}</span>
+        <span className={cn(NUM, "text-[12px] text-muted-foreground")}>
+          {formatDate(m.voucherDate)}
+        </span>
         <DirectionBadge direction={m.direction} />
       </div>
       <div className="mt-1.5 flex items-baseline justify-between gap-2">
         <span className={cn(NUM, "text-[13px] text-foreground")}>
           {formatQty(m.quantity, 4)} <span className="text-faint">{uom}</span>
         </span>
-        <span className={cn(NUM, "text-[13px] font-medium text-foreground")}>{formatMoney(m.value)}</span>
+        <span className={cn(NUM, "text-[13px] font-medium text-foreground")}>
+          {formatMoney(m.value)}
+        </span>
       </div>
       <div className="mt-2 flex flex-wrap items-center justify-between gap-2">
         <SourceLink sourceType={m.sourceType} sourceId={m.sourceId} isReversal={m.isReversal} />
@@ -82,7 +98,10 @@ export function MovementCard({ m, uom }: { m: StockMovement; uom: string }) {
           className="inline-flex items-center gap-1 rounded-token border border-border-strong px-2 py-1 text-[11px] font-semibold text-muted-foreground hover:bg-muted hover:text-foreground"
           data-testid="sl-mv-runbalance"
         >
-          <ChevronDown className={cn("h-3 w-3 transition-transform", open && "rotate-180")} aria-hidden />
+          <ChevronDown
+            className={cn("h-3 w-3 transition-transform", open && "rotate-180")}
+            aria-hidden
+          />
           Running balance
         </button>
       </div>

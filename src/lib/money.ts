@@ -30,14 +30,31 @@ export function toDecimal(value: DecimalInput): Decimal {
   return new Decimal(value);
 }
 
-/** Group the integer part with thousands separators, keep the (already-fixed) fraction. */
-function groupThousands(fixed: string): string {
+/**
+ * Digit-grouping style for the integer part.
+ * - `western` — groups of three: `1,234,567` (default; the app-wide convention).
+ * - `lakh` — Bangladeshi/Indian numbering: `12,34,567` (last three, then twos).
+ *   Used where a screen's design file renders lakh grouping (e.g. the dashboard KPIs).
+ */
+export type MoneyGrouping = "western" | "lakh";
+
+/** Group the integer part with separators, keep the (already-fixed) fraction. */
+function groupInteger(fixed: string, grouping: MoneyGrouping): string {
   const negative = fixed.startsWith("-");
   const unsigned = negative ? fixed.slice(1) : fixed;
   const [intPart, fracPart] = unsigned.split(".");
-  const grouped = (intPart ?? "0").replace(/\B(?=(\d{3})+(?!\d))/g, ",");
+  const digits = intPart ?? "0";
+  const grouped = grouping === "lakh" ? groupLakh(digits) : digits.replace(/\B(?=(\d{3})+(?!\d))/g, ",");
   const body = fracPart !== undefined ? `${grouped}.${fracPart}` : grouped;
   return negative ? `-${body}` : body;
+}
+
+/** Bangladeshi/Indian grouping of an unsigned integer string: last three, then twos. */
+function groupLakh(digits: string): string {
+  if (digits.length <= 3) return digits;
+  const last3 = digits.slice(-3);
+  const rest = digits.slice(0, -3).replace(/\B(?=(\d{2})+(?!\d))/g, ",");
+  return `${rest},${last3}`;
 }
 
 export interface FormatMoneyOptions {
@@ -45,6 +62,8 @@ export interface FormatMoneyOptions {
   withSymbol?: boolean;
   /** Override the displayed fraction digits (default = MONEY_SCALE = 4). */
   fractionDigits?: number;
+  /** Integer digit grouping (default `western`; `lakh` for BD-numbering screens). */
+  grouping?: MoneyGrouping;
 }
 
 /**
@@ -52,9 +71,9 @@ export interface FormatMoneyOptions {
  * Rounds to the requested scale with ROUND_HALF_UP — exactly, no float.
  */
 export function formatMoney(value: DecimalInput, options: FormatMoneyOptions = {}): string {
-  const { withSymbol = true, fractionDigits = MONEY_SCALE } = options;
+  const { withSymbol = true, fractionDigits = MONEY_SCALE, grouping = "western" } = options;
   const fixed = toDecimal(value).toFixed(fractionDigits, Decimal.ROUND_HALF_UP);
-  const grouped = groupThousands(fixed);
+  const grouped = groupInteger(fixed, grouping);
   return withSymbol ? `${TAKA} ${grouped}` : grouped;
 }
 
@@ -63,7 +82,7 @@ export function formatMoney(value: DecimalInput, options: FormatMoneyOptions = {
  */
 export function formatQty(value: DecimalInput, fractionDigits = QTY_SCALE): string {
   const fixed = toDecimal(value).toFixed(fractionDigits, Decimal.ROUND_HALF_UP);
-  return groupThousands(fixed);
+  return groupInteger(fixed, "western");
 }
 
 /**

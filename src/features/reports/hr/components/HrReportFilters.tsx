@@ -3,18 +3,9 @@
 import { Input } from "@/components/ui/input";
 import { Label } from "@/components/ui/label";
 import { cn } from "@/lib/utils";
+import { useEmployeeOptions, useSalaryRunOptions } from "../../hooks/useMastersOptions";
 import { type ReportParams } from "../../types";
 import { type HrReportTab } from "../types";
-
-const SAMPLE_EMPLOYEES = [
-  { id: "emp-1", label: "Ashraf Uddin" },
-  { id: "emp-2", label: "Rahim Ali" },
-  { id: "emp-3", label: "Karim Sheikh" },
-];
-const SAMPLE_RUNS = [
-  { id: "run-1", label: "May 2026 · posted 05/06/2026" },
-  { id: "run-2", label: "April 2026 · posted 05/05/2026" },
-];
 
 /**
  * FE-60 report-specific filters (spec §7):
@@ -40,6 +31,7 @@ export function HrReportFilters({
   const month = (value.extras?.month as string | undefined) ?? "";
   const employeeId = (value.extras?.employeeId as string | undefined) ?? "";
   const salaryRunId = (value.extras?.salaryRunId as string | undefined) ?? "";
+  const salaryRuns = useSalaryRunOptions().data ?? [];
 
   function setExtra(key: string, val: string | null) {
     onChange({
@@ -105,7 +97,7 @@ export function HrReportFilters({
                 data-testid="hr-filter-run"
               >
                 <option value="">Select a salary run…</option>
-                {SAMPLE_RUNS.map((r) => (
+                {salaryRuns.map((r) => (
                   <option key={r.id} value={r.id}>
                     {r.label}
                   </option>
@@ -168,6 +160,7 @@ function EmployeeSelect({
   value: string;
   onChange: (v: string | null) => void;
 }) {
+  const employees = useEmployeeOptions().data ?? [];
   return (
     <div>
       <Label htmlFor="hr-employee">Employee</Label>
@@ -179,7 +172,7 @@ function EmployeeSelect({
         data-testid="hr-filter-employee"
       >
         <option value="">All employees</option>
-        {SAMPLE_EMPLOYEES.map((e) => (
+        {employees.map((e) => (
           <option key={e.id} value={e.id}>
             {e.label}
           </option>

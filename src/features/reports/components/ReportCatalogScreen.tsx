@@ -1,9 +1,7 @@
 "use client";
 
-import { useState } from "react";
-import Link from "next/link";
-import { useRouter } from "next/navigation";
-import { AlertCircle, WifiOff, ArrowUpRight } from "lucide-react";
+import { type ComponentType, useMemo, useState } from "react";
+import { AlertCircle, WifiOff, FileText, Search } from "lucide-react";
 import { Alert } from "@/components/ui/alert";
 import { Breadcrumb } from "@/components/ui/breadcrumb";
 import { Button } from "@/components/ui/button";
@@ -11,68 +9,84 @@ import { Card } from "@/components/ui/card";
 import { EmptyState } from "@/components/ui/empty-state";
 import { Skeleton } from "@/components/ui/skeleton";
 import { useOnline } from "@/lib/hooks/use-online";
-import { useAuthenticatedUser } from "@/providers/session-provider";
-import { formatMoney } from "@/lib/money";
-import { useReportCatalog, useRunReport } from "../hooks/useReportCatalog";
-import { type ReportDescriptor, type ReportParams } from "../types";
-import { ReportCatalogList } from "./ReportCatalogList";
-import { ReportParameterPanel } from "./ReportParameterPanel";
-import { ReportExportControl } from "./ReportExportControl";
-import { ReportResultTable, type ReportColumn } from "./ReportResultTable";
+import { useReportCatalog } from "../hooks/useReportCatalog";
+import {
+  REPORT_CATEGORY_ORDER,
+  type ReportCategory,
+  type ReportDescriptor,
+} from "../types";
+import { ReportCatalogBrowse } from "./ReportCatalogBrowse";
+import { FinancialStatementsScreen } from "../financial-statements/components/FinancialStatementsScreen";
+import { HrReportsViewer } from "../hr/components/HrReportsViewer";
+import { InventoryReportsViewer } from "../inventory/components/InventoryReportsViewer";
+import { ProjectIpcViewer } from "../project-ipc/components/ProjectIpcViewer";
+import { RequisitionCostControlView } from "../rcc/components/RequisitionCostControlView";
+import { TrialBalanceLedgersViewer } from "../viewers/trial-balance-ledgers/components/TrialBalanceLedgersViewer";
+
+/** Each report category is rendered inline by its own viewer (embedded mode). */
+type EmbeddableViewer = ComponentType<{ embedded?: boolean; initialReport?: string }>;
+const CATEGORY_VIEWER: Record<ReportCategory, EmbeddableViewer> = {
+  LEDGERS_REGISTERS: TrialBalanceLedgersViewer,
+  FINANCIAL_STATEMENTS: FinancialStatementsScreen,
+  PROJECT_IPC: ProjectIpcViewer,
+  INVENTORY: InventoryReportsViewer,
+  REQUISITION_COST_CONTROL: RequisitionCostControlView,
+  HR: HrReportsViewer,
+};
 
 /**
- * FE-54 `/reports` hub — the catalog + shared parameter panel + Export control
- * + a demo inline result table for the Trial-balance sample. Selecting any
- * other catalog entry routes to its viewer (implemented by the sibling viewer
- * briefs). Read-only: no post/edit/delete anywhere in this module.
+ * FE-54 `/reports` hub — a single-page runner: the catalog (category tabs + report
+ * chips) on top, and the selected report's viewer rendered INLINE below (embedded,
+ * so it drops its own page chrome). Picking a chip opens that report's parameters +
+ * result right here — no navigation. Read-only: no post/edit/delete anywhere.
  */
 export function ReportCatalogScreen() {
   const online = useOnline();
-  const user = useAuthenticatedUser();
   const catalog = useReportCatalog();
-  const router = useRouter();
   const [selected, setSelected] = useState<ReportDescriptor | null>(null);
-  const [params, setParams] = useState<ReportParams>({
-    financialYearId: user.financialYearId ?? "",
-  });
-  const [ran, setRan] = useState(false);
+  const [query, setQuery] = useState("");
 
-  // Inline demo runner — only for the sample "trial-balance" entry; every
-  // other entry routes to its viewer brief.
-  const inlineEnabled = selected?.name === "trial-balance" && ran;
-  const run = useRunReport<TrialBalanceRow>(inlineEnabled ? selected : null, inlineEnabled ? params : null, inlineEnabled);
+  const reports = useMemo(() => catalog.data ?? [], [catalog.data]);
+  // First non-empty category becomes the default tab; the tab follows the
+  // selected report once one is picked.
+  const firstCategory = useMemo<ReportCategory>(() => {
+    const present = new Set(reports.map((r) => r.category));
+    return REPORT_CATEGORY_ORDER.find((c) => present.has(c)) ?? "LEDGERS_REGISTERS";
+  }, [reports]);
+  const [category, setCategory] = useState<ReportCategory | null>(null);
+  const activeCategory = category ?? selected?.category ?? firstCategory;
 
   function onSelect(d: ReportDescriptor) {
     setSelected(d);
-    setRan(false);
-    // Reset filters (retain FY only) so parameters entered against one report
-    // never bleed into another. The seed FY comes from the shell (spec §5).
-    setParams({ financialYearId: user.financialYearId ?? "" });
-    // Route straight to the viewer for every real report (spec §3). The demo
-    // "trial-balance" catalog entry stays inline so the hub renders a result
-    // even before the viewer briefs land.
-    if (d.name !== "trial-balance") {
-      router.push(d.viewerRoute);
-    }
+    setCategory(d.category);
   }
 
-  function onRun(p: ReportParams) {
-    setParams(p);
-    setRan(true);
-  }
+  const SelectedViewer = selected ? CATEGORY_VIEWER[selected.category] : null;
 
   return (
     <div className="mx-auto max-w-[1400px] px-6 py-6" data-testid="report-catalog-screen">
       <Breadcrumb items={[{ label: "Reports" }]} />
-      <div className="mb-4 mt-1 flex flex-wrap items-start justify-between gap-3">
-        <div>
-          <h1 className="text-[23px] font-bold tracking-[-0.02em]" data-testid="reports-title">
-            Reports
-          </h1>
-          <p className="mt-1 text-[13px] text-muted-foreground">
-            Every read-only report in one place. Pick a report on the left, set parameters, and Run.
-          </p>
-        </div>
+      <div className="mb-4 mt-1 flex flex-wrap items-center gap-3">
+        <h1 className="text-[23px] font-bold tracking-[-0.02em]" data-testid="reports-title">
+          Reports
+        </h1>
+        <span className="inline-flex h-[23px] items-center gap-1.5 rounded-pill bg-muted px-2.5 text-[11.5px] font-semibold text-muted-foreground">
+          <span aria-hidden className="h-1.5 w-1.5 rounded-full bg-faint" />
+          Read-only · no records created here
+        </span>
+        <label className="relative ml-auto flex h-9 w-[280px] items-center gap-2 rounded-token border border-border-strong bg-surface px-3 focus-within:border-accent focus-within:shadow-focus">
+          <Search className="h-[15px] w-[15px] shrink-0 text-faint" aria-hidden />
+          <input
+            type="search"
+            value={query}
+            onChange={(e) => setQuery(e.target.value)}
+            placeholder="Search reports…"
+            aria-label="Search reports"
+            data-testid="reports-search"
+            suppressHydrationWarning
+            className="min-w-0 flex-1 bg-transparent text-[13px] text-foreground outline-none placeholder:text-faint"
+          />
+        </label>
       </div>
 
       {!online && (
@@ -89,156 +103,63 @@ export function ReportCatalogScreen() {
         </Alert>
       )}
 
-      <div className="grid gap-6 lg:grid-cols-[320px_1fr]">
-        <aside className="space-y-3">
-          {catalog.isLoading ? (
-            <Card className="space-y-2 p-4" data-testid="catalog-loading">
-              {Array.from({ length: 8 }).map((_, i) => (
-                <Skeleton key={i} className="h-8 w-full" />
+      <div className="space-y-4">
+        {/* Catalog — top browse strip: category tabs + report chips. */}
+        {catalog.isLoading ? (
+          <Card className="space-y-3 px-4 py-3" data-testid="catalog-loading">
+            <Skeleton className="h-8 w-full max-w-md" />
+            <div className="flex flex-wrap gap-2">
+              {Array.from({ length: 6 }).map((_, i) => (
+                <Skeleton key={i} className="h-8 w-32" />
               ))}
-            </Card>
-          ) : catalog.isError ? (
-            <Card className="p-6" data-testid="catalog-error">
-              <EmptyState
-                icon={AlertCircle}
-                title="Couldn't load the report list."
-                action={
-                  <Button size="sm" onClick={() => catalog.refetch()} data-testid="catalog-retry">
-                    Retry
-                  </Button>
-                }
-              />
-            </Card>
-          ) : (
-            <Card className="p-3">
-              <ReportCatalogList
-                reports={catalog.data ?? []}
-                selected={selected?.name ?? null}
-                onSelect={onSelect}
-              />
-            </Card>
-          )}
-        </aside>
+            </div>
+          </Card>
+        ) : catalog.isError ? (
+          <Card className="p-6" data-testid="catalog-error">
+            <EmptyState
+              icon={AlertCircle}
+              title="Couldn't load the report list."
+              action={
+                <Button size="sm" onClick={() => catalog.refetch()} data-testid="catalog-retry">
+                  Retry
+                </Button>
+              }
+            />
+          </Card>
+        ) : (
+          <Card className="px-4 pb-3 pt-2">
+            <ReportCatalogBrowse
+              reports={reports}
+              selected={selected?.name ?? null}
+              activeCategory={activeCategory}
+              onCategoryChange={setCategory}
+              onSelect={onSelect}
+              query={query}
+            />
+          </Card>
+        )}
 
-        <section className="min-w-0 space-y-4">
-          {!selected ? (
+        <section className="min-w-0" data-testid="report-runner">
+          {!selected || !SelectedViewer ? (
             <Card className="p-10" data-testid="reports-idle">
               <EmptyState
-                icon={ArrowUpRight}
+                icon={FileText}
                 title="Select a report to begin."
-                description="Every report opens the same parameter panel — Financial year, project scope, dates, plus report-specific filters."
+                description="Pick any report from the catalog. Its parameters open here — set them, then Run to render on-screen or export to Excel / PDF."
               />
             </Card>
           ) : (
-            <>
-              <ReportParameterPanel
-                descriptor={selected}
-                value={params}
-                onChange={setParams}
-                onRun={onRun}
-                running={run.isFetching}
-                disabled={!online}
-              />
-
-              {selected.name === "trial-balance" && (
-                <Card className="overflow-hidden">
-                  <div className="flex flex-wrap items-center justify-between gap-2 border-b border-border px-4 py-3">
-                    <div>
-                      <h2 className="text-[14px] font-bold text-foreground">{selected.title}</h2>
-                      <p className="mt-0.5 text-[11.5px] text-muted-foreground">
-                        {selected.description}
-                      </p>
-                    </div>
-                    <ReportExportControl
-                      reportName={selected.name}
-                      params={params}
-                      disabled={!online}
-                    />
-                  </div>
-                  <ReportResultTable<TrialBalanceRow>
-                    columns={TRIAL_BALANCE_COLUMNS}
-                    rows={run.data?.rows}
-                    isLoading={run.isFetching}
-                    isError={run.isError}
-                    onRetry={() => run.refetch()}
-                    generatedAt={run.data?.meta.generatedAt}
-                    captionId="report-generated-caption"
-                    totalsFooter={
-                      run.data
-                        ? (
-                            <div className="grid grid-cols-[1fr_auto_auto] items-center gap-4 px-4 py-3 text-[12.5px] font-semibold">
-                              <span className="text-muted-foreground">Totals</span>
-                              <span className="tabular-nums">
-                                {formatMoney(String(run.data.meta.totals?.debit ?? "0"))}
-                              </span>
-                              <span className="tabular-nums">
-                                {formatMoney(String(run.data.meta.totals?.credit ?? "0"))}
-                              </span>
-                            </div>
-                          )
-                        : null
-                    }
-                  />
-                </Card>
-              )}
-
-              {selected.name !== "trial-balance" && (
-                <Card className="p-8" data-testid="reports-viewer-redirect">
-                  <EmptyState
-                    icon={ArrowUpRight}
-                    title="Opening the viewer…"
-                    description="The dedicated viewer for this report handles its columns + totals."
-                    action={
-                      <Button asChild variant="outline">
-                        <Link href={selected.viewerRoute}>Go to viewer</Link>
-                      </Button>
-                    }
-                  />
-                </Card>
-              )}
-            </>
+            // Keyed by report name so switching chips re-opens the viewer on the
+            // right sub-report. The viewer runs + renders its own result inline.
+            <SelectedViewer key={selected.name} embedded initialReport={selected.name} />
           )}
         </section>
+
+        <p className="pt-1 text-[11.5px] leading-relaxed text-faint" data-testid="reports-caption">
+          Default: the catalog is role-filtered — a report the caller can&apos;t run is absent, not
+          shown-then-403&apos;d.
+        </p>
       </div>
     </div>
   );
 }
-
-// ── Trial-balance row shape + columns (demo of the shared shell) ─────────────
-interface TrialBalanceRow {
-  accountId: string;
-  accountCode: string;
-  accountName: string | null;
-  debit: string;
-  credit: string;
-}
-const TRIAL_BALANCE_COLUMNS: ReportColumn<TrialBalanceRow>[] = [
-  { key: "code", header: "Code", render: (r) => r.accountCode },
-  {
-    key: "account",
-    header: "Account",
-    render: (r) =>
-      r.accountName ? (
-        r.accountName
-      ) : (
-        <span className="text-muted-foreground">
-          {r.accountId}
-          <span className="ml-1 text-[10.5px] italic">(name unavailable)</span>
-        </span>
-      ),
-  },
-  {
-    key: "debit",
-    header: "Debit",
-    align: "right",
-    numeric: true,
-    render: (r) => formatMoney(r.debit),
-  },
-  {
-    key: "credit",
-    header: "Credit",
-    align: "right",
-    numeric: true,
-    render: (r) => formatMoney(r.credit),
-  },
-];
