@@ -106,6 +106,7 @@
   --color-violet-ink: #5b3fd0; /* violet-coloured text on violet-soft (AA) — e.g. Equity account-type pill */
   --color-teal: #12a8a8;
   --color-teal-soft: #e3f5f5;
+  --color-teal-ink: #0b7676; /* teal-coloured text on teal-soft (AA) — e.g. RTGS payment-mode pill */
 
   /* Radius scale */
   --radius-sm: 6px;
@@ -173,7 +174,10 @@
   --color-border-hover: #3a4d72;
   --color-input: #2c3e60;
   --color-ring: #a3ce3c;
+  --color-violet-soft: #201a3a;
   --color-violet-ink: #b9a6f7;
+  --color-teal-soft: #0f2626;
+  --color-teal-ink: #63d3d3;
 
   --color-success-soft: #11271e;
   --color-success-ink: #4fd49b;

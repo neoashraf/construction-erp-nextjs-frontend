@@ -92,6 +92,7 @@ const config: Config = {
         teal: {
           DEFAULT: "var(--color-teal)",
           soft: "var(--color-teal-soft)",
+          ink: "var(--color-teal-ink)",
         },
 
         // categorical (charts)

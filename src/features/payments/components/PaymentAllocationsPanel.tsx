@@ -38,10 +38,16 @@ export function PaymentAllocationsPanel({ allocations }: { allocations: PaymentA
           className="grid grid-cols-[1.6fr_0.7fr_1fr_1fr_auto] items-center gap-2 border-t border-border px-5 py-3 text-[13px]"
           data-testid={`payment-allocation-${a.payableId}`}
         >
-          <span className="font-mono font-semibold text-foreground [overflow-wrap:anywhere]">{a.payableId}</span>
+          <Link
+            href={outstandingLinkFor(a.payableType, a.payableId)}
+            className="min-w-0 truncate font-mono font-semibold text-accent-ink hover:underline"
+            title={a.payableId}
+          >
+            {a.payableId}
+          </Link>
           <span><PayableTypeBadge type={a.payableType} /></span>
           <span className="text-right font-mono tabular-nums text-foreground">{formatMoney(a.amountAllocated)}</span>
-          <span className="text-right font-mono tabular-nums text-muted-foreground">
+          <span className={a.accruedAmount != null ? "text-right font-mono tabular-nums text-warning-ink" : "text-right font-mono tabular-nums text-faint"}>
             {a.accruedAmount != null ? formatMoney(a.accruedAmount) : "—"}
           </span>
           <Link

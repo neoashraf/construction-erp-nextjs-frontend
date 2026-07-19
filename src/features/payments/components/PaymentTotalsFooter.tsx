@@ -1,7 +1,6 @@
 "use client";
 
 import { CheckCircle2, AlertCircle } from "lucide-react";
-import { Card } from "@/components/ui/card";
 import { formatMoney } from "@/lib/money";
 import {
   allocatedTotal,
@@ -31,46 +30,77 @@ export function PaymentTotalsFooter({
   const sum = allocatedTotal(rows);
   const remainder = unallocatedRemainder(paymentAmount, rows);
   const over = isOverAllocated(paymentAmount, rows);
-  const balanced = isFullyAllocated(paymentAmount, rows);
   const totalOut = (Number(paymentAmount || "0") + Number(bankChargesAmount || "0")).toFixed(4);
 
+  const hasBankCharges = Number(bankChargesAmount || "0") > 0;
   return (
-    <Card
+    <div
       aria-live="polite"
       id={totalsId}
-      className="flex flex-wrap items-center gap-4 p-4"
+      className="flex flex-wrap items-center gap-5 px-5 py-4 lg:px-6"
       data-testid="payment-totals-footer"
     >
       <Cell label="Σ allocations" value={sum} testId="payment-totals-sum" />
       <Cell
-        label="Unallocated"
+        label="Unallocated · advance / on-account"
         value={remainder}
         testId="payment-totals-unallocated"
         tone={over ? "destructive" : remainder === "0.0000" ? "muted" : "warning"}
       />
-      <Cell label="Total cash out (payment + bank charges)" value={totalOut} testId="payment-totals-cashout" strong />
-      <div className="ml-auto flex items-center gap-2" data-testid="payment-balance-indicator">
-        {over ? (
-          <span className="inline-flex items-center gap-1.5 rounded-token bg-destructive-soft px-3 py-1.5 text-[12.5px] font-semibold text-destructive-ink">
-            <AlertCircle className="h-4 w-4" aria-hidden />
-            Over-allocated
-          </span>
-        ) : balanced ? (
-          <span className="inline-flex items-center gap-1.5 rounded-token bg-success-soft px-3 py-1.5 text-[12.5px] font-semibold text-success-ink">
-            <CheckCircle2 className="h-4 w-4" aria-hidden />
-            Balanced — fully allocated
-          </span>
-        ) : (
-          <span
-            className="inline-flex items-center gap-1.5 rounded-token bg-warning-soft px-3 py-1.5 text-[12.5px] font-semibold text-warning-ink"
-            data-testid="payment-balance-indicator-unallocated"
-          >
-            <AlertCircle className="h-4 w-4" aria-hidden />
-            Unallocated: ৳{formatMoney(remainder)} — allocate the full amount to post
-          </span>
-        )}
+      <Cell label="Bank charges" value={bankChargesAmount || "0"} testId="payment-totals-bank-charges" tone={hasBankCharges ? "warning" : "muted"} />
+      {/* Total cash out — navy filled callout (design summary strip). */}
+      <div className="ml-auto rounded-card bg-primary px-4 py-2.5 text-right" data-testid="payment-totals-cashout-box">
+        <div className="text-[10.5px] font-semibold uppercase tracking-[0.4px] text-primary-foreground/70">Total cash out</div>
+        <div className="mt-0.5 font-mono text-[18px] font-bold tabular-nums text-primary-foreground" data-testid="payment-totals-cashout">
+          {formatMoney(totalOut, { fractionDigits: 2 })}
+        </div>
       </div>
-    </Card>
+    </div>
+  );
+}
+
+/**
+ * Balance status pill for the action bar (design: green "Balanced — Σ debit = Σ credit"
+ * on the left of the bottom action row). Over-allocated → destructive; not-yet-full →
+ * warning "Unallocated …".
+ */
+export function PaymentBalancePill({
+  paymentAmount,
+  bankChargesAmount,
+  rows,
+}: {
+  paymentAmount: string;
+  bankChargesAmount: string;
+  rows: AllocationRow[];
+}) {
+  const remainder = unallocatedRemainder(paymentAmount, rows);
+  const over = isOverAllocated(paymentAmount, rows);
+  const balanced = isFullyAllocated(paymentAmount, rows);
+  const total = (Number(paymentAmount || "0") + Number(bankChargesAmount || "0")).toFixed(4);
+  if (over) {
+    return (
+      <span className="inline-flex items-center gap-1.5 rounded-pill bg-destructive-soft px-3 py-1.5 text-[12.5px] font-semibold text-destructive-ink" data-testid="payment-balance-indicator">
+        <AlertCircle className="h-4 w-4" aria-hidden />
+        Over-allocated
+      </span>
+    );
+  }
+  if (balanced) {
+    return (
+      <span className="inline-flex items-center gap-1.5 rounded-pill bg-success-soft px-3 py-1.5 text-[12.5px] font-semibold text-success-ink" data-testid="payment-balance-indicator">
+        <CheckCircle2 className="h-4 w-4" aria-hidden />
+        Balanced — Σ debit ৳{formatMoney(total, { fractionDigits: 2 })} = Σ credit ৳{formatMoney(total, { fractionDigits: 2 })}
+      </span>
+    );
+  }
+  return (
+    <span
+      className="inline-flex items-center gap-1.5 rounded-pill bg-warning-soft px-3 py-1.5 text-[12.5px] font-semibold text-warning-ink"
+      data-testid="payment-balance-indicator-unallocated"
+    >
+      <AlertCircle className="h-4 w-4" aria-hidden />
+      Unallocated: ৳{formatMoney(remainder, { fractionDigits: 2 })} — allocate the full amount to post
+    </span>
   );
 }
 
@@ -102,7 +132,7 @@ function Cell({
         className={`mt-0.5 font-mono tabular-nums ${strong ? "text-[16px] font-bold" : "text-[13.5px] font-semibold"} ${cls}`}
         data-testid={testId}
       >
-        {formatMoney(value)}
+        {formatMoney(value, { fractionDigits: 2 })}
       </div>
     </div>
   );

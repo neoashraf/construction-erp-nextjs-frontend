@@ -7,7 +7,6 @@ import { AlertCircle, ArrowLeft, ExternalLink, Lock, Repeat, Search, XCircle } f
 import { Card } from "@/components/ui/card";
 import { Button } from "@/components/ui/button";
 import { Alert } from "@/components/ui/alert";
-import { Badge } from "@/components/ui/badge";
 import { EmptyState } from "@/components/ui/empty-state";
 import { Skeleton } from "@/components/ui/skeleton";
 import { Breadcrumb } from "@/components/ui/breadcrumb";
@@ -23,7 +22,7 @@ import { usePaymentViewer } from "../hooks/usePaymentViewer";
 import { usePaymentEditorMutations } from "../hooks/usePaymentEditorMutations";
 import { mapPaymentError } from "../schemas/payment.schema";
 import { PaymentStatusBadge } from "./PaymentStatusBadge";
-import { PaymentModeBadge, paymentModeLabel } from "./PaymentModeBadge";
+import { PaymentModeBadge } from "./PaymentModeBadge";
 import { PaymentLedgerLinesTable } from "./PaymentLedgerLinesTable";
 import { PaymentAllocationsPanel } from "./PaymentAllocationsPanel";
 import { PaymentLinkagePanel } from "./PaymentLinkagePanel";
@@ -80,12 +79,12 @@ export function PaymentViewer({ paymentId }: { paymentId: string }) {
         <Card className="mt-6 p-10" data-testid="payment-viewer-not-found">
           <EmptyState
             icon={Search}
-            title="Payment not found"
-            description="This payment doesn't exist or isn't in your company."
+            title="This payment doesn't exist or isn't in your company."
+            description="Check the number, or head back to the payments register to find the one you're after."
             action={
               <Button size="md" onClick={goBack}>
                 <ArrowLeft className="h-4 w-4" aria-hidden />
-                Back
+                Back to payments
               </Button>
             }
           />
@@ -163,9 +162,17 @@ export function PaymentViewer({ paymentId }: { paymentId: string }) {
           Payment {payment.entryNo ?? ""}
         </h1>
         <PaymentStatusBadge status={payment.status} />
-        <Badge tone="info" className="font-mono">
-          {payment.entryNo}
-        </Badge>
+        <PaymentModeBadge mode={payment.paymentMode} />
+        {payment.journalEntryId && (
+          <Link
+            href={`/ledger/entry-viewer?id=${payment.journalEntryId}`}
+            className="ml-auto inline-flex items-center gap-1 text-[12.5px] font-semibold text-accent-ink hover:underline"
+            data-testid="payment-viewer-header-ledger-link"
+          >
+            View ledger entry
+            <ExternalLink className="h-3.5 w-3.5" aria-hidden />
+          </Link>
+        )}
       </div>
 
       {!online && (
@@ -176,15 +183,14 @@ export function PaymentViewer({ paymentId }: { paymentId: string }) {
       {banner && <Alert tone="destructive" title={banner} className="mt-3" data-testid="payment-viewer-banner" />}
       {isCancelled && (
         <div
-          className="mt-3 flex flex-wrap items-center gap-3 rounded-card border border-border-strong bg-muted p-3.5"
+          className="mt-3 flex items-start gap-3 rounded-card border-l-4 border-l-destructive border-y border-r border-y-border border-r-border bg-destructive-soft/40 p-3.5"
           data-testid="payment-cancelled-ribbon"
         >
-          <span className="inline-flex h-6 items-center gap-1.5 rounded-pill bg-border-strong px-2.5 text-[11px] font-bold uppercase tracking-[0.3px] text-muted-foreground">
-            Superseded
-          </span>
-          <span className="text-[12.5px] text-muted-foreground">
-            This payment was cancelled. Each settled payable&rsquo;s outstanding has risen back.
-          </span>
+          <ArrowLeft className="mt-0.5 h-4 w-4 flex-none text-destructive-ink" aria-hidden />
+          <p className="text-[12.5px] leading-relaxed text-muted-foreground">
+            <strong className="font-semibold text-foreground">This payment was cancelled.</strong> The reversal restored
+            the outstanding balance of each settled payable. The original entry below is retained for the record.
+          </p>
         </div>
       )}
 
@@ -200,17 +206,10 @@ export function PaymentViewer({ paymentId }: { paymentId: string }) {
 
       <Card className="mt-4 p-5" data-testid="payment-viewer-header">
         <div className="flex flex-wrap items-start gap-6">
-          <HeaderField label="Payee" value={partyName} minWidth={200} bn />
-          <div>
-            <div className="text-[10.5px] font-semibold uppercase tracking-[0.4px] text-muted-foreground">Payment</div>
-            <div className="mt-0.5 text-[14px] text-foreground">
-              <PaymentModeBadge mode={payment.paymentMode} className="mr-1 inline-flex text-[13px] text-foreground" />
-              {payment.chequeTxnRef ? ` · ${payment.chequeTxnRef}` : ""}
-              <span className="ml-1 text-muted-foreground">({paymentModeLabel(payment.paymentMode)})</span>
-            </div>
-          </div>
+          <HeaderField label="Payee party" value={partyName} minWidth={200} bn />
+          <HeaderField label="Payment date" value={formatDate(payment.paymentDate)} mono />
           <HeaderField label="Paying account" value={depositName} />
-          <HeaderField label="Date" value={formatDate(payment.paymentDate)} mono />
+          <HeaderField label="Txn ref" value={payment.chequeTxnRef ?? "—"} mono />
           <div className="ml-auto flex flex-col items-end gap-0.5">
             <span className="text-[10.5px] font-semibold uppercase tracking-[0.4px] text-muted-foreground">Posted</span>
             <span className="font-mono text-[13px] tabular-nums text-foreground" data-testid="payment-viewer-posted-at">
@@ -252,16 +251,20 @@ export function PaymentViewer({ paymentId }: { paymentId: string }) {
           Back to payments
         </Button>
         {payment.journalEntryId && (
-          <Button variant="outline" asChild disabled={!online}>
-            <Link href={`/ledger/entry-viewer?id=${payment.journalEntryId}`} data-testid="payment-viewer-view-in-ledger">
+          <Button variant="outline" asChild disabled={!online} data-testid="payment-viewer-view-in-ledger">
+            <Link href={`/ledger/entry-viewer?id=${payment.journalEntryId}`}>
               <ExternalLink className="h-4 w-4" aria-hidden />
               View ledger entry
             </Link>
           </Button>
         )}
-        {!isCancelled && canCancel && (
-          <>
-            <span className="mx-1 h-6 w-px bg-border-strong" aria-hidden />
+        {isCancelled ? (
+          <span className="ml-auto inline-flex items-center gap-1.5 text-[12.5px] text-muted-foreground" data-testid="payment-viewer-cancelled-note">
+            <Lock className="h-4 w-4" aria-hidden />
+            Cancelled payments have no further actions.
+          </span>
+        ) : canCancel ? (
+          <div className="ml-auto flex items-center gap-2.5">
             <Button variant="outline" asChild data-testid="payment-viewer-correct">
               <Link href={`/payments/${payment.id}`}>
                 <Repeat className="h-4 w-4" aria-hidden />
@@ -278,8 +281,8 @@ export function PaymentViewer({ paymentId }: { paymentId: string }) {
               <XCircle className="h-4 w-4" aria-hidden />
               Cancel payment
             </Button>
-          </>
-        )}
+          </div>
+        ) : null}
       </div>
 
       <CancelPaymentDialog

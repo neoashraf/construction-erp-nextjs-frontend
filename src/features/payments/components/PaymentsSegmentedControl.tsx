@@ -19,7 +19,7 @@ export function PaymentsSegmentedControl({
     <div
       role="tablist"
       aria-label="Payments views"
-      className="inline-flex rounded-token border border-border-strong bg-surface p-0.5"
+      className="inline-flex rounded-token border border-border bg-surface-2 p-0.5"
       data-testid="payments-segmented"
     >
       <Tab active={value === "PAYMENTS"} onClick={() => onChange("PAYMENTS")} testId="payments-tab-payments">
@@ -51,8 +51,10 @@ function Tab({
       onClick={onClick}
       data-testid={testId}
       className={cn(
-        "rounded-token px-3.5 py-1.5 text-[12.5px] font-semibold transition-colors",
-        active ? "bg-primary text-primary-foreground" : "text-muted-foreground hover:text-foreground",
+        "rounded-[6px] px-3.5 py-1.5 text-[12.5px] font-semibold transition-colors",
+        active
+          ? "bg-surface text-foreground shadow-sm"
+          : "text-muted-foreground hover:text-foreground",
       )}
     >
       {children}

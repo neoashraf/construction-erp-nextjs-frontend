@@ -115,6 +115,10 @@ function renderScreen(role: Role = "ACCOUNTS_MANAGER") {
 
 beforeEach(() => {
   jest.clearAllMocks();
+  // Radix menus (row kebab, mode multi-select) set `pointer-events: none` on <body>
+  // and jsdom doesn't always clear it on unmount, leaking across tests. Reset it so
+  // subsequent pointer interactions aren't blocked. (See PointerEventsGuard.)
+  document.body.style.removeProperty("pointer-events");
   partiesMock.mockResolvedValue(PARTIES);
   accountsMock.mockResolvedValue(ACCOUNTS);
   openPayablesMock.mockResolvedValue([]);
@@ -128,16 +132,28 @@ beforeEach(() => {
   });
 });
 
+afterEach(() => {
+  document.body.style.removeProperty("pointer-events");
+});
+
+/** user-event configured to skip the pointer-events check (Radix leaves body locked in jsdom). */
+const ue = () => userEvent.setup({ pointerEventsCheck: 0 });
+
 describe("PaymentListScreen — default list render (spec §5/§6)", () => {
   it("distinguishes Draft/Posted/Cancelled rows with badges + right-aligned money", async () => {
     listMock.mockResolvedValue(page([POSTED, DRAFT, CANCELLED]));
     renderScreen();
     await screen.findByTestId("payment-list");
     // Draft row shows "Draft" (no entryNo), the others show the gapless number.
+    // (jsdom renders both the >=lg table row and the <lg card; assert the table row.)
     expect(screen.getByTestId("payment-row-DRAFT").textContent).toContain("Draft");
     expect(screen.getByTestId("payment-row-POSTED").textContent).toContain("PAY/2526/0031");
     expect(screen.getByTestId("payment-row-CANCELLED").textContent).toContain("PAY/2526/0028");
-    expect(screen.getAllByTestId(/^payment-status-/)).toHaveLength(3);
+    // Each lifecycle status pill is present (a Draft row carries the pill in both the
+    // number cell and the status column, per the design file).
+    expect(screen.getAllByTestId("payment-status-POSTED").length).toBeGreaterThanOrEqual(1);
+    expect(screen.getAllByTestId("payment-status-DRAFT").length).toBeGreaterThanOrEqual(1);
+    expect(screen.getAllByTestId("payment-status-CANCELLED").length).toBeGreaterThanOrEqual(1);
   });
 
   it("routes a DRAFT row link to the editor and a POSTED row to the viewer", async () => {
@@ -155,9 +171,11 @@ describe("PaymentListScreen — delete-draft (FR-PAY-020)", () => {
     deleteMock.mockResolvedValue(undefined);
     renderScreen();
     await screen.findByTestId("payment-list");
-    await userEvent.click(screen.getByTestId(`payment-row-delete-${DRAFT.id}`));
+    // Delete lives behind the row kebab (design: "Row kebab → Delete").
+    await ue().click(screen.getByTestId(`payment-row-menu-${DRAFT.id}`));
+    await ue().click(await screen.findByTestId(`payment-row-delete-${DRAFT.id}`));
     const dialog = await screen.findByTestId("payment-delete-dialog");
-    await userEvent.click(screen.getByTestId("payment-delete-confirm"));
+    await ue().click(screen.getByTestId("payment-delete-confirm"));
     await waitFor(() => expect(deleteMock).toHaveBeenCalledWith(DRAFT.id));
     expect(dialog).not.toBeInTheDocument();
   });
@@ -198,9 +216,9 @@ describe("PaymentListScreen — segmented control + drill-in (spec §3/§5/§9)"
     });
     renderScreen();
     await screen.findByTestId("payment-list");
-    await userEvent.click(screen.getByTestId("payments-tab-outstanding"));
+    await ue().click(screen.getByTestId("payments-tab-outstanding"));
     await screen.findByTestId("payment-outstanding-list");
-    await userEvent.click(screen.getByTestId("payment-outstanding-expand-bill-1"));
+    await ue().click(screen.getByTestId("payment-outstanding-expand-bill-1"));
     const link = await screen.findByTestId("payment-drill-in-link-pay-9");
     expect(link).toHaveAttribute("href", "/payments/pay-9/view");
   });
@@ -213,8 +231,8 @@ describe("PaymentListScreen — empty + error states (spec §6)", () => {
       .mockResolvedValueOnce(page([]));
     renderScreen();
     await screen.findByTestId("payment-list");
-    await userEvent.click(screen.getByTestId("payment-filter-status-DRAFT"));
-    await userEvent.click(screen.getByTestId("payment-filter-apply"));
+    await ue().click(screen.getByTestId("payment-filter-status-DRAFT"));
+    await ue().click(screen.getByTestId("payment-filter-apply"));
     expect(await screen.findByTestId("payment-list-empty")).toHaveTextContent(
       "No payments match the selected filters.",
     );
@@ -232,13 +250,13 @@ describe("PaymentListScreen — empty + error states (spec §6)", () => {
     listMock.mockResolvedValue(page([POSTED]));
     renderScreen();
     await screen.findByTestId("payment-list");
-    await userEvent.click(screen.getByTestId("payment-filter-more"));
+    await ue().click(screen.getByTestId("payment-filter-more"));
     // Type dateFrom later than dateTo (raw text field accepts DD/MM/YYYY).
     const dateFrom = screen.getByTestId("payment-filter-date-from") as HTMLInputElement;
     const dateTo = screen.getByTestId("payment-filter-date-to") as HTMLInputElement;
-    await userEvent.type(dateFrom, "10/07/2026");
-    await userEvent.type(dateTo, "01/07/2026");
-    await userEvent.click(screen.getByTestId("payment-filter-apply"));
+    await ue().type(dateFrom, "10/07/2026");
+    await ue().type(dateTo, "01/07/2026");
+    await ue().click(screen.getByTestId("payment-filter-apply"));
     expect(await screen.findByTestId("payment-filter-date-err")).toHaveTextContent(
       "Date from cannot be after date to.",
     );
