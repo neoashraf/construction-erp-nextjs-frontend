@@ -205,7 +205,7 @@ export function StockBalancesTable({
                       </button>
                     </div>
                     <div className="flex justify-center" onClick={(e) => e.stopPropagation()}>
-                      <DropdownMenu>
+                      <DropdownMenu modal={false}>
                         <DropdownMenuTrigger asChild>
                           <button
                             type="button"

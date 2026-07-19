@@ -137,6 +137,7 @@ export function StockLedgerScreen() {
               As of
             </span>
             <DropdownMenu
+              modal={false}
               open={asOfOpen}
               onOpenChange={(o) => {
                 setAsOfOpen(o);
