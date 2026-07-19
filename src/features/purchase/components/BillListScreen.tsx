@@ -2,7 +2,7 @@
 
 import { useMemo, useState } from "react";
 import Link from "next/link";
-import { Plus, PackageOpen, WifiOff } from "lucide-react";
+import { Plus, FileText, PackageOpen, WifiOff } from "lucide-react";
 import { Card } from "@/components/ui/card";
 import { Button } from "@/components/ui/button";
 import { Skeleton } from "@/components/ui/skeleton";
@@ -11,7 +11,8 @@ import { Alert } from "@/components/ui/alert";
 import { Breadcrumb } from "@/components/ui/breadcrumb";
 import { cn } from "@/lib/utils";
 import { parseDate } from "@/lib/format";
-import { formatMoney, toDecimal } from "@/lib/money";
+import { toDecimal } from "@/lib/money";
+import { moneyWithSymbol } from "../format";
 import { useOnline } from "@/lib/hooks/use-online";
 import { useAuthenticatedUser } from "@/providers/session-provider";
 import { canWriteBill } from "../access";
@@ -19,6 +20,7 @@ import { usePurchaseBills } from "../hooks/useBillList";
 import { useProjectOptions, useSupplierOptions } from "../hooks/usePoOptions";
 import { BillListFilterBar, EMPTY_BILL_FILTER, type BillFilter } from "./BillListFilterBar";
 import { BillList, type BillNameMaps } from "./BillList";
+import { Pager } from "./Pager";
 import { type PurchaseBillListFilter } from "../api/bills";
 
 function apiDate(v: string): string | undefined {
@@ -35,7 +37,7 @@ function toApi(f: BillFilter, page: number): PurchaseBillListFilter {
   return {
     projectId: f.projectId || undefined,
     supplierId: f.supplierId || undefined,
-    status: f.status || undefined,
+    status: f.status.length ? f.status.join(",") : undefined,
     purchaseOrderId: f.purchaseOrderId || undefined,
     entryNo: f.entryNo || undefined,
     dateFrom: apiDate(f.dateFrom),
@@ -45,7 +47,15 @@ function toApi(f: BillFilter, page: number): PurchaseBillListFilter {
 }
 
 function isFiltered(f: BillFilter): boolean {
-  return !!(f.projectId || f.supplierId || f.status || f.purchaseOrderId || f.entryNo || f.dateFrom || f.dateTo);
+  return !!(
+    f.projectId ||
+    f.supplierId ||
+    f.status.length ||
+    f.purchaseOrderId ||
+    f.entryNo ||
+    f.dateFrom ||
+    f.dateTo
+  );
 }
 
 /**
@@ -78,18 +88,15 @@ export function BillListScreen() {
 
   const totals = useMemo(() => {
     let gross = toDecimal("0");
-    let vat = toDecimal("0");
     let net = toDecimal("0");
     let outstanding = toDecimal("0");
     for (const r of rows) {
       gross = gross.plus(toDecimal(r.grossAmount || "0"));
-      vat = vat.plus(toDecimal(r.vatInputAmount || "0"));
       net = net.plus(toDecimal(r.netPayableAmount || "0"));
       outstanding = outstanding.plus(toDecimal(r.outstandingAmount || "0"));
     }
     return {
       gross: gross.toFixed(4),
-      vat: vat.toFixed(4),
       net: net.toFixed(4),
       outstanding: outstanding.toFixed(4),
     };
@@ -113,14 +120,21 @@ export function BillListScreen() {
         <h1 className="text-[23px] font-bold tracking-[-0.02em]" data-testid="bill-list-title">
           Purchase bills
         </h1>
-        {query.data && (
-          <span className="inline-flex h-[23px] items-center gap-1.5 rounded-pill bg-muted px-2.5">
-            <span className="h-1.5 w-1.5 rounded-full bg-muted-foreground" />
-            <span className="text-[11.5px] font-semibold text-muted-foreground">
-              {total} bill{total === 1 ? "" : "s"}
-            </span>
+        {query.data ? (
+          <span
+            className="inline-flex h-[22px] items-center rounded-pill bg-accent-soft px-2.5 text-[11.5px] font-semibold text-accent-ink"
+            data-testid="bill-list-count"
+          >
+            {total} total
           </span>
-        )}
+        ) : query.isLoading ? (
+          <span
+            className="inline-flex h-[22px] items-center rounded-pill bg-muted px-2.5 text-[11.5px] font-semibold text-muted-foreground"
+            data-testid="bill-list-count"
+          >
+            —
+          </span>
+        ) : null}
         {canCreate && (
           <Button size="md" asChild className="ml-auto gap-1.5" data-testid="bill-new">
             <Link href="/purchase/bills/new">
@@ -150,13 +164,13 @@ export function BillListScreen() {
 
       {rows.length > 0 && !query.isLoading && (
         <div
-          className="mt-4 grid grid-cols-2 gap-3 rounded-card border border-border bg-surface-2 px-4 py-3 md:grid-cols-4"
+          className="mt-4 grid grid-cols-2 gap-3 md:grid-cols-4"
           data-testid="bill-list-totals"
         >
-          <Total label="Gross this page" value={totals.gross} />
-          <Total label="VAT input this page" value={totals.vat} />
-          <Total label="Net payable this page" value={totals.net} emphasise />
-          <Total label="Outstanding this page" value={totals.outstanding} />
+          <TotalCard label="Bills in view" value={String(total)} kind="count" />
+          <TotalCard label="Gross" value={totals.gross} />
+          <TotalCard label="Net payable" value={totals.net} emphasise />
+          <TotalCard label="Outstanding" value={totals.outstanding} tone="amber" />
         </div>
       )}
 
@@ -167,10 +181,32 @@ export function BillListScreen() {
         )}
       >
         {query.isLoading ? (
-          <div className="flex flex-col gap-2 p-4" data-testid="bill-loading">
-            {Array.from({ length: 12 }).map((_, i) => (
-              <Skeleton key={i} className="h-12 w-full" />
-            ))}
+          <div data-testid="bill-loading">
+            <div className="hidden items-center gap-2 border-b border-border-strong bg-surface-2 px-4 py-3 text-[11px] font-semibold uppercase tracking-[0.4px] text-muted-foreground lg:flex">
+              {[
+                "Entry no",
+                "Supplier",
+                "Project",
+                "Bill date",
+                "Gross",
+                "VAT input",
+                "TDS / AIT",
+                "Net payable",
+                "Outstanding",
+                "Status",
+              ].map((h, i) => (
+                <div key={i} className="flex-1">
+                  {h}
+                </div>
+              ))}
+            </div>
+            <div className="flex flex-col">
+              {Array.from({ length: 12 }).map((_, i) => (
+                <div key={i} className="border-b border-muted px-4 py-3.5">
+                  <Skeleton className="h-4 w-full" />
+                </div>
+              ))}
+            </div>
           </div>
         ) : query.isError ? (
           <div className="p-4">
@@ -200,13 +236,17 @@ export function BillListScreen() {
           ) : (
             <div className="p-8" data-testid="bill-empty-firstuse">
               <EmptyState
-                icon={PackageOpen}
+                icon={FileText}
+                iconTone="info"
                 title="No purchase bills yet."
                 description="Create a bill directly or from an approved PO."
                 action={
                   canCreate ? (
-                    <Button size="md" asChild data-testid="bill-empty-new">
-                      <Link href="/purchase/bills/new">New bill</Link>
+                    <Button size="md" asChild className="gap-1.5" data-testid="bill-empty-new">
+                      <Link href="/purchase/bills/new">
+                        <Plus className="h-4 w-4" aria-hidden />
+                        New bill
+                      </Link>
                     </Button>
                   ) : undefined
                 }
@@ -230,26 +270,13 @@ export function BillListScreen() {
               </span>{" "}
               of <span className="font-semibold text-foreground">{total}</span>
             </span>
-            <div className="flex items-center gap-1.5">
-              <Button
-                size="sm"
-                variant="outline"
-                disabled={page <= 1}
-                onClick={() => setPage((p) => Math.max(1, p - 1))}
-                data-testid="bill-prev"
-              >
-                Prev
-              </Button>
-              <Button
-                size="sm"
-                variant="outline"
-                disabled={page * query.data.pageSize >= total}
-                onClick={() => setPage((p) => p + 1)}
-                data-testid="bill-next"
-              >
-                Next
-              </Button>
-            </div>
+            <Pager
+              page={page}
+              pageSize={query.data.pageSize}
+              total={total}
+              onPage={setPage}
+              testidPrefix="bill"
+            />
           </div>
         )}
       </Card>
@@ -257,27 +284,37 @@ export function BillListScreen() {
   );
 }
 
-function Total({
+/**
+ * One totals-strip card (Purchase Bill.dc.html list header): Bills in view · Gross · Net
+ * payable · Outstanding. Each is its own bordered surface card; Outstanding renders amber,
+ * Net payable is emphasised, and the count card shows a plain integer (no ৳).
+ */
+function TotalCard({
   label,
   value,
   emphasise,
+  tone,
+  kind,
 }: {
   label: string;
   value: string;
   emphasise?: boolean;
+  tone?: "amber";
+  kind?: "count";
 }) {
   return (
-    <div className="min-w-0">
+    <div className="min-w-0 rounded-card border border-border bg-surface px-4 py-3">
       <div className="text-[10.5px] font-semibold uppercase tracking-[0.4px] text-faint">
         {label}
       </div>
       <div
         className={cn(
-          "mt-0.5 font-mono tabular-nums text-foreground",
-          emphasise ? "text-[15px] font-bold" : "text-[13px] font-semibold",
+          "mt-0.5 font-mono tabular-nums",
+          tone === "amber" ? "text-warning-ink" : "text-foreground",
+          emphasise ? "text-[18px] font-bold" : "text-[15px] font-semibold",
         )}
       >
-        {formatMoney(value)}
+        {kind === "count" ? value : moneyWithSymbol(value)}
       </div>
     </div>
   );

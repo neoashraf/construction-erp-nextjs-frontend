@@ -33,7 +33,7 @@ export function PostDialog({
       >
         <DialogTitle>Post this bill?</DialogTitle>
         <DialogDescription className="mt-2">
-          Posting allocates the official entry number, moves the supplier ledger, and
+          Posting allocates the official PUR/2526/… number, moves the supplier ledger, and
           updates inventory. Posted bills can&apos;t be edited — corrections are a
           reverse-and-repost.
         </DialogDescription>

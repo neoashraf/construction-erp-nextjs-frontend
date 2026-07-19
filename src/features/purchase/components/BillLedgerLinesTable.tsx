@@ -4,6 +4,7 @@ import { useState } from "react";
 import { ChevronDown, ChevronRight } from "lucide-react";
 import { cn } from "@/lib/utils";
 import { formatMoney, toDecimal } from "@/lib/money";
+import { money } from "../format";
 import { type JournalEntryDetailLine } from "@/features/ledger/types";
 
 /**
@@ -14,12 +15,21 @@ import { type JournalEntryDetailLine } from "@/features/ledger/types";
  * at ≥768 the four dimensions + party collapse into a per-line "Dimensions" expander
  * (mirroring the Entry viewer's tablet behaviour).
  */
-const GRID = "grid-cols-[44px_1.6fr_1fr_1fr_1fr_1fr_1fr_0.9fr_0.9fr]";
+// Purchase Bill.dc.html viewer collapses the four posting dimensions into one column:
+// Account · Dimensions · Party · Dr · Cr.
+const GRID = "grid-cols-[44px_1.8fr_2fr_1.1fr_1fr_1fr]";
 
 const DASH = <span className="text-faint">—</span>;
 
-function dim(value: string | null | undefined): React.ReactNode {
-  return value ?? DASH;
+/** Compact "godown · cost centre · purpose · project" dimension summary for a ledger line. */
+function DimensionsCell({ line }: { line: JournalEntryDetailLine }) {
+  const parts = [line.godownId, line.costCentreId, line.purposeId, line.projectId].filter(Boolean);
+  if (parts.length === 0) return <span className="text-faint">—</span>;
+  return (
+    <span className="text-[12px] text-muted-foreground [overflow-wrap:anywhere]">
+      {parts.join(" · ")}
+    </span>
+  );
 }
 
 export function BillLedgerLinesTable({ lines }: { lines: JournalEntryDetailLine[] }) {
@@ -42,10 +52,7 @@ export function BillLedgerLinesTable({ lines }: { lines: JournalEntryDetailLine[
         <div role="row" className={cn("grid border-b border-border-strong bg-surface-2", GRID)}>
           <HeaderCell>Line</HeaderCell>
           <HeaderCell>Account</HeaderCell>
-          <HeaderCell>Project</HeaderCell>
-          <HeaderCell>Cost centre</HeaderCell>
-          <HeaderCell>Purpose</HeaderCell>
-          <HeaderCell>Godown</HeaderCell>
+          <HeaderCell>Dimensions</HeaderCell>
           <HeaderCell>Party</HeaderCell>
           <HeaderCell align="right">Debit ৳</HeaderCell>
           <HeaderCell align="right">Credit ৳</HeaderCell>
@@ -64,11 +71,10 @@ export function BillLedgerLinesTable({ lines }: { lines: JournalEntryDetailLine[
             <div role="cell" className="min-w-0 px-4 py-3 text-[13px] text-foreground [overflow-wrap:anywhere]">
               {line.accountId}
             </div>
-            <div role="cell" className="px-4 py-3 text-[12.5px] text-foreground">{dim(line.projectId)}</div>
-            <div role="cell" className="px-4 py-3 text-[12.5px] text-foreground">{dim(line.costCentreId)}</div>
-            <div role="cell" className="px-4 py-3 text-[12.5px] text-foreground">{dim(line.purposeId)}</div>
-            <div role="cell" className="px-4 py-3 text-[12.5px] text-foreground">{dim(line.godownId)}</div>
-            <div role="cell" className="px-4 py-3 text-[12.5px] text-foreground">{dim(line.partyId)}</div>
+            <div role="cell" className="min-w-0 px-4 py-3">
+              <DimensionsCell line={line} />
+            </div>
+            <div role="cell" className="px-4 py-3 text-[12.5px] text-foreground">{line.partyId ?? DASH}</div>
             <div role="cell" className="px-4 py-3 text-right">
               <Money value={line.debit} label="Debit" />
             </div>
@@ -85,9 +91,6 @@ export function BillLedgerLinesTable({ lines }: { lines: JournalEntryDetailLine[
           <div role="cell" className="px-4 py-3 text-[12.5px] uppercase tracking-[0.4px] text-muted-foreground">
             Totals
           </div>
-          <div role="cell" className="px-4 py-3" />
-          <div role="cell" className="px-4 py-3" />
-          <div role="cell" className="px-4 py-3" />
           <div role="cell" className="px-4 py-3" />
           <div role="cell" className="px-4 py-3" />
           <div role="cell" className="px-4 py-3" />
@@ -239,7 +242,7 @@ function Money({ value, label, bold }: { value: string; label: string; bold?: bo
       )}
       aria-label={`${label} ${formatMoney(value)}`}
     >
-      {formatMoney(value, { withSymbol: false })}
+      {money(value)}
     </span>
   );
 }

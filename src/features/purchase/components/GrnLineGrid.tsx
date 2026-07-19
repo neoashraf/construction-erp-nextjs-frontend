@@ -1,11 +1,13 @@
 "use client";
 
 import { useMemo } from "react";
+import { Package } from "lucide-react";
 import { Input } from "@/components/ui/input";
 import { Select } from "@/components/ui/select";
 import { Badge } from "@/components/ui/badge";
+import { Button } from "@/components/ui/button";
 import { cn } from "@/lib/utils";
-import { formatMoney } from "@/lib/money";
+import { money, moneyWithSymbol } from "../format";
 import { MatchStatusBadge } from "./MatchStatusBadge";
 import { OnHandBadge } from "./OnHandBadge";
 import {
@@ -44,6 +46,7 @@ export function GrnLineGrid({
   projectSelected,
   onLineChange,
   onAddPurpose,
+  onChooseAnother,
 }: {
   lines: GrnFormValues["lines"];
   items: ItemOption[];
@@ -56,6 +59,7 @@ export function GrnLineGrid({
   projectSelected: boolean;
   onLineChange: (index: number, patch: Partial<GrnFormValues["lines"][number]>) => void;
   onAddPurpose: (name: string) => void;
+  onChooseAnother?: () => void;
 }) {
   const totals = useMemo(() => computeGrnTotals(lines), [lines]);
   const itemById = useMemo(() => new Map(items.map((i) => [i.id, i])), [items]);
@@ -64,28 +68,46 @@ export function GrnLineGrid({
   if (lines.length === 0) {
     return (
       <div
-        className="rounded-card border-2 border-dashed border-border bg-surface-2/50 p-8 text-center"
+        className="flex flex-col items-center rounded-card border-2 border-dashed border-border bg-surface-2/50 p-8 text-center"
         data-testid="grn-lines-empty"
       >
+        <div className="mb-3 grid h-11 w-11 place-items-center rounded-full bg-muted text-muted-foreground">
+          <Package className="h-5 w-5" aria-hidden />
+        </div>
         <p className="text-[15px] font-semibold text-foreground">
           Nothing left to receive on this reference.
         </p>
         <p className="mt-1 text-[13px] text-muted-foreground">
           Every line on this PO/Bill has already been fully received.
         </p>
+        {onChooseAnother && (
+          <Button
+            size="md"
+            className="mt-4"
+            onClick={onChooseAnother}
+            data-testid="grn-lines-empty-choose"
+          >
+            Choose a different PO or Bill
+          </Button>
+        )}
       </div>
     );
   }
 
   return (
     <div className="flex flex-col" data-testid="grn-line-grid">
-      <div className="mb-2 flex items-baseline justify-between">
-        <h2 className="text-[13px] font-semibold uppercase tracking-[0.4px] text-muted-foreground">
-          Received lines
-        </h2>
-        <span className="text-[11.5px] text-faint">
-          {lines.length} line{lines.length === 1 ? "" : "s"} · received quantity may be less
-          than, equal to, or greater than the reference — never blocked.
+      <div className="mb-2 flex items-end justify-between gap-3">
+        <div className="min-w-0">
+          <h2 className="text-[13px] font-semibold uppercase tracking-[0.4px] text-muted-foreground">
+            Received lines
+          </h2>
+          <p className="mt-0.5 text-[11.5px] text-faint">
+            pre-filled from the PO&apos;s open / unreceived quantities
+          </p>
+        </div>
+        <span className="inline-flex items-center gap-1.5 text-[11.5px] text-faint">
+          <span className="h-1.5 w-1.5 rounded-full bg-muted-foreground" aria-hidden />
+          On-hand = live stock read · context only
         </span>
       </div>
 
@@ -100,9 +122,9 @@ export function GrnLineGrid({
         >
           <div className="py-3">Item</div>
           <div className="py-3 text-right">Ordered / Billed</div>
-          <div className="py-3 text-right">Received qty</div>
+          <div className="py-3 text-right text-success-ink">Received qty</div>
           <div className="py-3 text-right">Rate</div>
-          <div className="py-3 text-right">Value ↓</div>
+          <div className="py-3 text-right">Received value</div>
         </div>
         {lines.map((line, i) => (
           <GrnLineRowDesktop
@@ -128,10 +150,11 @@ export function GrnLineGrid({
           data-testid="grn-line-total"
         >
           <span className="text-muted-foreground">
-            {lines.length} line{lines.length === 1 ? "" : "s"} · received quantity may differ from ordered
+            {lines.length} line{lines.length === 1 ? "" : "s"} · received quantity may be less than,
+            equal to, or greater than the reference — never blocked.
           </span>
           <span className="font-mono font-semibold tabular-nums text-foreground">
-            Total received value {formatMoney(totals.total)}
+            Total received value {moneyWithSymbol(totals.total)}
           </span>
         </div>
       </div>
@@ -228,7 +251,7 @@ function GrnLineRowDesktop(props: LineRowProps) {
         </div>
 
         <div className="py-1 text-right font-mono text-[13px] tabular-nums text-muted-foreground">
-          {line.rate ? formatMoney(line.rate, { withSymbol: false }) : "—"}
+          {line.rate ? money(line.rate) : "—"}
         </div>
 
         <div className="py-1 text-right">
@@ -236,7 +259,7 @@ function GrnLineRowDesktop(props: LineRowProps) {
             className="font-mono text-[14px] font-semibold tabular-nums text-foreground"
             data-testid={`grn-line-value-${index}`}
           >
-            {formatMoney(receivedValue)}
+            {moneyWithSymbol(receivedValue)}
           </div>
         </div>
       </div>
@@ -278,7 +301,14 @@ function GrnLineRowDesktop(props: LineRowProps) {
           onCreate={(name) => onAddPurpose(name)}
         />
         <OnHandBadge godownId={line.godownId} itemId={line.itemId} uom={item?.uom} />
-        <MatchPreview preview={preview} status={line.matchStatus} reference={reference} />
+        <div className="flex items-center justify-end gap-2">
+          {!line.matchStatus && (
+            <Badge tone="neutral" className="text-[11px]" data-testid={`grn-match-resolves-${index}`}>
+              Match resolves on post
+            </Badge>
+          )}
+          <MatchPreview preview={preview} status={line.matchStatus} reference={reference} />
+        </div>
       </div>
     </div>
   );
@@ -350,13 +380,13 @@ function GrnLineCardMobile(props: LineRowProps) {
         <div>
           <dt className="text-faint">Rate</dt>
           <dd className="font-mono tabular-nums text-foreground">
-            {line.rate ? formatMoney(line.rate) : "—"}
+            {line.rate ? moneyWithSymbol(line.rate) : "—"}
           </dd>
         </div>
         <div className="text-right">
           <dt className="text-faint">Received value</dt>
           <dd className="font-mono font-semibold tabular-nums text-foreground">
-            {formatMoney(receivedValue)}
+            {moneyWithSymbol(receivedValue)}
           </dd>
         </div>
         <div className="col-span-2 flex items-center gap-2">
@@ -364,6 +394,14 @@ function GrnLineCardMobile(props: LineRowProps) {
           <OnHandBadge godownId={line.godownId} itemId={line.itemId} uom={item?.uom} />
         </div>
       </dl>
+
+      {!line.matchStatus && (
+        <div className="mt-3">
+          <Badge tone="neutral" className="text-[11px]" data-testid={`grn-match-resolves-mobile-${index}`}>
+            Match resolves on post
+          </Badge>
+        </div>
+      )}
 
       <div className="mt-3 grid gap-2">
         <LineSelect

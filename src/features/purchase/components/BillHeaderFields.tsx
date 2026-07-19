@@ -80,7 +80,7 @@ export function BillHeaderFields({
         label="From PO"
         htmlFor="bill-po"
         error={errors.purchaseOrderId}
-        hint="Optional — defaults lines from an approved PO"
+        optional
       >
         <PoPicker
           id="bill-po"
@@ -96,10 +96,10 @@ export function BillHeaderFields({
       </FormField>
 
       <FormField
-        label="Supplier invoice ref"
+        label="Supplier inv. ref"
         htmlFor="bill-supplier-invoice"
         error={errors.supplierInvoiceRef}
-        hint="Optional — the supplier's own invoice number"
+        optional
       >
         <Input
           id="bill-supplier-invoice"
@@ -131,7 +131,7 @@ export function BillHeaderFields({
       </FormField>
 
       <div className="md:col-span-2">
-        <FormField label="Narration" htmlFor="bill-narration" hint="Optional">
+        <FormField label="Narration" htmlFor="bill-narration" optional>
           <Textarea
             id="bill-narration"
             value={values.narration}
@@ -150,6 +150,7 @@ function FormField({
   label,
   htmlFor,
   required,
+  optional,
   error,
   hint,
   children,
@@ -157,6 +158,7 @@ function FormField({
   label: string;
   htmlFor: string;
   required?: boolean;
+  optional?: boolean;
   error?: string;
   hint?: string;
   children: React.ReactNode;
@@ -171,6 +173,7 @@ function FormField({
             *
           </span>
         )}
+        {optional && <span className="ml-1 font-normal normal-case text-faint">— optional</span>}
       </Label>
       {children}
       {error ? (

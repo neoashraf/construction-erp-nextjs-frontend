@@ -9,6 +9,7 @@ import { Skeleton } from "@/components/ui/skeleton";
 import { Breadcrumb } from "@/components/ui/breadcrumb";
 import { useToast } from "@/components/ui/toast";
 import { formatDate } from "@/lib/format";
+import { roleLabel } from "@/lib/auth";
 import { useOnline } from "@/lib/hooks/use-online";
 import { asApiError } from "@/lib/api";
 import { useAuthenticatedUser } from "@/providers/session-provider";
@@ -428,7 +429,7 @@ export function BillEditor({ billId, onSaved }: { billId: string | null; onSaved
   }
 
   const title = isNew ? "New purchase bill" : saved?.entryNo ?? "Purchase bill";
-  const crumbTail = isNew ? "New" : saved?.entryNo ?? "Draft";
+  const crumbTail = isNew ? "New purchase bill" : saved?.entryNo ?? "Draft bill";
   const projectSelected = !!form.projectId;
   const postable = editable && canPost && isPostable(form, totals);
 
@@ -445,38 +446,10 @@ export function BillEditor({ billId, onSaved }: { billId: string | null; onSaved
         <h1 className="text-[22px] font-bold tracking-[-0.02em]" data-testid="bill-form-title">
           {title}
         </h1>
-        {saved && <BillStatusBadge status={saved.status} />}
-        {editable && (
-          <div className="ml-auto hidden gap-2 lg:flex">
-            <Button
-              variant="ghost"
-              size="md"
-              onClick={() => setDiscardOpen(true)}
-              disabled={busy}
-              data-testid="bill-discard"
-            >
-              Discard
-            </Button>
-            <Button
-              variant="outline"
-              size="md"
-              onClick={onSaveDraft}
-              disabled={busy}
-              data-testid="bill-save"
-            >
-              Save draft
-            </Button>
-            {canPost && (
-              <Button
-                size="md"
-                onClick={onPostClick}
-                disabled={busy || !postable}
-                data-testid="bill-post"
-              >
-                Post
-              </Button>
-            )}
-          </div>
+        {saved ? (
+          <BillStatusBadge status={saved.status} />
+        ) : (
+          <BillStatusBadge status="DRAFT" />
         )}
       </div>
 
@@ -494,6 +467,24 @@ export function BillEditor({ billId, onSaved }: { billId: string | null; onSaved
       )}
 
       <Card className="flex flex-col gap-5 p-5">
+        <div className="flex flex-wrap items-center justify-between gap-2 border-b border-border pb-4">
+          <div className="flex items-baseline gap-2">
+            <span className="text-[10.5px] font-semibold uppercase tracking-[0.4px] text-faint">
+              Entry no
+            </span>
+            {saved?.entryNo ? (
+              <span className="font-mono text-[13px] font-semibold text-foreground">
+                {saved.entryNo}
+              </span>
+            ) : (
+              <span className="text-[12.5px] text-muted-foreground">Draft — allocated at post</span>
+            )}
+          </div>
+          <span className="text-[12.5px] text-muted-foreground">
+            {roleLabel(user.role)} · {user.name}
+          </span>
+        </div>
+
         <BillHeaderFields
           values={form}
           errors={fieldErrors}
@@ -504,11 +495,6 @@ export function BillEditor({ billId, onSaved }: { billId: string | null; onSaved
         />
 
         <div>
-          <div className="mb-2 flex items-center justify-between">
-            <h2 className="text-[13px] font-semibold uppercase tracking-[0.4px] text-muted-foreground">
-              Bill lines
-            </h2>
-          </div>
           <BillLineGrid
             lines={form.lines}
             items={items}
@@ -540,32 +526,44 @@ export function BillEditor({ billId, onSaved }: { billId: string | null; onSaved
         <BillTotalsStrip totals={totals} />
       </Card>
 
-      {/* Mobile sticky bottom bar (back-office reference) */}
+      {/* Sticky action bar — "N lines · draft not yet numbered" + Back · Save draft · Post
+          (Purchase Bill.dc.html editor). Viewport-pinned; content centered to the page width. */}
       {editable && (
-        <div className="fixed inset-x-0 bottom-0 z-40 flex items-center justify-between gap-3 border-t border-border bg-surface px-4 py-3 shadow-lg lg:hidden">
-          <span className="font-mono text-[13px] tabular-nums text-foreground">
-            {totals.netPayable}
-          </span>
-          <div className="flex gap-2">
-            <Button
-              variant="outline"
-              size="md"
-              onClick={onSaveDraft}
-              disabled={busy}
-              data-testid="bill-save-mobile"
-            >
-              Save
-            </Button>
-            {canPost && (
+        <div className="fixed inset-x-0 bottom-0 z-40 border-t border-border bg-surface px-4 py-3 shadow-lg">
+          <div className="mx-auto flex max-w-6xl items-center justify-between gap-3">
+            <span className="hidden text-[12.5px] text-muted-foreground sm:block" data-testid="bill-lines-caption">
+              {form.lines.length} line{form.lines.length === 1 ? "" : "s"} · draft not yet numbered
+            </span>
+            <div className="ml-auto flex gap-2">
               <Button
+                variant="ghost"
                 size="md"
-                onClick={onPostClick}
-                disabled={busy || !postable}
-                data-testid="bill-post-mobile"
+                onClick={() => setDiscardOpen(true)}
+                disabled={busy}
+                data-testid="bill-discard"
               >
-                Post
+                Back
               </Button>
-            )}
+              <Button
+                variant="outline"
+                size="md"
+                onClick={onSaveDraft}
+                disabled={busy}
+                data-testid="bill-save"
+              >
+                Save draft
+              </Button>
+              {canPost && (
+                <Button
+                  size="md"
+                  onClick={onPostClick}
+                  disabled={busy || !postable}
+                  data-testid="bill-post"
+                >
+                  {busy ? "Posting…" : "Post"}
+                </Button>
+              )}
+            </div>
           </div>
         </div>
       )}

@@ -161,7 +161,9 @@ describe("PoListScreen (spec §4.list/§6)", () => {
   it("shows the filtered empty state after applying a filter", async () => {
     listMock.mockResolvedValue({ data: [], page: 1, pageSize: 25, total: 0 });
     renderWith(<PoListScreen />);
-    await userEvent.selectOptions(await screen.findByTestId("po-filter-status"), "APPROVED");
+    // Status is a multi-select chip control: open it, tick APPROVED, then Apply.
+    await userEvent.click(await screen.findByTestId("po-filter-status-trigger"));
+    await userEvent.click(await screen.findByTestId("po-filter-status-APPROVED"));
     await userEvent.click(screen.getByTestId("po-filter-apply"));
     expect(await screen.findByTestId("po-empty-filtered")).toBeInTheDocument();
   });

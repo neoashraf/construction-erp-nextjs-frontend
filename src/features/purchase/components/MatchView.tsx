@@ -9,7 +9,7 @@ import { Alert } from "@/components/ui/alert";
 import { Skeleton } from "@/components/ui/skeleton";
 import { Breadcrumb } from "@/components/ui/breadcrumb";
 import { EmptyState } from "@/components/ui/empty-state";
-import { PackageOpen } from "lucide-react";
+import { FileText } from "lucide-react";
 import { useOnline } from "@/lib/hooks/use-online";
 import { asApiError } from "@/lib/api";
 import { useMatch } from "../hooks/useMatch";
@@ -51,6 +51,22 @@ export function MatchView({ poId }: { poId: string }) {
     ? suppliers.find((s) => s.id === data.supplierId)?.name ?? "(supplier unavailable)"
     : "";
 
+  // FE-derived count breakdown over the per-line match status (advisory, never blocks).
+  const counts = useMemo(
+    () =>
+      (data?.lines ?? []).reduce(
+        (acc, l) => {
+          if (l.matchStatus === "MATCHED") acc.matched += 1;
+          else if (l.matchStatus === "UNDER_RECEIVED") acc.under += 1;
+          else if (l.matchStatus === "OVER_RECEIVED") acc.over += 1;
+          else if (l.matchStatus === "PENDING_RECEIPT") acc.pending += 1;
+          return acc;
+        },
+        { matched: 0, under: 0, over: 0, pending: 0 },
+      ),
+    [data],
+  );
+
   if (query.isLoading) {
     return (
       <div className="mx-auto max-w-6xl" data-testid="match-loading">
@@ -59,8 +75,15 @@ export function MatchView({ poId }: { poId: string }) {
           <Skeleton className="h-6 w-64" />
           <Skeleton className="h-4 w-40" />
         </div>
+        <Card className="mb-4 grid gap-3 p-4 md:grid-cols-4">
+          {Array.from({ length: 4 }).map((_, i) => (
+            <div key={i} className="flex flex-col gap-1.5">
+              <Skeleton className="h-3 w-20" />
+              <Skeleton className="h-4 w-32" />
+            </div>
+          ))}
+        </Card>
         <Card className="flex flex-col gap-3 p-5">
-          <Skeleton className="h-16 w-full" />
           {Array.from({ length: 5 }).map((_, i) => (
             <Skeleton key={i} className="h-10 w-full" />
           ))}
@@ -151,7 +174,7 @@ export function MatchView({ poId }: { poId: string }) {
         {data.lines.length === 0 ? (
           <div className="p-8" data-testid="match-empty">
             <EmptyState
-              icon={PackageOpen}
+              icon={FileText}
               title="This purchase order has no lines to match."
               description="There's nothing to reconcile yet — add lines to the purchase order first."
             />
@@ -159,21 +182,29 @@ export function MatchView({ poId }: { poId: string }) {
         ) : (
           <>
             <div
-              className="flex items-center justify-between border-b border-muted bg-surface-2 px-4 py-2 text-[11.5px] text-muted-foreground"
+              className="flex items-center justify-between gap-3 border-b border-muted bg-surface-2 px-4 py-2 text-[11.5px] text-muted-foreground"
               data-testid="match-header-band"
             >
-              <span>Three-way match</span>
-              <span>
-                {data.lines.length} line{data.lines.length === 1 ? "" : "s"} · totals reflect
-                posted vouchers only
+              <span className="flex flex-col">
+                <span className="font-semibold text-foreground">Three-way match</span>
+                <span className="text-faint">
+                  ordered vs billed vs received · advisory, never blocks
+                </span>
+              </span>
+              <span className="text-right" data-testid="match-count-breakdown">
+                {data.lines.length} line{data.lines.length === 1 ? "" : "s"} · {counts.matched}{" "}
+                matched · {counts.under} under · {counts.over} over · {counts.pending} pending
               </span>
             </div>
-            <MatchTable lines={data.lines} items={itemMap} poId={data.poId} />
+            <MatchTable lines={data.lines} items={itemMap} />
           </>
         )}
       </Card>
 
-      <div className="mt-4 flex justify-end">
+      <div className="mt-4 flex flex-wrap items-center justify-between gap-3">
+        <p className="text-[12px] text-muted-foreground" data-testid="match-advisory-note">
+          Match status is advisory — it never blocks billing, receipt, or payment.
+        </p>
         <Button variant="outline" size="md" onClick={() => router.back()} data-testid="match-back">
           Back
         </Button>

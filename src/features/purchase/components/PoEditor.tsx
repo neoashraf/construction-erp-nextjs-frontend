@@ -9,7 +9,8 @@ import { Skeleton } from "@/components/ui/skeleton";
 import { Breadcrumb } from "@/components/ui/breadcrumb";
 import { useToast } from "@/components/ui/toast";
 import { formatDate } from "@/lib/format";
-import { formatMoney, toDecimal } from "@/lib/money";
+import { toDecimal } from "@/lib/money";
+import { moneyWithSymbol } from "../format";
 import { useOnline } from "@/lib/hooks/use-online";
 import { asApiError } from "@/lib/api";
 import { useAuthenticatedUser } from "@/providers/session-provider";
@@ -364,7 +365,7 @@ export function PoEditor({ poId }: { poId: string | null }) {
     : readOnly
       ? saved?.poRefNo ?? "Purchase order"
       : "Edit purchase order";
-  const crumbTail = isNew ? "New" : saved?.poRefNo ?? "Draft";
+  const crumbTail = isNew ? "New PO" : saved?.poRefNo ?? "Draft PO";
   const projectSelected = !!form.projectId;
 
   return (
@@ -380,38 +381,10 @@ export function PoEditor({ poId }: { poId: string | null }) {
         <h1 className="text-[22px] font-bold tracking-[-0.02em]" data-testid="po-form-title">
           {title}
         </h1>
-        {saved && <PurchaseStatusBadge status={saved.status} />}
-        {editable && (
-          <div className="ml-auto hidden gap-2 lg:flex">
-            <Button
-              variant="outline"
-              size="md"
-              onClick={onSaveDraft}
-              disabled={busy}
-              data-testid="po-save"
-            >
-              Save as draft
-            </Button>
-            {canApprove && (
-              <Button size="md" onClick={onApproveClick} disabled={busy} data-testid="po-approve">
-                Approve
-              </Button>
-            )}
-            {saved && isCancellablePo(saved.status) && canCancel && (
-              <Button
-                variant="ghost"
-                size="md"
-                onClick={() => {
-                  setBanner(null);
-                  setCancelOpen(true);
-                }}
-                disabled={busy}
-                data-testid="po-cancel"
-              >
-                Cancel PO
-              </Button>
-            )}
-          </div>
+        {saved ? (
+          <PurchaseStatusBadge status={saved.status} />
+        ) : (
+          <PurchaseStatusBadge status="DRAFT" />
         )}
         {readOnly && saved && isCancellablePo(saved.status) && canCancel && (
           <Button
@@ -464,7 +437,7 @@ export function PoEditor({ poId }: { poId: string | null }) {
               Order lines
             </h2>
             <span className="font-mono text-[13px] tabular-nums text-muted-foreground" data-testid="po-total">
-              Total {formatMoney(totalAmount)}
+              Total {moneyWithSymbol(totalAmount)}
             </span>
           </div>
           <PoLineGrid
@@ -499,32 +472,53 @@ export function PoEditor({ poId }: { poId: string | null }) {
         )}
       </Card>
 
-      {/* Mobile sticky bottom bar */}
+      {/* Sticky action bar — "N lines" + Back · Cancel PO · Save draft · Approve
+          (Purchase Orders.dc.html editor). Viewport-pinned; content centered to the page width. */}
       {editable && (
-        <div className="fixed inset-x-0 bottom-0 z-40 flex items-center justify-between gap-3 border-t border-border bg-surface px-4 py-3 shadow-lg lg:hidden">
-          <span className="font-mono text-[13px] tabular-nums text-foreground">
-            {formatMoney(totalAmount)}
-          </span>
-          <div className="flex gap-2">
-            <Button
-              variant="outline"
-              size="md"
-              onClick={onSaveDraft}
-              disabled={busy}
-              data-testid="po-save-mobile"
-            >
-              Save
-            </Button>
-            {canApprove && (
+        <div className="fixed inset-x-0 bottom-0 z-40 border-t border-border bg-surface px-4 py-3 shadow-lg">
+          <div className="mx-auto flex max-w-5xl items-center justify-between gap-3">
+            <span className="hidden text-[12.5px] text-muted-foreground sm:block" data-testid="po-lines-caption">
+              {form.lines.length} line{form.lines.length === 1 ? "" : "s"}
+            </span>
+            <div className="ml-auto flex items-center gap-2">
               <Button
+                variant="ghost"
                 size="md"
-                onClick={onApproveClick}
+                onClick={() => router.push("/purchase/orders")}
                 disabled={busy}
-                data-testid="po-approve-mobile"
+                data-testid="po-back"
               >
-                Approve
+                Back
               </Button>
-            )}
+              {saved && isCancellablePo(saved.status) && canCancel && (
+                <Button
+                  variant="destructive-outline"
+                  size="md"
+                  onClick={() => {
+                    setBanner(null);
+                    setCancelOpen(true);
+                  }}
+                  disabled={busy}
+                  data-testid="po-cancel"
+                >
+                  Cancel PO
+                </Button>
+              )}
+              <Button
+                variant="outline"
+                size="md"
+                onClick={onSaveDraft}
+                disabled={busy}
+                data-testid="po-save"
+              >
+                Save draft
+              </Button>
+              {canApprove && (
+                <Button size="md" onClick={onApproveClick} disabled={busy} data-testid="po-approve">
+                  Approve
+                </Button>
+              )}
+            </div>
           </div>
         </div>
       )}

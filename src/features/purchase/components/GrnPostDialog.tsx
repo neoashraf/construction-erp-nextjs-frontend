@@ -1,5 +1,6 @@
 "use client";
 
+import { PackageCheck } from "lucide-react";
 import { Button } from "@/components/ui/button";
 import { Dialog, DialogContent, DialogTitle, DialogDescription } from "@/components/ui/dialog";
 
@@ -32,11 +33,18 @@ export function GrnPostDialog({
           btn?.focus();
         }}
       >
-        <DialogTitle>Post this goods receipt?</DialogTitle>
-        <DialogDescription className="mt-2">
-          Posting updates the godown&apos;s stock for the quantity you actually received.
-          This can&apos;t be undone from here — corrections are a new GRN or a reversal.
-        </DialogDescription>
+        <div className="flex items-start gap-3">
+          <div className="grid h-10 w-10 flex-none place-items-center rounded-full bg-teal-soft text-teal-ink">
+            <PackageCheck className="h-5 w-5" aria-hidden />
+          </div>
+          <div className="min-w-0">
+            <DialogTitle>Post this goods receipt?</DialogTitle>
+            <DialogDescription className="mt-2">
+              Posting updates the godown&apos;s stock for the quantity you actually received.
+              This can&apos;t be undone from here — corrections are a new GRN or a reversal.
+            </DialogDescription>
+          </div>
+        </div>
         <div className="mt-5 flex justify-end gap-2.5">
           <Button
             variant="outline"

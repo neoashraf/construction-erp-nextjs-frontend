@@ -1895,12 +1895,20 @@ function grnResource(g: MockGrn) {
 }
 
 function poSummary(o: MockPo) {
+  // orderTotalAmount = Σ line amounts (the PO commitment value); mirrors the real
+  // backend's derived summary field (contract 08 GET /orders).
+  const orderTotal = o.lines.reduce(
+    (sum, l) => sum + Number(l.lineAmount ?? Number(l.orderedQty) * Number(l.rate)),
+    0,
+  );
   return {
     id: o.id,
     poRefNo: o.poRefNo,
     projectId: o.projectId,
     supplierId: o.supplierId,
     poDate: o.poDate,
+    expectedDeliveryDate: o.expectedDeliveryDate,
+    orderTotalAmount: orderTotal.toFixed(4),
     status: o.status,
   };
 }
@@ -7855,6 +7863,26 @@ export async function mockNestjsFetch(req: MockReq): Promise<MockResult> {
           );
         }
       }
+      // Representative POSTED bill / GRN per item (most recent), for the drill-down links.
+      const billRefByItem = new Map<string, { id: string; ref: string | null }>();
+      for (const b of MOCK_BILLS) {
+        if (b.purchaseOrderId !== poId || b.status !== "POSTED") continue;
+        for (const l of b.lines) {
+          if (l.itemId && !billRefByItem.has(l.itemId)) {
+            billRefByItem.set(l.itemId, { id: b.id, ref: b.entryNo ?? null });
+          }
+        }
+      }
+      const grnRefByItem = new Map<string, { id: string; ref: string | null }>();
+      for (const g of MOCK_GRNS) {
+        if (g.purchaseOrderId !== poId || g.status !== "POSTED") continue;
+        for (const l of g.lines) {
+          if (!grnRefByItem.has(l.itemId)) {
+            grnRefByItem.set(l.itemId, { id: g.id, ref: g.grnRefNo ?? null });
+          }
+        }
+      }
+      const counts = { matched: 0, underReceived: 0, overReceived: 0, pendingReceipt: 0 };
       const lines = po.lines.map((l, i) => {
         const ordered = Number(l.orderedQty || "0");
         const billed = billedByItem.get(l.itemId) ?? 0;
@@ -7867,6 +7895,12 @@ export async function mockNestjsFetch(req: MockReq): Promise<MockResult> {
           else if (received > ordered) matchStatus = "OVER_RECEIVED";
           else matchStatus = "UNDER_RECEIVED";
         }
+        if (matchStatus === "MATCHED") counts.matched += 1;
+        else if (matchStatus === "UNDER_RECEIVED") counts.underReceived += 1;
+        else if (matchStatus === "OVER_RECEIVED") counts.overReceived += 1;
+        else counts.pendingReceipt += 1;
+        const bref = billRefByItem.get(l.itemId);
+        const gref = grnRefByItem.get(l.itemId);
         return {
           lineNo: l.lineNo ?? i + 1,
           itemId: l.itemId,
@@ -7875,6 +7909,10 @@ export async function mockNestjsFetch(req: MockReq): Promise<MockResult> {
           receivedQty: received.toFixed(4),
           openQty: open.toFixed(4),
           matchStatus,
+          billRef: bref?.ref ?? null,
+          billId: bref?.id ?? null,
+          grnRef: gref?.ref ?? null,
+          grnId: gref?.id ?? null,
         };
       });
       return {
@@ -7886,6 +7924,7 @@ export async function mockNestjsFetch(req: MockReq): Promise<MockResult> {
           supplierId: po.supplierId,
           status: po.status,
           lines,
+          counts,
         }),
       };
     }

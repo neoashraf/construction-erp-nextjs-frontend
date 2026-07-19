@@ -1,7 +1,7 @@
 "use client";
 
 import { cn } from "@/lib/utils";
-import { formatMoney } from "@/lib/money";
+import { moneyWithSymbol } from "../format";
 import { type BillTotals } from "../schemas/bill.schema";
 
 /**
@@ -27,13 +27,14 @@ export function BillTotalsStrip({
       data-testid="bill-totals-strip"
     >
       <Cell label="Gross" value={totals.gross} />
-      <Cell label="+ VAT input" value={totals.vatInput} />
-      <Cell label="− TDS" value={totals.tds} />
-      <Cell label="− AIT" value={totals.ait} />
+      <Cell label="+ VAT input" value={totals.vatInput} tone="green" />
+      <Cell label="− TDS" value={totals.tds} tone="amber" />
+      <Cell label="− AIT" value={totals.ait} tone="amber" />
       <Cell
         label="Net payable"
         value={totals.netPayable}
         emphasise
+        highlight={totals.netPayableNegative ? "error" : "net"}
         error={totals.netPayableNegative}
         testId="bill-net-payable"
       />
@@ -46,16 +47,26 @@ function Cell({
   value,
   emphasise,
   error,
+  tone,
+  highlight,
   testId,
 }: {
   label: string;
   value: string;
   emphasise?: boolean;
   error?: boolean;
+  tone?: "green" | "amber";
+  highlight?: "net" | "error";
   testId?: string;
 }) {
   return (
-    <div className="min-w-0">
+    <div
+      className={cn(
+        "min-w-0 rounded-token px-2 py-1",
+        highlight === "net" && "bg-accent-soft",
+        highlight === "error" && "bg-destructive-soft",
+      )}
+    >
       <div className="text-[10.5px] font-semibold uppercase tracking-[0.4px] text-faint">
         {label}
       </div>
@@ -64,10 +75,16 @@ function Cell({
         className={cn(
           "mt-0.5 font-mono tabular-nums",
           emphasise ? "text-[16px] font-bold" : "text-[13px] font-semibold",
-          error ? "text-destructive-ink" : "text-foreground",
+          error
+            ? "text-destructive-ink"
+            : tone === "green"
+              ? "text-success-ink"
+              : tone === "amber"
+                ? "text-warning-ink"
+                : "text-foreground",
         )}
       >
-        {formatMoney(value)}
+        {moneyWithSymbol(value)}
       </div>
     </div>
   );

@@ -2,8 +2,15 @@
 
 import Link from "next/link";
 import { useRouter } from "next/navigation";
-import { ChevronRight } from "lucide-react";
+import { MoreVertical } from "lucide-react";
+import {
+  DropdownMenu,
+  DropdownMenuTrigger,
+  DropdownMenuContent,
+  DropdownMenuItem,
+} from "@/components/ui/dropdown-menu";
 import { formatDate } from "@/lib/format";
+import { moneyWithSymbol } from "../format";
 import { PurchaseStatusBadge } from "./PurchaseStatusBadge";
 import { type ProjectOption, type PurchaseOrderSummary, type SupplierOption } from "../types";
 
@@ -13,7 +20,9 @@ export interface PoNameMaps {
   suppliers: Map<string, SupplierOption>;
 }
 
-const GRID = "minmax(120px,1.2fr) minmax(140px,1.4fr) minmax(140px,1.4fr) 110px 130px 130px 40px";
+// Columns follow Purchase Orders.dc.html: PO ref · Project · Supplier · PO date ·
+// Expected delivery · Status · kebab. Status is the last data column before the kebab.
+const GRID = "minmax(120px,1.2fr) minmax(140px,1.4fr) minmax(140px,1.4fr) 110px 130px 150px 44px";
 
 function projectName(maps: PoNameMaps, id: string): string {
   const p = maps.projects.get(id);
@@ -26,10 +35,10 @@ function supplierName(maps: PoNameMaps, id: string): string {
 
 /**
  * PO list (brief §Scope 3; spec §4/§5). Full grid at ≥lg (columns PO ref no · Project ·
- * Supplier · PO date · Expected delivery · Status · row-action); stacked PO cards below
- * lg for the site-facing ≥360 case. PO-ref cell is the lime accent link (Draft badge when
- * null); status is a pill+dot badge; dates use `DD/MM/YYYY`. A row opens its detail —
- * the DRAFT editor or (past-DRAFT) the read-only viewer.
+ * Supplier · PO date · Expected delivery · Status · row-action kebab); stacked PO cards
+ * below lg for the site-facing ≥360 case. PO-ref cell is the lime accent link (Draft badge
+ * when null); status is a pill+dot badge; dates use `DD/MM/YYYY`, em-dash when absent. A
+ * row opens its detail — the DRAFT editor or (past-DRAFT) the read-only viewer.
  */
 export function PoList({
   rows,
@@ -54,9 +63,9 @@ export function PoList({
             <div className="py-3">PO ref no</div>
             <div className="py-3">Project</div>
             <div className="py-3">Supplier</div>
-            <div className="py-3">Status</div>
             <div className="py-3">PO date</div>
             <div className="py-3">Expected delivery</div>
+            <div className="py-3">Status</div>
             <div className="py-3" />
           </div>
           {rows.map((r) => (
@@ -80,16 +89,19 @@ export function PoList({
               </div>
               <div className="min-w-0 py-3 text-[13px] [overflow-wrap:anywhere]">{projectName(maps, r.projectId)}</div>
               <div className="min-w-0 py-3 text-[13px] [overflow-wrap:anywhere]">{supplierName(maps, r.supplierId)}</div>
+              <div className="py-3 text-[12.5px] tabular-nums text-muted-foreground">{formatDate(r.poDate)}</div>
+              <div className="py-3 text-[12.5px] tabular-nums text-muted-foreground">
+                {r.expectedDeliveryDate ? (
+                  formatDate(r.expectedDeliveryDate)
+                ) : (
+                  <span className="text-faint">—</span>
+                )}
+              </div>
               <div className="py-3">
                 <PurchaseStatusBadge status={r.status} />
               </div>
-              <div className="py-3 text-[12.5px] tabular-nums text-muted-foreground">{formatDate(r.poDate)}</div>
-              <div className="py-3 text-[12.5px] tabular-nums text-muted-foreground">
-                {/* Expected delivery isn't on the summary; kept as em-dash column so the grid stays consistent (server may enrich later). */}
-                <span className="text-faint">—</span>
-              </div>
-              <div className="flex justify-end py-3 text-faint">
-                <ChevronRight className="h-4 w-4" aria-hidden />
+              <div className="flex justify-end py-3" onClick={(e) => e.stopPropagation()}>
+                <RowActions id={r.id} basePath={basePath} label={r.poRefNo ?? "draft PO"} />
               </div>
             </div>
           ))}
@@ -109,14 +121,19 @@ export function PoList({
               <span className="font-semibold text-accent-ink">{r.poRefNo ?? "Draft"}</span>
               <PurchaseStatusBadge status={r.status} />
             </div>
-            <div className="mt-1 text-[12.5px] text-muted-foreground [overflow-wrap:anywhere]">
-              {projectName(maps, r.projectId)}
-            </div>
-            <div className="mt-0.5 text-[12.5px] text-muted-foreground [overflow-wrap:anywhere]">
+            <div className="mt-1 text-[13px] font-semibold text-foreground [overflow-wrap:anywhere]">
               {supplierName(maps, r.supplierId)}
             </div>
-            <div className="mt-1.5 grid grid-cols-2 gap-2 text-[12px]">
-              <LabelVal label="PO date" value={formatDate(r.poDate)} />
+            <div className="mt-0.5 text-[12.5px] text-muted-foreground [overflow-wrap:anywhere]">
+              {projectName(maps, r.projectId)}
+            </div>
+            <div className="mt-2 flex items-center justify-between border-t border-muted pt-2 text-[12.5px]">
+              <span className="text-muted-foreground">PO {formatDate(r.poDate)}</span>
+              {r.orderTotalAmount != null && (
+                <span className="font-mono font-semibold tabular-nums text-foreground">
+                  {moneyWithSymbol(r.orderTotalAmount)}
+                </span>
+              )}
             </div>
           </Link>
         ))}
@@ -125,11 +142,23 @@ export function PoList({
   );
 }
 
-function LabelVal({ label, value }: { label: string; value: string }) {
+/** Row-action kebab (design-system table pattern). Vertical ⋯; opens/views the PO. */
+function RowActions({ id, basePath, label }: { id: string; basePath: string; label: string }) {
+  const router = useRouter();
   return (
-    <div className="min-w-0">
-      <div className="text-[10.5px] uppercase tracking-[0.4px] text-faint">{label}</div>
-      <div className="font-mono text-[12px] tabular-nums text-foreground [overflow-wrap:anywhere]">{value}</div>
-    </div>
+    <DropdownMenu>
+      <DropdownMenuTrigger
+        aria-label={`Actions for ${label}`}
+        data-testid="po-row-actions"
+        className="grid h-7 w-7 place-items-center rounded-token text-muted-foreground transition-colors hover:bg-muted hover:text-foreground focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-ring"
+      >
+        <MoreVertical className="h-4 w-4" aria-hidden />
+      </DropdownMenuTrigger>
+      <DropdownMenuContent>
+        <DropdownMenuItem onSelect={() => router.push(`${basePath}/${id}`)} data-testid="po-row-open">
+          Open
+        </DropdownMenuItem>
+      </DropdownMenuContent>
+    </DropdownMenu>
   );
 }

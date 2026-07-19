@@ -65,6 +65,10 @@ export interface PurchaseOrderSummary {
   projectId: string;
   supplierId: string;
   poDate: string;
+  /** Expected delivery — surfaced in the list "Expected delivery" column (FR-PUR-001). */
+  expectedDeliveryDate: string | null;
+  /** Σ line amounts — the PO commitment value, shown on the mobile PO card (FR-PUR-001). */
+  orderTotalAmount: string | null;
   status: PurchaseOrderStatus;
 }
 
@@ -283,6 +287,15 @@ export interface MatchLine {
   receivedQty: string;
   openQty: string;
   matchStatus: PurchaseMatchStatus;
+  /**
+   * Per-line drill-down references to the contributing bill / GRN (FR-PUR-017).
+   * Optional — populated server-side; `null` until the backend + mock surface them,
+   * in which case the table renders a "No bill / No GRN" fallback.
+   */
+  billRef?: string | null;
+  billId?: string | null;
+  grnRef?: string | null;
+  grnId?: string | null;
 }
 
 /** Read-only reconciliation payload (contract 08 GET /orders/{id}/match). */

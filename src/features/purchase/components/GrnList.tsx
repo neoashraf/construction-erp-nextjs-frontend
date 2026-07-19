@@ -2,7 +2,13 @@
 
 import Link from "next/link";
 import { useRouter } from "next/navigation";
-import { ChevronRight } from "lucide-react";
+import { MoreVertical } from "lucide-react";
+import {
+  DropdownMenu,
+  DropdownMenuTrigger,
+  DropdownMenuContent,
+  DropdownMenuItem,
+} from "@/components/ui/dropdown-menu";
 import { formatDate } from "@/lib/format";
 import { GrnStatusBadge } from "./GrnStatusBadge";
 import { type GrnSummary, type ProjectOption, type SupplierOption } from "../types";
@@ -98,8 +104,8 @@ export function GrnList({
               <div className="py-3">
                 <GrnStatusBadge status={r.status} />
               </div>
-              <div className="flex justify-end py-3 text-faint">
-                <ChevronRight className="h-4 w-4" aria-hidden />
+              <div className="flex justify-end py-3" onClick={(e) => e.stopPropagation()}>
+                <RowActions id={r.id} basePath={basePath} label={r.grnRefNo ?? "draft GRN"} />
               </div>
             </div>
           ))}
@@ -147,5 +153,26 @@ function LabelVal({ label, value }: { label: string; value: string }) {
         {value}
       </div>
     </div>
+  );
+}
+
+/** Row-action kebab (design-system table pattern). Vertical ⋯; opens/views the GRN. */
+function RowActions({ id, basePath, label }: { id: string; basePath: string; label: string }) {
+  const router = useRouter();
+  return (
+    <DropdownMenu>
+      <DropdownMenuTrigger
+        aria-label={`Actions for ${label}`}
+        data-testid="grn-row-actions"
+        className="grid h-7 w-7 place-items-center rounded-token text-muted-foreground transition-colors hover:bg-muted hover:text-foreground focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-ring"
+      >
+        <MoreVertical className="h-4 w-4" aria-hidden />
+      </DropdownMenuTrigger>
+      <DropdownMenuContent>
+        <DropdownMenuItem onSelect={() => router.push(`${basePath}/${id}`)} data-testid="grn-row-open">
+          Open
+        </DropdownMenuItem>
+      </DropdownMenuContent>
+    </DropdownMenu>
   );
 }

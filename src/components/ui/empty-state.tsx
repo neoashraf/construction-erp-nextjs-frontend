@@ -8,6 +8,7 @@ const ICON_TONE = {
   success: "bg-success-soft text-success-ink",
   warning: "bg-warning-soft text-warning-ink",
   destructive: "bg-destructive-soft text-destructive-ink",
+  info: "bg-info-soft text-info-ink",
 } as const;
 
 /** Empty-state block (design-system §5.1; state matrix). Icon + message + optional CTA. */
