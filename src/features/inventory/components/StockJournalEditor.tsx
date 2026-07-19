@@ -15,7 +15,6 @@ import { Alert } from "@/components/ui/alert";
 import { Breadcrumb } from "@/components/ui/breadcrumb";
 import { EmptyState } from "@/components/ui/empty-state";
 import { useToast } from "@/components/ui/toast";
-import { cn } from "@/lib/utils";
 import { toDecimal, formatQty } from "@/lib/money";
 import { formatDate } from "@/lib/format";
 import { asApiError } from "@/lib/api/errors";
@@ -34,7 +33,8 @@ import {
 } from "../hooks/useInventoryOptions";
 import { ModeSelector } from "./ModeSelector";
 import { OnHandBadge } from "./OnHandBadge";
-import { SideDimensionBlock, type SideField } from "./SideDimensionBlock";
+import { type SideField } from "./SideDimensionBlock";
+import { MovementLinesTable } from "./MovementLinesTable";
 import { StatusBadge } from "./StatusBadge";
 import { NegativeStockDialog } from "./NegativeStockDialog";
 import { ReverseDialog } from "./ReverseDialog";
@@ -142,6 +142,28 @@ export function StockJournalEditor({ id }: { id: string }) {
       ? toDecimal(rateEstimate).mul(toDecimal(form.quantity)).toFixed(4)
       : null;
 
+  // The movement rows the table renders: OUT always; IN only for a TRANSFER.
+  const movementSides = [
+    {
+      side: "OUT" as const,
+      values: { godownId: form.outGodownId, projectId: form.outProjectId, costCentreId: form.outCostCentreId, purposeId: form.outPurposeId },
+      godowns: outGodowns,
+      purposes: outPurposes,
+      onChange: (f: SideField, v: string) => setSide("out", f, v),
+    },
+    ...(form.mode === "TRANSFER"
+      ? [
+          {
+            side: "IN" as const,
+            values: { godownId: form.inGodownId, projectId: form.inProjectId, costCentreId: form.inCostCentreId, purposeId: form.inPurposeId },
+            godowns: inGodowns,
+            purposes: inPurposes,
+            onChange: (f: SideField, v: string) => setSide("in", f, v),
+          },
+        ]
+      : []),
+  ];
+
   function setSide(prefix: "out" | "in", field: SideField, val: string) {
     setForm((f) => {
       const patch: Record<string, string> = { [`${prefix}${cap(field)}`]: val };
@@ -201,6 +223,31 @@ export function StockJournalEditor({ id }: { id: string }) {
 
   function handleApprove() {
     setActionError(null);
+    // On a new draft the record must be created before it can be approved (save → approve),
+    // then navigate to the freshly-created, now-APPROVED journal. On an existing DRAFT,
+    // approve in place.
+    if (isNew) {
+      const valid = validate();
+      if (!valid) return;
+      m.create.mutate(formToWriteInput(valid), {
+        onSuccess: (sj) =>
+          m.approve.mutate(
+            { id: sj.id, version: sj.version },
+            {
+              onSuccess: () => {
+                toast("Stock Journal approved.", "success");
+                router.replace(`/inventory/stock-journals/${sj.id}`);
+              },
+              onError: (e) => {
+                router.replace(`/inventory/stock-journals/${sj.id}`);
+                setActionError(mapStockJournalError(asApiError(e).code));
+              },
+            },
+          ),
+        onError: (e) => onWriteError(e),
+      });
+      return;
+    }
     m.approve.mutate(
       { id, version },
       {
@@ -334,26 +381,26 @@ export function StockJournalEditor({ id }: { id: string }) {
         </h1>
         <StatusBadge status={status} />
         <div className="ml-auto flex items-center gap-2">
-          <Button variant="ghost" size="md" asChild data-testid="sj-back">
+          <Button variant="ghost" size="sm" className="h-9 px-3 text-muted-foreground" asChild data-testid="sj-back">
             <Link href="/inventory/stock-journals">Back to list</Link>
           </Button>
           {editable && (
-            <Button size="md" variant="outline" onClick={handleSave} disabled={busy || !online} data-testid="sj-save">
+            <Button size="sm" variant="outline" className="h-9 border-border-strong px-3.5" onClick={handleSave} disabled={busy || !online} data-testid="sj-save">
               {m.create.isPending || m.update.isPending ? "Saving…" : "Save draft"}
             </Button>
           )}
-          {!isNew && status === "DRAFT" && canApprove(user) && (
-            <Button size="md" onClick={handleApprove} disabled={busy || !online} aria-busy={m.approve.isPending || undefined} data-testid="sj-approve">
+          {(isNew || status === "DRAFT") && canApprove(user) && (
+            <Button size="sm" className="h-9 px-4" onClick={handleApprove} disabled={busy || !online} aria-busy={m.approve.isPending || undefined} data-testid="sj-approve">
               {m.approve.isPending ? "Approving…" : "Approve"}
             </Button>
           )}
           {status === "APPROVED" && canPost(user) && (
-            <Button size="md" onClick={handlePostClick} disabled={busy || !online} aria-busy={m.post.isPending || undefined} data-testid="sj-post">
+            <Button size="sm" className="h-9 px-4" onClick={handlePostClick} disabled={busy || !online} aria-busy={m.post.isPending || undefined} data-testid="sj-post">
               {m.post.isPending ? "Posting…" : "Post"}
             </Button>
           )}
           {status === "POSTED" && canReverse(user) && (
-            <Button size="md" variant="destructive" onClick={() => setShowReverse(true)} disabled={busy || !online} data-testid="sj-reverse">
+            <Button size="sm" variant="destructive-outline" className="h-9 px-3.5" onClick={() => setShowReverse(true)} disabled={busy || !online} data-testid="sj-reverse">
               Reverse
             </Button>
           )}
@@ -369,9 +416,9 @@ export function StockJournalEditor({ id }: { id: string }) {
         <Alert tone="destructive" title={actionError} className="mb-3" data-testid="sj-action-error" />
       )}
 
-      {/* Header fields */}
+      {/* Header fields — one flex row: mode · date · item · quantity · on-hand badge */}
       <Card className="mb-4 p-4">
-        <div className="grid grid-cols-1 gap-4 md:grid-cols-4">
+        <div className="flex flex-wrap items-end gap-3">
           <div className="flex flex-col gap-1.5">
             <Label>Mode</Label>
             <ModeSelector
@@ -380,8 +427,10 @@ export function StockJournalEditor({ id }: { id: string }) {
               onChange={(mode: StockJournalMode) => setForm((f) => ({ ...f, mode }))}
             />
           </div>
-          <div className="flex flex-col gap-1.5">
-            <Label htmlFor="sj-date">Voucher date</Label>
+          <div className="flex w-[150px] flex-col gap-1.5">
+            <Label htmlFor="sj-date">
+              Voucher date <span className="text-destructive">*</span>
+            </Label>
             <Input
               id="sj-date"
               type="date"
@@ -394,8 +443,10 @@ export function StockJournalEditor({ id }: { id: string }) {
             />
             {errors.voucherDate && <p className="text-[11.5px] text-destructive-ink">{errors.voucherDate}</p>}
           </div>
-          <div className="flex flex-col gap-1.5">
-            <Label htmlFor="sj-item">Item</Label>
+          <div className="flex min-w-[200px] flex-1 flex-col gap-1.5">
+            <Label htmlFor="sj-item">
+              Item <span className="text-destructive">*</span>
+            </Label>
             <Select id="sj-item" value={form.itemId} disabled={!editable} invalid={!!errors.itemId} data-testid="sj-item" onChange={(e) => setForm((f) => ({ ...f, itemId: e.target.value }))}>
               <option value="">Select an item…</option>
               {items.map((i) => (
@@ -406,8 +457,10 @@ export function StockJournalEditor({ id }: { id: string }) {
             </Select>
             {errors.itemId && <p className="text-[11.5px] text-destructive-ink">{errors.itemId}</p>}
           </div>
-          <div className="flex flex-col gap-1.5">
-            <Label htmlFor="sj-qty">Quantity</Label>
+          <div className="flex w-[160px] flex-col gap-1.5">
+            <Label htmlFor="sj-qty">
+              Quantity <span className="text-destructive">*</span>
+            </Label>
             <div className="relative">
               <Input
                 id="sj-qty"
@@ -423,13 +476,15 @@ export function StockJournalEditor({ id }: { id: string }) {
             </div>
             {errors.quantity && <p className="text-[11.5px] text-destructive-ink">{errors.quantity}</p>}
           </div>
+          {form.outGodownId && form.itemId && (
+            <div className="flex flex-col gap-1.5">
+              <span aria-hidden className="select-none text-[10.5px] text-transparent">.</span>
+              <div className="flex h-9 items-center">
+                <OnHandBadge balance={onHand.data} loading={onHand.isLoading} offline={!online} uom={uom} godownName={outGodownName} />
+              </div>
+            </div>
+          )}
         </div>
-
-        {form.outGodownId && form.itemId && (
-          <div className="mt-3">
-            <OnHandBadge balance={onHand.data} loading={onHand.isLoading} offline={!online} uom={uom} godownName={outGodownName} />
-          </div>
-        )}
 
         {negativeWarning && (
           <Alert tone="warning" className="mt-3" data-testid="sj-negative-warning">
@@ -444,46 +499,25 @@ export function StockJournalEditor({ id }: { id: string }) {
         )}
       </Card>
 
-      {/* Sides */}
-      <div className={cn("grid gap-4", form.mode === "TRANSFER" ? "lg:grid-cols-2" : "grid-cols-1")}>
-        <SideDimensionBlock
-          side="OUT"
-          values={{ godownId: form.outGodownId, projectId: form.outProjectId, costCentreId: form.outCostCentreId, purposeId: form.outPurposeId }}
+      {/* Movement lines table (SIDE · GODOWN · DIMENSIONS · RATE · VALUE) + balance readout */}
+      <div className="mt-3">
+        <MovementLinesTable
+          sides={movementSides}
           errors={errors}
           projects={projects}
-          godowns={outGodowns}
           costCentres={costCentres}
-          purposes={outPurposes}
           rate={rateEstimate}
           value={valueEstimate}
+          balanced={form.mode === "TRANSFER"}
+          totalLabel={form.mode === "TRANSFER" ? "Out total = In total" : form.mode === "ISSUE" ? "Issue total" : "Adjustment total"}
           disabled={!editable}
-          onChange={(f, v) => setSide("out", f, v)}
         />
-        {form.mode === "TRANSFER" && (
-          <SideDimensionBlock
-            side="IN"
-            values={{ godownId: form.inGodownId, projectId: form.inProjectId, costCentreId: form.inCostCentreId, purposeId: form.inPurposeId }}
-            errors={errors}
-            projects={projects}
-            godowns={inGodowns}
-            costCentres={costCentres}
-            purposes={inPurposes}
-            rate={rateEstimate}
-            value={valueEstimate}
-            disabled={!editable}
-            onChange={(f, v) => setSide("in", f, v)}
-          />
-        )}
       </div>
 
-      <p className="mt-2 text-right text-[12px] text-muted-foreground" data-testid="sj-estimate-note">
-        Rate/value are <span className="font-medium text-foreground">estimated — finalised at posting.</span>
-      </p>
-
       {/* Issued/received/narration */}
-      <Card className="mt-4 p-4">
-        <div className="grid grid-cols-1 gap-4 md:grid-cols-3">
-          <div className="flex flex-col gap-1.5">
+      <Card className="mt-3 p-4">
+        <div className="grid grid-cols-1 gap-3 md:grid-cols-[1fr_1fr_2fr]">
+          <div className="flex min-w-0 flex-col gap-1.5">
             <Label htmlFor="sj-issued">Issued by</Label>
             <Select id="sj-issued" value={form.issuedById} disabled={!editable} data-testid="sj-issued" onChange={(e) => setForm((f) => ({ ...f, issuedById: e.target.value }))}>
               <option value="">—</option>
@@ -492,7 +526,7 @@ export function StockJournalEditor({ id }: { id: string }) {
               ))}
             </Select>
           </div>
-          <div className="flex flex-col gap-1.5">
+          <div className="flex min-w-0 flex-col gap-1.5">
             <Label htmlFor="sj-received">Received by</Label>
             <Select id="sj-received" value={form.receivedById} disabled={!editable} data-testid="sj-received" onChange={(e) => setForm((f) => ({ ...f, receivedById: e.target.value }))}>
               <option value="">—</option>
@@ -501,9 +535,9 @@ export function StockJournalEditor({ id }: { id: string }) {
               ))}
             </Select>
           </div>
-          <div className="flex flex-col gap-1.5 md:col-span-1">
+          <div className="flex min-w-0 flex-col gap-1.5">
             <Label htmlFor="sj-narration">Narration</Label>
-            <Textarea id="sj-narration" value={form.narration} disabled={!editable} data-testid="sj-narration" onChange={(e) => setForm((f) => ({ ...f, narration: e.target.value }))} />
+            <Textarea id="sj-narration" rows={1} className="min-h-9" value={form.narration} disabled={!editable} data-testid="sj-narration" onChange={(e) => setForm((f) => ({ ...f, narration: e.target.value }))} />
           </div>
         </div>
       </Card>
