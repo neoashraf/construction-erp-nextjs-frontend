@@ -47,7 +47,7 @@ import { AllocationGrid } from "./AllocationGrid";
 import { OpenPayablesPicker } from "./OpenPayablesPicker";
 import { DailyLabourSettlementPanel } from "./DailyLabourSettlementPanel";
 import { BankChargesBlock } from "./BankChargesBlock";
-import { PaymentTotalsFooter } from "./PaymentTotalsFooter";
+import { PaymentTotalsFooter, PaymentBalancePill } from "./PaymentTotalsFooter";
 import { PostPaymentDialog } from "./PostPaymentDialog";
 import { CancelPaymentDialog } from "./CancelPaymentDialog";
 import { PayeeChangeDialog } from "./PayeeChangeDialog";
@@ -472,13 +472,19 @@ export function PaymentEditor({ paymentId }: { paymentId: string | null }) {
       </div>
 
       {/* Action bar — sticky within the content column (stays right of the sidebar). */}
-      <div className="sticky bottom-0 z-30 -mx-1 mt-5 rounded-t-card border-t border-border bg-surface/85 px-4 py-3 shadow-[0_-6px_16px_-8px_rgba(15,23,42,0.18)] backdrop-blur-md">
+      <div className="sticky bottom-0 z-30 rounded-b-card border border-t-0 border-border bg-surface/90 px-4 py-3 shadow-[0_-6px_16px_-8px_rgba(15,23,42,0.18)] backdrop-blur-md">
         <div className="flex flex-wrap items-center gap-3">
-          <p className="hidden max-w-lg text-[12.5px] text-muted-foreground sm:block">
-            {readOnly
-              ? "Posted — the ledger entry is immutable. Cancel or Correct to change it."
-              : "Draft — no ledger impact and no number yet. Post writes the balanced entry."}
-          </p>
+          {readOnly ? (
+            <p className="hidden max-w-lg text-[12.5px] text-muted-foreground sm:block">
+              Posted — the ledger entry is immutable. Cancel or Correct to change it.
+            </p>
+          ) : (
+            <PaymentBalancePill
+              paymentAmount={form.paymentAmount || "0"}
+              bankChargesAmount={form.bankChargesAmount || "0"}
+              rows={form.allocations}
+            />
+          )}
           <div className="ml-auto flex flex-wrap items-center gap-2">
             {saved && !readOnly && canWrite && (
               <Button

@@ -1,5 +1,17 @@
 import "@testing-library/jest-dom";
 
+// Radix menus/dialogs set `pointer-events: none` on <body> while open and jsdom does
+// not always clear it on unmount, so the lock leaks across tests in the same worker
+// and blocks later user-event pointer interactions (see PointerEventsGuard). Clear it
+// after every test so suites stay order-independent.
+if (typeof afterEach === "function") {
+  afterEach(() => {
+    if (typeof document !== "undefined") {
+      document.body.style.removeProperty("pointer-events");
+    }
+  });
+}
+
 // Test-time env defaults so config validation (src/lib/config) passes in unit/component tests.
 process.env.NEXT_PUBLIC_APP_URL ??= "http://localhost:3000";
 process.env.NESTJS_API_BASE_URL ??= "http://localhost:4000/api";
