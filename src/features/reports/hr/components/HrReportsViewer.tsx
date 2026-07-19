@@ -41,10 +41,21 @@ import { SalaryRegisterTable } from "./SalaryRegisterTable";
  * bodies, and the report-specific filter slot. HR reports are not
  * project-scoped; role gating is via `reports:hr` (server-authoritative).
  */
-export function HrReportsViewer() {
+/** Reverse REPORT_NAME → tab so the hub can open this viewer on a chosen report. */
+function reportToTab(name?: string): HrReportTab {
+  const found = (Object.entries(REPORT_NAME) as [HrReportTab, string][]).find(
+    ([, n]) => n === name,
+  );
+  return found?.[0] ?? "SALARY_REGISTER";
+}
+
+export function HrReportsViewer({
+  embedded = false,
+  initialReport,
+}: { embedded?: boolean; initialReport?: string } = {}) {
   const online = useOnline();
   const user = useAuthenticatedUser();
-  const [tab, setTab] = useState<HrReportTab>("SALARY_REGISTER");
+  const [tab, setTab] = useState<HrReportTab>(() => reportToTab(initialReport));
   const [params, setParams] = useState<ReportParams>({
     financialYearId: user.financialYearId ?? "",
   });
@@ -65,6 +76,9 @@ export function HrReportsViewer() {
       p.asOf = null;
       p.periodId = null;
     }
+    // Attendance-summary is keyed by `month`, not the financial year — its backend
+    // DTO forbids financialYearId, so drop it from what we actually send.
+    if (tab === "ATTENDANCE_SUMMARY") p.financialYearId = "";
     return p;
   }, [params, tab]);
 
@@ -111,27 +125,31 @@ export function HrReportsViewer() {
       : null;
 
   return (
-    <div className="mx-auto max-w-[1400px] px-6 py-6" data-testid="hr-viewer">
-      <Breadcrumb
-        items={[
-          { label: "Reports", href: "/reports" },
-          { label: breadcrumbFor(tab) },
-        ]}
-      />
-      <div className="mb-4 mt-1 flex flex-wrap items-center justify-between gap-3">
-        <div>
-          <h1 className="text-[23px] font-bold tracking-[-0.02em]" data-testid="hr-title">
-            HR reports
-            <Badge tone="neutral" className="ml-2" data-testid="hr-readonly-pill">
-              Read-only · exportable
-            </Badge>
-          </h1>
-          <p className="mt-1 text-[13px] text-muted-foreground">
-            Attendance · salary register · payment history — HR&rsquo;s
-            numbers, rendered verbatim.
-          </p>
-        </div>
-      </div>
+    <div className={embedded ? "" : "mx-auto max-w-[1400px] px-6 py-6"} data-testid="hr-viewer">
+      {!embedded && (
+        <>
+          <Breadcrumb
+            items={[
+              { label: "Reports", href: "/reports" },
+              { label: breadcrumbFor(tab) },
+            ]}
+          />
+          <div className="mb-4 mt-1 flex flex-wrap items-center justify-between gap-3">
+            <div>
+              <h1 className="text-[23px] font-bold tracking-[-0.02em]" data-testid="hr-title">
+                HR reports
+                <Badge tone="neutral" className="ml-2" data-testid="hr-readonly-pill">
+                  Read-only · exportable
+                </Badge>
+              </h1>
+              <p className="mt-1 text-[13px] text-muted-foreground">
+                Attendance · salary register · payment history — HR&rsquo;s
+                numbers, rendered verbatim.
+              </p>
+            </div>
+          </div>
+        </>
+      )}
 
       <HrReportSwitcher value={tab} onChange={onTabChange} />
 

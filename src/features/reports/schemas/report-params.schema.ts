@@ -47,7 +47,10 @@ export function validateReportParams(
     errors.dateTo = "End date must be on or after the start date.";
   }
 
-  if (descriptor.projectScoped && !params.projectId) {
+  // Only reports that genuinely need one project (e.g. Project P&L) block Run.
+  // `projectScoped` alone means "can filter by project" — not mandatory — so a
+  // company-wide report ("All projects") must still be runnable.
+  if (descriptor.projectRequired && !params.projectId) {
     errors.projectId = "Project is required for this report.";
   }
 

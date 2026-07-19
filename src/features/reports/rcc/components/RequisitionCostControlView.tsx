@@ -36,10 +36,13 @@ import { StatusFilterChips } from "./StatusFilterChips";
  * verbatim (variance = REQ's own derived value); cost-centre variance is CC's
  * classification verbatim (no client re-round or re-compute).
  */
-export function RequisitionCostControlView() {
+export function RequisitionCostControlView({
+  embedded = false,
+  initialReport,
+}: { embedded?: boolean; initialReport?: string } = {}) {
   const online = useOnline();
   const user = useAuthenticatedUser();
-  const [tab, setTab] = useState<RccReportTab>("REQUISITION_VS_ISSUE");
+  const [tab, setTab] = useState<RccReportTab>(() => reportToTab(initialReport));
   const [params, setParams] = useState<ReportParams>({
     financialYearId: user.financialYearId ?? "",
   });
@@ -73,23 +76,27 @@ export function RequisitionCostControlView() {
   const forbidden = err?.status === 403;
 
   return (
-    <div className="mx-auto max-w-[1400px] px-6 py-6" data-testid="rcc-viewer">
-      <Breadcrumb
-        items={[
-          { label: "Reports", href: "/reports" },
-          { label: breadcrumbFor(tab) },
-        ]}
-      />
-      <div className="mb-4 mt-1 flex flex-wrap items-center justify-between gap-3">
-        <div>
-          <h1 className="text-[23px] font-bold tracking-[-0.02em]" data-testid="rcc-title">
-            Requisition &amp; cost-control reports
-          </h1>
-          <p className="mt-1 text-[13px] text-muted-foreground">
-            Read-only — REQ &amp; CC figures rendered verbatim.
-          </p>
-        </div>
-      </div>
+    <div className={embedded ? "" : "mx-auto max-w-[1400px] px-6 py-6"} data-testid="rcc-viewer">
+      {!embedded && (
+        <>
+          <Breadcrumb
+            items={[
+              { label: "Reports", href: "/reports" },
+              { label: breadcrumbFor(tab) },
+            ]}
+          />
+          <div className="mb-4 mt-1 flex flex-wrap items-center justify-between gap-3">
+            <div>
+              <h1 className="text-[23px] font-bold tracking-[-0.02em]" data-testid="rcc-title">
+                Requisition &amp; cost-control reports
+              </h1>
+              <p className="mt-1 text-[13px] text-muted-foreground">
+                Read-only — REQ &amp; CC figures rendered verbatim.
+              </p>
+            </div>
+          </div>
+        </>
+      )}
 
       <RccReportSwitcher value={tab} onChange={onTabChange} />
 
@@ -217,6 +224,14 @@ function BodyForTab({
       onRetry={onRetry}
     />
   );
+}
+
+/** Reverse REPORT_NAME → tab so the hub can open this viewer on a chosen report. */
+function reportToTab(name?: string): RccReportTab {
+  const found = (Object.entries(REPORT_NAME) as [RccReportTab, string][]).find(
+    ([, n]) => n === name,
+  );
+  return found?.[0] ?? "REQUISITION_VS_ISSUE";
 }
 
 /** Both reports are project-scoped + range-based. */

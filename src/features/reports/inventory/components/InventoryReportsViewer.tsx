@@ -40,10 +40,21 @@ import { StockValuationTable } from "./StockValuationTable";
  * verbatim; the per-report table + report-specific filters live here.
  * Stock valuation + Low-stock are as-of; Transfer summary is a date range.
  */
-export function InventoryReportsViewer() {
+/** Reverse REPORT_NAME → tab so the hub can open this viewer on a chosen report. */
+function reportToTab(name?: string): InventoryReportTab {
+  const found = (Object.entries(REPORT_NAME) as [InventoryReportTab, string][]).find(
+    ([, n]) => n === name,
+  );
+  return found?.[0] ?? "STOCK_VALUATION";
+}
+
+export function InventoryReportsViewer({
+  embedded = false,
+  initialReport,
+}: { embedded?: boolean; initialReport?: string } = {}) {
   const online = useOnline();
   const user = useAuthenticatedUser();
-  const [tab, setTab] = useState<InventoryReportTab>("STOCK_VALUATION");
+  const [tab, setTab] = useState<InventoryReportTab>(() => reportToTab(initialReport));
   const [params, setParams] = useState<ReportParams>({
     financialYearId: user.financialYearId ?? "",
   });
@@ -87,27 +98,31 @@ export function InventoryReportsViewer() {
       : null;
 
   return (
-    <div className="mx-auto max-w-[1400px] px-6 py-6" data-testid="iv-viewer">
-      <Breadcrumb
-        items={[
-          { label: "Reports", href: "/reports" },
-          { label: breadcrumbFor(tab) },
-        ]}
-      />
-      <div className="mb-4 mt-1 flex flex-wrap items-center justify-between gap-3">
-        <div>
-          <h1 className="text-[23px] font-bold tracking-[-0.02em]" data-testid="iv-title">
-            Inventory reports
-            <Badge tone="neutral" className="ml-2" data-testid="iv-readonly-pill">
-              Read-only · exportable
-            </Badge>
-          </h1>
-          <p className="mt-1 text-[13px] text-muted-foreground">
-            Stock valuation, low-stock / re-order, and stock-journal transfer
-            summary — read-only, server-computed.
-          </p>
-        </div>
-      </div>
+    <div className={embedded ? "" : "mx-auto max-w-[1400px] px-6 py-6"} data-testid="iv-viewer">
+      {!embedded && (
+        <>
+          <Breadcrumb
+            items={[
+              { label: "Reports", href: "/reports" },
+              { label: breadcrumbFor(tab) },
+            ]}
+          />
+          <div className="mb-4 mt-1 flex flex-wrap items-center justify-between gap-3">
+            <div>
+              <h1 className="text-[23px] font-bold tracking-[-0.02em]" data-testid="iv-title">
+                Inventory reports
+                <Badge tone="neutral" className="ml-2" data-testid="iv-readonly-pill">
+                  Read-only · exportable
+                </Badge>
+              </h1>
+              <p className="mt-1 text-[13px] text-muted-foreground">
+                Stock valuation, low-stock / re-order, and stock-journal transfer
+                summary — read-only, server-computed.
+              </p>
+            </div>
+          </div>
+        </>
+      )}
 
       <InventoryReportsSwitcher value={tab} onChange={onTabChange} />
 

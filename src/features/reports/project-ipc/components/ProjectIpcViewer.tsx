@@ -48,10 +48,21 @@ import { ReportSpecificFilters } from "./ReportSpecificFilters";
  * P&L requires a project (server 400 + FE gate with the design's "Select a
  * project." blocker); PM out-of-scope projectId → server 403 + friendly view.
  */
-export function ProjectIpcViewer() {
+/** Reverse REPORT_NAME → tab so the hub can open this viewer on a chosen report. */
+function reportToTab(name?: string): ProjectReportTab {
+  const found = (Object.entries(REPORT_NAME) as [ProjectReportTab, string][]).find(
+    ([, n]) => n === name,
+  );
+  return found?.[0] ?? "PROJECT_PNL";
+}
+
+export function ProjectIpcViewer({
+  embedded = false,
+  initialReport,
+}: { embedded?: boolean; initialReport?: string } = {}) {
   const online = useOnline();
   const user = useAuthenticatedUser();
-  const [tab, setTab] = useState<ProjectReportTab>("PROJECT_PNL");
+  const [tab, setTab] = useState<ProjectReportTab>(() => reportToTab(initialReport));
   const [params, setParams] = useState<ReportParams>({
     financialYearId: user.financialYearId ?? "",
   });
@@ -97,27 +108,31 @@ export function ProjectIpcViewer() {
   ) : null;
 
   return (
-    <div className="mx-auto max-w-[1400px] px-6 py-6" data-testid="pi-viewer">
-      <Breadcrumb
-        items={[
-          { label: "Reports", href: "/reports" },
-          { label: breadcrumbFor(tab) },
-        ]}
-      />
-      <div className="mb-4 mt-1 flex flex-wrap items-center justify-between gap-3">
-        <div>
-          <h1
-            className="text-[23px] font-bold tracking-[-0.02em]"
-            data-testid="pi-title"
-          >
-            Project &amp; IPC reports
-            {pmChip}
-          </h1>
-          <p className="mt-1 text-[13px] text-muted-foreground">
-            One project across five lenses — read-only, server-computed.
-          </p>
-        </div>
-      </div>
+    <div className={embedded ? "" : "mx-auto max-w-[1400px] px-6 py-6"} data-testid="pi-viewer">
+      {!embedded && (
+        <>
+          <Breadcrumb
+            items={[
+              { label: "Reports", href: "/reports" },
+              { label: breadcrumbFor(tab) },
+            ]}
+          />
+          <div className="mb-4 mt-1 flex flex-wrap items-center justify-between gap-3">
+            <div>
+              <h1
+                className="text-[23px] font-bold tracking-[-0.02em]"
+                data-testid="pi-title"
+              >
+                Project &amp; IPC reports
+                {pmChip}
+              </h1>
+              <p className="mt-1 text-[13px] text-muted-foreground">
+                One project across five lenses — read-only, server-computed.
+              </p>
+            </div>
+          </div>
+        </>
+      )}
 
       <ProjectIpcReportSwitcher value={tab} onChange={onTabChange} />
 
@@ -345,9 +360,11 @@ function BodyForTab({
 
 /**
  * Build a synthetic FE-54 descriptor per tab — the shared panel reads
- * `projectScoped` / `supportsAsOf` / `supportsDateRange` off it. `PROJECT_PNL`
- * is `projectScoped: true` (FE-54's schema also enforces the required project)
- * so the panel's schema and this viewer's local gate agree.
+ * `projectScoped` / `projectRequired` / `supportsAsOf` / `supportsDateRange` off
+ * it. Every tab shows the Project field (`projectScoped: true`), but only
+ * `PROJECT_PNL` makes it mandatory (`projectRequired`) — matching the backend and
+ * this viewer's local "Select a project." gate. The other tabs run across all
+ * projects.
  */
 function buildDescriptor(tab: ProjectReportTab): ReportDescriptor {
   const projectScoped = true; // panel shows the Project field for every tab
@@ -361,6 +378,7 @@ function buildDescriptor(tab: ProjectReportTab): ReportDescriptor {
     requiredPermission: "reports",
     parameters: [],
     projectScoped,
+    projectRequired: tab === "PROJECT_PNL",
     supportsAsOf: asOfOnly,
     supportsDateRange: !asOfOnly,
   };

@@ -50,8 +50,15 @@ export interface ReportDescriptor {
   requiredPermission: string;
   /** Report-specific filter slot descriptors (rendered dynamically). */
   parameters: ReportParamDescriptor[];
-  /** True when the report is project-scoped (PM sees only assigned). */
+  /**
+   * True when the report is project-scoped: the panel shows the Project filter and
+   * a PM is auto-scoped to assigned projects. This does NOT make the project
+   * mandatory — nearly every backend report is project-scoped yet runs company-wide
+   * ("All projects"). Use `projectRequired` for the mandatory case.
+   */
   projectScoped?: boolean;
+  /** True only when the report cannot run without a specific project (e.g. Project P&L). */
+  projectRequired?: boolean;
   /** True when this report uses `asOf`/`periodId` rather than a date range. */
   supportsAsOf?: boolean;
   /** True when this report uses `dateFrom`/`dateTo`. */

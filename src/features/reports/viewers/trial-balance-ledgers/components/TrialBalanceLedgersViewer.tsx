@@ -23,10 +23,21 @@ import { TrialBalanceTable } from "./TrialBalanceTable";
  * range) are preserved across tab switches; only the report-specific extras
  * reset (spec §9).
  */
-export function TrialBalanceLedgersViewer() {
+/** Reverse REPORT_NAME → tab so the hub can open this viewer on a chosen report. */
+function reportToTab(name?: string): ReportTab {
+  const found = (Object.entries(REPORT_NAME) as [ReportTab, string][]).find(
+    ([, n]) => n === name,
+  );
+  return found?.[0] ?? "TB";
+}
+
+export function TrialBalanceLedgersViewer({
+  embedded = false,
+  initialReport,
+}: { embedded?: boolean; initialReport?: string } = {}) {
   const online = useOnline();
   const user = useAuthenticatedUser();
-  const [tab, setTab] = useState<ReportTab>("TB");
+  const [tab, setTab] = useState<ReportTab>(() => reportToTab(initialReport));
   const [params, setParams] = useState<ReportParams>({
     financialYearId: user.financialYearId ?? "",
   });
@@ -96,23 +107,27 @@ export function TrialBalanceLedgersViewer() {
   }[tab];
 
   return (
-    <div className="mx-auto max-w-[1400px] px-6 py-6" data-testid="tb-ledgers-viewer">
-      <Breadcrumb
-        items={[
-          { label: "Reports", href: "/reports" },
-          { label: breadcrumbLabel },
-        ]}
-      />
-      <div className="mb-4 mt-1 flex flex-wrap items-center justify-between gap-3">
-        <div>
-          <h1 className="text-[23px] font-bold tracking-[-0.02em]" data-testid="tb-title">
-            Ledgers &amp; registers
-          </h1>
-          <p className="mt-1 text-[13px] text-muted-foreground">
-            Trial balance, account &amp; party ledgers, journal register, cash &amp; bank book — read-only, server-computed.
-          </p>
-        </div>
-      </div>
+    <div className={embedded ? "" : "mx-auto max-w-[1400px] px-6 py-6"} data-testid="tb-ledgers-viewer">
+      {!embedded && (
+        <>
+          <Breadcrumb
+            items={[
+              { label: "Reports", href: "/reports" },
+              { label: breadcrumbLabel },
+            ]}
+          />
+          <div className="mb-4 mt-1 flex flex-wrap items-center justify-between gap-3">
+            <div>
+              <h1 className="text-[23px] font-bold tracking-[-0.02em]" data-testid="tb-title">
+                Ledgers &amp; registers
+              </h1>
+              <p className="mt-1 text-[13px] text-muted-foreground">
+                Trial balance, account &amp; party ledgers, journal register, cash &amp; bank book — read-only, server-computed.
+              </p>
+            </div>
+          </div>
+        </>
+      )}
 
       <ReportSwitcher value={tab} onChange={onTabChange} />
 
