@@ -32,15 +32,15 @@ export function DeleteDraftDialog({
             <Trash2 className="h-4 w-4" />
           </div>
           <div className="min-w-0">
-            <DialogTitle>Delete this draft payment?</DialogTitle>
+            <DialogTitle>Delete this draft?</DialogTitle>
             <DialogDescription className="mt-2">
-              A draft carries no legal number and no ledger impact — deleting it is permanent.
+              This draft payment will be permanently deleted.
             </DialogDescription>
           </div>
         </div>
         <div className="mt-5 flex justify-end gap-2.5">
           <Button ref={keepRef} variant="outline" size="md" onClick={onCancel} disabled={busy} data-testid="payment-delete-keep">
-            Keep it
+            Keep draft
           </Button>
           <Button variant="destructive" size="md" onClick={onConfirm} disabled={busy} aria-busy={busy || undefined} data-testid="payment-delete-confirm">
             {busy ? "Deleting…" : "Delete"}

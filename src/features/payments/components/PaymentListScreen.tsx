@@ -2,7 +2,7 @@
 
 import { useMemo, useState } from "react";
 import Link from "next/link";
-import { AlertCircle, Inbox, Plus, WifiOff } from "lucide-react";
+import { AlertCircle, Plus, Search, WifiOff } from "lucide-react";
 import { Alert } from "@/components/ui/alert";
 import { Button } from "@/components/ui/button";
 import { Card } from "@/components/ui/card";
@@ -37,18 +37,21 @@ export function PaymentListScreen() {
   const user = useAuthenticatedUser();
   const online = useOnline();
   const { toast } = useToast();
+  const fyLabel = "FY 2025–26";
   const canRead = canReadPayment(user);
   const canDelete = canWritePayment(user);
 
   const [view, setView] = useState<PaymentsView>("PAYMENTS");
   const [applied, setApplied] = useState<PaymentFilterValues>(EMPTY_PAYMENT_FILTER);
   const [page, setPage] = useState(1);
+  const [outstandingCount, setOutstandingCount] = useState<number | null>(null);
   const [deleteTarget, setDeleteTarget] = useState<string | null>(null);
   const [deleting, setDeleting] = useState(false);
   const { remove } = usePaymentMutations();
 
   const listQuery = usePaymentList(toApi(applied, page));
   const rows = useMemo(() => listQuery.data?.data ?? [], [listQuery.data]);
+  const total = listQuery.data?.total ?? rows.length;
 
   const partiesQ = useQuery({
     queryKey: queryKeys.list(
@@ -117,11 +120,23 @@ export function PaymentListScreen() {
 
   return (
     <div className="mx-auto max-w-6xl">
-      <div className="mb-4 mt-1 flex flex-wrap items-center gap-3">
-        <h1 className="text-[23px] font-bold tracking-[-0.02em]" data-testid="payment-list-title">
-          Payments
-        </h1>
-        <PaymentsSegmentedControl value={view} onChange={setView} />
+      <div className="mb-1 text-[12px] font-medium text-muted-foreground">Payments</div>
+      <div className="mb-3 flex flex-wrap items-center gap-3">
+        <div className="flex items-center gap-2.5">
+          <h1 className="text-[23px] font-bold tracking-[-0.02em]" data-testid="payment-list-title">
+            Payments
+          </h1>
+          <span
+            className="inline-flex items-center rounded-pill bg-muted px-2.5 py-0.5 text-[12px] font-medium text-muted-foreground"
+            data-testid="payment-list-count"
+          >
+            {view === "PAYMENTS"
+              ? `${total} payment${total === 1 ? "" : "s"}`
+              : outstandingCount === null
+                ? "Outstanding"
+                : `${outstandingCount} open payable${outstandingCount === 1 ? "" : "s"}`}
+          </span>
+        </div>
         <div className="ml-auto flex items-center gap-2">
           {canDelete && (
             <Button asChild data-testid="payment-new">
@@ -133,12 +148,15 @@ export function PaymentListScreen() {
           )}
         </div>
       </div>
+      <div className="mb-4">
+        <PaymentsSegmentedControl value={view} onChange={setView} />
+      </div>
 
       {!online && (
         <Alert tone="warning" title="You're offline." className="mb-3" data-testid="payment-offline-banner">
           <span className="text-[12.5px]">
             <WifiOff className="mr-1 inline h-3.5 w-3.5" aria-hidden />
-            Showing the last loaded results. Filters and New payment are disabled until you reconnect.
+            Showing the last loaded payments.
           </span>
         </Alert>
       )}
@@ -150,6 +168,7 @@ export function PaymentListScreen() {
             parties={parties}
             accounts={accounts}
             offline={!online}
+            fyLabel={fyLabel}
             onApply={(v) => {
               setApplied(v);
               setPage(1);
@@ -175,9 +194,13 @@ export function PaymentListScreen() {
           ) : rows.length === 0 && !listQuery.isLoading ? (
             <Card className="p-8" data-testid="payment-list-empty">
               <EmptyState
-                icon={Inbox}
+                icon={Search}
                 title={isFiltered(applied) ? "No payments match the selected filters." : "No payments yet."}
-                description={isFiltered(applied) ? undefined : "New payments will appear here once you record them."}
+                description={
+                  isFiltered(applied)
+                    ? "Try a wider date range or a different status."
+                    : "New payments will appear here once you record them."
+                }
                 action={
                   isFiltered(applied) ? (
                     <Button
@@ -214,7 +237,7 @@ export function PaymentListScreen() {
           )}
         </div>
       ) : (
-        <OutstandingView parties={parties} />
+        <OutstandingView parties={parties} onCount={setOutstandingCount} />
       )}
 
       <DeleteDraftDialog
