@@ -1,5 +1,6 @@
 "use client";
 
+import { type ReactNode } from "react";
 import { Label } from "@/components/ui/label";
 import { Select } from "@/components/ui/select";
 import { Textarea } from "@/components/ui/textarea";
@@ -59,8 +60,7 @@ export function GrnHeaderFields({
 
   return (
     <div className="grid gap-4 md:grid-cols-2">
-      <div>
-        <Label htmlFor="grn-po">PO reference</Label>
+      <Field label="PO reference" htmlFor="grn-po" required hint="Approved · partially received" error={errors.purchaseOrderId} errorTestid="grn-po-error">
         <PoPicker
           id="grn-po"
           value={values.purchaseOrderId}
@@ -71,15 +71,9 @@ export function GrnHeaderFields({
           invalid={!!errors.purchaseOrderId}
           placeholder="Select a purchase order…"
         />
-        {errors.purchaseOrderId && (
-          <p className="mt-1 text-[12px] text-destructive-ink" data-testid="grn-po-error">
-            {errors.purchaseOrderId}
-          </p>
-        )}
-      </div>
+      </Field>
 
-      <div>
-        <Label htmlFor="grn-bill">Bill reference</Label>
+      <Field label="Bill reference" htmlFor="grn-bill" hint="One of PO / Bill is required" error={errors.purchaseBillId} errorTestid="grn-bill-error">
         <Select
           id="grn-bill"
           value={values.purchaseBillId}
@@ -88,42 +82,25 @@ export function GrnHeaderFields({
           onChange={(e) => onChange({ purchaseBillId: e.target.value, purchaseOrderId: "" })}
           data-testid="grn-bill"
         >
-          <option value="">Select a bill…</option>
+          <option value="">Optional — none linked</option>
           {eligibleBills.map((b) => (
             <option key={b.id} value={b.id}>
               {b.entryNo ?? "Draft"} · {b.billDate}
             </option>
           ))}
         </Select>
-        {errors.purchaseBillId && (
-          <p className="mt-1 text-[12px] text-destructive-ink" data-testid="grn-bill-error">
-            {errors.purchaseBillId}
-          </p>
-        )}
-      </div>
+      </Field>
 
-      <div>
-        <Label>Project</Label>
+      <Field label="Project" hint="Inherited from PO · locked">
         <div
           className="flex h-9 items-center rounded-token border border-border bg-muted px-3 text-sm text-foreground"
           data-testid="grn-project"
         >
           {projectLabel || <span className="text-faint">Inherits from PO/Bill</span>}
         </div>
-      </div>
+      </Field>
 
-      <div>
-        <Label>Supplier</Label>
-        <div
-          className="flex h-9 items-center rounded-token border border-border bg-muted px-3 text-sm text-foreground"
-          data-testid="grn-supplier"
-        >
-          {supplierLabel || <span className="text-faint">Inherits from PO/Bill</span>}
-        </div>
-      </div>
-
-      <div>
-        <Label htmlFor="grn-date">Receipt date</Label>
+      <Field label="Receipt date" htmlFor="grn-date" required hint="Defaults to today" error={errors.receiptDate} errorTestid="grn-date-error">
         <DatePickerInput
           id="grn-date"
           value={values.receiptDate}
@@ -131,15 +108,18 @@ export function GrnHeaderFields({
           disabled={disabled}
           invalid={!!errors.receiptDate}
         />
-        {errors.receiptDate && (
-          <p className="mt-1 text-[12px] text-destructive-ink" data-testid="grn-date-error">
-            {errors.receiptDate}
-          </p>
-        )}
-      </div>
+      </Field>
 
-      <div>
-        <Label htmlFor="grn-narration">Narration (optional)</Label>
+      <Field label="Supplier" hint="Inherited from PO · locked">
+        <div
+          className="flex h-9 items-center rounded-token border border-border bg-muted px-3 text-sm text-foreground"
+          data-testid="grn-supplier"
+        >
+          {supplierLabel || <span className="text-faint">Inherits from PO/Bill</span>}
+        </div>
+      </Field>
+
+      <Field label="Narration · discrepancy note" htmlFor="grn-narration" optional>
         <Textarea
           id="grn-narration"
           value={values.narration}
@@ -149,7 +129,54 @@ export function GrnHeaderFields({
           rows={2}
           data-testid="grn-narration"
         />
-      </div>
+      </Field>
+    </div>
+  );
+}
+
+/**
+ * Header field wrapper (mirrors the Bill/PO header FormField): micro-label with an
+ * optional `*` / "— optional" marker, the control, then either an inline error
+ * (destructive) or a muted hint line.
+ */
+function Field({
+  label,
+  htmlFor,
+  required,
+  optional,
+  hint,
+  error,
+  errorTestid,
+  children,
+}: {
+  label: string;
+  htmlFor?: string;
+  required?: boolean;
+  optional?: boolean;
+  hint?: string;
+  error?: string;
+  errorTestid?: string;
+  children: ReactNode;
+}) {
+  return (
+    <div className="flex flex-col gap-1.5">
+      <Label htmlFor={htmlFor}>
+        {label}
+        {required && (
+          <span className="ml-0.5 text-destructive" aria-hidden>
+            *
+          </span>
+        )}
+        {optional && <span className="ml-1 font-normal normal-case text-faint">— optional</span>}
+      </Label>
+      {children}
+      {error ? (
+        <p className="text-[12px] text-destructive-ink" data-testid={errorTestid} role="alert">
+          {error}
+        </p>
+      ) : hint ? (
+        <p className="text-[11.5px] text-faint">{hint}</p>
+      ) : null}
     </div>
   );
 }

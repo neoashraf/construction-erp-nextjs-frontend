@@ -9,7 +9,8 @@ import { Alert } from "@/components/ui/alert";
 import { Skeleton } from "@/components/ui/skeleton";
 import { Breadcrumb } from "@/components/ui/breadcrumb";
 import { useToast } from "@/components/ui/toast";
-import { formatDate } from "@/lib/format";
+import { cn } from "@/lib/utils";
+import { formatDate, formatDateTime } from "@/lib/format";
 import { useOnline } from "@/lib/hooks/use-online";
 import { asApiError } from "@/lib/api";
 import { useAuthenticatedUser } from "@/providers/session-provider";
@@ -91,7 +92,6 @@ export function GrnEntry({ grnId, onSaved }: { grnId: string | null; onSaved?: (
   const [busy, setBusy] = useState(false);
   const [refBusy, setRefBusy] = useState(false);
   const [refError, setRefError] = useState<string | null>(null);
-  const [postedBanner, setPostedBanner] = useState(false);
   const lastRefRef = useRef<string>("");
 
   const { create, update, post } = useGrnMutations();
@@ -327,7 +327,6 @@ export function GrnEntry({ grnId, onSaved }: { grnId: string | null; onSaved?: (
       const posted = await post.mutateAsync({ id: res.id, version: res.version });
       setBusy(false);
       setPostOpen(false);
-      setPostedBanner(true);
       toast("GRN posted — inventory updated.", "success");
       router.replace(`/purchase/grn/${posted.id}`);
     } catch (err) {
@@ -407,6 +406,7 @@ export function GrnEntry({ grnId, onSaved }: { grnId: string | null; onSaved?: (
   }
 
   const title = isNew ? "New goods receipt" : saved?.grnRefNo ?? "Goods receipt";
+  const titleIsGrnNo = !isNew && !!saved?.grnRefNo;
   const crumbTail = isNew ? "New GRN" : saved?.grnRefNo ?? "Draft";
   const projectSelected = !!form.projectId;
   const postable = editable && canPost && isPostable(form);
@@ -421,7 +421,10 @@ export function GrnEntry({ grnId, onSaved }: { grnId: string | null; onSaved?: (
         ]}
       />
       <div className="mb-4 mt-1 flex flex-wrap items-center gap-3">
-        <h1 className="text-[22px] font-bold tracking-[-0.02em]" data-testid="grn-form-title">
+        <h1
+          className={cn("text-[22px] font-bold tracking-[-0.02em]", titleIsGrnNo && "font-mono")}
+          data-testid="grn-form-title"
+        >
           {title}
         </h1>
         {saved ? (
@@ -430,43 +433,48 @@ export function GrnEntry({ grnId, onSaved }: { grnId: string | null; onSaved?: (
           <GrnStatusBadge status="DRAFT" />
         )}
         {editable && (
-          <div className="ml-auto hidden gap-2 lg:flex">
-            <Button variant="ghost" size="md" asChild data-testid="grn-back">
-              <Link href="/purchase/grn">Back</Link>
-            </Button>
-            <Button
-              variant="outline"
-              size="md"
-              onClick={onSaveDraft}
-              disabled={busy || refBusy}
-              data-testid="grn-save"
-            >
-              Save draft
-            </Button>
-            {canPost && (
-              <Button
-                size="md"
-                onClick={onPostClick}
-                disabled={busy || refBusy || !postable}
-                aria-busy={busy || undefined}
-                data-testid="grn-post"
-              >
-                {busy ? "Posting…" : "Post"}
+          <div className="ml-auto hidden items-center gap-3 lg:flex">
+            <span className="max-w-[300px] text-right text-[11.5px] leading-tight text-faint">
+              GRN Post drives inventory only — no ledger entry, no PURCHASE number.
+            </span>
+            <div className="flex gap-2">
+              <Button variant="ghost" size="md" asChild data-testid="grn-back">
+                <Link href="/purchase/grn">Back</Link>
               </Button>
-            )}
+              <Button
+                variant="outline"
+                size="md"
+                onClick={onSaveDraft}
+                disabled={busy || refBusy}
+                data-testid="grn-save"
+              >
+                Save draft
+              </Button>
+              {canPost && (
+                <Button
+                  size="md"
+                  onClick={onPostClick}
+                  disabled={busy || refBusy || !postable}
+                  aria-busy={busy || undefined}
+                  data-testid="grn-post"
+                >
+                  {busy ? "Posting…" : "Post"}
+                </Button>
+              )}
+            </div>
           </div>
         )}
       </div>
 
-      {readOnly && postedBanner && (
+      {saved?.status === "POSTED" && (
         <Alert
           tone="success"
           title="GRN posted — inventory updated."
           className="mb-4"
           data-testid="grn-posted-banner"
         >
-          Stock now reflects the quantity actually received. Corrections are a new GRN
-          or a reversal via the parent bill.
+          Site godown stock rolled forward for the quantity actually received.
+          Corrections are a new GRN or a reversal.
         </Alert>
       )}
 
@@ -524,6 +532,14 @@ export function GrnEntry({ grnId, onSaved }: { grnId: string | null; onSaved?: (
             onAddPurpose={(name) =>
               createPurpose.mutate({ projectId: form.projectId, name })
             }
+            onChooseAnother={
+              isNew && editable
+                ? () => {
+                    lastRefRef.current = "";
+                    patch({ purchaseOrderId: "", purchaseBillId: "", projectId: "", supplierId: "", lines: [] });
+                  }
+                : undefined
+            }
           />
         )}
 
@@ -532,10 +548,12 @@ export function GrnEntry({ grnId, onSaved }: { grnId: string | null; onSaved?: (
             className="rounded-card border border-border bg-surface-2 px-4 py-3 text-[12.5px] text-muted-foreground"
             data-testid="grn-posted-meta"
           >
-            Posted <span className="font-semibold text-foreground">{formatDate(saved.postedAt)}</span>
-            {saved.receivedBy ? (
-              <> by <span className="font-semibold text-foreground">{saved.receivedBy}</span></>
-            ) : null}.
+            Received by{" "}
+            <span className="font-semibold text-foreground">{saved.receivedBy ?? "—"}</span> ·{" "}
+            <span className="font-semibold text-foreground">{formatDate(saved.postedAt)}</span> ·{" "}
+            <span className="font-semibold tabular-nums text-foreground">
+              {formatDateTime(saved.postedAt).slice(-5)}
+            </span>
           </div>
         )}
       </Card>
@@ -564,6 +582,21 @@ export function GrnEntry({ grnId, onSaved }: { grnId: string | null; onSaved?: (
               {busy ? "Posting…" : "Post goods receipt"}
             </Button>
           )}
+        </div>
+      )}
+
+      {/* Read-only posted view — no cancel/repost; just a Back affordance. */}
+      {readOnly && (
+        <div
+          className="mt-4 flex flex-wrap items-center justify-between gap-3"
+          data-testid="grn-readonly-bar"
+        >
+          <span className="text-[11.5px] text-faint">
+            Posted GRN is read-only — no cancel or repost.
+          </span>
+          <Button variant="ghost" size="md" asChild data-testid="grn-back">
+            <Link href="/purchase/grn">Back</Link>
+          </Button>
         </div>
       )}
 

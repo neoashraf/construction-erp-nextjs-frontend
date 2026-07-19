@@ -2,7 +2,7 @@
 
 import { useMemo, useState } from "react";
 import Link from "next/link";
-import { Plus, PackageOpen, WifiOff } from "lucide-react";
+import { Plus, FileText, PackageOpen, WifiOff } from "lucide-react";
 import { Card } from "@/components/ui/card";
 import { Button } from "@/components/ui/button";
 import { Skeleton } from "@/components/ui/skeleton";
@@ -18,6 +18,7 @@ import { usePurchaseOrders } from "../hooks/usePoList";
 import { useProjectOptions, useSupplierOptions } from "../hooks/usePoOptions";
 import { PoListFilterBar, EMPTY_PO_FILTER, type PoFilter } from "./PoListFilterBar";
 import { PoList, type PoNameMaps } from "./PoList";
+import { Pager } from "./Pager";
 import { type PurchaseOrderListFilter } from "../api/orders";
 
 function apiDate(v: string): string | undefined {
@@ -34,7 +35,8 @@ function toApi(f: PoFilter, page: number): PurchaseOrderListFilter {
   return {
     projectId: f.projectId || undefined,
     supplierId: f.supplierId || undefined,
-    status: f.status || undefined,
+    // Contract accepts a csv of status enum values (GET /orders ?status=).
+    status: f.status.length ? f.status.join(",") : undefined,
     dateFrom: apiDate(f.dateFrom),
     dateTo: apiDate(f.dateTo),
     page,
@@ -42,7 +44,7 @@ function toApi(f: PoFilter, page: number): PurchaseOrderListFilter {
 }
 
 function isFiltered(f: PoFilter): boolean {
-  return !!(f.projectId || f.supplierId || f.status || f.dateFrom || f.dateTo);
+  return !!(f.projectId || f.supplierId || f.status.length || f.dateFrom || f.dateTo);
 }
 
 /**
@@ -93,14 +95,21 @@ export function PoListScreen() {
         <h1 className="text-[23px] font-bold tracking-[-0.02em]" data-testid="po-list-title">
           Purchase orders
         </h1>
-        {query.data && (
-          <span className="inline-flex h-[23px] items-center gap-1.5 rounded-pill bg-muted px-2.5">
-            <span className="h-1.5 w-1.5 rounded-full bg-muted-foreground" />
-            <span className="text-[11.5px] font-semibold text-muted-foreground">
-              {total} order{total === 1 ? "" : "s"}
-            </span>
+        {query.data ? (
+          <span
+            className="inline-flex h-[22px] items-center rounded-pill bg-accent-soft px-2.5 text-[11.5px] font-semibold text-accent-ink"
+            data-testid="po-list-count"
+          >
+            {total} total
           </span>
-        )}
+        ) : query.isLoading ? (
+          <span
+            className="inline-flex h-[22px] items-center rounded-pill bg-muted px-2.5 text-[11.5px] font-semibold text-muted-foreground"
+            data-testid="po-list-count"
+          >
+            —
+          </span>
+        ) : null}
         {canCreate && (
           <Button size="md" asChild className="ml-auto gap-1.5" data-testid="po-new">
             <Link href="/purchase/orders/new">
@@ -124,10 +133,26 @@ export function PoListScreen() {
 
       <Card className={cn("mt-4 flex flex-col overflow-hidden", query.isFetching && !query.isLoading && "opacity-60")}>
         {query.isLoading ? (
-          <div className="flex flex-col gap-2 p-4" data-testid="po-loading">
-            {Array.from({ length: 12 }).map((_, i) => (
-              <Skeleton key={i} className="h-12 w-full" />
-            ))}
+          <div data-testid="po-loading">
+            <div className="hidden border-b border-border-strong bg-surface-2 px-4 py-3 lg:grid lg:grid-cols-[minmax(120px,1.2fr)_minmax(140px,1.4fr)_minmax(140px,1.4fr)_110px_130px_150px_44px] lg:gap-2">
+              {["PO ref no", "Project", "Supplier", "PO date", "Expected delivery", "Status", ""].map(
+                (h, i) => (
+                  <div
+                    key={i}
+                    className="text-[11px] font-semibold uppercase tracking-[0.4px] text-muted-foreground"
+                  >
+                    {h}
+                  </div>
+                ),
+              )}
+            </div>
+            <div className="flex flex-col">
+              {Array.from({ length: 12 }).map((_, i) => (
+                <div key={i} className="border-b border-muted px-4 py-3.5">
+                  <Skeleton className="h-4 w-full" />
+                </div>
+              ))}
+            </div>
           </div>
         ) : query.isError ? (
           <div className="p-4">
@@ -157,13 +182,17 @@ export function PoListScreen() {
           ) : (
             <div className="p-8" data-testid="po-empty-firstuse">
               <EmptyState
-                icon={PackageOpen}
+                icon={FileText}
+                iconTone="info"
                 title="No purchase orders yet."
-                description="Raise a PO to commit to a supplier for a project."
+                description="Create your first PO to start the procurement flow."
                 action={
                   canCreate ? (
-                    <Button size="md" asChild data-testid="po-empty-new">
-                      <Link href="/purchase/orders/new">New PO</Link>
+                    <Button size="md" asChild className="gap-1.5" data-testid="po-empty-new">
+                      <Link href="/purchase/orders/new">
+                        <Plus className="h-4 w-4" aria-hidden />
+                        New PO
+                      </Link>
                     </Button>
                   ) : undefined
                 }
@@ -187,26 +216,13 @@ export function PoListScreen() {
               </span>{" "}
               of <span className="font-semibold text-foreground">{total}</span>
             </span>
-            <div className="flex items-center gap-1.5">
-              <Button
-                size="sm"
-                variant="outline"
-                disabled={page <= 1}
-                onClick={() => setPage((p) => Math.max(1, p - 1))}
-                data-testid="po-prev"
-              >
-                Prev
-              </Button>
-              <Button
-                size="sm"
-                variant="outline"
-                disabled={page * query.data.pageSize >= total}
-                onClick={() => setPage((p) => p + 1)}
-                data-testid="po-next"
-              >
-                Next
-              </Button>
-            </div>
+            <Pager
+              page={page}
+              pageSize={query.data.pageSize}
+              total={total}
+              onPage={setPage}
+              testidPrefix="po"
+            />
           </div>
         )}
       </Card>

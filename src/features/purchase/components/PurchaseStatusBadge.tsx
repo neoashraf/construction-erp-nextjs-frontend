@@ -7,13 +7,15 @@ import { type PurchaseOrderStatus } from "../types";
  * never colour-only (spec §10; brief §Scope 13). Shared with fe-purchase-bills +
  * fe-grn-matching for a consistent PUR visual.
  */
+// Tones mirror the Purchase Orders.dc.html list artboard: partially-billed AND
+// partially-received both read as info (blue); cancelled reads neutral (grey, like closed).
 const TONE: Record<PurchaseOrderStatus, "warning" | "info" | "success" | "destructive" | "accent" | "neutral"> = {
   DRAFT: "warning",
   APPROVED: "success",
   PARTIALLY_BILLED: "info",
-  PARTIALLY_RECEIVED: "accent",
+  PARTIALLY_RECEIVED: "info",
   CLOSED: "neutral",
-  CANCELLED: "destructive",
+  CANCELLED: "neutral",
 };
 
 export function PurchaseStatusBadge({ status, className }: { status: PurchaseOrderStatus; className?: string }) {

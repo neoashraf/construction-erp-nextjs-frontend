@@ -32,6 +32,9 @@ export const EMPTY_GRN_FILTER: GrnFilter = {
   dateTo: "",
 };
 
+/** Filter micro-label matched to the design (10.5px / 600 / 0.4px tracking). */
+const FILTER_LABEL = "text-[10.5px] font-semibold uppercase tracking-[0.4px] text-muted-foreground";
+
 /**
  * GRN list filter bar (brief §Scope 3; spec §4). Primary row = Project · Supplier ·
  * Status · Receipt-date range with Apply/Clear; a "More filters" disclosure holds
@@ -66,7 +69,7 @@ export function GrnListFilterBar({
     <Card className="p-4" data-testid="grn-filter-bar">
       <div className="grid gap-3 md:grid-cols-6">
         <div className="md:col-span-2">
-          <Label htmlFor="grn-filter-project">Project</Label>
+          <Label htmlFor="grn-filter-project" className={FILTER_LABEL}>Project</Label>
           <Select
             id="grn-filter-project"
             value={draft.projectId}
@@ -83,7 +86,7 @@ export function GrnListFilterBar({
         </div>
 
         <div>
-          <Label htmlFor="grn-filter-supplier">Supplier</Label>
+          <Label htmlFor="grn-filter-supplier" className={FILTER_LABEL}>Supplier</Label>
           <Select
             id="grn-filter-supplier"
             value={draft.supplierId}
@@ -100,7 +103,7 @@ export function GrnListFilterBar({
         </div>
 
         <div>
-          <Label htmlFor="grn-filter-status">Status</Label>
+          <Label htmlFor="grn-filter-status" className={FILTER_LABEL}>Status</Label>
           <Select
             id="grn-filter-status"
             value={draft.status}
@@ -117,7 +120,7 @@ export function GrnListFilterBar({
         </div>
 
         <div>
-          <Label htmlFor="grn-filter-from">Receipt date from</Label>
+          <Label htmlFor="grn-filter-from" className={FILTER_LABEL}>Receipt date from</Label>
           <DatePickerInput
             id="grn-filter-from"
             value={draft.dateFrom}
@@ -126,7 +129,7 @@ export function GrnListFilterBar({
         </div>
 
         <div>
-          <Label htmlFor="grn-filter-to">Receipt date to</Label>
+          <Label htmlFor="grn-filter-to" className={FILTER_LABEL}>Receipt date to</Label>
           <DatePickerInput
             id="grn-filter-to"
             value={draft.dateTo}
@@ -138,7 +141,7 @@ export function GrnListFilterBar({
       {moreOpen && (
         <div className="mt-3 grid gap-3 md:grid-cols-3" data-testid="grn-filter-more">
           <div>
-            <Label htmlFor="grn-filter-ref">GRN ref no</Label>
+            <Label htmlFor="grn-filter-ref" className={FILTER_LABEL}>GRN ref no</Label>
             <Input
               id="grn-filter-ref"
               value={draft.grnRefNo}
@@ -148,7 +151,7 @@ export function GrnListFilterBar({
             />
           </div>
           <div>
-            <Label htmlFor="grn-filter-po">Purchase order id</Label>
+            <Label htmlFor="grn-filter-po" className={FILTER_LABEL}>Purchase order id</Label>
             <Input
               id="grn-filter-po"
               value={draft.purchaseOrderId}
@@ -158,7 +161,7 @@ export function GrnListFilterBar({
             />
           </div>
           <div>
-            <Label htmlFor="grn-filter-bill">Purchase bill id</Label>
+            <Label htmlFor="grn-filter-bill" className={FILTER_LABEL}>Purchase bill id</Label>
             <Input
               id="grn-filter-bill"
               value={draft.purchaseBillId}
@@ -181,6 +184,9 @@ export function GrnListFilterBar({
           {moreOpen ? "Fewer filters" : "More filters"}
         </button>
         <div className="flex gap-2">
+          <Button type="button" size="md" onClick={() => onApply(draft)} data-testid="grn-filter-apply">
+            Apply
+          </Button>
           <Button
             type="button"
             variant="ghost"
@@ -192,10 +198,7 @@ export function GrnListFilterBar({
             }}
             data-testid="grn-filter-clear"
           >
-            Clear
-          </Button>
-          <Button type="button" size="md" onClick={() => onApply(draft)} data-testid="grn-filter-apply">
-            Apply
+            Clear filters
           </Button>
         </div>
       </div>

@@ -3,7 +3,15 @@
 import { Package } from "lucide-react";
 import { Card } from "@/components/ui/card";
 import { cn } from "@/lib/utils";
+import { toDecimal } from "@/lib/money";
+import { money } from "../format";
 import { type PurchaseBillLine } from "../types";
+
+/** Movement value = receivedQty (falling back to billedQty) × rate — derived on the FE. */
+function movementValue(l: PurchaseBillLine): string {
+  const qty = l.receivedQty && Number(l.receivedQty) > 0 ? l.receivedQty : l.billedQty;
+  return toDecimal(qty || "0").times(toDecimal(l.rate || "0")).toFixed(4);
+}
 
 /**
  * Bill-viewer inventory-movements panel (brief §Scope 9). Derived read-only from the
@@ -36,34 +44,45 @@ export function BillInventoryPanel({
       </div>
 
       {stockLines.length === 0 ? (
-        <p className="mt-3 text-[12.5px] text-faint">This bill has no stock lines — no inventory moved.</p>
+        <p className="mt-3 text-[12.5px] text-faint">
+          Service line carries no inventory movement.
+        </p>
       ) : (
-        <div className="mt-3 overflow-x-auto">
-          <div className="grid grid-cols-[50px_1fr_100px_90px] border-b border-border-strong bg-surface-2">
-            <Header>Line</Header>
-            <Header>Item · Godown</Header>
-            <Header align="right">Received qty</Header>
-            <Header align="right">Billed qty</Header>
-          </div>
-          {stockLines.map((l) => (
-            <div
-              key={`${l.lineNo}-${l.itemId}`}
-              className="grid grid-cols-[50px_1fr_100px_90px] border-t border-muted"
-              data-testid={`bill-inv-row-${l.lineNo}`}
-            >
-              <div className="px-4 py-2.5 text-[13px] tabular-nums text-faint">{l.lineNo}</div>
-              <div className="min-w-0 px-4 py-2.5 text-[12.5px] text-foreground [overflow-wrap:anywhere]">
-                {l.itemId} <span className="text-faint">·</span> {l.godownId}
-              </div>
-              <div className="px-4 py-2.5 text-right font-mono text-[12.5px] tabular-nums text-foreground">
-                {l.receivedQty ?? "—"}
-              </div>
-              <div className="px-4 py-2.5 text-right font-mono text-[12.5px] tabular-nums text-muted-foreground">
-                {l.billedQty}
-              </div>
+        <>
+          <div className="mt-3 overflow-x-auto">
+            <div className="grid grid-cols-[1fr_1fr_100px_110px] border-b border-border-strong bg-surface-2">
+              <Header>Godown</Header>
+              <Header>Item</Header>
+              <Header align="right">Qty in</Header>
+              <Header align="right">Value</Header>
             </div>
-          ))}
-        </div>
+            {stockLines.map((l) => (
+              <div
+                key={`${l.lineNo}-${l.itemId}`}
+                className="grid grid-cols-[1fr_1fr_100px_110px] border-t border-muted"
+                data-testid={`bill-inv-row-${l.lineNo}`}
+              >
+                <div className="min-w-0 px-4 py-2.5 text-[12.5px] text-foreground [overflow-wrap:anywhere]">
+                  {l.godownId}
+                </div>
+                <div className="min-w-0 px-4 py-2.5 text-[12.5px] text-foreground [overflow-wrap:anywhere]">
+                  {l.itemId}
+                </div>
+                <div className="px-4 py-2.5 text-right font-mono text-[12.5px] tabular-nums text-success-ink">
+                  +{l.receivedQty ?? l.billedQty}
+                </div>
+                <div className="px-4 py-2.5 text-right font-mono text-[12.5px] tabular-nums text-foreground">
+                  {money(movementValue(l))}
+                </div>
+              </div>
+            ))}
+          </div>
+          {lines.some((l) => !l.isStockLine) && (
+            <p className="mt-2 text-[11.5px] text-faint">
+              Service lines carry no inventory movement.
+            </p>
+          )}
+        </>
       )}
     </Card>
   );

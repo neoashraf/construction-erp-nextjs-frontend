@@ -6,7 +6,8 @@ import { Input } from "@/components/ui/input";
 import { Button } from "@/components/ui/button";
 import { Badge } from "@/components/ui/badge";
 import { cn } from "@/lib/utils";
-import { formatMoney, toDecimal } from "@/lib/money";
+import { toDecimal } from "@/lib/money";
+import { money } from "../format";
 import { BudgetBadge } from "./BudgetBadge";
 import type { BillFormValues, BillLineError } from "../schemas/bill.schema";
 import type {
@@ -15,7 +16,6 @@ import type {
   CostCentreOption,
   GodownOption,
   ItemOption,
-  PurchaseMatchStatus,
   PurposeOption,
 } from "../types";
 
@@ -29,31 +29,19 @@ export function computeBillLineAmount(qty: string, rate: string): string | null 
   return toDecimal(String(q)).times(toDecimal(String(r))).toFixed(4);
 }
 
-const MATCH_LABEL: Record<PurchaseMatchStatus, string> = {
-  MATCHED: "Matched",
-  OVER_RECEIVED: "Over-received",
-  UNDER_RECEIVED: "Under-received",
-  PENDING_RECEIPT: "Pending receipt",
-};
-
-const MATCH_TONE: Record<PurchaseMatchStatus, "success" | "warning" | "info" | "neutral"> = {
-  MATCHED: "success",
-  OVER_RECEIVED: "warning",
-  UNDER_RECEIVED: "warning",
-  PENDING_RECEIPT: "neutral",
-};
-
-const GRID =
-  "80px minmax(160px,1.6fr) 90px 96px 110px 96px 96px 96px minmax(120px,1.1fr) minmax(120px,1.1fr) minmax(120px,1.1fr) 120px 40px";
+// Columns follow Purchase Bill.dc.html editor line grid: # · Item/Expense · Qty · Rate ·
+// Line amt · VAT in · TDS · AIT · trash. The four dimensions (godown · cost centre ·
+// purpose) + budget/receipt status live as a CHIP SUB-ROW inside the Item/Expense cell,
+// not as separate columns.
+const GRID = "36px minmax(240px,2fr) 90px 100px 110px 96px 92px 92px 40px";
 
 /**
- * Bill line grid (brief §Scope 5; spec §4/§5). Full data-grid at ≥lg: Type · Item /
- * Expense · Qty · Rate · Line amount · VAT input · TDS · AIT · Godown · Cost centre ·
- * Purpose · Budget · Remove — tax + dimension columns never collapsed (Required by
- * brief). At ≥md the grid scrolls horizontally in its own container. Type toggle
- * switches which fields are shown/required per line; live line amount preview is
- * `billedQty × rate` (client — server authoritative). Advisory over-budget badge is
- * `aria-live="polite"` and NEVER blocks Save/Post.
+ * Bill line grid (brief §Scope 5; spec §4/§5). Full data-grid at ≥lg with a leading line-
+ * number column, then the Item/Expense cell (Item|Expense segmented toggle + item/account
+ * picker + a dimension chip sub-row + advisory budget & receipt chips), then the money
+ * columns (Qty · Rate · Line · VAT · TDS · AIT) and a remove control. At <lg lines stack as
+ * cards. Line amount preview is `billedQty × rate` (client; server authoritative). The
+ * advisory over-budget badge is `aria-live="polite"` and NEVER blocks Save/Post.
  */
 export function BillLineGrid({
   lines,
@@ -94,96 +82,153 @@ export function BillLineGrid({
     <div data-testid="bill-lines">
       {/* ≥lg data-grid */}
       <div className="hidden overflow-x-auto lg:block">
-        <div style={{ minWidth: 1600 }}>
+        <div style={{ minWidth: 980 }}>
           <div
             role="row"
             className="grid items-center gap-2 border-b border-border-strong bg-surface-2 px-3 text-[11px] font-semibold uppercase tracking-[0.4px] text-muted-foreground"
             style={{ gridTemplateColumns: GRID }}
           >
-            <div className="py-2.5">Type</div>
+            <div className="py-2.5">#</div>
             <div className="py-2.5">Item / Expense</div>
             <div className="py-2.5 text-right">Qty</div>
-            <div className="py-2.5 text-right">Rate ৳</div>
-            <div className="py-2.5 text-right">Line ৳</div>
-            <div className="py-2.5 text-right">VAT ৳</div>
-            <div className="py-2.5 text-right">TDS ৳</div>
-            <div className="py-2.5 text-right">AIT ৳</div>
-            <div className="py-2.5">Godown</div>
-            <div className="py-2.5">Cost centre</div>
-            <div className="py-2.5">Purpose</div>
-            <div className="py-2.5">Budget</div>
+            <div className="py-2.5 text-right">Rate</div>
+            <div className="py-2.5 text-right">Line amt</div>
+            <div className="py-2.5 text-right">VAT in</div>
+            <div className="py-2.5 text-right">TDS</div>
+            <div className="py-2.5 text-right">AIT</div>
             <div className="py-2.5" />
           </div>
           {lines.map((l, i) => {
             const err = errors[i] ?? {};
             const amount = computeBillLineAmount(l.billedQty, l.rate);
             const budget = budgetByLine[i];
-            const match = l.matchStatus as PurchaseMatchStatus | undefined;
             return (
               <div key={i} className="border-b border-muted">
-                <div className="grid items-center gap-2 px-3" style={{ gridTemplateColumns: GRID }}>
-                  <div className="py-2">
-                    <Select
+                <div className="grid items-start gap-2 px-3 py-2" style={{ gridTemplateColumns: GRID }}>
+                  <div className="pt-2.5 text-[12.5px] font-semibold text-muted-foreground">{i + 1}</div>
+
+                  {/* Item / Expense cell: toggle + picker + dimension chip sub-row + status chips */}
+                  <div className="min-w-0">
+                    <TypeToggle
                       value={l.isStockLine ? "stock" : "expense"}
                       disabled={disabled}
-                      invalid={!!err.isStockLine}
-                      aria-label={`Line type for line ${i + 1}`}
-                      data-testid="bill-line-type"
-                      onChange={(e) =>
+                      onChange={(v) =>
                         onLineChange(i, {
-                          isStockLine: e.target.value === "stock",
-                          itemId: e.target.value === "stock" ? l.itemId : "",
-                          expenseAccountId: e.target.value === "expense" ? l.expenseAccountId : "",
-                          godownId: e.target.value === "stock" ? l.godownId : "",
+                          isStockLine: v === "stock",
+                          itemId: v === "stock" ? l.itemId : "",
+                          expenseAccountId: v === "expense" ? l.expenseAccountId : "",
+                          godownId: v === "stock" ? l.godownId : "",
                         })
                       }
-                    >
-                      <option value="stock">Item</option>
-                      <option value="expense">Expense</option>
-                    </Select>
-                  </div>
-                  <div className="min-w-0 py-2">
-                    {l.isStockLine ? (
-                      <Select
-                        value={l.itemId ?? ""}
-                        disabled={disabled}
-                        invalid={!!err.itemId}
-                        aria-label={`Item for line ${i + 1}`}
-                        data-testid="bill-line-item"
-                        onChange={(e) => onLineChange(i, { itemId: e.target.value })}
-                      >
-                        <option value="">Select an item…</option>
-                        {items.filter((it) => it.isActive || it.id === l.itemId).map((it) => (
-                          <option key={it.id} value={it.id}>
-                            {it.name}
-                          </option>
-                        ))}
-                      </Select>
-                    ) : (
-                      <Select
-                        value={l.expenseAccountId ?? ""}
-                        disabled={disabled}
-                        invalid={!!err.expenseAccountId}
-                        aria-label={`Expense account for line ${i + 1}`}
-                        data-testid="bill-line-expense"
-                        onChange={(e) => onLineChange(i, { expenseAccountId: e.target.value })}
-                      >
-                        <option value="">Select an expense account…</option>
-                        {expenseAccounts
-                          .filter((a) => a.isActive || a.id === l.expenseAccountId)
-                          .map((a) => (
-                            <option key={a.id} value={a.id}>
-                              {a.code} — {a.name}
+                      lineNo={i + 1}
+                    />
+                    <div className="mt-1.5">
+                      {l.isStockLine ? (
+                        <Select
+                          value={l.itemId ?? ""}
+                          disabled={disabled}
+                          invalid={!!err.itemId}
+                          aria-label={`Item for line ${i + 1}`}
+                          data-testid="bill-line-item"
+                          onChange={(e) => onLineChange(i, { itemId: e.target.value })}
+                        >
+                          <option value="">Select an item…</option>
+                          {items.filter((it) => it.isActive || it.id === l.itemId).map((it) => (
+                            <option key={it.id} value={it.id}>
+                              {it.name}
                             </option>
                           ))}
-                      </Select>
-                    )}
+                        </Select>
+                      ) : (
+                        <Select
+                          value={l.expenseAccountId ?? ""}
+                          disabled={disabled}
+                          invalid={!!err.expenseAccountId}
+                          aria-label={`Expense account for line ${i + 1}`}
+                          data-testid="bill-line-expense"
+                          onChange={(e) => onLineChange(i, { expenseAccountId: e.target.value })}
+                        >
+                          <option value="">Select an expense account…</option>
+                          {expenseAccounts
+                            .filter((a) => a.isActive || a.id === l.expenseAccountId)
+                            .map((a) => (
+                              <option key={a.id} value={a.id}>
+                                {a.code} — {a.name}
+                              </option>
+                            ))}
+                        </Select>
+                      )}
+                    </div>
+
+                    {/* Dimension chip sub-row */}
+                    <div className="mt-1.5 flex flex-wrap items-center gap-1.5">
+                      <ChipSelect
+                        label="Godown"
+                        value={l.godownId ?? ""}
+                        disabled={disabled || !l.isStockLine || !projectSelected}
+                        invalid={!!err.godownId}
+                        ariaLabel={`Godown for line ${i + 1}`}
+                        testid="bill-line-godown"
+                        placeholder={l.isStockLine ? (projectSelected ? "Select…" : "—") : "No godown · service line"}
+                        onChange={(v) => onLineChange(i, { godownId: v })}
+                        options={godowns
+                          .filter((g) => g.isActive || g.id === l.godownId)
+                          .map((g) => ({ value: g.id, label: g.code }))}
+                      />
+                      <ChipSelect
+                        label="Cost centre"
+                        value={l.costCentreId}
+                        disabled={disabled}
+                        invalid={!!err.costCentreId}
+                        ariaLabel={`Cost centre for line ${i + 1}`}
+                        testid="bill-line-cc"
+                        placeholder="Select…"
+                        onChange={(v) => onLineChange(i, { costCentreId: v })}
+                        options={costCentres
+                          .filter((c) => c.isActive || c.id === l.costCentreId)
+                          .map((c) => ({ value: c.id, label: c.code }))}
+                      />
+                      <div className="flex items-center gap-1">
+                        <ChipSelect
+                          label="Purpose"
+                          value={l.purposeId}
+                          disabled={disabled || !projectSelected}
+                          invalid={!!err.purposeId}
+                          ariaLabel={`Purpose for line ${i + 1}`}
+                          testid="bill-line-purpose"
+                          placeholder={projectSelected ? (purposesLoading ? "Loading…" : "Select…") : "—"}
+                          onChange={(v) => onLineChange(i, { purposeId: v })}
+                          options={purposes
+                            .filter((p) => p.isActive || p.id === l.purposeId)
+                            .map((p) => ({ value: p.id, label: p.name }))}
+                        />
+                        {!disabled && projectSelected && onAddPurpose && (
+                          <button
+                            type="button"
+                            onClick={() => {
+                              const name = window.prompt("New purpose name:")?.trim();
+                              if (name) onAddPurpose(name);
+                            }}
+                            aria-label="Add a new purpose"
+                            data-testid="bill-line-purpose-add"
+                            className="grid h-6 w-6 flex-none place-items-center rounded-token text-accent-ink hover:bg-muted"
+                          >
+                            <Plus className="h-3.5 w-3.5" aria-hidden />
+                          </button>
+                        )}
+                      </div>
+                      <span aria-live="polite">
+                        {budget && <BudgetBadge status={budget} />}
+                      </span>
+                      <ReceiptChip isStockLine={l.isStockLine} matchStatus={l.matchStatus} />
+                    </div>
                   </div>
-                  <div className="py-2">
+
+                  <div className="pt-1">
                     <Input
                       inputMode="decimal"
                       value={l.billedQty}
-                      disabled={disabled}
+                      disabled={disabled || !l.isStockLine}
                       invalid={!!err.billedQty}
                       className="text-right font-mono tabular-nums"
                       aria-label={`Billed quantity for line ${i + 1}`}
@@ -191,7 +236,7 @@ export function BillLineGrid({
                       onChange={(e) => onLineChange(i, { billedQty: e.target.value })}
                     />
                   </div>
-                  <div className="py-2">
+                  <div className="pt-1">
                     <Input
                       inputMode="decimal"
                       value={l.rate}
@@ -203,10 +248,10 @@ export function BillLineGrid({
                       onChange={(e) => onLineChange(i, { rate: e.target.value })}
                     />
                   </div>
-                  <div className="py-2 text-right font-mono text-[12.5px] font-medium tabular-nums text-foreground">
-                    {amount != null ? formatMoney(amount, { withSymbol: false }) : "—"}
+                  <div className="pt-3.5 text-right font-mono text-[12.5px] font-semibold tabular-nums text-foreground">
+                    {amount != null ? money(amount) : "—"}
                   </div>
-                  <div className="py-2">
+                  <div className="pt-1">
                     <Input
                       inputMode="decimal"
                       value={l.vatInputAmount}
@@ -218,7 +263,7 @@ export function BillLineGrid({
                       onChange={(e) => onLineChange(i, { vatInputAmount: e.target.value })}
                     />
                   </div>
-                  <div className="py-2">
+                  <div className="pt-1">
                     <Input
                       inputMode="decimal"
                       value={l.tdsAmount}
@@ -230,7 +275,7 @@ export function BillLineGrid({
                       onChange={(e) => onLineChange(i, { tdsAmount: e.target.value })}
                     />
                   </div>
-                  <div className="py-2">
+                  <div className="pt-1">
                     <Input
                       inputMode="decimal"
                       value={l.aitAmount}
@@ -242,89 +287,7 @@ export function BillLineGrid({
                       onChange={(e) => onLineChange(i, { aitAmount: e.target.value })}
                     />
                   </div>
-                  <div className="py-2">
-                    {l.isStockLine ? (
-                      <Select
-                        value={l.godownId ?? ""}
-                        disabled={disabled || !projectSelected}
-                        invalid={!!err.godownId}
-                        aria-label={`Godown for line ${i + 1}`}
-                        data-testid="bill-line-godown"
-                        onChange={(e) => onLineChange(i, { godownId: e.target.value })}
-                      >
-                        <option value="">{projectSelected ? "Select…" : "—"}</option>
-                        {godowns.filter((g) => g.isActive || g.id === l.godownId).map((g) => (
-                          <option key={g.id} value={g.id}>
-                            {g.code}
-                          </option>
-                        ))}
-                      </Select>
-                    ) : (
-                      <span className="text-[12px] text-faint">—</span>
-                    )}
-                  </div>
-                  <div className="py-2">
-                    <Select
-                      value={l.costCentreId}
-                      disabled={disabled}
-                      invalid={!!err.costCentreId}
-                      aria-label={`Cost centre for line ${i + 1}`}
-                      data-testid="bill-line-cc"
-                      onChange={(e) => onLineChange(i, { costCentreId: e.target.value })}
-                    >
-                      <option value="">Select…</option>
-                      {costCentres
-                        .filter((c) => c.isActive || c.id === l.costCentreId)
-                        .map((c) => (
-                          <option key={c.id} value={c.id}>
-                            {c.code}
-                          </option>
-                        ))}
-                    </Select>
-                  </div>
-                  <div className="py-2">
-                    <div className="flex items-center gap-1">
-                      <Select
-                        value={l.purposeId}
-                        disabled={disabled || !projectSelected}
-                        invalid={!!err.purposeId}
-                        aria-label={`Purpose for line ${i + 1}`}
-                        data-testid="bill-line-purpose"
-                        onChange={(e) => onLineChange(i, { purposeId: e.target.value })}
-                      >
-                        <option value="">
-                          {projectSelected ? (purposesLoading ? "Loading…" : "Select…") : "—"}
-                        </option>
-                        {purposes.filter((p) => p.isActive || p.id === l.purposeId).map((p) => (
-                          <option key={p.id} value={p.id}>
-                            {p.name}
-                          </option>
-                        ))}
-                      </Select>
-                      {!disabled && projectSelected && onAddPurpose && (
-                        <button
-                          type="button"
-                          onClick={() => {
-                            const name = window.prompt("New purpose name:")?.trim();
-                            if (name) onAddPurpose(name);
-                          }}
-                          aria-label="Add a new purpose"
-                          data-testid="bill-line-purpose-add"
-                          className="grid h-9 w-8 flex-none place-items-center rounded-token text-accent-ink hover:bg-muted"
-                        >
-                          <Plus className="h-4 w-4" aria-hidden />
-                        </button>
-                      )}
-                    </div>
-                  </div>
-                  <div className="py-2" aria-live="polite">
-                    {budget ? (
-                      <BudgetBadge status={budget} />
-                    ) : (
-                      <span className="text-[12px] text-faint">—</span>
-                    )}
-                  </div>
-                  <div className="flex justify-end py-2">
+                  <div className="flex justify-end pt-2">
                     {!disabled && (
                       <button
                         type="button"
@@ -341,14 +304,6 @@ export function BillLineGrid({
                     )}
                   </div>
                 </div>
-                {match && (
-                  <div className="px-3 pb-2">
-                    <Badge tone={MATCH_TONE[match]} dot data-testid={`bill-line-match-${match}`}>
-                      {MATCH_LABEL[match]}
-                      {l.receivedQty ? ` · ${l.receivedQty}` : ""}
-                    </Badge>
-                  </div>
-                )}
                 {(err.isStockLine ||
                   err.itemId ||
                   err.expenseAccountId ||
@@ -392,23 +347,19 @@ export function BillLineGrid({
               data-testid={`bill-line-card-${i}`}
             >
               <div className="mb-2 flex items-center justify-between">
-                <Select
+                <TypeToggle
                   value={l.isStockLine ? "stock" : "expense"}
                   disabled={disabled}
-                  aria-label={`Line type for line ${i + 1}`}
-                  onChange={(e) =>
+                  onChange={(v) =>
                     onLineChange(i, {
-                      isStockLine: e.target.value === "stock",
-                      itemId: e.target.value === "stock" ? l.itemId : "",
-                      expenseAccountId: e.target.value === "expense" ? l.expenseAccountId : "",
-                      godownId: e.target.value === "stock" ? l.godownId : "",
+                      isStockLine: v === "stock",
+                      itemId: v === "stock" ? l.itemId : "",
+                      expenseAccountId: v === "expense" ? l.expenseAccountId : "",
+                      godownId: v === "stock" ? l.godownId : "",
                     })
                   }
-                  className="w-28"
-                >
-                  <option value="stock">Item</option>
-                  <option value="expense">Expense</option>
-                </Select>
+                  lineNo={i + 1}
+                />
                 {!disabled && (
                   <button
                     type="button"
@@ -463,6 +414,7 @@ export function BillLineGrid({
                     value={l.billedQty}
                     onChange={(e) => onLineChange(i, { billedQty: e.target.value })}
                     invalid={!!err.billedQty}
+                    disabled={disabled || !l.isStockLine}
                     className="text-right font-mono tabular-nums"
                   />
                 </MobileField>
@@ -477,7 +429,7 @@ export function BillLineGrid({
                 </MobileField>
                 <MobileField label="Line">
                   <div className="pr-2 text-right font-mono text-[13px] tabular-nums text-foreground">
-                    {amount != null ? formatMoney(amount, { withSymbol: false }) : "—"}
+                    {amount != null ? money(amount) : "—"}
                   </div>
                 </MobileField>
               </div>
@@ -487,20 +439,147 @@ export function BillLineGrid({
       </div>
 
       {!disabled && (
-        <Button
-          type="button"
-          variant="outline"
-          size="md"
-          className="mt-3 w-full gap-1.5 lg:w-auto"
-          onClick={onAddLine}
-          data-testid="bill-add-line"
-        >
-          <Plus className="h-4 w-4" aria-hidden />
-          Add line
-        </Button>
+        <div className="mt-3 flex flex-col items-start gap-2 lg:flex-row lg:items-center">
+          <Button
+            type="button"
+            variant="outline"
+            size="md"
+            className="w-full gap-1.5 lg:w-auto"
+            onClick={onAddLine}
+            data-testid="bill-add-line"
+          >
+            <Plus className="h-4 w-4" aria-hidden />
+            Add line
+          </Button>
+          <span className="text-[12px] text-faint">
+            Stock line = item + godown · service line = expense account only.
+          </span>
+        </div>
       )}
     </div>
   );
+}
+
+/** Item | Expense segmented toggle (Purchase Bill.dc.html line cell). */
+function TypeToggle({
+  value,
+  disabled,
+  onChange,
+  lineNo,
+}: {
+  value: "stock" | "expense";
+  disabled?: boolean;
+  onChange: (v: "stock" | "expense") => void;
+  lineNo: number;
+}) {
+  return (
+    <div
+      className="inline-flex rounded-token border border-border-strong p-0.5"
+      role="group"
+      aria-label={`Line type for line ${lineNo}`}
+      data-testid="bill-line-type"
+    >
+      {(["stock", "expense"] as const).map((opt) => {
+        const active = value === opt;
+        return (
+          <button
+            key={opt}
+            type="button"
+            disabled={disabled}
+            aria-pressed={active}
+            data-testid={`bill-line-type-${opt}`}
+            onClick={() => !active && onChange(opt)}
+            className={cn(
+              "rounded-[6px] px-2.5 py-1 text-[12px] font-semibold transition-colors disabled:opacity-60",
+              active ? "bg-primary text-primary-foreground" : "text-muted-foreground hover:bg-muted",
+            )}
+          >
+            {opt === "stock" ? "Item" : "Expense"}
+          </button>
+        );
+      })}
+    </div>
+  );
+}
+
+/** Compact chip-style labelled select used in the line dimension sub-row. */
+function ChipSelect({
+  label,
+  value,
+  disabled,
+  invalid,
+  ariaLabel,
+  testid,
+  placeholder,
+  options,
+  onChange,
+}: {
+  label: string;
+  value: string;
+  disabled?: boolean;
+  invalid?: boolean;
+  ariaLabel: string;
+  testid: string;
+  placeholder: string;
+  options: Array<{ value: string; label: string }>;
+  onChange: (v: string) => void;
+}) {
+  return (
+    <label
+      className={cn(
+        "inline-flex items-center gap-1 rounded-pill border bg-surface-2 pl-2 pr-1 text-[11px]",
+        invalid ? "border-destructive" : "border-border-strong",
+        disabled && "opacity-60",
+      )}
+    >
+      <span className="font-semibold uppercase tracking-[0.3px] text-faint">{label}</span>
+      <select
+        value={value}
+        disabled={disabled}
+        aria-label={ariaLabel}
+        data-testid={testid}
+        onChange={(e) => onChange(e.target.value)}
+        className="max-w-[130px] truncate bg-transparent py-1 text-[12px] text-foreground outline-none disabled:cursor-not-allowed"
+      >
+        <option value="">{placeholder}</option>
+        {options.map((o) => (
+          <option key={o.value} value={o.value}>
+            {o.label}
+          </option>
+        ))}
+      </select>
+    </label>
+  );
+}
+
+/**
+ * Receipt status chip (Purchase Bill.dc.html): a stock line awaiting receipt shows
+ * "Pending receipt" (info); a service (non-stock) line carries no GRN → "No GRN — service"
+ * (neutral). A stock line already matched/received shows nothing here (the ledger/GRN track
+ * the real match on the posted viewer).
+ */
+function ReceiptChip({
+  isStockLine,
+  matchStatus,
+}: {
+  isStockLine: boolean;
+  matchStatus?: string;
+}) {
+  if (!isStockLine) {
+    return (
+      <Badge tone="neutral" dot data-testid="bill-line-receipt-service">
+        No GRN — service
+      </Badge>
+    );
+  }
+  if (!matchStatus || matchStatus === "PENDING_RECEIPT") {
+    return (
+      <Badge tone="info" dot data-testid="bill-line-receipt-pending">
+        Pending receipt
+      </Badge>
+    );
+  }
+  return null;
 }
 
 function MobileField({ label, children }: { label: string; children: React.ReactNode }) {
