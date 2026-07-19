@@ -2,7 +2,7 @@
 
 import { useState } from "react";
 import Link from "next/link";
-import { AlertCircle, ChevronRight, ExternalLink } from "lucide-react";
+import { AlertCircle, Check, ChevronRight, ExternalLink } from "lucide-react";
 import { cn } from "@/lib/utils";
 import { formatMoney } from "@/lib/money";
 import { Alert } from "@/components/ui/alert";
@@ -176,7 +176,12 @@ function PaymentLedgerLinesDesktop({
         ))}
         <div className={cn(GRID, "border-t-2 border-border-strong bg-surface-2 py-3 text-[13px] font-bold text-foreground")} role="row">
           <span />
-          <span>Totals · Balanced</span>
+          <span className="flex items-center">
+            <span className="inline-flex items-center gap-1.5 rounded-pill bg-success-soft px-2.5 py-0.5 text-[11.5px] font-semibold text-success-ink">
+              <Check className="h-3 w-3" aria-hidden />
+              Balanced
+            </span>
+          </span>
           <span /><span /><span /><span />
           <span className="pr-4 text-right font-mono tabular-nums">{formatMoney(totalDebit)}</span>
           <span className="pr-4 text-right font-mono tabular-nums">{formatMoney(totalCredit)}</span>
