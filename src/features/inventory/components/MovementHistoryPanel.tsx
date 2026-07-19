@@ -1,7 +1,7 @@
 "use client";
 
 import { useMemo, useState } from "react";
-import { ArrowDownUp, Repeat2 } from "lucide-react";
+import { ArrowDownUp, Repeat2, X } from "lucide-react";
 import { Sheet, SheetContent } from "@/components/ui/sheet";
 import { Button } from "@/components/ui/button";
 import { Label } from "@/components/ui/label";
@@ -74,7 +74,7 @@ export function MovementHistoryPanel({
   return (
     <Sheet open={!!target} onOpenChange={(o) => !o && onClose()}>
       <SheetContent
-        className="w-full max-w-full p-0 sm:w-[912px] sm:max-w-[96%]"
+        className="w-full max-w-full p-0 sm:w-[800px] sm:max-w-[96%]"
         data-testid="sl-movement-panel"
         onOpenAutoFocus={(e) => e.preventDefault()}
       >
@@ -100,9 +100,27 @@ export function MovementHistoryPanel({
                     Movement history — {target.itemName} at {target.godownName}
                   </h2>
                 </div>
-                <Button type="button" variant="outline" size="sm" onClick={onClose} data-testid="sl-movement-back">
-                  Back to balances
-                </Button>
+                <div className="flex flex-none items-center gap-2">
+                  <Button
+                    type="button"
+                    variant="outline"
+                    size="sm"
+                    onClick={onClose}
+                    data-testid="sl-movement-back"
+                  >
+                    Back to balances
+                  </Button>
+                  <button
+                    type="button"
+                    onClick={onClose}
+                    aria-label="Close (Esc)"
+                    title="Close (Esc)"
+                    data-testid="sl-movement-close"
+                    className="grid h-[34px] w-[34px] flex-none place-items-center rounded-token border border-border-strong bg-surface text-muted-foreground hover:bg-muted hover:text-foreground"
+                  >
+                    <X className="h-3.5 w-3.5" aria-hidden />
+                  </button>
+                </div>
               </div>
 
               {/* summary strip */}
@@ -110,13 +128,16 @@ export function MovementHistoryPanel({
                 <SummaryCard label="Quantity on hand">
                   {bal ? (
                     <>
-                      {formatQty(bal.quantityOnHand, 4)} <span className="text-[12px] text-faint">{uom}</span>
+                      {formatQty(bal.quantityOnHand, 4)}{" "}
+                      <span className="text-[12px] text-faint">{uom}</span>
                     </>
                   ) : (
                     "—"
                   )}
                 </SummaryCard>
-                <SummaryCard label="Total value">{bal ? formatMoney(bal.totalValue) : "—"}</SummaryCard>
+                <SummaryCard label="Total value">
+                  {bal ? formatMoney(bal.totalValue) : "—"}
+                </SummaryCard>
                 <SummaryCard label="Weighted-avg rate">
                   {bal?.weightedAverageRate ? formatMoney(bal.weightedAverageRate) : "—"}
                 </SummaryCard>
@@ -148,20 +169,26 @@ export function MovementHistoryPanel({
                     />
                   </div>
                 </div>
-                <Button
+                <button
                   type="button"
-                  variant="outline"
-                  size="md"
-                  className="ml-auto gap-1.5"
+                  title="Sort order — not yet fixed by the API"
+                  className="ml-auto flex h-9 items-center gap-2 rounded-token border border-border-strong bg-surface px-3 text-[12.5px] font-semibold text-foreground hover:bg-muted"
                   onClick={() => setSort((s) => (s === "newest" ? "oldest" : "newest"))}
                   data-testid="sl-mv-sort"
                 >
                   <ArrowDownUp className="h-3.5 w-3.5" aria-hidden />
                   {sort === "newest" ? "Newest first" : "Oldest first"}
-                </Button>
+                  <span className="rounded-[5px] bg-warning-soft px-1.5 py-0.5 text-[9px] font-semibold uppercase tracking-[0.4px] text-warning-ink">
+                    Draft
+                  </span>
+                </button>
               </div>
               {(!datesValid || !rangeOk) && (
-                <p className="mt-2 text-[12px] text-destructive-ink" role="alert" data-testid="sl-mv-date-error">
+                <p
+                  className="mt-2 text-[12px] text-destructive-ink"
+                  role="alert"
+                  data-testid="sl-mv-date-error"
+                >
                   {!datesValid ? "Enter a valid date." : "Date from cannot be after date to."}
                 </p>
               )}
@@ -230,7 +257,9 @@ export function MovementHistoryPanel({
                     <span className="text-[12px] text-muted-foreground">
                       {rows.length} movement{rows.length === 1 ? "" : "s"}
                     </span>
-                    <span className="text-[11px] text-faint">Append-only — every row traces to its source voucher.</span>
+                    <span className="text-[11px] text-faint">
+                      Append-only — every row traces to its source voucher.
+                    </span>
                   </div>
                 </>
               )}
@@ -245,7 +274,9 @@ export function MovementHistoryPanel({
 function SummaryCard({ label, children }: { label: string; children: React.ReactNode }) {
   return (
     <div className="rounded-token border border-border bg-surface-2 px-3 py-2.5">
-      <div className="text-[10.5px] font-semibold uppercase tracking-[0.4px] text-muted-foreground">{label}</div>
+      <div className="text-[10.5px] font-semibold uppercase tracking-[0.4px] text-muted-foreground">
+        {label}
+      </div>
       <div className="mt-1 font-mono text-[18px] font-medium tabular-nums text-foreground [overflow-wrap:anywhere]">
         {children}
       </div>

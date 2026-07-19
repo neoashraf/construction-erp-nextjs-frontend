@@ -1,13 +1,17 @@
 "use client";
 
 import { useMemo, useState } from "react";
-import { PackageOpen, WifiOff, X } from "lucide-react";
+import { PackageOpen, WifiOff, Calendar, ChevronDown, Check, Info } from "lucide-react";
 import { Card } from "@/components/ui/card";
 import { Button } from "@/components/ui/button";
 import { Skeleton } from "@/components/ui/skeleton";
 import { EmptyState } from "@/components/ui/empty-state";
 import { Alert } from "@/components/ui/alert";
-import { DatePickerInput } from "@/components/ui/date-picker";
+import {
+  DropdownMenu,
+  DropdownMenuContent,
+  DropdownMenuTrigger,
+} from "@/components/ui/dropdown-menu";
 import { cn } from "@/lib/utils";
 import { useOnline } from "@/lib/hooks/use-online";
 import { type ApiError } from "@/lib/api";
@@ -36,8 +40,14 @@ import { type StockLedgerRow } from "../types";
  */
 export function StockLedgerScreen() {
   const online = useOnline();
-  const [scope, setScope] = useState<LedgerScopeFilter>({ godownId: "", itemId: "", projectId: "" });
+  const [scope, setScope] = useState<LedgerScopeFilter>({
+    godownId: "",
+    itemId: "",
+    projectId: "",
+  });
   const [asOf, setAsOf] = useState(""); // DD/MM/YYYY UI string; "" = Latest
+  const [asOfOpen, setAsOfOpen] = useState(false);
+  const [asOfDraft, setAsOfDraft] = useState(""); // popover-local date draft
   const [groupBy, setGroupBy] = useState<LedgerGroupBy>("godown");
   const [target, setTarget] = useState<MovementPanelTarget | null>(null);
 
@@ -73,6 +83,17 @@ export function StockLedgerScreen() {
   const err = query.error as ApiError | null;
   const isForbidden = query.isError && err?.code === "FORBIDDEN";
 
+  function pickLatest() {
+    setAsOf("");
+    setAsOfDraft("");
+    setAsOfOpen(false);
+  }
+  function applyAsOfDraft() {
+    setAsOf(asOfDraft.trim());
+    setAsOfOpen(false);
+  }
+  const draftValid = isValidUiDate(asOfDraft) && asOfDraft.trim() !== "";
+
   function openMovements(row: StockLedgerRow) {
     if (!online) return; // a new drawer open requires a fresh fetch (spec §6)
     const g = maps.godowns.get(row.godownId);
@@ -96,57 +117,103 @@ export function StockLedgerScreen() {
             <h1 className="text-[23px] font-bold tracking-[-0.02em]" data-testid="sl-title">
               Stock Ledger
             </h1>
-            <span className="inline-flex h-[22px] items-center gap-1.5 rounded-pill bg-muted px-2.5 text-[11px] font-semibold text-muted-foreground">
+            <span className="inline-flex h-[23px] items-center gap-1.5 rounded-pill bg-muted px-2.5 text-[11.5px] font-semibold text-muted-foreground">
+              <span className="h-1.5 w-1.5 rounded-full bg-faint" aria-hidden />
               Derived · read-only
             </span>
             {query.data && (
-              <span className="inline-flex h-[22px] items-center rounded-pill bg-accent-soft px-2.5 text-[11.5px] font-semibold text-accent-ink">
-                {balanceCount} balance{balanceCount === 1 ? "" : "s"} · {godownCount} godown{godownCount === 1 ? "" : "s"}
+              <span className="inline-flex h-[23px] items-center rounded-pill bg-muted px-2.5 text-[11.5px] font-semibold text-muted-foreground">
+                {balanceCount} balance{balanceCount === 1 ? "" : "s"} · {godownCount} godown
+                {godownCount === 1 ? "" : "s"}
               </span>
             )}
           </div>
         </div>
 
         {/* as-of + grouping */}
-        <div className="ml-auto flex flex-wrap items-end gap-3">
-          <div className="flex flex-col gap-1.5">
-            <span className="text-[10.5px] font-semibold uppercase tracking-[0.4px] text-muted-foreground">As of</span>
-            <div className="flex items-center gap-1.5">
-              <div className="w-[150px]">
-                <DatePickerInput
-                  value={asOf}
-                  onChange={setAsOf}
-                  align="right"
-                  invalid={!asOfValid}
-                  disabled={!online}
-                  placeholder="Latest"
-                />
-              </div>
-              {asOf && (
+        <div className="ml-auto flex items-center gap-3">
+          <div className="flex items-center gap-2">
+            <span className="text-[11px] font-semibold uppercase tracking-[0.4px] text-muted-foreground">
+              As of
+            </span>
+            <DropdownMenu
+              open={asOfOpen}
+              onOpenChange={(o) => {
+                setAsOfOpen(o);
+                if (o) setAsOfDraft(asOf);
+              }}
+            >
+              <DropdownMenuTrigger asChild disabled={!online}>
                 <button
                   type="button"
-                  onClick={() => setAsOf("")}
-                  aria-label="Reset to latest"
-                  data-testid="sl-asof-reset"
-                  className="grid h-9 w-9 place-items-center rounded-token border border-border-strong text-muted-foreground hover:bg-muted hover:text-foreground"
+                  data-testid="sl-asof-trigger"
+                  className="flex h-9 items-center gap-2 rounded-token border border-border-strong bg-surface px-3 text-[13px] font-semibold text-foreground hover:border-border-strong hover:bg-surface-2 disabled:cursor-not-allowed disabled:opacity-60"
                 >
-                  <X className="h-4 w-4" aria-hidden />
+                  <Calendar className="h-3.5 w-3.5 text-muted-foreground" aria-hidden />
+                  <span>{asOfLabel}</span>
+                  <ChevronDown className="h-3 w-3 text-faint" aria-hidden />
                 </button>
-              )}
-            </div>
+              </DropdownMenuTrigger>
+              <DropdownMenuContent align="end" className="w-[230px] p-1.5">
+                <button
+                  type="button"
+                  onClick={pickLatest}
+                  data-testid="sl-asof-latest"
+                  className="flex h-[34px] w-full items-center gap-2 rounded-token px-2.5 text-[13px] font-medium text-foreground hover:bg-muted"
+                >
+                  <span className="flex-1 text-left">Latest (current balance)</span>
+                  {!asOf && <Check className="h-3.5 w-3.5 text-accent-ink" aria-hidden />}
+                </button>
+                <div className="mx-1 my-1.5 h-px bg-border" />
+                <div className="px-1.5 pb-1.5 pt-0.5">
+                  <label
+                    htmlFor="sl-asof-date"
+                    className="mb-1.5 block text-[10.5px] font-semibold uppercase tracking-[0.4px] text-muted-foreground"
+                  >
+                    As-of date
+                  </label>
+                  <input
+                    id="sl-asof-date"
+                    value={asOfDraft}
+                    onChange={(e) => setAsOfDraft(e.target.value)}
+                    onKeyDown={(e) => {
+                      if (e.key === "Enter" && draftValid) applyAsOfDraft();
+                    }}
+                    placeholder="DD/MM/YYYY"
+                    inputMode="numeric"
+                    data-testid="sl-asof-date"
+                    className={cn(
+                      "h-9 w-full rounded-token border border-border-strong bg-surface px-2.5 font-mono text-[13px] tabular-nums text-foreground placeholder:text-faint",
+                      "focus:border-accent focus:shadow-focus focus:outline-none",
+                      asOfDraft.trim() !== "" &&
+                        !isValidUiDate(asOfDraft) &&
+                        "border-destructive focus:border-destructive focus:shadow-focus-error",
+                    )}
+                  />
+                  <Button
+                    type="button"
+                    size="md"
+                    disabled={!draftValid}
+                    onClick={applyAsOfDraft}
+                    data-testid="sl-asof-apply"
+                    className="mt-2 h-8 w-full text-[12.5px]"
+                  >
+                    Apply as-of
+                  </Button>
+                </div>
+              </DropdownMenuContent>
+            </DropdownMenu>
           </div>
           <GroupingToggle value={groupBy} onChange={setGroupBy} />
         </div>
       </div>
 
-      {!asOfValid && (
-        <p className="mb-3 text-[12.5px] text-destructive-ink" role="alert" data-testid="sl-asof-error">
-          Enter a valid date.
-        </p>
-      )}
-
       {!online && (
-        <Alert tone="warning" className="mb-3" title="You're offline. Showing the last loaded balances.">
+        <Alert
+          tone="warning"
+          className="mb-3"
+          title="You're offline. Showing the last loaded balances."
+        >
           <span className="inline-flex items-center gap-1.5 text-[12.5px]">
             <WifiOff className="h-3.5 w-3.5" aria-hidden />
             As-of-date changes and new movement views are paused until you reconnect.
@@ -164,7 +231,12 @@ export function StockLedgerScreen() {
         onClear={() => setScope({ godownId: "", itemId: "", projectId: "" })}
       />
 
-      <Card className={cn("mt-4 flex flex-col overflow-hidden", query.isFetching && !query.isLoading && "opacity-60")}>
+      <Card
+        className={cn(
+          "mt-4 flex flex-col overflow-hidden",
+          query.isFetching && !query.isLoading && "opacity-60",
+        )}
+      >
         {query.isLoading ? (
           <div className="flex flex-col gap-2 p-4" data-testid="sl-loading">
             {Array.from({ length: 10 }).map((_, i) => (
@@ -173,7 +245,11 @@ export function StockLedgerScreen() {
           </div>
         ) : isForbidden ? (
           <div className="p-4">
-            <Alert tone="destructive" title="You can only view your assigned projects." data-testid="sl-forbidden">
+            <Alert
+              tone="destructive"
+              title="You can only view your assigned projects."
+              data-testid="sl-forbidden"
+            >
               Choose a godown or project within your assigned scope.
             </Alert>
           </div>
@@ -220,18 +296,27 @@ export function StockLedgerScreen() {
             </div>
           )
         ) : (
-          <StockBalancesTable rows={rows} maps={maps} groupBy={groupBy} asOfLabel={asOfLabel} onView={openMovements} />
-        )}
-
-        {query.data && rows.length > 0 && (
-          <div className="flex flex-none items-center gap-2 border-t border-border px-4 py-3 text-[12px] text-muted-foreground">
-            <span data-testid="sl-derived-note">
-              Balances are derived from posted movements — they change only by posting or reversing a Stock Journal, Goods
-              Receipt, or Requisition Issue. Nothing is written from this screen.
-            </span>
-          </div>
+          <StockBalancesTable
+            rows={rows}
+            maps={maps}
+            groupBy={groupBy}
+            asOfLabel={asOfLabel}
+            onView={openMovements}
+          />
         )}
       </Card>
+
+      {/* derived-framing footnote — shown in every state (design §footnote) */}
+      <div className="mt-3 flex max-w-[880px] gap-2.5 rounded-token border border-border bg-surface-2 px-3.5 py-3">
+        <Info className="mt-px h-3.5 w-3.5 flex-none text-info" aria-hidden />
+        <span
+          className="text-[12px] leading-[1.5] text-muted-foreground"
+          data-testid="sl-derived-note"
+        >
+          Balances are derived from posted movements — they change only by posting or reversing a
+          Stock Journal, Goods Receipt, or Requisition Issue. Nothing is written from this screen.
+        </span>
+      </div>
 
       <MovementHistoryPanel target={target} offline={!online} onClose={() => setTarget(null)} />
     </div>

@@ -8,9 +8,9 @@ import { type StockMovementSourceType } from "../types";
 
 /** Per-source-type pill tone — text label always present, never colour alone (spec §10). */
 const SOURCE_TONE: Record<StockMovementSourceType, string> = {
-  STOCK_JOURNAL: "bg-accent-soft text-accent-ink",
+  STOCK_JOURNAL: "bg-violet-soft text-violet-ink",
   GRN: "bg-info-soft text-info-ink",
-  REQ_ISSUE: "bg-warning-soft text-warning-ink",
+  REQ_ISSUE: "bg-teal-soft text-teal-ink",
 };
 
 /**
