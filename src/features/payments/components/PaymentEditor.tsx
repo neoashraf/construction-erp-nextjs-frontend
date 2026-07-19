@@ -359,7 +359,7 @@ export function PaymentEditor({ paymentId }: { paymentId: string | null }) {
   const postReady = canEdit && isPostable(form);
 
   return (
-    <div className="relative mx-auto max-w-6xl pb-8" data-testid="payment-editor">
+    <div className="relative mx-auto flex w-full max-w-6xl flex-1 flex-col" data-testid="payment-editor">
       <Breadcrumb items={[{ label: "Payments", href: "/payments" }, { label: crumbTail }]} />
       <div className="mb-3 mt-1 flex flex-wrap items-center gap-3">
         <h1 className="text-[23px] font-bold tracking-[-0.02em]" data-testid="payment-editor-title">
@@ -408,7 +408,7 @@ export function PaymentEditor({ paymentId }: { paymentId: string | null }) {
         </div>
       )}
 
-      <div className="flex flex-col gap-5">
+      <div className="flex flex-1 flex-col gap-5">
         <div className="grid gap-5 lg:grid-cols-[1.15fr_0.85fr]">
           <Card className="p-5" data-testid="payment-header-card">
             <div className="mb-3 flex items-center gap-2">
@@ -462,18 +462,18 @@ export function PaymentEditor({ paymentId }: { paymentId: string | null }) {
           disabled={!canEdit}
           onChange={patch}
         />
+      </div>
 
+      {/* Full-bleed sticky footer — summary strip + action bar span the content edge
+          to edge (breaks out of <main> p-5/lg:p-6), staying right of the sidebar. */}
+      <div className="sticky bottom-[-20px] z-30 -mx-5 -mb-5 mt-5 border-t border-border bg-surface/90 shadow-[0_-6px_16px_-8px_rgba(15,23,42,0.18)] backdrop-blur-md lg:bottom-[-24px] lg:-mx-6 lg:-mb-6">
         <PaymentTotalsFooter
           paymentAmount={form.paymentAmount || "0"}
           bankChargesAmount={form.bankChargesAmount || "0"}
           rows={form.allocations}
           totalsId="payment-totals-region"
         />
-      </div>
-
-      {/* Action bar — sticky within the content column (stays right of the sidebar). */}
-      <div className="sticky bottom-0 z-30 rounded-b-card border border-t-0 border-border bg-surface/90 px-4 py-3 shadow-[0_-6px_16px_-8px_rgba(15,23,42,0.18)] backdrop-blur-md">
-        <div className="flex flex-wrap items-center gap-3">
+        <div className="flex flex-wrap items-center gap-3 border-t border-border bg-surface px-5 py-3 lg:px-6">
           {readOnly ? (
             <p className="hidden max-w-lg text-[12.5px] text-muted-foreground sm:block">
               Posted — the ledger entry is immutable. Cancel or Correct to change it.

@@ -1,7 +1,6 @@
 "use client";
 
 import { CheckCircle2, AlertCircle } from "lucide-react";
-import { Card } from "@/components/ui/card";
 import { formatMoney } from "@/lib/money";
 import {
   allocatedTotal,
@@ -35,10 +34,10 @@ export function PaymentTotalsFooter({
 
   const hasBankCharges = Number(bankChargesAmount || "0") > 0;
   return (
-    <Card
+    <div
       aria-live="polite"
       id={totalsId}
-      className="flex flex-wrap items-center gap-5 rounded-b-none border-b-0 border-border/70 bg-surface-2/70 p-4 backdrop-blur-sm"
+      className="flex flex-wrap items-center gap-5 px-5 py-4 lg:px-6"
       data-testid="payment-totals-footer"
     >
       <Cell label="Σ allocations" value={sum} testId="payment-totals-sum" />
@@ -56,7 +55,7 @@ export function PaymentTotalsFooter({
           {formatMoney(totalOut, { fractionDigits: 2 })}
         </div>
       </div>
-    </Card>
+    </div>
   );
 }
 
