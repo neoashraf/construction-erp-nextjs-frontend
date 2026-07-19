@@ -1,7 +1,7 @@
 "use client";
 
-import { useState } from "react";
-import { ChevronRight } from "lucide-react";
+import { useEffect, useState } from "react";
+import { ChevronDown, CheckCircle2, AlertCircle } from "lucide-react";
 import { Card } from "@/components/ui/card";
 import { Label } from "@/components/ui/label";
 import { Select } from "@/components/ui/select";
@@ -11,30 +11,62 @@ import { Skeleton } from "@/components/ui/skeleton";
 import { cn } from "@/lib/utils";
 import { formatDate } from "@/lib/format";
 import { formatMoney } from "@/lib/money";
-import { Inbox, AlertCircle } from "lucide-react";
 import { PayableTypeBadge, payableTypeLabel } from "./PayableTypeBadge";
 import { AppliedPaymentsDrillIn } from "./AppliedPaymentsDrillIn";
 import { useOpenPayables } from "../hooks/useOpenPayables";
 import { type OpenPayable, type PartyOption, type PayableType } from "../types";
 
+const GRID =
+  "minmax(112px,1.2fr) 120px minmax(120px,1.4fr) minmax(100px,1fr) minmax(96px,1fr) minmax(104px,1fr) 92px 128px";
+const MONEY = "font-mono text-[13px] tabular-nums";
+
+function money(v: string) {
+  return formatMoney(v, { fractionDigits: 2 });
+}
+
 /**
- * Outstanding view (spec §5 Outstanding + §9). Per-payable Original · Applied ·
- * Outstanding grid over `payment_allocation`, sorted highest-outstanding-first; a
- * row expander opens the applied-payments drill-in from
- * `GET /api/payment/payables/{type}/{id}/applied`, each entry linking to the
- * viewer. Filter bar: party + payable type.
+ * Outstanding view (spec §5 Outstanding + §9; design "Payments" Outstanding frame).
+ * Per-payable Original · Applied · Outstanding grid over `payment_allocation`, sorted
+ * highest-outstanding-first; a "View payments" expander opens the applied-payments
+ * drill-in from `GET /api/payment/payables/{type}/{id}/applied`. Filter bar: party +
+ * payable type + Apply / Clear filters. Money is 2-decimal per the design.
  */
-export function OutstandingView({ parties }: { parties: PartyOption[] }) {
+export function OutstandingView({
+  parties,
+  onCount,
+}: {
+  parties: PartyOption[];
+  onCount?: (n: number | null) => void;
+}) {
+  const [draftParty, setDraftParty] = useState("");
+  const [draftType, setDraftType] = useState<"" | PayableType>("");
   const [partyId, setPartyId] = useState("");
   const [payableType, setPayableType] = useState<"" | PayableType>("");
   const [openRow, setOpenRow] = useState<{ payableType: PayableType; payableId: string } | null>(null);
 
-  const filter = {
-    partyId: partyId || undefined,
-    payableType: payableType || undefined,
-  };
+  const filter = { partyId: partyId || undefined, payableType: payableType || undefined };
   const query = useOpenPayables(filter);
-  const rows = (query.data ?? []).slice().sort((a, b) => Number(b.remainingOutstanding) - Number(a.remainingOutstanding));
+  const rows = (query.data ?? [])
+    .slice()
+    .sort((a, b) => Number(b.remainingOutstanding) - Number(a.remainingOutstanding));
+  const partyName = (id: string | null) => (id ? parties.find((p) => p.id === id)?.name ?? null : null);
+
+  useEffect(() => {
+    onCount?.(query.data ? rows.length : null);
+    return () => onCount?.(null);
+    // eslint-disable-next-line react-hooks/exhaustive-deps
+  }, [query.data, rows.length]);
+
+  function apply() {
+    setPartyId(draftParty);
+    setPayableType(draftType);
+  }
+  function clear() {
+    setDraftParty("");
+    setDraftType("");
+    setPartyId("");
+    setPayableType("");
+  }
 
   return (
     <div className="flex flex-col gap-4" data-testid="payment-outstanding-view">
@@ -44,47 +76,43 @@ export function OutstandingView({ parties }: { parties: PartyOption[] }) {
             <Label htmlFor="op-party">Party</Label>
             <Select
               id="op-party"
-              value={partyId}
-              onChange={(e) => setPartyId(e.target.value)}
+              value={draftParty}
+              onChange={(e) => setDraftParty(e.target.value)}
               data-testid="payment-outstanding-filter-party"
             >
-              <option value="">Any party</option>
+              <option value="">All parties</option>
               {parties.map((p) => (
                 <option key={p.id} value={p.id}>{p.name}</option>
               ))}
             </Select>
           </div>
-          <div className="min-w-[180px]">
+          <div className="min-w-[200px] flex-1">
             <Label htmlFor="op-type">Payable type</Label>
             <Select
               id="op-type"
-              value={payableType}
-              onChange={(e) => setPayableType(e.target.value as "" | PayableType)}
+              value={draftType}
+              onChange={(e) => setDraftType(e.target.value as "" | PayableType)}
               data-testid="payment-outstanding-filter-type"
             >
-              <option value="">Any</option>
+              <option value="">All payable types</option>
               <option value="PURCHASE_BILL">{payableTypeLabel("PURCHASE_BILL")}</option>
               <option value="LABOUR_PAYABLE">{payableTypeLabel("LABOUR_PAYABLE")}</option>
               <option value="SALARY">{payableTypeLabel("SALARY")}</option>
             </Select>
           </div>
-          <Button
-            variant="ghost"
-            size="md"
-            onClick={() => {
-              setPartyId("");
-              setPayableType("");
-            }}
-            data-testid="payment-outstanding-clear"
-            className="ml-auto"
-          >
-            Clear
-          </Button>
+          <div className="ml-auto flex items-center gap-2">
+            <Button size="md" onClick={apply} data-testid="payment-outstanding-apply">
+              Apply
+            </Button>
+            <Button variant="ghost" size="md" onClick={clear} data-testid="payment-outstanding-clear">
+              Clear filters
+            </Button>
+          </div>
         </div>
       </Card>
 
       {query.isLoading ? (
-        <Skeleton className="h-40 w-full" />
+        <OutstandingSkeleton />
       ) : query.isError ? (
         <Card className="p-8" data-testid="payment-outstanding-error">
           <EmptyState
@@ -98,44 +126,74 @@ export function OutstandingView({ parties }: { parties: PartyOption[] }) {
           />
         </Card>
       ) : rows.length === 0 ? (
-        <Card className="p-8" data-testid="payment-outstanding-empty">
+        <Card className="p-10" data-testid="payment-outstanding-empty">
           <EmptyState
-            icon={Inbox}
+            icon={CheckCircle2}
+            iconTone="success"
             title="No open payables to show."
-            description="Every posted payable in this filter has been fully settled."
+            description="All bills, labour payables, and salary payables for the selected filters are fully settled."
+            action={
+              partyId || payableType ? (
+                <Button size="md" variant="outline" onClick={clear} data-testid="payment-outstanding-empty-clear">
+                  Clear filters
+                </Button>
+              ) : undefined
+            }
           />
         </Card>
       ) : (
         <div className="overflow-hidden rounded-card border border-border bg-surface" data-testid="payment-outstanding-list">
-          <div className={cn(OS_GRID, "bg-surface-2 py-3 text-[10.5px] font-semibold uppercase tracking-[0.4px] text-muted-foreground")}>
-            <span className="pl-4">Payable ref</span>
-            <span>Type</span>
-            <span>Date</span>
-            <span className="pr-4 text-right">Original</span>
-            <span className="pr-4 text-right">Applied</span>
-            <span className="pr-4 text-right">Outstanding</span>
-            <span />
+          <div className="overflow-x-auto">
+            <div style={{ minWidth: 900 }}>
+              <div
+                role="row"
+                className="grid items-center gap-2 border-b border-border-strong bg-surface-2 px-4 py-3"
+                style={{ gridTemplateColumns: GRID }}
+              >
+                <Head>Payable ref</Head>
+                <Head>Type</Head>
+                <Head>Party</Head>
+                <Head align="right"><Sort label="Original ৳" align="right" /></Head>
+                <Head align="right"><Sort label="Applied ৳" align="right" /></Head>
+                <Head align="right"><Sort label="Outstanding ৳" align="right" dir="desc" /></Head>
+                <Head>Date</Head>
+                <Head align="right" srLabel="Actions" />
+              </div>
+              {rows.map((r) => (
+                <OpenPayableRow
+                  key={`${r.payableType}:${r.payableId}`}
+                  row={r}
+                  partyName={partyName(r.partyId)}
+                  expanded={
+                    !!openRow && openRow.payableType === r.payableType && openRow.payableId === r.payableId
+                  }
+                  onToggle={() =>
+                    setOpenRow(
+                      openRow && openRow.payableType === r.payableType && openRow.payableId === r.payableId
+                        ? null
+                        : { payableType: r.payableType, payableId: r.payableId },
+                    )
+                  }
+                />
+              ))}
+            </div>
           </div>
-          {rows.map((r) => (
-            <OpenPayableRow
-              key={`${r.payableType}:${r.payableId}`}
-              row={r}
-              expanded={
-                !!openRow &&
-                openRow.payableType === r.payableType &&
-                openRow.payableId === r.payableId
-              }
-              onToggle={() =>
-                setOpenRow(
-                  openRow &&
-                    openRow.payableType === r.payableType &&
-                    openRow.payableId === r.payableId
-                    ? null
-                    : { payableType: r.payableType, payableId: r.payableId },
-                )
-              }
-            />
-          ))}
+          <div
+            className="flex items-center justify-between border-t border-border px-4 py-3 text-[12.5px] text-muted-foreground"
+            data-testid="payment-outstanding-pagination"
+          >
+            <span>
+              Showing <strong className="text-foreground">1–{rows.length}</strong> of{" "}
+              <strong className="text-foreground">{rows.length}</strong> open payable{rows.length === 1 ? "" : "s"}
+            </span>
+            <div className="flex items-center gap-1.5">
+              <Button variant="outline" size="sm" disabled>Prev</Button>
+              <span className="grid h-8 w-8 place-items-center rounded-token bg-primary text-[12.5px] font-semibold text-primary-foreground">
+                1
+              </span>
+              <Button variant="outline" size="sm" disabled>Next</Button>
+            </div>
+          </div>
         </div>
       )}
     </div>
@@ -144,53 +202,115 @@ export function OutstandingView({ parties }: { parties: PartyOption[] }) {
 
 function OpenPayableRow({
   row,
+  partyName,
   expanded,
   onToggle,
 }: {
   row: OpenPayable;
+  partyName: string | null;
   expanded: boolean;
   onToggle: () => void;
 }) {
   return (
     <>
       <div
-        className={cn(OS_GRID, "items-center border-t border-border py-3.5 text-[13px] text-foreground hover:bg-surface-2")}
+        className="grid items-center gap-2 border-b border-border px-4 py-3.5 text-[13px] text-foreground hover:bg-surface-2"
         role="row"
         data-testid={`payment-outstanding-row-${row.payableId}`}
+        style={{ gridTemplateColumns: GRID }}
       >
-        <span className="pl-4 font-mono font-semibold text-accent-ink [overflow-wrap:anywhere]">
+        <span className="min-w-0 truncate font-mono font-semibold text-accent-ink" title={row.reference}>
           {row.reference}
         </span>
         <span>
           <PayableTypeBadge type={row.payableType} />
         </span>
-        <span className="font-mono text-[12.5px] tabular-nums text-muted-foreground">{formatDate(row.payableDate)}</span>
-        <span className="pr-4 text-right font-mono tabular-nums text-foreground">{formatMoney(row.originalAmount)}</span>
-        <span className="pr-4 text-right font-mono tabular-nums text-muted-foreground">{formatMoney(row.appliedAmount)}</span>
-        <span
-          className="pr-4 text-right font-mono font-semibold tabular-nums text-foreground"
-          aria-label={`Outstanding ${row.remainingOutstanding} taka`}
-        >
-          {formatMoney(row.remainingOutstanding)}
+        <span className="bn min-w-0 truncate text-[13px] text-foreground" title={partyName ?? row.reference}>
+          {partyName ?? <span className="italic text-muted-foreground">{row.reference}</span>}
         </span>
-        <span className="pr-4 text-right">
+        <span className="text-right">
+          <span className={cn(MONEY, "text-foreground")}>{money(row.originalAmount)}</span>
+        </span>
+        <span className="text-right">
+          <span className={cn(MONEY, "text-muted-foreground")}>{money(row.appliedAmount)}</span>
+        </span>
+        <span className="text-right" aria-label={`Outstanding ${row.remainingOutstanding} taka`}>
+          <span className={cn(MONEY, "font-semibold text-foreground")}>{money(row.remainingOutstanding)}</span>
+        </span>
+        <span className="font-mono text-[12.5px] tabular-nums text-muted-foreground">{formatDate(row.payableDate)}</span>
+        <span className="flex justify-end">
           <button
             type="button"
             onClick={onToggle}
             aria-expanded={expanded}
-            className="inline-flex items-center gap-1 rounded-token border border-border-strong bg-background px-2.5 py-1 text-[11.5px] font-semibold text-foreground hover:bg-surface-2"
+            className="inline-flex items-center gap-1 rounded-token border border-border-strong bg-background px-2.5 py-1.5 text-[11.5px] font-semibold text-foreground hover:bg-surface-2"
             data-testid={`payment-outstanding-expand-${row.payableId}`}
           >
-            <ChevronRight className={cn("h-3.5 w-3.5 transition-transform", expanded && "rotate-90")} aria-hidden />
-            {expanded ? "Hide" : "View payments"}
+            View payments
+            <ChevronDown className={cn("h-3.5 w-3.5 transition-transform", expanded && "rotate-180")} aria-hidden />
           </button>
         </span>
       </div>
       {expanded && (
-        <AppliedPaymentsDrillIn payableType={row.payableType} payableId={row.payableId} />
+        <AppliedPaymentsDrillIn payableType={row.payableType} payableId={row.payableId} reference={row.reference} />
       )}
     </>
   );
 }
 
-const OS_GRID = "grid grid-cols-[1.6fr_0.6fr_0.9fr_1fr_1fr_1fr_1fr] gap-2";
+function Head({
+  children,
+  align = "left",
+  srLabel,
+}: {
+  children?: React.ReactNode;
+  align?: "left" | "right";
+  srLabel?: string;
+}) {
+  return (
+    <span
+      className={cn(
+        "text-[10.5px] font-semibold uppercase tracking-[0.4px] text-muted-foreground",
+        align === "right" && "text-right",
+      )}
+    >
+      {srLabel ? <span className="sr-only">{srLabel}</span> : children}
+    </span>
+  );
+}
+
+function Sort({ label, align = "left", dir }: { label: string; align?: "left" | "right"; dir?: "asc" | "desc" }) {
+  return (
+    <span className={cn("inline-flex items-center gap-1", align === "right" && "flex-row-reverse")}>
+      {label}
+      <span className="flex flex-col text-[8px] leading-[0.6]" aria-hidden>
+        <span className={dir === "asc" ? "text-foreground" : "text-border-strong"}>▲</span>
+        <span className={dir === "desc" ? "text-foreground" : "text-border-strong"}>▼</span>
+      </span>
+    </span>
+  );
+}
+
+function OutstandingSkeleton() {
+  return (
+    <div className="overflow-hidden rounded-card border border-border bg-surface" data-testid="payment-outstanding-loading">
+      <div className="grid items-center gap-2 border-b border-border-strong bg-surface-2 px-4 py-3" style={{ gridTemplateColumns: GRID }}>
+        {["Payable ref", "Type", "Party", "Original ৳", "Applied ৳", "Outstanding ৳", "Date", ""].map((h, i) => (
+          <Head key={i} align={i >= 3 && i <= 5 ? "right" : "left"}>{h}</Head>
+        ))}
+      </div>
+      {Array.from({ length: 6 }).map((_, i) => (
+        <div key={i} className="grid items-center gap-2 border-b border-border px-4 py-4" style={{ gridTemplateColumns: GRID }}>
+          <Skeleton className="h-3 w-24" />
+          <Skeleton className="h-5 w-24 rounded-pill" />
+          <Skeleton className="h-3 w-28" />
+          <Skeleton className="h-3 w-20 justify-self-end" />
+          <Skeleton className="h-3 w-20 justify-self-end" />
+          <Skeleton className="h-3 w-20 justify-self-end" />
+          <Skeleton className="h-3 w-16" />
+          <Skeleton className="h-7 w-28 justify-self-end rounded-token" />
+        </div>
+      ))}
+    </div>
+  );
+}

@@ -3,7 +3,7 @@
 import { useEffect, useMemo, useState } from "react";
 import { useRouter } from "next/navigation";
 import Link from "next/link";
-import { ArrowRight, Loader2, Repeat, XCircle } from "lucide-react";
+import { ArrowRight, Check, Info, Loader2, Repeat, XCircle } from "lucide-react";
 import { Alert } from "@/components/ui/alert";
 import { Badge } from "@/components/ui/badge";
 import { Breadcrumb } from "@/components/ui/breadcrumb";
@@ -16,6 +16,7 @@ import { useQuery } from "@tanstack/react-query";
 import { queryKeys } from "@/lib/query/keys";
 import { asApiError } from "@/lib/api/errors";
 import { useOnline } from "@/lib/hooks/use-online";
+import { cn } from "@/lib/utils";
 import { useAuthenticatedUser } from "@/providers/session-provider";
 import { AlertCircle, Lock, Search } from "lucide-react";
 import { canCancelPayment, canPostPayment, canWritePayment } from "../access";
@@ -46,7 +47,7 @@ import { AllocationGrid } from "./AllocationGrid";
 import { OpenPayablesPicker } from "./OpenPayablesPicker";
 import { DailyLabourSettlementPanel } from "./DailyLabourSettlementPanel";
 import { BankChargesBlock } from "./BankChargesBlock";
-import { PaymentTotalsFooter } from "./PaymentTotalsFooter";
+import { PaymentTotalsFooter, PaymentBalancePill } from "./PaymentTotalsFooter";
 import { PostPaymentDialog } from "./PostPaymentDialog";
 import { CancelPaymentDialog } from "./CancelPaymentDialog";
 import { PayeeChangeDialog } from "./PayeeChangeDialog";
@@ -358,19 +359,41 @@ export function PaymentEditor({ paymentId }: { paymentId: string | null }) {
   const postReady = canEdit && isPostable(form);
 
   return (
-    <div className="relative mx-auto max-w-6xl pb-28 lg:pb-24" data-testid="payment-editor">
+    <div className="relative mx-auto flex w-full max-w-6xl flex-1 flex-col" data-testid="payment-editor">
       <Breadcrumb items={[{ label: "Payments", href: "/payments" }, { label: crumbTail }]} />
-      <div className="mb-4 mt-1 flex flex-wrap items-center gap-3">
+      <div className="mb-3 mt-1 flex flex-wrap items-center gap-3">
         <h1 className="text-[23px] font-bold tracking-[-0.02em]" data-testid="payment-editor-title">
           {title}
         </h1>
-        {saved && <PaymentStatusBadge status={saved.status} />}
+        <PaymentStatusBadge status={saved?.status ?? "DRAFT"} />
         {saved?.entryNo && (
           <Badge tone="info" className="font-mono">
             {saved.entryNo}
           </Badge>
         )}
+        <div className="ml-auto">
+          <PaymentStepper status={saved?.status ?? "DRAFT"} />
+        </div>
       </div>
+
+      {!readOnly && (
+        <div className="mb-4 grid gap-3 sm:grid-cols-2" data-testid="payment-editor-intro">
+          <div className="flex items-start gap-2 rounded-card border border-border bg-surface-2 p-3">
+            <Info className="mt-0.5 h-4 w-4 flex-none text-muted-foreground" aria-hidden />
+            <p className="text-[12px] leading-relaxed text-muted-foreground">
+              A payment <strong className="font-semibold text-foreground">settles</strong> posted, unpaid payables
+              against their control account — it never re-expenses.
+            </p>
+          </div>
+          <div className="flex items-start gap-2 rounded-card border border-border bg-surface-2 p-3">
+            <Info className="mt-0.5 h-4 w-4 flex-none text-muted-foreground" aria-hidden />
+            <p className="text-[12px] leading-relaxed text-muted-foreground">
+              <strong className="font-semibold text-foreground">Post</strong> writes the balanced entry to the ledger
+              and allocates the gapless payment number; once posted the voucher is read-only.
+            </p>
+          </div>
+        </div>
+      )}
 
       {!online && (
         <Alert tone="warning" title="You're offline. Changes weren't saved." className="mb-4" data-testid="payment-editor-offline" />
@@ -385,22 +408,40 @@ export function PaymentEditor({ paymentId }: { paymentId: string | null }) {
         </div>
       )}
 
-      <div className="flex flex-col gap-5">
-        <Card className="p-5" data-testid="payment-header-card">
-          <div className="mb-3 flex items-center gap-2">
-            <span className="grid h-6 w-6 place-items-center rounded-token bg-primary text-[12px] font-bold text-primary-foreground">1</span>
-            <h2 className="text-[14px] font-bold text-foreground">Payment</h2>
-          </div>
-          <PaymentHeaderFields
-            values={form}
-            errors={fieldErrors}
-            parties={parties}
-            accounts={accounts}
-            disabled={!canEdit}
-            onPayeeChangeAttempt={onPayeeChangeAttempt}
-            onChange={patch}
-          />
-        </Card>
+      <div className="flex flex-1 flex-col gap-5">
+        <div className="grid gap-5 lg:grid-cols-[1.15fr_0.85fr]">
+          <Card className="p-5" data-testid="payment-header-card">
+            <div className="mb-3 flex items-center gap-2">
+              <span className="grid h-6 w-6 place-items-center rounded-token bg-primary text-[12px] font-bold text-primary-foreground">1</span>
+              <h2 className="text-[14px] font-bold text-foreground">Payment details</h2>
+            </div>
+            <PaymentHeaderFields
+              values={form}
+              errors={fieldErrors}
+              parties={parties}
+              accounts={accounts}
+              disabled={!canEdit}
+              slot="details"
+              onPayeeChangeAttempt={onPayeeChangeAttempt}
+              onChange={patch}
+            />
+          </Card>
+          <Card className="p-5" data-testid="payment-reference-card">
+            <div className="mb-3 flex items-center gap-2">
+              <h2 className="text-[14px] font-bold text-foreground">Reference &amp; note</h2>
+            </div>
+            <PaymentHeaderFields
+              values={form}
+              errors={fieldErrors}
+              parties={parties}
+              accounts={accounts}
+              disabled={!canEdit}
+              slot="reference"
+              onPayeeChangeAttempt={onPayeeChangeAttempt}
+              onChange={patch}
+            />
+          </Card>
+        </div>
 
         <AllocationGrid
           rows={form.allocations}
@@ -421,27 +462,40 @@ export function PaymentEditor({ paymentId }: { paymentId: string | null }) {
           disabled={!canEdit}
           onChange={patch}
         />
+      </div>
 
+      {/* Full-bleed sticky footer — summary strip + action bar span the content edge
+          to edge (breaks out of <main> p-5/lg:p-6), staying right of the sidebar. */}
+      <div className="sticky bottom-[-20px] z-30 -mx-5 -mb-5 mt-5 border-t border-border bg-surface/90 shadow-[0_-6px_16px_-8px_rgba(15,23,42,0.18)] backdrop-blur-md lg:bottom-[-24px] lg:-mx-6 lg:-mb-6">
         <PaymentTotalsFooter
           paymentAmount={form.paymentAmount || "0"}
           bankChargesAmount={form.bankChargesAmount || "0"}
           rows={form.allocations}
           totalsId="payment-totals-region"
         />
-      </div>
-
-      {/* Fixed action bar. */}
-      <div className="fixed inset-x-0 bottom-0 z-40 border-t border-border bg-surface px-4 py-3 shadow-lg lg:pl-[var(--sidebar-w,0)]">
-        <div className="mx-auto flex max-w-6xl flex-wrap items-center gap-3">
-          <p className="hidden max-w-lg text-[12.5px] text-muted-foreground sm:block">
-            {readOnly
-              ? "Posted — the ledger entry is immutable. Cancel or Correct to change it."
-              : "Draft — no ledger impact and no number yet. Post writes the balanced entry."}
-          </p>
-          <div className="ml-auto flex items-center gap-2">
+        <div className="flex flex-wrap items-center gap-3 border-t border-border bg-surface px-5 py-3 lg:px-6">
+          {readOnly ? (
+            <p className="hidden max-w-lg text-[12.5px] text-muted-foreground sm:block">
+              Posted — the ledger entry is immutable. Cancel or Correct to change it.
+            </p>
+          ) : (
+            <PaymentBalancePill
+              paymentAmount={form.paymentAmount || "0"}
+              bankChargesAmount={form.bankChargesAmount || "0"}
+              rows={form.allocations}
+            />
+          )}
+          <div className="ml-auto flex flex-wrap items-center gap-2">
             {saved && !readOnly && canWrite && (
-              <Button variant="ghost" size="md" onClick={() => setDiscardOpen(true)} disabled={busy} data-testid="payment-editor-discard">
-                Discard draft
+              <Button
+                variant="ghost"
+                size="md"
+                className="text-destructive-ink hover:bg-destructive-soft"
+                onClick={() => setDiscardOpen(true)}
+                disabled={busy}
+                data-testid="payment-editor-discard"
+              >
+                Delete draft
               </Button>
             )}
             <Button variant="outline" size="md" onClick={() => router.push("/payments")} disabled={busy} data-testid="payment-editor-cancel">
@@ -566,6 +620,45 @@ export function PaymentEditor({ paymentId }: { paymentId: string | null }) {
         onCancel={() => setDiscardOpen(false)}
       />
     </div>
+  );
+}
+
+/** Draft → Posted → Cancelled progress stepper (design header). */
+function PaymentStepper({ status }: { status: "DRAFT" | "POSTED" | "CANCELLED" }) {
+  const steps: { n: number; label: string }[] = [
+    { n: 1, label: "Draft" },
+    { n: 2, label: "Posted" },
+    { n: 3, label: "Cancelled" },
+  ];
+  const activeIdx = status === "DRAFT" ? 0 : status === "POSTED" ? 1 : 2;
+  return (
+    <ol className="hidden items-center gap-2 sm:flex" data-testid="payment-editor-stepper" aria-label="Payment lifecycle">
+      {steps.map((s, i) => {
+        const done = i < activeIdx;
+        const active = i === activeIdx;
+        return (
+          <li key={s.n} className="flex items-center gap-2">
+            <span
+              className={cn(
+                "grid h-5 w-5 place-items-center rounded-full text-[11px] font-bold",
+                active
+                  ? "bg-primary text-primary-foreground"
+                  : done
+                    ? "bg-success text-success-foreground"
+                    : "bg-muted text-muted-foreground",
+              )}
+              aria-current={active ? "step" : undefined}
+            >
+              {done ? <Check className="h-3 w-3" aria-hidden /> : s.n}
+            </span>
+            <span className={cn("text-[12px] font-medium", active ? "text-foreground" : "text-muted-foreground")}>
+              {s.label}
+            </span>
+            {i < steps.length - 1 && <span className="h-px w-5 bg-border-strong" aria-hidden />}
+          </li>
+        );
+      })}
+    </ol>
   );
 }
 

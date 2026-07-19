@@ -21,7 +21,7 @@ export function PaymentLinkagePanel({
   return (
     <section className="mt-4" data-testid="payment-linkage">
       <h2 className="text-[10.5px] font-semibold uppercase tracking-[0.4px] text-muted-foreground">
-        Correction chain
+        Reversal &amp; correction chain
       </h2>
       <div className={cn("mt-2 grid gap-3 md:grid-cols-2", rows.length === 1 && "md:grid-cols-1")}>
         {rows.map((r) => (
