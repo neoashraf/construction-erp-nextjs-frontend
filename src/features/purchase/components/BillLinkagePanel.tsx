@@ -15,12 +15,10 @@ import { type JournalEntryDetail } from "@/features/ledger/types";
  */
 export function BillLinkagePanel({
   entry,
-  billEntryNo,
 }: {
   entry: JournalEntryDetail | null;
-  billEntryNo: string | null;
 }) {
-  let linkLabel = "No reversal";
+  let linkLabel = "Not reversed";
   let linkTarget: { id: string; entryNo: string } | null = null;
 
   if (entry?.isReversal && entry.reversalOf) {
@@ -39,7 +37,7 @@ export function BillLinkagePanel({
         </span>
         <div className="min-w-0">
           <div className="text-[10.5px] font-semibold uppercase tracking-[0.4px] text-muted-foreground">
-            Reversal linkage
+            Reversal / repost linkage
           </div>
           <div className="text-[13.5px] font-semibold text-foreground">{linkLabel}</div>
           {linkTarget ? (
@@ -52,9 +50,7 @@ export function BillLinkagePanel({
               <ExternalLink className="h-3 w-3" aria-hidden />
             </Link>
           ) : (
-            <span className="mt-0.5 text-[12.5px] text-faint">
-              {billEntryNo ? `Bill entry ${billEntryNo} has not been reversed.` : "This bill has no reversal history."}
-            </span>
+            <span className="mt-0.5 text-[12.5px] text-faint">No correction linked to this bill.</span>
           )}
         </div>
       </div>

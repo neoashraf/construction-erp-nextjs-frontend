@@ -5,7 +5,7 @@ import { Select } from "@/components/ui/select";
 import { Input } from "@/components/ui/input";
 import { Button } from "@/components/ui/button";
 import { cn } from "@/lib/utils";
-import { formatMoney } from "@/lib/money";
+import { money } from "../format";
 import { BudgetBadge } from "./BudgetBadge";
 import { PoLineRow, computeLineAmount } from "./PoLineRow";
 import type { PoFormValues, PoLineError } from "../schemas/order.schema";
@@ -19,8 +19,10 @@ import type {
 
 type LineDraft = PoFormValues["lines"][number];
 
-const GRID =
-  "minmax(160px,1.6fr) 80px 96px 96px 110px minmax(120px,1.2fr) minmax(120px,1.2fr) minmax(120px,1.2fr) 120px 40px";
+// Columns follow Purchase Orders.dc.html editor line grid: # · Item · Ordered qty · Rate ·
+// Line amount · Dimensions (godown · cost centre · purpose, stacked, project from header) ·
+// Budget · trash.
+const GRID = "36px minmax(180px,1.8fr) 96px 100px 120px minmax(220px,1.6fr) 130px 40px";
 
 /**
  * PO line grid (brief §Scope 5; spec §4/§5). Full data-grid at ≥lg with every column
@@ -75,14 +77,12 @@ export function PoLineGrid({
             className="grid items-center gap-2 border-b border-border-strong bg-surface-2 px-3 text-[11px] font-semibold uppercase tracking-[0.4px] text-muted-foreground"
             style={{ gridTemplateColumns: GRID }}
           >
+            <div className="py-2.5">#</div>
             <div className="py-2.5">Item</div>
-            <div className="py-2.5">UoM</div>
             <div className="py-2.5 text-right">Ordered qty</div>
-            <div className="py-2.5 text-right">Rate ৳</div>
-            <div className="py-2.5 text-right">Line amount ৳</div>
-            <div className="py-2.5">Godown</div>
-            <div className="py-2.5">Cost centre</div>
-            <div className="py-2.5">Purpose</div>
+            <div className="py-2.5 text-right">Rate</div>
+            <div className="py-2.5 text-right">Line amount</div>
+            <div className="py-2.5">Dimensions</div>
             <div className="py-2.5">Budget</div>
             <div className="py-2.5" />
           </div>
@@ -93,8 +93,9 @@ export function PoLineGrid({
             const budget = budgetByLine[i];
             return (
               <div key={i} className="border-b border-muted">
-                <div className="grid items-center gap-2 px-3" style={{ gridTemplateColumns: GRID }}>
-                  <div className="min-w-0 py-2">
+                <div className="grid items-start gap-2 px-3 py-2" style={{ gridTemplateColumns: GRID }}>
+                  <div className="pt-2.5 text-[12.5px] font-semibold text-muted-foreground">{i + 1}</div>
+                  <div className="min-w-0">
                     <Select
                       value={l.itemId}
                       disabled={disabled}
@@ -110,9 +111,11 @@ export function PoLineGrid({
                         </option>
                       ))}
                     </Select>
+                    {item?.uom && (
+                      <p className="mt-1 text-[11px] text-faint">Unit: {item.uom}</p>
+                    )}
                   </div>
-                  <div className="py-2 text-[12.5px] text-muted-foreground">{item?.uom ?? "—"}</div>
-                  <div className="py-2">
+                  <div className="pt-1">
                     <Input
                       inputMode="decimal"
                       value={l.orderedQty}
@@ -124,7 +127,8 @@ export function PoLineGrid({
                       onChange={(e) => onLineChange(i, { orderedQty: e.target.value })}
                     />
                   </div>
-                  <div className="py-2">
+                  {/* rate + line amount follow */}
+                  <div className="pt-1">
                     <Input
                       inputMode="decimal"
                       value={l.rate}
@@ -136,62 +140,56 @@ export function PoLineGrid({
                       onChange={(e) => onLineChange(i, { rate: e.target.value })}
                     />
                   </div>
-                  <div className="py-2 text-right font-mono text-[12.5px] font-medium tabular-nums text-foreground">
-                    {amount != null ? formatMoney(amount, { withSymbol: false }) : "—"}
+                  <div className="pt-3.5 text-right font-mono text-[12.5px] font-semibold tabular-nums text-foreground">
+                    {amount != null ? money(amount) : "—"}
                   </div>
-                  <div className="py-2">
-                    <Select
+
+                  {/* Dimensions — project (from header) + godown · cost centre · purpose, stacked. */}
+                  <div className="flex flex-col gap-1.5">
+                    <div className="flex items-center gap-1.5 text-[11px]">
+                      <span className="font-semibold uppercase tracking-[0.3px] text-faint">Project</span>
+                      <span className="text-muted-foreground">from header</span>
+                    </div>
+                    <DimSelect
+                      label="Gdn"
                       value={l.godownId}
                       disabled={disabled || !projectSelected}
                       invalid={!!err.godownId}
-                      aria-label={`Godown for line ${i + 1}`}
-                      data-testid="po-line-godown"
-                      onChange={(e) => onLineChange(i, { godownId: e.target.value })}
-                    >
-                      <option value="">{projectSelected ? "Select…" : "—"}</option>
-                      {godowns.filter((g) => g.isActive || g.id === l.godownId).map((g) => (
-                        <option key={g.id} value={g.id}>
-                          {g.code}
-                        </option>
-                      ))}
-                    </Select>
-                  </div>
-                  <div className="py-2">
-                    <Select
+                      ariaLabel={`Godown for line ${i + 1}`}
+                      testid="po-line-godown"
+                      placeholder={projectSelected ? "Select…" : "—"}
+                      onChange={(v) => onLineChange(i, { godownId: v })}
+                      options={godowns
+                        .filter((g) => g.isActive || g.id === l.godownId)
+                        .map((g) => ({ value: g.id, label: g.code }))}
+                    />
+                    <DimSelect
+                      label="CC"
                       value={l.costCentreId}
                       disabled={disabled}
                       invalid={!!err.costCentreId}
-                      aria-label={`Cost centre for line ${i + 1}`}
-                      data-testid="po-line-cc"
-                      onChange={(e) => onLineChange(i, { costCentreId: e.target.value })}
-                    >
-                      <option value="">Select…</option>
-                      {costCentres.filter((c) => c.isActive || c.id === l.costCentreId).map((c) => (
-                        <option key={c.id} value={c.id}>
-                          {c.code}
-                        </option>
-                      ))}
-                    </Select>
-                  </div>
-                  <div className="py-2">
+                      ariaLabel={`Cost centre for line ${i + 1}`}
+                      testid="po-line-cc"
+                      placeholder="Select…"
+                      onChange={(v) => onLineChange(i, { costCentreId: v })}
+                      options={costCentres
+                        .filter((c) => c.isActive || c.id === l.costCentreId)
+                        .map((c) => ({ value: c.id, label: c.code }))}
+                    />
                     <div className="flex items-center gap-1">
-                      <Select
+                      <DimSelect
+                        label="Pur"
                         value={l.purposeId}
                         disabled={disabled || !projectSelected}
                         invalid={!!err.purposeId}
-                        aria-label={`Purpose for line ${i + 1}`}
-                        data-testid="po-line-purpose"
-                        onChange={(e) => onLineChange(i, { purposeId: e.target.value })}
-                      >
-                        <option value="">
-                          {projectSelected ? (purposesLoading ? "Loading…" : "Select…") : "—"}
-                        </option>
-                        {purposes.filter((p) => p.isActive || p.id === l.purposeId).map((p) => (
-                          <option key={p.id} value={p.id}>
-                            {p.name}
-                          </option>
-                        ))}
-                      </Select>
+                        ariaLabel={`Purpose for line ${i + 1}`}
+                        testid="po-line-purpose"
+                        placeholder={projectSelected ? (purposesLoading ? "Loading…" : "Select…") : "—"}
+                        onChange={(v) => onLineChange(i, { purposeId: v })}
+                        options={purposes
+                          .filter((p) => p.isActive || p.id === l.purposeId)
+                          .map((p) => ({ value: p.id, label: p.name }))}
+                      />
                       {!disabled && projectSelected && onAddPurpose && (
                         <button
                           type="button"
@@ -201,21 +199,22 @@ export function PoLineGrid({
                           }}
                           aria-label="Add a new purpose"
                           data-testid="po-line-purpose-add"
-                          className="grid h-9 w-8 flex-none place-items-center rounded-token text-accent-ink hover:bg-muted"
+                          className="grid h-6 w-6 flex-none place-items-center rounded-token text-accent-ink hover:bg-muted"
                         >
-                          <Plus className="h-4 w-4" aria-hidden />
+                          <Plus className="h-3.5 w-3.5" aria-hidden />
                         </button>
                       )}
                     </div>
                   </div>
-                  <div className="py-2" aria-live="polite">
+
+                  <div className="pt-1" aria-live="polite">
                     {budget ? (
                       <BudgetBadge status={budget} />
                     ) : (
                       <span className="text-[12px] text-faint">—</span>
                     )}
                   </div>
-                  <div className="flex justify-end py-2">
+                  <div className="flex justify-end pt-1">
                     {!disabled && (
                       <button
                         type="button"
@@ -281,5 +280,55 @@ export function PoLineGrid({
         </Button>
       )}
     </div>
+  );
+}
+
+/** Compact labelled select for the PO line Dimensions cell (godown · cost centre · purpose). */
+function DimSelect({
+  label,
+  value,
+  disabled,
+  invalid,
+  ariaLabel,
+  testid,
+  placeholder,
+  options,
+  onChange,
+}: {
+  label: string;
+  value: string;
+  disabled?: boolean;
+  invalid?: boolean;
+  ariaLabel: string;
+  testid: string;
+  placeholder: string;
+  options: Array<{ value: string; label: string }>;
+  onChange: (v: string) => void;
+}) {
+  return (
+    <label
+      className={cn(
+        "inline-flex items-center gap-1 rounded-pill border bg-surface-2 pl-2 pr-1 text-[11px]",
+        invalid ? "border-destructive" : "border-border-strong",
+        disabled && "opacity-60",
+      )}
+    >
+      <span className="font-semibold uppercase tracking-[0.3px] text-faint">{label}</span>
+      <select
+        value={value}
+        disabled={disabled}
+        aria-label={ariaLabel}
+        data-testid={testid}
+        onChange={(e) => onChange(e.target.value)}
+        className="max-w-[130px] truncate bg-transparent py-1 text-[12px] text-foreground outline-none disabled:cursor-not-allowed"
+      >
+        <option value="">{placeholder}</option>
+        {options.map((o) => (
+          <option key={o.value} value={o.value}>
+            {o.label}
+          </option>
+        ))}
+      </select>
+    </label>
   );
 }

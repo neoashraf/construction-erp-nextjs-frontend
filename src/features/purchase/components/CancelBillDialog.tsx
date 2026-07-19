@@ -64,7 +64,12 @@ export function CancelBillDialog({
           This can&apos;t be undone.
         </DialogDescription>
         <div className="mt-4 flex flex-col gap-1.5">
-          <Label htmlFor="bill-cancel-reason">Reason</Label>
+          <Label htmlFor="bill-cancel-reason">
+            Reason
+            <span className="ml-0.5 text-destructive" aria-hidden>
+              *
+            </span>
+          </Label>
           <Textarea
             id="bill-cancel-reason"
             rows={3}

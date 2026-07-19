@@ -3,14 +3,15 @@
 import { useState } from "react";
 import Link from "next/link";
 import { useRouter } from "next/navigation";
-import { ArrowLeft, ExternalLink } from "lucide-react";
+import { ArrowLeft, ExternalLink, Lock } from "lucide-react";
 import { Card } from "@/components/ui/card";
 import { Button } from "@/components/ui/button";
 import { Alert } from "@/components/ui/alert";
 import { Breadcrumb } from "@/components/ui/breadcrumb";
 import { useToast } from "@/components/ui/toast";
 import { formatDate } from "@/lib/format";
-import { formatMoney } from "@/lib/money";
+import { toDecimal } from "@/lib/money";
+import { moneyWithSymbol } from "../format";
 import { useOnline } from "@/lib/hooks/use-online";
 import { asApiError } from "@/lib/api";
 import { useAuthenticatedUser } from "@/providers/session-provider";
@@ -123,10 +124,19 @@ export function BillViewer({
         ]}
       />
       <div className="mb-4 mt-1 flex flex-wrap items-center gap-3">
-        <h1 className="text-[22px] font-bold tracking-[-0.02em]" data-testid="bill-viewer-title">
+        <h1 className="font-mono text-[22px] font-bold tracking-[-0.02em]" data-testid="bill-viewer-title">
           {bill.entryNo ?? "Purchase bill"}
         </h1>
         <BillStatusBadge status={bill.status} />
+        {bill.status === "POSTED" && (
+          <span
+            className="inline-flex items-center gap-1.5 rounded-pill bg-muted px-2.5 py-0.5 text-[11px] font-semibold uppercase tracking-[0.4px] text-muted-foreground"
+            data-testid="bill-readonly-chip"
+          >
+            <Lock className="h-3 w-3" aria-hidden />
+            Read-only
+          </span>
+        )}
         <div className="ml-auto flex gap-2">
           <Button
             variant="ghost"
@@ -140,6 +150,18 @@ export function BillViewer({
           {canWriteAction && (
             <>
               <Button
+                size="md"
+                variant="destructive-outline"
+                onClick={() => {
+                  setBanner(null);
+                  setCancelOpen(true);
+                }}
+                disabled={busy}
+                data-testid="bill-cancel"
+              >
+                Cancel bill
+              </Button>
+              <Button
                 variant="outline"
                 size="md"
                 onClick={() => {
@@ -151,22 +173,15 @@ export function BillViewer({
               >
                 Repost (correct)
               </Button>
-              <Button
-                size="md"
-                variant="outline"
-                onClick={() => {
-                  setBanner(null);
-                  setCancelOpen(true);
-                }}
-                disabled={busy}
-                data-testid="bill-cancel"
-              >
-                Cancel bill
-              </Button>
             </>
           )}
         </div>
       </div>
+      {bill.status === "POSTED" && (
+        <p className="-mt-2 mb-4 text-[12.5px] text-muted-foreground" data-testid="bill-readonly-note">
+          Posted bills can&apos;t be edited — corrections are a reverse-and-repost.
+        </p>
+      )}
 
       {banner && (
         <Alert
@@ -210,23 +225,29 @@ export function BillViewer({
       <div className="mt-4 grid gap-3 md:grid-cols-3">
         <Total label="Gross" value={bill.grossAmount} />
         <Total label="Net payable" value={bill.netPayableAmount} emphasise />
-        <Total label="Outstanding" value={bill.outstandingAmount} />
+        <OutstandingCard
+          outstanding={bill.outstandingAmount}
+          netPayable={bill.netPayableAmount}
+          journalEntryId={bill.journalEntryId}
+        />
       </div>
 
       <Card className="mt-4 flex flex-col gap-4 p-5">
-        <div className="flex items-center justify-between">
-          <h2 className="text-[13px] font-semibold uppercase tracking-[0.4px] text-muted-foreground">
-            Balanced ledger lines
-          </h2>
-          {bill.journalEntryId && (
-            <Link
-              href={`/ledger/entry-viewer?id=${bill.journalEntryId}`}
-              className="inline-flex items-center gap-1 text-[12.5px] font-semibold text-accent-ink hover:underline"
-              data-testid="bill-view-ledger"
+        <div className="flex flex-wrap items-center justify-between gap-2">
+          <div>
+            <h2 className="text-[13px] font-semibold uppercase tracking-[0.4px] text-muted-foreground">
+              Balanced ledger lines
+            </h2>
+            <p className="mt-0.5 text-[11.5px] text-faint">PURCHASE journal · auto-built at post</p>
+          </div>
+          {entryQuery.data && (
+            <span
+              className="inline-flex items-center gap-1.5 rounded-pill bg-success-soft px-2.5 py-0.5 text-[11.5px] font-semibold text-success-ink"
+              data-testid="bill-ledger-balanced"
             >
-              View ledger entry
-              <ExternalLink className="h-3.5 w-3.5" aria-hidden />
-            </Link>
+              <span className="h-1.5 w-1.5 rounded-full bg-success" aria-hidden />
+              Balanced · Total Dr = Total Cr
+            </span>
           )}
         </div>
 
@@ -255,8 +276,12 @@ export function BillViewer({
 
       <div className="mt-4 grid gap-4 md:grid-cols-2">
         <BillInventoryPanel lines={bill.lines} />
-        <BillLinkagePanel entry={entryQuery.data ?? null} billEntryNo={bill.entryNo} />
+        <BillLinkagePanel entry={entryQuery.data ?? null} />
       </div>
+
+      <p className="mt-4 text-[12px] text-faint" data-testid="bill-viewer-footer">
+        Correction = reverse-and-repost · original number is retained.
+      </p>
 
       <CancelBillDialog
         open={cancelOpen}
@@ -285,6 +310,46 @@ function Field({ label, children }: { label: string; children: React.ReactNode }
   );
 }
 
+/**
+ * Outstanding right-rail card (Purchase Bill.dc.html viewer): amber value, a
+ * "Net payable {n} – payments applied {p}" subtitle (payments applied is derived as
+ * netPayable − outstanding), and the "View ledger entry ↗" link. Payments applied is a
+ * client derivation — PAY owns the authoritative per-bill applied figure (FR-PUR-020).
+ */
+function OutstandingCard({
+  outstanding,
+  netPayable,
+  journalEntryId,
+}: {
+  outstanding: string;
+  netPayable: string;
+  journalEntryId: string | null;
+}) {
+  const applied = toDecimal(netPayable).minus(toDecimal(outstanding));
+  const paymentsApplied = applied.isNegative() ? "0.0000" : applied.toFixed(4);
+  return (
+    <div className="rounded-card border border-border bg-surface-2 px-4 py-3" data-testid="bill-outstanding-card">
+      <div className="text-[10.5px] font-semibold uppercase tracking-[0.4px] text-faint">Outstanding</div>
+      <div className="mt-0.5 font-mono text-[18px] font-bold tabular-nums text-warning-ink">
+        {moneyWithSymbol(outstanding)}
+      </div>
+      <p className="mt-1 text-[11.5px] text-muted-foreground">
+        Net payable {moneyWithSymbol(netPayable)} – payments applied {moneyWithSymbol(paymentsApplied)}
+      </p>
+      {journalEntryId && (
+        <Link
+          href={`/ledger/entry-viewer?id=${journalEntryId}`}
+          className="mt-1.5 inline-flex items-center gap-1 text-[12px] font-semibold text-accent-ink hover:underline"
+          data-testid="bill-view-ledger"
+        >
+          View ledger entry
+          <ExternalLink className="h-3.5 w-3.5" aria-hidden />
+        </Link>
+      )}
+    </div>
+  );
+}
+
 function Total({
   label,
   value,
@@ -304,7 +369,7 @@ function Total({
             : "mt-0.5 font-mono text-[13px] font-semibold tabular-nums text-foreground"
         }
       >
-        {formatMoney(value)}
+        {moneyWithSymbol(value)}
       </div>
     </div>
   );

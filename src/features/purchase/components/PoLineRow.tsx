@@ -6,7 +6,8 @@ import { Select } from "@/components/ui/select";
 import { Input } from "@/components/ui/input";
 import { Button } from "@/components/ui/button";
 import { cn } from "@/lib/utils";
-import { formatMoney, toDecimal } from "@/lib/money";
+import { toDecimal } from "@/lib/money";
+import { moneyWithSymbol } from "../format";
 import { BudgetBadge } from "./BudgetBadge";
 import type { PoFormValues, PoLineError } from "../schemas/order.schema";
 import type {
@@ -207,7 +208,7 @@ export function PoLineRow({
         </div>
         <div className="flex items-center gap-3">
           <span className={cn("font-mono text-[13px] tabular-nums", amount ? "text-foreground" : "text-faint")}>
-            {amount ? formatMoney(amount) : "—"}
+            {amount ? moneyWithSymbol(amount) : "—"}
           </span>
           {!disabled && (
             <button
