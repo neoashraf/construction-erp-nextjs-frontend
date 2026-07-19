@@ -19,6 +19,17 @@ describe("money — exact decimal (no float)", () => {
     expect(formatMoney("100", { withSymbol: false })).toBe("100.0000");
   });
 
+  it("groups in BD lakh/crore style when asked (dashboard KPIs)", () => {
+    // last three digits, then twos: 48,20,000 — matches the dashboard design file.
+    expect(formatMoney("4820000", { grouping: "lakh", fractionDigits: 2 })).toBe(`${TAKA} 48,20,000.00`);
+    expect(formatMoney("8215000", { grouping: "lakh", fractionDigits: 2 })).toBe(`${TAKA} 82,15,000.00`);
+    expect(formatMoney("36450000", { grouping: "lakh", fractionDigits: 2, withSymbol: false })).toBe("3,64,50,000.00");
+    expect(formatMoney("-5000", { grouping: "lakh", fractionDigits: 2, withSymbol: false })).toBe("-5,000.00");
+    // small values and default western grouping are unaffected.
+    expect(formatMoney("486", { grouping: "lakh", fractionDigits: 2, withSymbol: false })).toBe("486.00");
+    expect(formatMoney("4820000", { fractionDigits: 2, withSymbol: false })).toBe("4,820,000.00");
+  });
+
   it("rounds half-up exactly — a case JS float gets wrong", () => {
     // 1.005 in IEEE-754 is 1.00499999...; toFixed(2) gives "1.00". decimal.js gives 1.01.
     expect(formatMoney("1.005", { fractionDigits: 2, withSymbol: false })).toBe("1.01");

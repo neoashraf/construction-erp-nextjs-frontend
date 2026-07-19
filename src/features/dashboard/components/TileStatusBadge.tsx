@@ -21,10 +21,15 @@ const TONE: Record<Exclude<TileStatus, null>, React.ComponentProps<typeof Badge>
   BREACH: "destructive",
 };
 
-export function TileStatusBadge({ status }: { status: TileStatus }) {
+export function TileStatusBadge({ status, testId = true }: { status: TileStatus; testId?: boolean }) {
   if (!status) return null;
   return (
-    <Badge tone={TONE[status]} dot data-testid={`tile-status-${status}`}>
+    <Badge
+      tone={TONE[status]}
+      dot
+      className="h-[22px] flex-none gap-[5px] px-2.5 text-[11px]"
+      data-testid={testId ? `tile-status-${status}` : undefined}
+    >
       {LABEL[status]}
     </Badge>
   );
