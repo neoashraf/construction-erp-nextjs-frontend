@@ -3,7 +3,7 @@
 import { useEffect, useMemo, useState } from "react";
 import { useRouter } from "next/navigation";
 import Link from "next/link";
-import { ArrowRight, Loader2, Repeat, XCircle } from "lucide-react";
+import { ArrowRight, Check, Info, Loader2, Repeat, XCircle } from "lucide-react";
 import { Alert } from "@/components/ui/alert";
 import { Badge } from "@/components/ui/badge";
 import { Breadcrumb } from "@/components/ui/breadcrumb";
@@ -16,6 +16,7 @@ import { useQuery } from "@tanstack/react-query";
 import { queryKeys } from "@/lib/query/keys";
 import { asApiError } from "@/lib/api/errors";
 import { useOnline } from "@/lib/hooks/use-online";
+import { cn } from "@/lib/utils";
 import { useAuthenticatedUser } from "@/providers/session-provider";
 import { AlertCircle, Lock, Search } from "lucide-react";
 import { canCancelPayment, canPostPayment, canWritePayment } from "../access";
@@ -360,17 +361,39 @@ export function PaymentEditor({ paymentId }: { paymentId: string | null }) {
   return (
     <div className="relative mx-auto max-w-6xl pb-28 lg:pb-24" data-testid="payment-editor">
       <Breadcrumb items={[{ label: "Payments", href: "/payments" }, { label: crumbTail }]} />
-      <div className="mb-4 mt-1 flex flex-wrap items-center gap-3">
+      <div className="mb-3 mt-1 flex flex-wrap items-center gap-3">
         <h1 className="text-[23px] font-bold tracking-[-0.02em]" data-testid="payment-editor-title">
           {title}
         </h1>
-        {saved && <PaymentStatusBadge status={saved.status} />}
+        <PaymentStatusBadge status={saved?.status ?? "DRAFT"} />
         {saved?.entryNo && (
           <Badge tone="info" className="font-mono">
             {saved.entryNo}
           </Badge>
         )}
+        <div className="ml-auto">
+          <PaymentStepper status={saved?.status ?? "DRAFT"} />
+        </div>
       </div>
+
+      {!readOnly && (
+        <div className="mb-4 grid gap-3 sm:grid-cols-2" data-testid="payment-editor-intro">
+          <div className="flex items-start gap-2 rounded-card border border-border bg-surface-2 p-3">
+            <Info className="mt-0.5 h-4 w-4 flex-none text-muted-foreground" aria-hidden />
+            <p className="text-[12px] leading-relaxed text-muted-foreground">
+              A payment <strong className="font-semibold text-foreground">settles</strong> posted, unpaid payables
+              against their control account — it never re-expenses.
+            </p>
+          </div>
+          <div className="flex items-start gap-2 rounded-card border border-border bg-surface-2 p-3">
+            <Info className="mt-0.5 h-4 w-4 flex-none text-muted-foreground" aria-hidden />
+            <p className="text-[12px] leading-relaxed text-muted-foreground">
+              <strong className="font-semibold text-foreground">Post</strong> writes the balanced entry to the ledger
+              and allocates the gapless payment number; once posted the voucher is read-only.
+            </p>
+          </div>
+        </div>
+      )}
 
       {!online && (
         <Alert tone="warning" title="You're offline. Changes weren't saved." className="mb-4" data-testid="payment-editor-offline" />
@@ -389,7 +412,7 @@ export function PaymentEditor({ paymentId }: { paymentId: string | null }) {
         <Card className="p-5" data-testid="payment-header-card">
           <div className="mb-3 flex items-center gap-2">
             <span className="grid h-6 w-6 place-items-center rounded-token bg-primary text-[12px] font-bold text-primary-foreground">1</span>
-            <h2 className="text-[14px] font-bold text-foreground">Payment</h2>
+            <h2 className="text-[14px] font-bold text-foreground">Payment details</h2>
           </div>
           <PaymentHeaderFields
             values={form}
@@ -440,8 +463,15 @@ export function PaymentEditor({ paymentId }: { paymentId: string | null }) {
           </p>
           <div className="ml-auto flex items-center gap-2">
             {saved && !readOnly && canWrite && (
-              <Button variant="ghost" size="md" onClick={() => setDiscardOpen(true)} disabled={busy} data-testid="payment-editor-discard">
-                Discard draft
+              <Button
+                variant="ghost"
+                size="md"
+                className="text-destructive-ink hover:bg-destructive-soft"
+                onClick={() => setDiscardOpen(true)}
+                disabled={busy}
+                data-testid="payment-editor-discard"
+              >
+                Delete draft
               </Button>
             )}
             <Button variant="outline" size="md" onClick={() => router.push("/payments")} disabled={busy} data-testid="payment-editor-cancel">
@@ -566,6 +596,45 @@ export function PaymentEditor({ paymentId }: { paymentId: string | null }) {
         onCancel={() => setDiscardOpen(false)}
       />
     </div>
+  );
+}
+
+/** Draft → Posted → Cancelled progress stepper (design header). */
+function PaymentStepper({ status }: { status: "DRAFT" | "POSTED" | "CANCELLED" }) {
+  const steps: { n: number; label: string }[] = [
+    { n: 1, label: "Draft" },
+    { n: 2, label: "Posted" },
+    { n: 3, label: "Cancelled" },
+  ];
+  const activeIdx = status === "DRAFT" ? 0 : status === "POSTED" ? 1 : 2;
+  return (
+    <ol className="hidden items-center gap-2 sm:flex" data-testid="payment-editor-stepper" aria-label="Payment lifecycle">
+      {steps.map((s, i) => {
+        const done = i < activeIdx;
+        const active = i === activeIdx;
+        return (
+          <li key={s.n} className="flex items-center gap-2">
+            <span
+              className={cn(
+                "grid h-5 w-5 place-items-center rounded-full text-[11px] font-bold",
+                active
+                  ? "bg-primary text-primary-foreground"
+                  : done
+                    ? "bg-success text-success-foreground"
+                    : "bg-muted text-muted-foreground",
+              )}
+              aria-current={active ? "step" : undefined}
+            >
+              {done ? <Check className="h-3 w-3" aria-hidden /> : s.n}
+            </span>
+            <span className={cn("text-[12px] font-medium", active ? "text-foreground" : "text-muted-foreground")}>
+              {s.label}
+            </span>
+            {i < steps.length - 1 && <span className="h-px w-5 bg-border-strong" aria-hidden />}
+          </li>
+        );
+      })}
+    </ol>
   );
 }
 

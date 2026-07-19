@@ -13,18 +13,10 @@ import { type AccountOption, type PartyOption, type PaymentMode } from "../types
 const MODES: { code: PaymentMode; label: string; icon: LucideIcon }[] = [
   { code: "CASH", label: "Cash", icon: Banknote },
   { code: "MFS", label: "MFS", icon: Smartphone },
-  { code: "BANK_TRANSFER", label: "Bank", icon: Landmark },
+  { code: "BANK_TRANSFER", label: "Bank transfer", icon: Landmark },
   { code: "CHEQUE", label: "Cheque", icon: CreditCard },
   { code: "RTGS", label: "RTGS", icon: Zap },
 ];
-
-const REF_LABEL: Record<PaymentMode, string> = {
-  CASH: "",
-  MFS: "MFS transaction ID",
-  BANK_TRANSFER: "Bank transaction reference",
-  CHEQUE: "Cheque number",
-  RTGS: "RTGS reference",
-};
 
 /**
  * Shared header for the payment editor (spec §5 Header). Payee party + date + mode
@@ -50,7 +42,6 @@ export function PaymentHeaderFields({
   onChange: (patch: Partial<PaymentFormValues>) => void;
 }) {
   const refShown = requiresChequeRef(values.paymentMode);
-  const refLabel = values.paymentMode ? REF_LABEL[values.paymentMode] : "";
   const bankAccounts = accounts.filter((a) => a.isActive && a.type === "ASSET");
 
   return (
@@ -134,16 +125,25 @@ export function PaymentHeaderFields({
           </Select>
         </Field>
         {refShown && (
-          <Field label={refLabel} required error={errors.chequeTxnRef} htmlFor="pay-cheque-ref">
+          <Field
+            label="Cheque / transaction reference"
+            required
+            hint="required for non-cash modes"
+            error={errors.chequeTxnRef}
+            htmlFor="pay-cheque-ref"
+          >
             <Input
               id="pay-cheque-ref"
               value={values.chequeTxnRef}
               onChange={(e) => onChange({ chequeTxnRef: e.target.value })}
               invalid={!!errors.chequeTxnRef}
               disabled={disabled}
-              placeholder={values.paymentMode === "CHEQUE" ? "Cheque no." : "Reference"}
+              placeholder="e.g. cheque no., MFS txn ID, RTGS ref"
               data-testid="payment-editor-cheque-ref"
             />
+            <p className="text-[11.5px] text-muted-foreground">
+              Captured verbatim — cheque no., MFS txn ID, or RTGS ref. Hidden for Cash.
+            </p>
           </Field>
         )}
       </div>
