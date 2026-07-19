@@ -1,9 +1,13 @@
 "use client";
 
-import { Users } from "lucide-react";
 import { DashboardTile } from "./DashboardTile";
 import { type AttendanceKpi, type Tile } from "../types";
 
+/**
+ * FE-61 Attendance Summary — a teal period pill over two big-number columns:
+ * present-days and total head-count (a decimal, since daily-labour head-count can
+ * be fractional). Matches the design's `attendance` tile.
+ */
 export function AttendanceTile(props: {
   tile: Tile;
   onRefresh?: () => void;
@@ -15,37 +19,46 @@ export function AttendanceTile(props: {
   return (
     <DashboardTile
       tile={props.tile}
-      icon={<Users className="h-4 w-4" aria-hidden />}
       onRefresh={props.onRefresh}
       refreshing={props.refreshing}
       error={props.error}
       stale={props.stale}
     >
-      <div className="space-y-1.5">
-        <div className="text-[11.5px] uppercase tracking-wide text-muted-foreground">
-          Period {formatMonth(kpi.period)}
-        </div>
-        <div className="flex items-baseline justify-between gap-2">
-          <span className="text-[11.5px] text-muted-foreground">Present days</span>
-          <span className="text-[15px] font-bold tabular-nums text-foreground">
-            {kpi.presentDays}
-          </span>
-        </div>
-        <div className="flex items-baseline justify-between gap-2">
-          <span className="text-[11.5px] text-muted-foreground">Total head count</span>
-          <span className="text-[15px] font-bold tabular-nums text-foreground">
-            {Number(kpi.headCountTotal).toFixed(2)}
-          </span>
-        </div>
+      <span className="inline-flex h-[22px] items-center self-start rounded-md bg-teal-soft px-2.5 text-[11.5px] font-semibold text-teal-ink">
+        {formatMonth(kpi.period)}
+      </span>
+      <div className="mt-3 flex items-end gap-[22px]">
+        <StatColumn value={String(kpi.presentDays)} label="Present days" />
+        <StatColumn value={formatHeadCount(kpi.headCountTotal)} label="Total head count" />
       </div>
     </DashboardTile>
   );
+}
+
+function StatColumn({ value, label }: { value: string; label: string }) {
+  return (
+    <div className="flex flex-col">
+      <span className="font-mono text-[26px] font-bold leading-none tabular-nums text-foreground">
+        {value}
+      </span>
+      <span className="mt-[3px] text-[11.5px] text-muted-foreground">{label}</span>
+    </div>
+  );
+}
+
+/** Head-count can be fractional (daily-labour); the design shows one decimal. */
+function formatHeadCount(v: string): string {
+  const n = Number(v);
+  return Number.isFinite(n) ? n.toFixed(1) : v;
 }
 
 function formatMonth(ym: string): string {
   const [y, m] = ym.split("-");
   if (!y || !m) return ym;
   const idx = Math.max(0, Math.min(11, Number(m) - 1));
-  const names = ["Jan", "Feb", "Mar", "Apr", "May", "Jun", "Jul", "Aug", "Sep", "Oct", "Nov", "Dec"];
+  const names = [
+    "January", "February", "March", "April", "May", "June",
+    "July", "August", "September", "October", "November", "December",
+  ];
   return `${names[idx]} ${y}`;
 }
