@@ -39,7 +39,7 @@ export function PaymentTotalsFooter({
     <Card
       aria-live="polite"
       id={totalsId}
-      className="flex flex-col gap-3 p-4"
+      className="flex flex-col gap-3 border-border/70 bg-surface-2/70 p-4 backdrop-blur-sm"
       data-testid="payment-totals-footer"
     >
       <div className="flex flex-wrap items-center gap-5">

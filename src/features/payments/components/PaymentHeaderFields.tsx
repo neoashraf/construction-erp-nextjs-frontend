@@ -30,6 +30,7 @@ export function PaymentHeaderFields({
   parties,
   accounts,
   disabled,
+  slot = "details",
   onPayeeChangeAttempt,
   onChange,
 }: {
@@ -38,16 +39,67 @@ export function PaymentHeaderFields({
   parties: PartyOption[];
   accounts: AccountOption[];
   disabled: boolean;
+  /** "details" = payee/date/account/mode/amount (left card); "reference" = cheque-ref + narration (right card). */
+  slot?: "details" | "reference";
   onPayeeChangeAttempt: (nextPartyId: string) => void;
   onChange: (patch: Partial<PaymentFormValues>) => void;
 }) {
   const refShown = requiresChequeRef(values.paymentMode);
   const bankAccounts = accounts.filter((a) => a.isActive && a.type === "ASSET");
 
+  if (slot === "reference") {
+    return (
+      <div className="flex flex-col gap-4">
+        {refShown ? (
+          <Field
+            label="Cheque / transaction reference"
+            required
+            hint="required for non-cash modes"
+            error={errors.chequeTxnRef}
+            htmlFor="pay-cheque-ref"
+          >
+            <Input
+              id="pay-cheque-ref"
+              value={values.chequeTxnRef}
+              onChange={(e) => onChange({ chequeTxnRef: e.target.value })}
+              invalid={!!errors.chequeTxnRef}
+              disabled={disabled}
+              placeholder="e.g. cheque no., MFS txn ID, RTGS ref"
+              data-testid="payment-editor-cheque-ref"
+            />
+            <p className="text-[11.5px] text-muted-foreground">
+              Captured verbatim — cheque no., MFS txn ID, or RTGS ref. Hidden for Cash.
+            </p>
+          </Field>
+        ) : (
+          <div>
+            <span className="text-[11px] font-semibold uppercase tracking-[0.4px] text-muted-foreground">
+              Cheque / transaction reference
+            </span>
+            <p className="mt-1.5 rounded-token border border-dashed border-border-strong bg-surface-2 px-3 py-2.5 text-[12px] text-muted-foreground">
+              Not required for Cash payments.
+            </p>
+          </div>
+        )}
+        <Field label="Narration" hint="optional" htmlFor="pay-narration">
+          <Textarea
+            id="pay-narration"
+            value={values.narration}
+            onChange={(e) => onChange({ narration: e.target.value })}
+            disabled={disabled}
+            rows={5}
+            className="min-h-[120px] resize-none"
+            data-testid="payment-editor-narration"
+          />
+        </Field>
+      </div>
+    );
+  }
+
   return (
     <div className="flex flex-col gap-4">
       <div className="grid gap-4 sm:grid-cols-[1fr_220px]">
-        <Field label="Payee (party)" required hint="the receiving supplier / staff aggregate" error={errors.partyId} htmlFor="pay-party">
+        <Field label="Payee (party)" required hint="party whose payable you're settling" error={errors.partyId} htmlFor="pay-party">
           <Select
             id="pay-party"
             value={values.partyId}
@@ -90,14 +142,14 @@ export function PaymentHeaderFields({
                 onClick={() => onChange({ paymentMode: code })}
                 data-testid={`payment-editor-mode-${code}`}
                 className={cn(
-                  "flex h-10 items-center justify-center gap-1.5 rounded-token border text-[12.5px] font-semibold transition",
+                  "flex h-10 items-center justify-center gap-1.5 whitespace-nowrap rounded-token border px-1 text-[11.5px] font-semibold transition",
                   active
                     ? "border-accent bg-accent-soft text-accent-ink shadow-focus"
                     : "border-border-strong bg-surface text-foreground hover:border-accent hover:bg-accent-soft/50",
                   disabled && "cursor-not-allowed opacity-60",
                 )}
               >
-                <Icon className="h-4 w-4" aria-hidden />
+                <Icon className="h-4 w-4 flex-none" aria-hidden />
                 <span>{label}</span>
               </button>
             );
@@ -108,45 +160,21 @@ export function PaymentHeaderFields({
         )}
       </div>
 
-      <div className={cn("grid gap-4", refShown ? "sm:grid-cols-2" : "")}>
-        <Field label="Paying account" required hint="bank/cash/MFS" error={errors.paymentAccountId} htmlFor="pay-account">
-          <Select
-            id="pay-account"
-            value={values.paymentAccountId}
-            onChange={(e) => onChange({ paymentAccountId: e.target.value })}
-            invalid={!!errors.paymentAccountId}
-            disabled={disabled}
-            data-testid="payment-editor-account"
-          >
-            <option value="">Choose an account…</option>
-            {bankAccounts.map((a) => (
-              <option key={a.id} value={a.id}>{a.code} · {a.name}</option>
-            ))}
-          </Select>
-        </Field>
-        {refShown && (
-          <Field
-            label="Cheque / transaction reference"
-            required
-            hint="required for non-cash modes"
-            error={errors.chequeTxnRef}
-            htmlFor="pay-cheque-ref"
-          >
-            <Input
-              id="pay-cheque-ref"
-              value={values.chequeTxnRef}
-              onChange={(e) => onChange({ chequeTxnRef: e.target.value })}
-              invalid={!!errors.chequeTxnRef}
-              disabled={disabled}
-              placeholder="e.g. cheque no., MFS txn ID, RTGS ref"
-              data-testid="payment-editor-cheque-ref"
-            />
-            <p className="text-[11.5px] text-muted-foreground">
-              Captured verbatim — cheque no., MFS txn ID, or RTGS ref. Hidden for Cash.
-            </p>
-          </Field>
-        )}
-      </div>
+      <Field label="Paying account" required hint="bank/cash/MFS" error={errors.paymentAccountId} htmlFor="pay-account">
+        <Select
+          id="pay-account"
+          value={values.paymentAccountId}
+          onChange={(e) => onChange({ paymentAccountId: e.target.value })}
+          invalid={!!errors.paymentAccountId}
+          disabled={disabled}
+          data-testid="payment-editor-account"
+        >
+          <option value="">Choose an account…</option>
+          {bankAccounts.map((a) => (
+            <option key={a.id} value={a.id}>{a.code} · {a.name}</option>
+          ))}
+        </Select>
+      </Field>
 
       <div>
         <label htmlFor="pay-amount" className="text-[11px] font-semibold uppercase tracking-[0.4px] text-muted-foreground">
@@ -167,18 +195,6 @@ export function PaymentHeaderFields({
           </p>
         )}
       </div>
-
-      <Field label="Narration" hint="optional" htmlFor="pay-narration">
-        <Textarea
-          id="pay-narration"
-          value={values.narration}
-          onChange={(e) => onChange({ narration: e.target.value })}
-          disabled={disabled}
-          rows={3}
-          className="min-h-[64px] resize-none"
-          data-testid="payment-editor-narration"
-        />
-      </Field>
     </div>
   );
 }
