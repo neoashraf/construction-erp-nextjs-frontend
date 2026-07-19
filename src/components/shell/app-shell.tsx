@@ -35,11 +35,13 @@ export function AppShell({ children }: { children: ReactNode }) {
           Skip to content
         </a>
 
-        {/* 100vh persistent frame (spec §4 "above-the-fold ≥1024"): sidebar + topbar
+        {/* Persistent viewport frame (spec §4 "above-the-fold ≥1024"): sidebar + topbar
             are pinned chrome; only the sidebar nav tree and the <main> outlet scroll
-            internally. `h-screen overflow-hidden` clamps the frame to the viewport so
-            the page never scrolls as a whole (which would carry the topbar off-screen). */}
-        <div className="flex h-screen overflow-hidden bg-canvas">
+            internally. `fixed inset-0` pins the frame to the viewport and takes it out of
+            document flow, so the window itself can NEVER scroll (which would carry the
+            sidebar/topbar off-screen) — regardless of content height or any stray
+            portal/scroll-lock. `overflow-hidden` keeps the frame's own box clamped. */}
+        <div className="fixed inset-0 flex overflow-hidden bg-canvas">
           <Sidebar user={user} />
           <NavDrawer user={user} />
           <div className="flex min-w-0 flex-1 flex-col overflow-hidden">
