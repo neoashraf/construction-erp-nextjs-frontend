@@ -48,6 +48,16 @@ const STATUS_DOT: Record<ProjectStatus, string> = {
   CLOSED: "bg-faint",
 };
 
+/** Render a date, falling back to an em-dash instead of throwing on a missing/invalid value. */
+function safeDate(value: string | null | undefined): string {
+  if (!value) return "—";
+  try {
+    return formatDate(value);
+  } catch {
+    return "—";
+  }
+}
+
 /** Project tabbed detail (FR-MAS-005/006/007/014; Projects.dc.html detail view). */
 export function ProjectDetailScreen({ id }: { id: string }) {
   const router = useRouter();
@@ -329,10 +339,10 @@ function IdentityCard({
         <Field label="Location" value={project.location || "—"} span muted={!project.location} />
         <Field label="Customer" value={customerName(project.customerId)} />
         <Field label="Project manager" value={pmName(project.projectManagerId)} />
-        <Field label="Start date" value={formatDate(project.startDate)} mono />
-        <Field label="Expected end date" value={formatDate(project.expectedEndDate)} mono />
+        <Field label="Start date" value={safeDate(project.startDate)} mono />
+        <Field label="Expected end date" value={safeDate(project.expectedEndDate)} mono />
         {project.status === "CLOSED" && project.actualEndDate && (
-          <Field label="Actual end date" value={formatDate(project.actualEndDate)} mono span />
+          <Field label="Actual end date" value={safeDate(project.actualEndDate)} mono span />
         )}
       </div>
     </div>

@@ -129,7 +129,7 @@ export function ProjectsTable({
               </div>
               {/* start */}
               <div className="px-4 py-2 font-mono text-[12.5px] tabular-nums text-muted-foreground">
-                {formatDate(p.startDate)}
+                {dash(p.startDate && formatDate(p.startDate))}
               </div>
               {/* expected end */}
               <div className="px-4 py-2 font-mono text-[12.5px] tabular-nums text-muted-foreground">

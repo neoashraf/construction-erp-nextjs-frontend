@@ -51,10 +51,10 @@ export function ReportCatalogBrowse({
   const tabs = REPORT_CATEGORY_ORDER.filter((c) => (byCategory.get(c)?.length ?? 0) > 0);
 
   const q = query.trim().toLowerCase();
-  // With a query, chips search across every category; otherwise the active tab's reports.
-  const chips = q
-    ? reports.filter((r) => r.title.toLowerCase().includes(q))
-    : byCategory.get(activeCategory) ?? [];
+  // Chips only appear while searching — results span categories, so they're the
+  // picker. Without a query, clicking a category tab opens its viewer directly
+  // (the viewer's own switcher handles multi-report categories), so no chip row.
+  const chips = q ? reports.filter((r) => r.title.toLowerCase().includes(q)) : [];
 
   return (
     <div data-testid="report-catalog-browse">
@@ -88,12 +88,12 @@ export function ReportCatalogBrowse({
         })}
       </div>
 
-      {/* report chips */}
-      {chips.length === 0 ? (
+      {/* report chips — only while searching (results span categories) */}
+      {q && chips.length === 0 ? (
         <p className="mt-3 text-[12.5px] text-muted-foreground">
           No reports match “{query.trim()}”.
         </p>
-      ) : (
+      ) : chips.length === 0 ? null : (
         <div className="mt-3 flex flex-wrap gap-2">
           {chips.map((r) => {
             const active = selected === r.name;

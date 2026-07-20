@@ -40,7 +40,7 @@ export function ScopeSelector({
           disabled={disabled}
           value={value.financialYearId}
           onChange={(e) => onChange({ ...value, financialYearId: e.target.value })}
-          className="h-9 w-[184px] rounded-token border border-border-strong bg-background px-[11px] text-[13px] font-medium text-foreground focus:border-accent focus:shadow-focus focus:outline-none disabled:opacity-55"
+          className="h-9 w-[250px] rounded-token border border-border-strong bg-background px-[11px] text-[13px] font-medium text-foreground hover:border-border-hover focus:border-accent focus:shadow-focus focus:outline-none disabled:opacity-55"
           data-testid="dash-fy"
         >
           <option value="">Select a financial year…</option>

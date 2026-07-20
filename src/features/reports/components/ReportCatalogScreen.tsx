@@ -1,6 +1,6 @@
 "use client";
 
-import { type ComponentType, useMemo, useState } from "react";
+import { type ComponentType, useEffect, useMemo, useState } from "react";
 import { AlertCircle, WifiOff, FileText, Search } from "lucide-react";
 import { Alert } from "@/components/ui/alert";
 import { Breadcrumb } from "@/components/ui/breadcrumb";
@@ -60,6 +60,20 @@ export function ReportCatalogScreen() {
     setSelected(d);
     setCategory(d.category);
   }
+
+  // Clicking a category tab opens that category's viewer directly (no chip row):
+  // auto-select the category's first report so its own in-viewer switcher shows.
+  function onCategoryChange(c: ReportCategory) {
+    setCategory(c);
+    const first = reports.find((r) => r.category === c) ?? null;
+    setSelected(first);
+  }
+
+  // First load: open the default category's viewer immediately (no idle state).
+  useEffect(() => {
+    if (selected || reports.length === 0) return;
+    setSelected(reports.find((r) => r.category === activeCategory) ?? null);
+  }, [selected, reports, activeCategory]);
 
   const SelectedViewer = selected ? CATEGORY_VIEWER[selected.category] : null;
 
@@ -132,7 +146,7 @@ export function ReportCatalogScreen() {
               reports={reports}
               selected={selected?.name ?? null}
               activeCategory={activeCategory}
-              onCategoryChange={setCategory}
+              onCategoryChange={onCategoryChange}
               onSelect={onSelect}
               query={query}
             />
