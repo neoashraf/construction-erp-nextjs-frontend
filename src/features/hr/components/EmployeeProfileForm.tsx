@@ -66,7 +66,7 @@ export function EmployeeProfileForm({
   return (
     <div className="grid gap-4 md:grid-cols-2">
       {/* ── Identity ── */}
-      <Field label="Employee code" required htmlFor="emp-code" error={errors.employeeCode} hint={codeLocked ? "" : "Company-unique"}>
+      <Field label="Employee code" required htmlFor="emp-code" error={errors.employeeCode} hint={codeLocked ? "" : "1–500 · Company-unique"}>
         <div className="relative">
           <Input
             id="emp-code"
@@ -74,6 +74,7 @@ export function EmployeeProfileForm({
             onChange={(e) => onChange({ employeeCode: e.target.value })}
             invalid={!!errors.employeeCode}
             disabled={disabled || codeLocked || isEdit}
+            inputMode="numeric"
             data-testid="emp-code"
             data-locked={codeLocked ? "true" : undefined}
             aria-describedby={codeLocked ? "emp-code-locked" : undefined}
