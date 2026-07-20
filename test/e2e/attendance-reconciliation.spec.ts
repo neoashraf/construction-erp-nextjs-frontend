@@ -25,9 +25,10 @@ test("Office biometric import — reports the already-recorded day as skipped", 
   await page.getByTestId("att-project").selectOption("proj-a");
   await page.getByTestId("attendance-filter-apply").click();
 
-  // Default mode is OFFICE; open the biometric import panel.
+  // Default mode is OFFICE; open the biometric-import drawer from the entry-source toggle.
   await page.getByTestId("office-toggle-import").click();
-  await expect(page.getByTestId("biometric-import-panel")).toBeVisible();
+  const panel = page.getByTestId("biometric-import-panel");
+  await expect(panel).toBeVisible();
 
   // Feed emp-1 today — the mock seeds emp-1 MANUAL for the current date, so this clashes.
   const today = new Date().toISOString().slice(0, 10);
@@ -35,15 +36,15 @@ test("Office biometric import — reports the already-recorded day as skipped", 
     { employeeCode: "emp-1", attendanceDate: today, checkIn: "08:55", checkOut: "17:45", dayStatus: "PRESENT" },
   ]);
 
-  await page.getByTestId("biometric-json").fill(feed);
-  await page.getByTestId("biometric-import").click();
+  await panel.getByTestId("biometric-json").fill(feed);
+  await panel.getByTestId("biometric-import").click();
 
-  const panel = page.getByTestId("reconciliation-panel");
-  await expect(panel).toBeVisible();
-  await expect(panel.getByTestId("reconciliation-heading")).toContainText("skipped");
-  await expect(panel.getByTestId("reconciliation-item")).toContainText(today);
+  // The clashing day is reported as skipped in the drawer's summary — never doubled.
+  await expect(panel.getByTestId("biometric-summary")).toContainText("skipped");
+  await expect(panel.getByTestId("biometric-conflict-count")).toContainText("skipped");
+  await expect(panel.getByTestId("biometric-conflict")).toContainText("emp-1");
 
-  // Dismiss the summary.
-  await panel.getByTestId("reconciliation-done").click();
-  await expect(page.getByTestId("reconciliation-panel")).toHaveCount(0, { timeout: 10_000 });
+  // Close the drawer.
+  await panel.getByTestId("biometric-cancel").click();
+  await expect(page.getByTestId("biometric-import-panel")).toHaveCount(0, { timeout: 10_000 });
 });

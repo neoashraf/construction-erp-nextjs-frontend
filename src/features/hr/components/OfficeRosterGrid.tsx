@@ -223,11 +223,13 @@ export function OfficeRosterGrid({
         )}
       </Card>
 
-      {showImportPanel && (
-        <div className="absolute inset-y-0 right-0 z-10 w-[404px] max-w-full">
-          <BiometricImportPanel projectId={projectId} onClose={() => setShowImportPanel(false)} />
-        </div>
-      )}
+      <BiometricImportPanel
+        open={showImportPanel}
+        onOpenChange={setShowImportPanel}
+        projectId={projectId}
+        projectLabel={projectLabel}
+        date={date}
+      />
     </div>
   );
 }

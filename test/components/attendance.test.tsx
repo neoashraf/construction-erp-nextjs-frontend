@@ -481,9 +481,9 @@ describe("Office biometric reconciliation (FR-HR-004; edge §12.9)", () => {
         { employeeCode: "1", attendanceDate: "2026-06-01", dayStatus: "PRESENT" },
       ]),
     );
-    const panel = await screen.findByTestId("reconciliation-panel");
-    expect(within(panel).getByTestId("reconciliation-heading")).toHaveTextContent("1 row skipped");
-    expect(within(panel).getByTestId("reconciliation-item")).toHaveTextContent(/No employee matches|already exists/i);
+    const panel = await screen.findByTestId("biometric-import-panel");
+    expect(within(panel).getByTestId("biometric-conflict-count")).toHaveTextContent("1 row skipped");
+    expect(within(panel).getByTestId("biometric-conflict")).toHaveTextContent(/No employee matches|already exists/i);
   });
 });
 
