@@ -1,15 +1,14 @@
 /**
- * FE-36 biometric import file parsing (FR-HR-004). Regression for the bug where an uploaded
- * .xlsx was read as raw text and fed straight to JSON.parse — producing the "Paste a JSON
- * array of rows or drop a CSV/XLSX file." error. The panel now parses CSV/XLSX/JSON into
- * OfficeAttendanceRow[] before importing.
+ * FE-36 biometric import file parsing (FR-HR-004). Regression for the bugs where (a) an
+ * uploaded .xlsx was read as raw text and fed to JSON.parse, and (b) the parsed rows carried
+ * a per-row projectId/employeeId instead of the backend's employeeCode-keyed BiometricFeedRow
+ * (project is applied top-level by the panel). Output must match the real backend deviceFeed.
  */
 import * as XLSX from "xlsx";
 import { parseAttendanceFeed } from "@/features/hr/lib/parseAttendanceFeed";
 
-// jsdom's File in this jest env lacks .text()/.arrayBuffer() (real browsers provide them),
-// so we hand the parser a minimal File-like with those two methods implemented.
 function fileFrom(name: string, data: Uint8Array | ArrayBuffer | string): File {
+  // jsdom's File in this jest env lacks .text()/.arrayBuffer() — provide minimal versions.
   const isString = typeof data === "string";
   return {
     name,
@@ -26,64 +25,62 @@ function fileFrom(name: string, data: Uint8Array | ArrayBuffer | string): File {
 }
 
 describe("parseAttendanceFeed", () => {
-  it("parses a real .xlsx workbook into rows (the reported bug)", async () => {
+  it("parses a real .xlsx export matching the reported sheet columns", async () => {
+    // Columns exactly as in the user's sheet: Employee | Name | Date | Checkin Time | Checkout Time | Status
     const ws = XLSX.utils.aoa_to_sheet([
-      ["Employee ID", "Date", "Project", "Time In", "Time Out", "Status"],
-      ["emp-1", "13/07/2026", "proj-a", "09:02", "17:58", "P"],
-      ["emp-2", "13/07/2026", "proj-a", "", "", "A"],
+      ["Employee", "Name", "Date", "Checkin Time", "Checkout Time", "Status"],
+      ["1", "A.B.M. Shah", "2026-06-01", "9:47:00 AM", "6:50:15 PM", "Late"],
+      ["1", "A.B.M. Shah", "2026-06-05", "", "", "Holiday"],
+      ["1", "A.B.M. Shah", "2026-06-09", "", "", "Absent"],
     ]);
     const wb = XLSX.utils.book_new();
-    XLSX.utils.book_append_sheet(wb, ws, "Log");
+    XLSX.utils.book_append_sheet(wb, ws, "Sheet1");
     const buffer = XLSX.write(wb, { type: "array", bookType: "xlsx" }) as Uint8Array;
 
-    const rows = await parseAttendanceFeed(fileFrom("zkteco-log.xlsx", buffer));
+    const rows = await parseAttendanceFeed(fileFrom("biometric.xlsx", buffer));
 
     expect(rows).toEqual([
-      {
-        employeeId: "emp-1",
-        attendanceDate: "2026-07-13",
-        projectId: "proj-a",
-        dayStatus: "PRESENT",
-        checkIn: "09:02",
-        checkOut: "17:58",
-        overtimeHours: null,
-      },
-      {
-        employeeId: "emp-2",
-        attendanceDate: "2026-07-13",
-        projectId: "proj-a",
-        dayStatus: "ABSENT",
-        checkIn: null,
-        checkOut: null,
-        overtimeHours: null,
-      },
+      { employeeCode: "1", attendanceDate: "2026-06-01", checkIn: "09:47", checkOut: "18:50", dayStatus: "PRESENT", overtimeHours: null },
+      { employeeCode: "1", attendanceDate: "2026-06-05", checkIn: null, checkOut: null, dayStatus: "PAID_LEAVE", overtimeHours: null },
+      { employeeCode: "1", attendanceDate: "2026-06-09", checkIn: null, checkOut: null, dayStatus: "ABSENT", overtimeHours: null },
     ]);
   });
 
-  it("parses CSV with a header row", async () => {
-    const csv = "employeeId,attendanceDate,projectId,dayStatus\nemp-3,2026-07-14,proj-b,PRESENT";
+  it("carries no per-row projectId or employeeId (project is applied top-level)", async () => {
+    const csv = "Employee,Date,Status\n7,2026-06-01,Late";
     const rows = await parseAttendanceFeed(fileFrom("log.csv", csv));
-    expect(rows).toEqual([
-      {
-        employeeId: "emp-3",
-        attendanceDate: "2026-07-14",
-        projectId: "proj-b",
-        dayStatus: "PRESENT",
-        checkIn: null,
-        checkOut: null,
-        overtimeHours: null,
-      },
-    ]);
+    expect(rows[0]).toEqual({
+      employeeCode: "7",
+      attendanceDate: "2026-06-01",
+      checkIn: null,
+      checkOut: null,
+      dayStatus: "PRESENT",
+      overtimeHours: null,
+    });
+    expect(rows[0]).not.toHaveProperty("projectId");
+    expect(rows[0]).not.toHaveProperty("employeeId");
   });
 
-  it("defaults dayStatus to PRESENT when a punch exists but no status column", async () => {
-    const csv = "Employee ID,Date,In,Out\nemp-9,15/07/2026,08:55,18:10";
+  it("normalises DD/MM/YYYY dates and 24h times", async () => {
+    const csv = "Employee ID,Date,In,Out\n9,15/06/2026,08:55,18:10";
     const rows = await parseAttendanceFeed(fileFrom("punches.csv", csv));
-    expect(rows[0]).toMatchObject({ employeeId: "emp-9", dayStatus: "PRESENT", checkIn: "08:55" });
+    expect(rows[0]).toMatchObject({
+      employeeCode: "9",
+      attendanceDate: "2026-06-15",
+      checkIn: "08:55",
+      checkOut: "18:10",
+      dayStatus: null, // no status column → backend defaults to PRESENT
+    });
+  });
+
+  it("leaves dayStatus null when there is no status column", async () => {
+    const csv = "Employee,Date\n3,2026-06-02";
+    const rows = await parseAttendanceFeed(fileFrom("f.csv", csv));
+    expect(rows[0]!.dayStatus).toBeNull();
   });
 
   it("passes a JSON array through unchanged", async () => {
-    const feed = [{ employeeId: "emp-1", attendanceDate: "2026-07-13", projectId: "proj-a", dayStatus: "PRESENT" }];
+    const feed = [{ employeeCode: "1", attendanceDate: "2026-06-01", dayStatus: "PRESENT" }];
     const rows = await parseAttendanceFeed(fileFrom("feed.json", JSON.stringify(feed)));
     expect(rows).toEqual(feed);
   });

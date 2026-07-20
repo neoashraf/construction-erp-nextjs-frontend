@@ -94,6 +94,8 @@ export function mapAttendanceError(code: string, fallback = "Something went wron
     VALIDATION_ERROR: "Some fields need attention. Please check and try again.",
     CROSS_COMPANY_REFERENCE: "That reference belongs to a different company.",
     DUPLICATE_ATTENDANCE: "There's already an attendance row for this employee on this day.",
+    ALREADY_RECORDED: "A row already exists for this day — left unchanged.",
+    UNKNOWN_EMPLOYEE_CODE: "No employee matches this code — check the Employee master.",
     ATTENDANCE_CONFIRMED_IMMUTABLE: "This row has been confirmed and can no longer be edited — use Reverse to correct it.",
     ALREADY_CONFIRMED: "This row has already been confirmed.",
     MISSING_REQUIRED_DIMENSION: "A purpose is required to post the accrual.",
