@@ -14,7 +14,7 @@ import { useAttendanceMutations } from "../hooks/useAttendanceMutations";
 import { parseAttendanceFeed } from "../lib/parseAttendanceFeed";
 import { mapAttendanceError } from "../schemas/attendance.schema";
 import { ReconciliationPanel } from "./ReconciliationPanel";
-import { type BiometricImportResult, type OfficeAttendanceRow } from "../api/attendance";
+import { type BiometricImportResult, type BiometricFeedRow } from "../api/attendance";
 
 /**
  * Biometric CSV/XLSX (or device-feed) import panel (FR-HR-004). Drop or paste a JSON list
@@ -25,7 +25,14 @@ import { type BiometricImportResult, type OfficeAttendanceRow } from "../api/att
  * Rendered as a right-side overlay panel toggled by the "Biometric import" entry-source
  * button on the office roster (Attendance.dc.html) — `onClose` returns to Manual entry.
  */
-export function BiometricImportPanel({ onClose }: { onClose?: () => void }) {
+export function BiometricImportPanel({
+  projectId,
+  onClose,
+}: {
+  /** The roster's selected project — applied to every imported row (required by the server). */
+  projectId?: string;
+  onClose?: () => void;
+}) {
   const user = useAuthenticatedUser();
   const canCapture = canCaptureAttendance(user);
   const { toast } = useToast();
@@ -37,19 +44,23 @@ export function BiometricImportPanel({ onClose }: { onClose?: () => void }) {
 
   async function submit() {
     setError(null);
-    let feed: OfficeAttendanceRow[];
+    if (!projectId) {
+      setError("Select a project in the filter above before importing — every row is imported into it.");
+      return;
+    }
+    let feed: BiometricFeedRow[];
     try {
       const parsed = JSON.parse(raw || "[]");
       if (!Array.isArray(parsed)) throw new Error("expected an array");
-      feed = parsed as OfficeAttendanceRow[];
+      feed = parsed as BiometricFeedRow[];
     } catch {
       setError("Paste a JSON array of rows or drop a CSV/XLSX file.");
       return;
     }
     try {
-      const res = await importOffice.mutateAsync(feed);
+      const res = await importOffice.mutateAsync({ projectId, feed });
       setResult(res);
-      toast(`Imported ${res.imported} row${res.imported === 1 ? "" : "s"}.`, "success");
+      toast(`Imported ${res.reconciled} of ${res.imported} row${res.imported === 1 ? "" : "s"}.`, "success");
     } catch (e) {
       const code = e instanceof ApiError ? e.code : "UNKNOWN";
       setError(mapAttendanceError(String(code)));
@@ -123,7 +134,7 @@ export function BiometricImportPanel({ onClose }: { onClose?: () => void }) {
             className="mt-2 h-24 w-full rounded-token border border-border-strong bg-background p-2 font-mono text-[11.5px] text-foreground focus:border-accent focus:outline-none focus:shadow-focus"
             value={raw}
             onChange={(e) => setRaw(e.target.value)}
-            placeholder='[ { "employeeId": "emp-1", "attendanceDate": "2026-07-13", "dayStatus": "PRESENT", "projectId": "proj-a" } ]'
+            placeholder='[ { "employeeCode": "1", "attendanceDate": "2026-07-13", "checkIn": "09:15", "checkOut": "18:00", "dayStatus": "PRESENT" } ]'
             aria-label="Biometric feed JSON"
             data-testid="biometric-json"
           />

@@ -225,7 +225,7 @@ export function OfficeRosterGrid({
 
       {showImportPanel && (
         <div className="absolute inset-y-0 right-0 z-10 w-[404px] max-w-full">
-          <BiometricImportPanel onClose={() => setShowImportPanel(false)} />
+          <BiometricImportPanel projectId={projectId} onClose={() => setShowImportPanel(false)} />
         </div>
       )}
     </div>

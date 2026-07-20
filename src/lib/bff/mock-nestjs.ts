@@ -6412,53 +6412,61 @@ export async function mockNestjsFetch(req: MockReq): Promise<MockResult> {
     return { status: 201, body: success({ ids }) };
   }
 
-  // POST /attendance/office/import — biometric feed with reconciliation
+  // POST /attendance/office/import — biometric feed reconciled to one OFFICE row/employee/day.
+  // Mirrors the real backend: a top-level projectId (applied to every row), an employeeCode-keyed
+  // deviceFeed, direct insert of non-conflicting rows, and info-only conflicts.
   if (pathname === "/attendance/office/import" && req.method === "POST") {
-    const b = body as { deviceFeed?: unknown; rows?: unknown };
-    const feed = Array.isArray(b.deviceFeed) ? b.deviceFeed : Array.isArray(b.rows) ? b.rows : [];
-    if (!Array.isArray(feed)) {
-      return {
-        status: 400,
-        body: envelope("VALIDATION_ERROR", "Paste a JSON array of rows or drop a CSV/XLSX file."),
-      };
+    const b = body as { projectId?: unknown; deviceFeed?: unknown; rows?: unknown };
+    const projectId = String(b.projectId ?? "");
+    if (!projectId) {
+      return { status: 400, body: envelope("VALIDATION_ERROR", "projectId must be a UUID") };
     }
+    const feed = Array.isArray(b.deviceFeed) ? b.deviceFeed : Array.isArray(b.rows) ? b.rows : [];
     const conflicts: Array<Record<string, unknown>> = [];
-    const accepted: Array<Record<string, unknown>> = [];
+    let reconciled = 0;
     for (const raw of feed as Array<Record<string, unknown>>) {
-      const employeeId = String(raw.employeeId ?? "");
+      const employeeCode = String(raw.employeeCode ?? raw.employeeId ?? "");
       const attendanceDate = String(raw.attendanceDate ?? "");
       const existing = ATT.rows.find(
         (r) =>
-          r.mode === "OFFICE" && r.employeeId === employeeId && r.attendanceDate === attendanceDate,
+          r.mode === "OFFICE" && r.employeeId === employeeCode && r.attendanceDate === attendanceDate,
       );
-      if (existing && existing.source === "MANUAL") {
-        conflicts.push({
-          employeeId,
-          attendanceDate,
-          reason: "Manual entry already exists for this day.",
-          manual: {
-            employeeId,
-            attendanceDate,
-            projectId: existing.projectId,
-            checkIn: existing.checkIn,
-            checkOut: existing.checkOut,
-            dayStatus: existing.dayStatus,
-            overtimeHours: existing.overtimeHours,
-          },
-          imported: raw,
-        });
-      } else {
-        accepted.push(raw);
+      if (existing) {
+        conflicts.push({ employeeId: employeeCode, attendanceDate, reason: "ALREADY_RECORDED" });
+        continue;
       }
+      ATT.rows.push({
+        id: `att-off-${(ATT.seq += 1)}`,
+        mode: "OFFICE",
+        attendanceDate,
+        projectId,
+        costCentreId: null,
+        purposeId: null,
+        employeeId: employeeCode,
+        checkIn: (raw.checkIn as string) ?? null,
+        checkOut: (raw.checkOut as string) ?? null,
+        dayStatus: (raw.dayStatus as string) ?? "PRESENT",
+        overtimeHours: (raw.overtimeHours as string) ?? "0",
+        partyId: null,
+        headCount: null,
+        labourCategory: null,
+        dailyRate: null,
+        source: "BIOMETRIC_IMPORT",
+        isConfirmed: false,
+        accrualEntryId: null,
+        entryNo: null,
+        accruedAmount: null,
+        postedAt: null,
+        postedBy: null,
+        reversalEntryNo: null,
+        reversalEntryId: null,
+        version: 1,
+      });
+      reconciled += 1;
     }
     return {
       status: 200,
-      body: success({
-        imported: accepted.length + conflicts.length,
-        reconciled: accepted.length,
-        accepted,
-        conflicts,
-      }),
+      body: success({ imported: feed.length, reconciled, conflicts }),
     };
   }
 

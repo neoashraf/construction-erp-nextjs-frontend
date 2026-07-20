@@ -37,7 +37,6 @@ jest.mock("@/features/hr/api/masters");
 jest.mock("@/features/hr/api/employees");
 
 const listAttendanceMock = attApi.listAttendance as jest.Mock;
-const saveOfficeMock = attApi.saveOfficeAttendance as jest.Mock;
 const importOfficeMock = attApi.importOfficeBiometric as jest.Mock;
 const saveSubMock = attApi.saveSubcontractorAttendance as jest.Mock;
 const saveDLMock = attApi.saveDailyLabourAttendance as jest.Mock;
@@ -423,37 +422,49 @@ describe("Subcontractor tab has no Confirm control anywhere (FR-HR-005)", () => 
 
 // ── Office biometric reconciliation ──
 describe("Office biometric reconciliation (FR-HR-004; edge §12.9)", () => {
-  it("lists conflicts and applies Keep manual / Keep imported", async () => {
+  it("requires a selected project before importing", async () => {
+    listAttendanceMock.mockResolvedValue({ data: [], page: 1, pageSize: 200, total: 0 });
+    renderWith(<AttendanceShell />);
+    await screen.findByTestId("attendance-tabs");
+    // No project chosen in the filter yet (default projectId = "").
+    await userEvent.click(await screen.findByTestId("office-toggle-import"));
+    const jsonBox = await screen.findByTestId("biometric-json");
+    fireEvent.change(jsonBox, {
+      target: { value: '[{"employeeCode":"1","attendanceDate":"2026-06-01","dayStatus":"PRESENT"}]' },
+    });
+    await userEvent.click(screen.getByTestId("biometric-import"));
+    expect(await screen.findByTestId("biometric-error")).toHaveTextContent(/select a project/i);
+    expect(importOfficeMock).not.toHaveBeenCalled();
+  });
+
+  it("imports the feed for the selected project and reports skipped conflicts", async () => {
     listAttendanceMock.mockResolvedValue({ data: [], page: 1, pageSize: 200, total: 0 });
     importOfficeMock.mockResolvedValue({
       imported: 2,
       reconciled: 1,
-      accepted: [],
       conflicts: [
-        {
-          employeeId: "emp-1",
-          attendanceDate: "2026-07-13",
-          reason: "Manual entry already exists for this day.",
-          manual: { employeeId: "emp-1", attendanceDate: "2026-07-13", projectId: "proj-a", checkIn: "09:15", checkOut: "18:00", dayStatus: "PRESENT" as const },
-          imported: { employeeId: "emp-1", attendanceDate: "2026-07-13", projectId: "proj-a", checkIn: "09:02", checkOut: "17:58", dayStatus: "PRESENT" as const },
-        },
+        { employeeId: "1", attendanceDate: "2026-06-01", reason: "ALREADY_RECORDED" },
       ],
     });
-    saveOfficeMock.mockResolvedValue({ ids: ["ok"] });
     renderWith(<AttendanceShell />);
     await screen.findByTestId("attendance-tabs");
-    // OFFICE is the default mode; the import panel is an overlay toggled by "Biometric import".
+    // Choose a project in the filter and Apply so the import has a top-level projectId.
+    await userEvent.selectOptions(await screen.findByTestId("att-project"), "proj-a");
+    await userEvent.click(screen.getByTestId("attendance-filter-apply"));
     await userEvent.click(await screen.findByTestId("office-toggle-import"));
     const jsonBox = await screen.findByTestId("biometric-json");
     fireEvent.change(jsonBox, {
-      target: { value: '[{"employeeId":"emp-1","attendanceDate":"2026-07-13","projectId":"proj-a","dayStatus":"PRESENT"}]' },
+      target: { value: '[{"employeeCode":"1","attendanceDate":"2026-06-01","dayStatus":"PRESENT"}]' },
     });
     await userEvent.click(screen.getByTestId("biometric-import"));
+    await waitFor(() =>
+      expect(importOfficeMock).toHaveBeenCalledWith("proj-a", [
+        { employeeCode: "1", attendanceDate: "2026-06-01", dayStatus: "PRESENT" },
+      ]),
+    );
     const panel = await screen.findByTestId("reconciliation-panel");
-    expect(within(panel).getByTestId("reconciliation-heading")).toHaveTextContent("1 conflict");
-    await userEvent.click(within(panel).getByTestId("keep-imported-emp-1"));
-    await userEvent.click(within(panel).getByTestId("reconciliation-apply"));
-    await waitFor(() => expect(saveOfficeMock).toHaveBeenCalled());
+    expect(within(panel).getByTestId("reconciliation-heading")).toHaveTextContent("1 row skipped");
+    expect(within(panel).getByTestId("reconciliation-item")).toHaveTextContent(/No employee matches|already exists/i);
   });
 });
 

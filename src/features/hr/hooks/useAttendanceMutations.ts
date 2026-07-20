@@ -5,6 +5,7 @@ import {
   saveOfficeAttendance,
   saveSubcontractorAttendance,
   updateDailyLabour,
+  type BiometricFeedRow,
   type DailyLabourRowInput,
   type DailyLabourUpdateInput,
   type OfficeAttendanceRow,
@@ -30,7 +31,8 @@ export function useAttendanceMutations() {
   });
 
   const importOffice = useMutation({
-    mutationFn: (feed: OfficeAttendanceRow[]) => importOfficeBiometric(feed),
+    mutationFn: ({ projectId, feed }: { projectId: string; feed: BiometricFeedRow[] }) =>
+      importOfficeBiometric(projectId, feed),
     onSuccess: invalidate,
     retry: false,
   });

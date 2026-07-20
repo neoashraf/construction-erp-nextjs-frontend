@@ -121,24 +121,44 @@ export async function saveOfficeAttendance(rows: OfficeAttendanceRow[]): Promise
   return res.data;
 }
 
-/** Biometric import — accepts a `deviceFeed[]` in the JSON body form for the mock. */
+/**
+ * A biometric device-feed row (backend `BiometricAttendanceRow`). Note this is NOT the same
+ * as `OfficeAttendanceRow`: the feed keys the employee by their human `employeeCode` (e.g. the
+ * device/machine id printed on the sheet, not a UUID) and carries NO per-row projectId — the
+ * project is supplied once, at the top level of the import, from the roster's selected project.
+ */
+export interface BiometricFeedRow {
+  employeeCode: string;
+  attendanceDate: string; // YYYY-MM-DD
+  checkIn?: string | null; // HH:mm
+  checkOut?: string | null; // HH:mm
+  dayStatus?: DayStatus | null;
+  overtimeHours?: string | null;
+}
+/** A row the import could not place. `reason` is a server code (see `mapAttendanceError`). */
 export interface BiometricConflict {
-  employeeId: string;
+  employeeId: string; // resolved id, or the raw employeeCode when the code was unknown
   attendanceDate: string;
   reason: string;
-  manual?: OfficeAttendanceRow | null;
-  imported?: OfficeAttendanceRow | null;
 }
 export interface BiometricImportResult {
-  imported: number;
-  reconciled: number;
-  accepted: OfficeAttendanceRow[];
+  imported: number; // rows read from the feed
+  reconciled: number; // rows actually inserted (non-conflicting)
   conflicts: BiometricConflict[];
 }
-export async function importOfficeBiometric(feed: OfficeAttendanceRow[]): Promise<BiometricImportResult> {
+/**
+ * Import an office biometric feed for a single project. The backend resolves each
+ * `employeeCode`, applies `projectId` to every row, defaults status to PRESENT, and inserts
+ * the non-conflicting rows directly (append-only; never doubles a day). `projectId` is
+ * required and must be a real project UUID.
+ */
+export async function importOfficeBiometric(
+  projectId: string,
+  feed: BiometricFeedRow[],
+): Promise<BiometricImportResult> {
   const res = await apiClient.post<{ data: BiometricImportResult }>(
     `${BASE}/office/import`,
-    { deviceFeed: feed },
+    { projectId, deviceFeed: feed },
     csrf(),
   );
   return res.data;
