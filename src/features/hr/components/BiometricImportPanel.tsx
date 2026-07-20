@@ -11,6 +11,7 @@ import { ApiError } from "@/lib/api/errors";
 import { useAuthenticatedUser } from "@/providers/session-provider";
 import { canCaptureAttendance } from "../access";
 import { useAttendanceMutations } from "../hooks/useAttendanceMutations";
+import { parseAttendanceFeed } from "../lib/parseAttendanceFeed";
 import { mapAttendanceError } from "../schemas/attendance.schema";
 import { ReconciliationPanel } from "./ReconciliationPanel";
 import { type BiometricImportResult, type OfficeAttendanceRow } from "../api/attendance";
@@ -56,8 +57,19 @@ export function BiometricImportPanel({ onClose }: { onClose?: () => void }) {
   }
 
   async function onFile(file: File) {
-    const text = await file.text();
-    setRaw(text);
+    setError(null);
+    try {
+      const rows = await parseAttendanceFeed(file);
+      // Show the parsed rows as JSON so the user can review/edit before importing.
+      setRaw(JSON.stringify(rows, null, 2));
+    } catch (e) {
+      setRaw("");
+      setError(
+        e instanceof Error
+          ? e.message
+          : "Couldn't read that file. Upload a CSV, XLSX, or JSON file.",
+      );
+    }
   }
 
   if (!canCapture) {
