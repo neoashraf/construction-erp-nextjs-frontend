@@ -57,7 +57,7 @@ const listAssignmentsMock = empApi.listAssignments as jest.Mock;
 
 function emp(over: Partial<Employee> = {}): Employee {
   return {
-    id: "emp-1", employeeCode: "EMP-014", name: "Md Rafiqul Islam", designation: "Site Accountant",
+    id: "emp-1", employeeCode: "14", name: "Md Rafiqul Islam", designation: "Site Accountant",
     defaultProjectId: "proj-a", department: "Accounts", workBase: "SITE", wageType: "MONTHLY",
     wageAmount: "45000.0000", bankName: "Dutch-Bangla Bank",
     bankAccountName: "•••• slam", bankAccountNo: "•••• 7890", bankMasked: true,
@@ -68,7 +68,7 @@ function emp(over: Partial<Employee> = {}): Employee {
 }
 function summary(over: Partial<EmployeeSummary> = {}): EmployeeSummary {
   return {
-    id: "emp-1", employeeCode: "EMP-014", name: "Md Rafiqul Islam", designation: "Site Accountant",
+    id: "emp-1", employeeCode: "14", name: "Md Rafiqul Islam", designation: "Site Accountant",
     defaultProjectId: "proj-a", workBase: "SITE", wageType: "MONTHLY", wageAmount: "45000.0000",
     status: "ACTIVE", hasReferences: false, ...over,
   };
@@ -99,7 +99,7 @@ beforeEach(() => {
 // ── List ──
 describe("EmployeeList (spec §4/§6)", () => {
   it("renders rows with status badges + the New CTA for HR", async () => {
-    listMock.mockResolvedValue({ data: [summary(), summary({ id: "emp-2", employeeCode: "EMP-020", status: "INACTIVE" })], page: 1, pageSize: 25, total: 2 });
+    listMock.mockResolvedValue({ data: [summary(), summary({ id: "emp-2", employeeCode: "20", status: "INACTIVE" })], page: 1, pageSize: 25, total: 2 });
     renderWith(<EmployeeList />);
     await screen.findByTestId("employee-list");
     expect(screen.getAllByTestId("employee-status-ACTIVE").length).toBeGreaterThan(0);
@@ -148,7 +148,7 @@ describe("EmployeeCreateDrawer → Detail (spec §5/§9)", () => {
     await screen.findByTestId("employee-empty-firstuse");
     await userEvent.click(screen.getByTestId("employee-empty-new"));
     expect(await screen.findByTestId("employee-create-drawer")).toBeInTheDocument();
-    await userEvent.type(screen.getByTestId("emp-code"), "EMP-999");
+    await userEvent.type(screen.getByTestId("emp-code"), "255");
     await userEvent.type(screen.getByTestId("emp-name"), "New Person");
     await userEvent.selectOptions(screen.getByTestId("emp-workbase"), "HEAD_OFFICE");
     await userEvent.selectOptions(screen.getByTestId("emp-wagetype"), "MONTHLY");
@@ -181,7 +181,7 @@ describe("EmployeeCreateDrawer → Detail (spec §5/§9)", () => {
     renderWith(<EmployeeList />);
     await screen.findByTestId("employee-empty-firstuse");
     await userEvent.click(screen.getByTestId("employee-empty-new"));
-    await userEvent.type(screen.getByTestId("emp-code"), "EMP-014");
+    await userEvent.type(screen.getByTestId("emp-code"), "14");
     await userEvent.type(screen.getByTestId("emp-name"), "Md Rafiqul Islam");
     await userEvent.selectOptions(screen.getByTestId("emp-workbase"), "SITE");
     await userEvent.selectOptions(screen.getByTestId("emp-wagetype"), "MONTHLY");
@@ -197,7 +197,7 @@ describe("EmployeeCreateDrawer → Detail (spec §5/§9)", () => {
     renderWith(<EmployeeList />);
     await screen.findByTestId("employee-empty-firstuse");
     await userEvent.click(screen.getByTestId("employee-empty-new"));
-    await userEvent.type(screen.getByTestId("emp-code"), "EMP-999");
+    await userEvent.type(screen.getByTestId("emp-code"), "255");
     await userEvent.type(screen.getByTestId("emp-name"), "New Person");
     await userEvent.selectOptions(screen.getByTestId("emp-workbase"), "SITE");
     await userEvent.selectOptions(screen.getByTestId("emp-wagetype"), "MONTHLY");
@@ -212,7 +212,7 @@ describe("EmployeeCreateDrawer → Detail (spec §5/§9)", () => {
     renderWith(<EmployeeList />);
     await screen.findByTestId("employee-empty-firstuse");
     await userEvent.click(screen.getByTestId("employee-empty-new"));
-    await userEvent.type(screen.getByTestId("emp-code"), "EMP-100");
+    await userEvent.type(screen.getByTestId("emp-code"), "100");
     await userEvent.type(screen.getByTestId("emp-name"), "N");
     await userEvent.selectOptions(screen.getByTestId("emp-workbase"), "SITE");
     await userEvent.selectOptions(screen.getByTestId("emp-wagetype"), "DAILY");
@@ -220,6 +220,29 @@ describe("EmployeeCreateDrawer → Detail (spec §5/§9)", () => {
     await userEvent.type(screen.getByTestId("emp-joining"), "01/03/2024");
     await userEvent.click(screen.getByTestId("employee-save"));
     expect(await screen.findByTestId("emp-wageamount-err")).toHaveTextContent("Enter a wage amount of ৳0 or more.");
+    expect(createMock).not.toHaveBeenCalled();
+  });
+
+  it("rejects an employee code outside 1–500 and a non-numeric code", async () => {
+    listMock.mockResolvedValue({ data: [], page: 1, pageSize: 25, total: 0 });
+    renderWith(<EmployeeList />);
+    await screen.findByTestId("employee-empty-firstuse");
+    await userEvent.click(screen.getByTestId("employee-empty-new"));
+    // Out of range.
+    await userEvent.type(screen.getByTestId("emp-code"), "600");
+    await userEvent.type(screen.getByTestId("emp-name"), "New Person");
+    await userEvent.selectOptions(screen.getByTestId("emp-workbase"), "SITE");
+    await userEvent.selectOptions(screen.getByTestId("emp-wagetype"), "MONTHLY");
+    await userEvent.type(screen.getByTestId("emp-wageamount"), "10000");
+    await userEvent.type(screen.getByTestId("emp-joining"), "01/03/2024");
+    await userEvent.click(screen.getByTestId("employee-save"));
+    expect(await screen.findByTestId("emp-code-err")).toHaveTextContent("Employee code must be a number between 1 and 500.");
+    expect(createMock).not.toHaveBeenCalled();
+    // Non-numeric.
+    await userEvent.clear(screen.getByTestId("emp-code"));
+    await userEvent.type(screen.getByTestId("emp-code"), "EMP-014");
+    await userEvent.click(screen.getByTestId("employee-save"));
+    expect(await screen.findByTestId("emp-code-err")).toHaveTextContent("Employee code must be a number between 1 and 500.");
     expect(createMock).not.toHaveBeenCalled();
   });
 });

@@ -61,7 +61,7 @@ export function EmployeeFilterBar({
         </label>
         <div className="relative">
           <Search className="pointer-events-none absolute left-2.5 top-1/2 h-3.5 w-3.5 -translate-y-1/2 text-muted-foreground" aria-hidden />
-          <Input id="emp-filter-q" name="q" defaultValue={applied.q} placeholder="EMP-014 or Rafiqul" className="h-9 w-[220px] pl-8" data-testid="emp-filter-q" />
+          <Input id="emp-filter-q" name="q" defaultValue={applied.q} placeholder="14 or Rafiqul" className="h-9 w-[220px] pl-8" data-testid="emp-filter-q" />
         </div>
       </div>
       <div className="flex flex-col gap-1.5">

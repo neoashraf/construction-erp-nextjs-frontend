@@ -1,7 +1,7 @@
 "use client";
 
 import { useMemo, useState } from "react";
-import Link from "next/link";
+import { useRouter } from "next/navigation";
 import { FolderKanban, Plus, Search } from "lucide-react";
 import { Card } from "@/components/ui/card";
 import { Button } from "@/components/ui/button";
@@ -19,6 +19,9 @@ import { usePartiesList } from "../hooks/useParties";
 import { useUsers } from "../hooks/useUsers";
 import { type ProjectStatus } from "../types";
 import { ProjectsTable } from "./ProjectsTable";
+import { ProjectFormDrawer } from "./ProjectFormDrawer";
+
+const LIST_PATH = "/master-data/projects";
 
 const PAGE_SIZE = 25;
 const STATUSES: ProjectStatus[] = ["PLANNED", "ACTIVE", "ON_HOLD", "CLOSED"];
@@ -35,11 +38,16 @@ const STATUS_LABEL: Record<ProjectStatus, string> = {
  * Filters are DRAFT until Apply (matching the design) — nothing re-queries mid-edit.
  */
 export function ProjectsScreen() {
+  const router = useRouter();
   const session = useSession();
   // Permission-driven (FE-21): CREATE admits creating, UPDATE the kebab's Edit. Admin has
   // both; a custom role granted them does too. Backend re-checks every write.
   const canCreate = session ? hasGrant(session, "master_data.projects", "CREATE") : false;
   const canManage = session ? hasGrant(session, "master_data.projects", "UPDATE") : false;
+
+  // Create opens the slide-over drawer in place (Projects.dc.html `openCreate` — a
+  // drawer, not a route). On success we land on the new project's detail.
+  const [createOpen, setCreateOpen] = useState(false);
 
   // Draft filter state (edited freely) vs applied (drives the query) — Apply commits.
   const [draftStatus, setDraftStatus] = useState<ProjectStatus | "">("");
@@ -121,11 +129,14 @@ export function ProjectsScreen() {
           <h1 className="text-[23px] font-bold tracking-[-0.02em]">Projects</h1>
         </div>
         {canCreate && (
-          <Button size="md" asChild className="flex-none">
-            <Link href="/master-data/projects/new" data-testid="new-project">
-              <Plus className="h-4 w-4" aria-hidden />
-              New project
-            </Link>
+          <Button
+            size="md"
+            className="flex-none"
+            onClick={() => setCreateOpen(true)}
+            data-testid="new-project"
+          >
+            <Plus className="h-4 w-4" aria-hidden />
+            New project
           </Button>
         )}
       </div>
@@ -250,11 +261,9 @@ export function ProjectsScreen() {
                 description="Create your first project to start posting vouchers against it."
                 action={
                   canCreate ? (
-                    <Button size="md" asChild>
-                      <Link href="/master-data/projects/new" data-testid="empty-new-project">
-                        <Plus className="h-4 w-4" aria-hidden />
-                        New project
-                      </Link>
+                    <Button size="md" onClick={() => setCreateOpen(true)} data-testid="empty-new-project">
+                      <Plus className="h-4 w-4" aria-hidden />
+                      New project
                     </Button>
                   ) : undefined
                 }
@@ -305,6 +314,22 @@ export function ProjectsScreen() {
           </>
         )}
       </Card>
+
+      {createOpen && (
+        <ProjectFormDrawer
+          mode={{ kind: "create" }}
+          onClose={() => setCreateOpen(false)}
+          onCreated={(newId) => {
+            setCreateOpen(false);
+            // Route to the new project's detail; if the id is missing, stay on the
+            // refreshed list rather than navigating to `.../undefined`.
+            if (newId) router.push(`${LIST_PATH}/${newId}`);
+            else query.refetch();
+          }}
+          onUpdated={() => {}}
+          onReload={() => query.refetch()}
+        />
+      )}
     </div>
   );
 }

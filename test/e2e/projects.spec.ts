@@ -155,7 +155,11 @@ test("Admin creates a project, activates it, adds a budget and a godown", async 
   await stub(page, projects, [], []);
   await login(page);
 
-  await page.goto("/master-data/projects/new");
+  // Create opens the slide-over drawer in place on the list (no navigation).
+  await page.goto("/master-data/projects");
+  await page.getByTestId("new-project").click();
+  await expect(page.getByTestId("project-form-drawer")).toBeVisible();
+  await expect(page).toHaveURL(/\/master-data\/projects$/);
   await page.getByLabel(/project code/i).fill("P-001");
   await page.getByLabel(/^name/i).fill("Tower A");
   await page.getByLabel(/^customer/i).selectOption("cust1");

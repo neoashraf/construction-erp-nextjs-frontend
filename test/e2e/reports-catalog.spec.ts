@@ -2,10 +2,10 @@ import { test, expect, type Page } from "@playwright/test";
 
 /**
  * FE-54 fe-report-catalog — happy path (FR-RPT-001/-002/-029). Login → open
- * `/reports` → pick Trial balance from the catalog → its viewer opens INLINE on
- * the hub → set the as-of date → Run → the trial-balance table renders → Export
- * to Excel re-issues the query and starts a download. (Picking a report no longer
- * navigates to a separate page — the runner is embedded in the hub.)
+ * `/reports` → the default Ledgers & registers tab opens its viewer INLINE on the
+ * hub (no chip row) → set the as-of date → Run → the trial-balance table renders →
+ * Export to Excel re-issues the query and starts a download. (Opening a report no
+ * longer navigates to a separate page — the runner is embedded in the hub.)
  */
 const ADMIN = { email: "admin@ze.test", password: "Passw0rd!" };
 
@@ -23,8 +23,8 @@ test("Reports — pick Trial balance, Run inline, see the table, Export triggers
   await expect(page.getByTestId("reports-title")).toContainText("Reports");
   await expect(page.getByTestId("report-catalog-browse")).toBeVisible();
 
-  // Pick the Trial balance chip — its viewer mounts inline (no navigation).
-  await page.getByTestId("catalog-chip-trial-balance").click();
+  // The default Ledgers & registers tab opens Trial balance inline (no navigation,
+  // no chip row).
   await expect(page).toHaveURL(/\/reports$/);
   await expect(page.getByTestId("report-parameter-panel")).toBeVisible();
 

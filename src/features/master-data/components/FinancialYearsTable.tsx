@@ -1,7 +1,7 @@
 "use client";
 
 import { useState } from "react";
-import { ChevronDown, ChevronUp, MoreHorizontal } from "lucide-react";
+import { MoreHorizontal } from "lucide-react";
 import {
   Table,
   TableHeader,
@@ -76,6 +76,20 @@ function ariaSort(active: boolean, dir: SortDir): "ascending" | "descending" | "
   return active ? (dir === "asc" ? "ascending" : "descending") : "none";
 }
 
+/** Stacked ▲/▼ sort glyph (design mockup): both arrows shown, the active
+ *  direction inks in while the other stays faint. */
+function SortGlyph({ active, dir }: { active: boolean; dir: SortDir }) {
+  return (
+    <span
+      className="flex flex-col text-[8px] leading-[0.6]"
+      aria-hidden
+    >
+      <span className={cn(active && dir === "asc" ? "text-foreground" : "text-faint")}>▲</span>
+      <span className={cn(active && dir === "desc" ? "text-foreground" : "text-faint")}>▼</span>
+    </span>
+  );
+}
+
 function SortHeader({
   label,
   active,
@@ -91,18 +105,10 @@ function SortHeader({
     <button
       type="button"
       onClick={onClick}
-      className="flex items-center gap-1.5 text-xs font-semibold uppercase tracking-wide text-foreground hover:text-primary"
+      className="flex h-11 w-full select-none items-center gap-1.5 text-[11px] font-semibold uppercase tracking-[0.4px] text-foreground hover:text-primary"
     >
       {label}
-      {active ? (
-        dir === "asc" ? (
-          <ChevronUp className="h-3 w-3" aria-hidden />
-        ) : (
-          <ChevronDown className="h-3 w-3" aria-hidden />
-        )
-      ) : (
-        <ChevronDown className="h-3 w-3 text-faint" aria-hidden />
-      )}
+      <SortGlyph active={active} dir={dir} />
     </button>
   );
 }
@@ -146,7 +152,10 @@ export function FinancialYearsTable({
         <Table>
           <TableHeader>
             <TableRow className="hover:bg-transparent">
-              <TableHead aria-sort={ariaSort(sortKey === "label", sortDir)}>
+              <TableHead
+                className="h-11 px-4 py-0"
+                aria-sort={ariaSort(sortKey === "label", sortDir)}
+              >
                 <SortHeader
                   label="Label"
                   active={sortKey === "label"}
@@ -154,7 +163,10 @@ export function FinancialYearsTable({
                   onClick={() => toggleSort("label")}
                 />
               </TableHead>
-              <TableHead aria-sort={ariaSort(sortKey === "startDate", sortDir)}>
+              <TableHead
+                className="h-11 px-4 py-0"
+                aria-sort={ariaSort(sortKey === "startDate", sortDir)}
+              >
                 <SortHeader
                   label="Start date"
                   active={sortKey === "startDate"}
@@ -162,7 +174,10 @@ export function FinancialYearsTable({
                   onClick={() => toggleSort("startDate")}
                 />
               </TableHead>
-              <TableHead aria-sort={ariaSort(sortKey === "endDate", sortDir)}>
+              <TableHead
+                className="h-11 px-4 py-0"
+                aria-sort={ariaSort(sortKey === "endDate", sortDir)}
+              >
                 <SortHeader
                   label="End date"
                   active={sortKey === "endDate"}
@@ -170,8 +185,8 @@ export function FinancialYearsTable({
                   onClick={() => toggleSort("endDate")}
                 />
               </TableHead>
-              <TableHead>Active</TableHead>
-              <TableHead className="w-14 text-right">
+              <TableHead className="h-11 px-4 py-0 text-[11px] tracking-[0.4px]">Active</TableHead>
+              <TableHead className="h-11 w-14 px-4 py-0 text-right">
                 <span className="sr-only">Actions</span>
               </TableHead>
             </TableRow>
@@ -183,19 +198,19 @@ export function FinancialYearsTable({
                 className={cn(fy.isActive && "bg-success-soft/40")}
                 data-testid={`fy-row-${fy.id}`}
               >
-                <TableCell className="font-mono text-sm font-semibold text-accent-ink">
+                <TableCell className="px-4 font-mono text-sm font-semibold text-accent-ink">
                   {fy.label}
                 </TableCell>
-                <TableCell className="font-mono text-[13px] text-muted-foreground">
+                <TableCell className="px-4 font-mono text-[13px] text-muted-foreground">
                   {formatDate(fy.startDate)}
                 </TableCell>
-                <TableCell className="font-mono text-[13px] text-muted-foreground">
+                <TableCell className="px-4 font-mono text-[13px] text-muted-foreground">
                   {formatDate(fy.endDate)}
                 </TableCell>
-                <TableCell>
-                  {fy.isActive ? <ActiveBadge /> : <span className="text-faint">—</span>}
+                <TableCell className="px-4">
+                  {fy.isActive ? <ActiveBadge /> : <span className="text-[13px] text-faint">—</span>}
                 </TableCell>
-                <TableCell className="text-right">
+                <TableCell className="px-4 text-right">
                   {isAdmin ? (
                     <div className="flex justify-end">
                       <RowActions fy={fy} onEdit={onEdit} onSetActive={onSetActive} />

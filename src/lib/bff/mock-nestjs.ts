@@ -65,6 +65,13 @@ interface MockProject {
   status: string;
   isActive: boolean;
   version: number;
+  // Master-data list/detail contract (see `Project` in master-data/types.ts). The
+  // dated fields are `YYYY-MM-DD` date-only strings the UI renders as `DD/MM/YYYY`.
+  location: string | null;
+  projectManagerId: string | null;
+  startDate: string;
+  expectedEndDate: string;
+  actualEndDate: string | null;
   // SAL IPC editor reads the resolved customer + remaining mobilization advance off the project
   // option (fe-ipc-editor) so it can preview them the instant a project is chosen.
   customerId: string;
@@ -102,6 +109,11 @@ const MOCK_PROJECTS: MockProject[] = [
     status: "ACTIVE",
     isActive: true,
     version: 1,
+    location: "Buriganga, Dhaka",
+    projectManagerId: "pa-pm-1",
+    startDate: "2025-08-01",
+    expectedEndDate: "2027-01-31",
+    actualEndDate: null,
     customerId: "pa-8",
     customerName: "National Housing Authority",
     remainingAdvance: "800000.0000",
@@ -114,6 +126,11 @@ const MOCK_PROJECTS: MockProject[] = [
     status: "ACTIVE",
     isActive: true,
     version: 1,
+    location: "Gulshan, Dhaka",
+    projectManagerId: "pa-pm-2",
+    startDate: "2025-04-15",
+    expectedEndDate: "2026-12-31",
+    actualEndDate: null,
     customerId: "pa-4",
     customerName: "Tower-A Developments Ltd.",
     remainingAdvance: "5000000.0000",
@@ -126,12 +143,19 @@ const MOCK_PROJECTS: MockProject[] = [
     status: "ACTIVE",
     isActive: true,
     version: 1,
+    location: "Savar, Dhaka",
+    projectManagerId: "pa-pm-1",
+    startDate: "2024-11-10",
+    expectedEndDate: "2026-05-31",
+    actualEndDate: null,
     customerId: "pa-7",
     customerName: "করিম এন্টারপ্রাইজ",
     remainingAdvance: "0.0000",
     hasMobilizationAdvance: false,
   },
 ];
+// Sequence for ids of projects created through the mock's POST handler.
+let mockProjectSeq = 900;
 
 // ── Cost-control sample data (dev/preview only) ──
 const MOCK_COST_CENTRES = [
@@ -148,14 +172,24 @@ const MOCK_COST_CENTRES = [
   { id: "cc-power", code: "CC-11", name: "Utilities & Site Power", isActive: true },
 ];
 
+// Bangladesh financial year runs July → June. Rows carry startDate/endDate/version
+// so the FY master screen (FinancialYearsTable) can render the period and edit with
+// optimistic concurrency — omitting them made formatDate() throw on undefined.
 const MOCK_FINANCIAL_YEARS = [
-  { id: "fy-2025-26", label: "FY 2025–26", isActive: true },
-  { id: "fy-2024-25", label: "FY 2024–25", isActive: false },
+  { id: "fy-2025-26", label: "FY 2025–26", startDate: "2025-07-01", endDate: "2026-06-30", isActive: true, version: 1 },
+  { id: "fy-2024-25", label: "FY 2024–25", startDate: "2024-07-01", endDate: "2025-06-30", isActive: false, version: 1 },
   // FE-52 — the auth-mock USER carries this UUID as its default FY; include it
   // so the profile screen resolves `financialYearId` → label (rather than
   // falling back to the raw UUID). Not shown in the FY switcher (`isActive`
   // + FY switch list still keys off the two shorter ids above).
-  { id: "22222222-2222-2222-2222-222222222222", label: "FY 2025–26 · Zakir Enterprise", isActive: false },
+  {
+    id: "22222222-2222-2222-2222-222222222222",
+    label: "FY 2025–26 · Zakir Enterprise",
+    startDate: "2025-07-01",
+    endDate: "2026-06-30",
+    isActive: false,
+    version: 1,
+  },
 ];
 
 /** Budget-vs-actual rows for Bridge-04 (proj-a) — mirrors the design sample. */
@@ -3888,6 +3922,96 @@ export async function mockNestjsFetch(req: MockReq): Promise<MockResult> {
         ? MOCK_PROJECTS.filter((p) => user.assignedProjectIds.includes(p.id))
         : MOCK_PROJECTS;
     return { status: 200, body: pageEnvelope(scoped) };
+  }
+
+  // POST /masters/projects — create. New projects start PLANNED (FR-MAS-005). Returns
+  // the created row so the UI can route to its detail.
+  if (pathname === "/masters/projects" && req.method === "POST") {
+    const b = body as Partial<{
+      projectCode: string;
+      name: string;
+      location: string | null;
+      customerId: string;
+      projectManagerId: string;
+      startDate: string;
+      expectedEndDate: string;
+    }>;
+    const code = String(b.projectCode ?? "").trim();
+    const name = String(b.name ?? "").trim();
+    if (!code) return { status: 400, body: envelope("VALIDATION_ERROR", "projectCode is required") };
+    if (!name) return { status: 400, body: envelope("VALIDATION_ERROR", "name is required") };
+    if (MOCK_PROJECTS.some((p) => p.projectCode.toLowerCase() === code.toLowerCase())) {
+      return { status: 409, body: envelope("DUPLICATE_CODE", "This project code is already used.") };
+    }
+    const customerId = String(b.customerId ?? "");
+    const created: MockProject = {
+      id: `proj-${(mockProjectSeq += 1)}`,
+      projectCode: code,
+      name,
+      status: "PLANNED",
+      isActive: true,
+      version: 1,
+      location: b.location ? String(b.location) : null,
+      projectManagerId: b.projectManagerId ? String(b.projectManagerId) : null,
+      startDate: String(b.startDate ?? ""),
+      expectedEndDate: String(b.expectedEndDate ?? ""),
+      actualEndDate: null,
+      customerId,
+      customerName:
+        (MOCK_PARTIES.find((p) => p.id === customerId)?.name ?? "—"),
+      remainingAdvance: "0.0000",
+      hasMobilizationAdvance: false,
+    };
+    MOCK_PROJECTS.push(created);
+    return { status: 201, body: success(created) };
+  }
+
+  // GET/PATCH /masters/projects/:id and POST …/:id/status — detail, edit, transitions.
+  // (Guarded to a single segment so `/:id/purposes` below still matches first.)
+  const projectStatusMatch = /^\/masters\/projects\/([^/]+)\/status$/.exec(pathname ?? "");
+  if (projectStatusMatch && req.method === "POST") {
+    const target = MOCK_PROJECTS.find((p) => p.id === projectStatusMatch[1]);
+    if (!target) return { status: 404, body: envelope("NOT_FOUND", "Project not found") };
+    const action = String((body as { action?: unknown }).action ?? "");
+    const next: Record<string, string> = {
+      activate: "ACTIVE",
+      hold: "ON_HOLD",
+      resume: "ACTIVE",
+      close: "CLOSED",
+      reopen: "ACTIVE",
+    };
+    const ns = next[action];
+    if (!ns) return { status: 400, body: envelope("VALIDATION_ERROR", "Unknown status action") };
+    target.status = ns;
+    target.isActive = ns !== "CLOSED";
+    target.actualEndDate = ns === "CLOSED" ? "2026-06-30" : null;
+    target.version += 1;
+    return { status: 200, body: success(target) };
+  }
+  const projectIdMatch = /^\/masters\/projects\/([^/]+)$/.exec(pathname ?? "");
+  if (projectIdMatch) {
+    const target = MOCK_PROJECTS.find((p) => p.id === projectIdMatch[1]);
+    if (req.method === "GET") {
+      if (!target) return { status: 404, body: envelope("NOT_FOUND", "Project not found") };
+      return { status: 200, body: success(target) };
+    }
+    if (req.method === "PATCH") {
+      if (!target) return { status: 404, body: envelope("NOT_FOUND", "Project not found") };
+      const b = body as Partial<{
+        name: string;
+        location: string | null;
+        customerId: string;
+        projectManagerId: string;
+        expectedEndDate: string;
+      }>;
+      if (b.name !== undefined) target.name = String(b.name).trim();
+      if (b.location !== undefined) target.location = b.location ? String(b.location) : null;
+      if (b.customerId !== undefined) target.customerId = String(b.customerId);
+      if (b.projectManagerId !== undefined) target.projectManagerId = String(b.projectManagerId);
+      if (b.expectedEndDate !== undefined) target.expectedEndDate = String(b.expectedEndDate);
+      target.version += 1;
+      return { status: 200, body: success(target) };
+    }
   }
 
   // GET /masters/cost-centres — company-global list (active + inactive-with-history).

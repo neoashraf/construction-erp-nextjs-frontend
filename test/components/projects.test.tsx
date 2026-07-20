@@ -172,6 +172,28 @@ describe("ProjectsScreen — list", () => {
     expect(within(table).getByText("Tower A")).toBeInTheDocument();
   });
 
+  it("renders a dash (not a crash) when a row is missing startDate/expectedEndDate", async () => {
+    // Regression: the list threw "Not a valid date: undefined" from format.ts when
+    // a row arrived without startDate. The date cells must guard the field.
+    const { startDate: _s, expectedEndDate: _e, ...rest } = PROJECT;
+    listMock.mockResolvedValue(pageOf(rest as unknown as Project));
+    renderScreen();
+    const table = await screen.findByTestId("projects-desktop");
+    expect(within(table).getByText("P-001")).toBeInTheDocument();
+    // Both undated cells fall back to the em-dash placeholder.
+    expect(within(table).getAllByText("—").length).toBeGreaterThanOrEqual(2);
+  });
+
+  it("New project opens the create drawer in place (no navigation)", async () => {
+    listMock.mockResolvedValue(pageOf(PROJECT));
+    renderScreen();
+    await screen.findByTestId("projects-desktop");
+    // The CTA is a button, not a link to /new — clicking it mounts the drawer.
+    expect(screen.queryByTestId("project-form-drawer")).not.toBeInTheDocument();
+    await userEvent.click(screen.getByTestId("new-project"));
+    expect(await screen.findByTestId("project-form-drawer")).toBeInTheDocument();
+  });
+
   it("non-Admin sees no New project", async () => {
     listMock.mockResolvedValue(pageOf(PROJECT));
     renderScreen("PROJECT_MANAGER");

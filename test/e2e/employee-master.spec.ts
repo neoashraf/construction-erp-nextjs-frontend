@@ -4,10 +4,11 @@ import { test, expect, type Page } from "@playwright/test";
  * FE-35 Employee-master happy path (FR-HR-001, -002, -003): create an office-staff employee
  * from the slide-over drawer, land on the detail page, reassign to another project (append to
  * the history), then deactivate. Runs against the production build with the in-process mock
- * NestJS (logged in as Admin — HR write scope). A timestamp-based code keeps reruns unique.
+ * NestJS (logged in as Admin — HR write scope). Employee codes are numbers 1–500 (spec §7);
+ * a timestamp-derived value in that range keeps reruns from colliding within a fresh run.
  */
 const ADMIN = { email: "admin@ze.test", password: "Passw0rd!" };
-const CODE = `EMP-E2E-${(Date.now() % 90000) + 1000}`;
+const CODE = String((Date.now() % 500) + 1);
 
 async function login(page: Page) {
   await page.goto("/login");

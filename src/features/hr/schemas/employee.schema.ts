@@ -93,7 +93,15 @@ const dateField = (msg: string) =>
     }, "Enter a valid date (DD/MM/YYYY).");
 
 export const employeeFormSchema = z.object({
-  employeeCode: z.string().trim().min(1, "Enter an employee code."),
+  employeeCode: z
+    .string()
+    .trim()
+    .min(1, "Enter an employee code.")
+    .refine((v) => {
+      if (!/^\d+$/.test(v)) return false;
+      const n = Number(v);
+      return Number.isInteger(n) && n >= 1 && n <= 500;
+    }, "Employee code must be a number between 1 and 500."),
   name: z.string().trim().min(1, "Enter the employee's name."),
   designation: z.string(),
   defaultProjectId: z.string(),
