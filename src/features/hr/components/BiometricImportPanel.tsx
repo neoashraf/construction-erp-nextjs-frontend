@@ -1,29 +1,33 @@
 "use client";
 
-import { useState } from "react";
+import { useEffect, useState } from "react";
 import { Upload, X } from "lucide-react";
 import { Card } from "@/components/ui/card";
 import { Button } from "@/components/ui/button";
 import { Alert } from "@/components/ui/alert";
 import { Input } from "@/components/ui/input";
+import { Select } from "@/components/ui/select";
 import { useToast } from "@/components/ui/toast";
 import { ApiError } from "@/lib/api/errors";
 import { useAuthenticatedUser } from "@/providers/session-provider";
 import { canCaptureAttendance } from "../access";
 import { useAttendanceMutations } from "../hooks/useAttendanceMutations";
+import { useProjectOptions } from "../hooks/useProjectOptions";
 import { parseAttendanceFeed } from "../lib/parseAttendanceFeed";
 import { mapAttendanceError } from "../schemas/attendance.schema";
 import { ReconciliationPanel } from "./ReconciliationPanel";
 import { type BiometricImportResult, type BiometricFeedRow } from "../api/attendance";
 
 /**
- * Biometric CSV/XLSX (or device-feed) import panel (FR-HR-004). Drop or paste a JSON list
- * of `{ employeeId, attendanceDate, dayStatus, checkIn?, checkOut?, projectId }` and hit
- * "Import". The server returns `{ imported, reconciled, conflicts[] }` — conflicts open
- * the reconciliation panel with "Keep manual" / "Keep imported" options (never silently
- * double a day). At ≥360 the panel shows a "Best done on a larger screen" note (spec §4).
- * Rendered as a right-side overlay panel toggled by the "Biometric import" entry-source
- * button on the office roster (Attendance.dc.html) — `onClose` returns to Manual entry.
+ * Biometric CSV/XLSX (or device-feed) import panel (FR-HR-004). Pick the project the feed
+ * belongs to, then drop/paste a feed of `{ employeeCode, attendanceDate, checkIn?, checkOut?,
+ * dayStatus? }` and hit "Import". The server resolves each employeeCode, applies the chosen
+ * project to every row, inserts the non-conflicting rows, and returns
+ * `{ imported, reconciled, conflicts[] }` — conflicts (unknown code / already recorded) are
+ * shown as a summary (never silently doubles a day). The project defaults to the roster's
+ * filter selection but can be changed here so the import is self-contained. At ≥360 the panel
+ * shows a "Best done on a larger screen" note (spec §4). Rendered as a right-side overlay
+ * toggled by the "Biometric import" entry-source button — `onClose` returns to Manual entry.
  */
 export function BiometricImportPanel({
   projectId,
@@ -37,15 +41,23 @@ export function BiometricImportPanel({
   const canCapture = canCaptureAttendance(user);
   const { toast } = useToast();
   const { importOffice } = useAttendanceMutations();
+  const projectsQ = useProjectOptions();
+  const projects = projectsQ.data ?? [];
 
   const [raw, setRaw] = useState<string>("");
   const [result, setResult] = useState<BiometricImportResult | null>(null);
   const [error, setError] = useState<string | null>(null);
+  // The project every imported row lands in. Defaults to the roster's filter selection but is
+  // editable here so the import doesn't depend on the operator having Applied the filter.
+  const [importProjectId, setImportProjectId] = useState<string>(projectId ?? "");
+  useEffect(() => {
+    if (projectId) setImportProjectId(projectId);
+  }, [projectId]);
 
   async function submit() {
     setError(null);
-    if (!projectId) {
-      setError("Select a project in the filter above before importing — every row is imported into it.");
+    if (!importProjectId) {
+      setError("Choose the project for this import — every row is imported into it.");
       return;
     }
     let feed: BiometricFeedRow[];
@@ -58,7 +70,7 @@ export function BiometricImportPanel({
       return;
     }
     try {
-      const res = await importOffice.mutateAsync({ projectId, feed });
+      const res = await importOffice.mutateAsync({ projectId: importProjectId, feed });
       setResult(res);
       toast(`Imported ${res.reconciled} of ${res.imported} row${res.imported === 1 ? "" : "s"}.`, "success");
     } catch (e) {
@@ -113,6 +125,34 @@ export function BiometricImportPanel({
         <p className="text-[11.5px] text-muted-foreground sm:hidden" data-testid="biometric-mobile-note">
           Best done on a larger screen.
         </p>
+
+        <div>
+          <label
+            htmlFor="biometric-project"
+            className="mb-1 flex items-center gap-1.5 text-[11.5px] font-semibold text-muted-foreground"
+          >
+            Project<span className="text-destructive">*</span>
+          </label>
+          <Select
+            id="biometric-project"
+            value={importProjectId}
+            onChange={(e) => {
+              setImportProjectId(e.target.value);
+              setError(null);
+            }}
+            invalid={!!error && !importProjectId}
+            disabled={projectsQ.isLoading}
+            data-testid="biometric-project"
+          >
+            <option value="">Select a project…</option>
+            {projects.map((p) => (
+              <option key={p.id} value={p.id}>
+                {p.name}
+              </option>
+            ))}
+          </Select>
+          <p className="mt-1 text-[11px] text-faint">Every row in the file is imported into this project.</p>
+        </div>
 
         <div className="rounded-token border border-dashed border-border-strong p-3">
           <label htmlFor="biometric-file" className="mb-1 flex items-center gap-1.5 text-[11.5px] font-semibold text-muted-foreground">
