@@ -433,8 +433,27 @@ describe("Office biometric reconciliation (FR-HR-004; edge §12.9)", () => {
       target: { value: '[{"employeeCode":"1","attendanceDate":"2026-06-01","dayStatus":"PRESENT"}]' },
     });
     await userEvent.click(screen.getByTestId("biometric-import"));
-    expect(await screen.findByTestId("biometric-error")).toHaveTextContent(/select a project/i);
+    expect(await screen.findByTestId("biometric-error")).toHaveTextContent(/choose the project/i);
     expect(importOfficeMock).not.toHaveBeenCalled();
+  });
+
+  it("imports using the panel's own project picker (no filter Apply needed)", async () => {
+    listAttendanceMock.mockResolvedValue({ data: [], page: 1, pageSize: 200, total: 0 });
+    importOfficeMock.mockResolvedValue({ imported: 1, reconciled: 1, conflicts: [] });
+    renderWith(<AttendanceShell />);
+    await screen.findByTestId("attendance-tabs");
+    // Do NOT touch the filter — pick the project inside the import panel instead.
+    await userEvent.click(await screen.findByTestId("office-toggle-import"));
+    await userEvent.selectOptions(await screen.findByTestId("biometric-project"), "proj-b");
+    fireEvent.change(await screen.findByTestId("biometric-json"), {
+      target: { value: '[{"employeeCode":"1","attendanceDate":"2026-06-01","dayStatus":"PRESENT"}]' },
+    });
+    await userEvent.click(screen.getByTestId("biometric-import"));
+    await waitFor(() =>
+      expect(importOfficeMock).toHaveBeenCalledWith("proj-b", [
+        { employeeCode: "1", attendanceDate: "2026-06-01", dayStatus: "PRESENT" },
+      ]),
+    );
   });
 
   it("imports the feed for the selected project and reports skipped conflicts", async () => {
