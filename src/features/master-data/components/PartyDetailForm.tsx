@@ -3,6 +3,7 @@
 import { useForm } from "react-hook-form";
 import { zodResolver } from "@hookform/resolvers/zod";
 import { Input } from "@/components/ui/input";
+import { NumericInput } from "@/components/ui/numeric-input";
 import { Textarea } from "@/components/ui/textarea";
 import { Label } from "@/components/ui/label";
 import { Button } from "@/components/ui/button";
@@ -322,10 +323,9 @@ export function PartyDetailForm({
               label="Payment terms (days)"
               error={errors.paymentTermsDays?.message}
             >
-              <Input
+              <NumericInput
                 id="party-terms"
-                type="number"
-                min={0}
+                mode="integer"
                 invalid={!!errors.paymentTermsDays}
                 disabled={disabled}
                 {...register("paymentTermsDays")}

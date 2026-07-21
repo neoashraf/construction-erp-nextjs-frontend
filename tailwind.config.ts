@@ -7,6 +7,20 @@ import type { Config } from "tailwindcss";
  * shadow-md, rounded-card, …) — never scattered raw hex/spacing.
  * Full reference: docs/design/design-system.md.
  */
+
+/**
+ * Wrap a token CSS variable so Tailwind's opacity modifier (`bg-foreground/40`,
+ * `bg-canvas/60`, …) resolves to a real colour. The token vars hold hex values, so
+ * Tailwind can't compose alpha into them via the usual `rgb(var(--x) / <alpha-value>)`
+ * path — that emits invalid CSS and the utility is dropped (no dialog backdrop, no
+ * sticky-header mask). `color-mix` mixes the token with `transparent` by the requested
+ * alpha; when no modifier is used, `<alpha-value>` is `1` → the solid token colour,
+ * so existing non-modified utilities are unchanged. Supported in all evergreen browsers.
+ */
+function withAlpha(varName: string): string {
+  return `color-mix(in srgb, var(${varName}) calc(<alpha-value> * 100%), transparent)`;
+}
+
 const config: Config = {
   darkMode: ["selector", '[data-theme="dark"]'],
   content: [
@@ -19,89 +33,89 @@ const config: Config = {
     extend: {
       colors: {
         // neutrals & surfaces
-        canvas: "var(--color-canvas)",
-        background: "var(--color-background)",
-        surface: "var(--color-surface)",
-        "surface-2": "var(--color-surface-2)",
-        foreground: "var(--color-foreground)",
-        faint: "var(--color-faint)",
-        border: "var(--color-border)",
-        "border-strong": "var(--color-border-strong)",
-        "border-hover": "var(--color-border-hover)",
-        input: "var(--color-input)",
-        ring: "var(--color-ring)",
+        canvas: withAlpha("--color-canvas"),
+        background: withAlpha("--color-background"),
+        surface: withAlpha("--color-surface"),
+        "surface-2": withAlpha("--color-surface-2"),
+        foreground: withAlpha("--color-foreground"),
+        faint: withAlpha("--color-faint"),
+        border: withAlpha("--color-border"),
+        "border-strong": withAlpha("--color-border-strong"),
+        "border-hover": withAlpha("--color-border-hover"),
+        input: withAlpha("--color-input"),
+        ring: withAlpha("--color-ring"),
         muted: {
-          DEFAULT: "var(--color-muted)",
-          foreground: "var(--color-muted-foreground)",
+          DEFAULT: withAlpha("--color-muted"),
+          foreground: withAlpha("--color-muted-foreground"),
         },
 
         // brand layer
         primary: {
-          DEFAULT: "var(--color-primary)",
-          hover: "var(--color-primary-hover)",
-          foreground: "var(--color-primary-foreground)",
+          DEFAULT: withAlpha("--color-primary"),
+          hover: withAlpha("--color-primary-hover"),
+          foreground: withAlpha("--color-primary-foreground"),
         },
         accent: {
-          DEFAULT: "var(--color-accent)",
-          foreground: "var(--color-accent-foreground)",
-          ink: "var(--color-accent-ink)",
-          soft: "var(--color-accent-soft)",
+          DEFAULT: withAlpha("--color-accent"),
+          foreground: withAlpha("--color-accent-foreground"),
+          ink: withAlpha("--color-accent-ink"),
+          soft: withAlpha("--color-accent-soft"),
         },
         sidebar: {
-          DEFAULT: "var(--color-sidebar)",
-          foreground: "var(--color-sidebar-foreground)",
-          muted: "var(--color-sidebar-muted)",
-          hover: "var(--color-sidebar-hover)",
-          active: "var(--color-sidebar-active)",
-          "active-foreground": "var(--color-sidebar-active-foreground)",
-          border: "var(--color-sidebar-border)",
-          ring: "var(--color-sidebar-ring)",
+          DEFAULT: withAlpha("--color-sidebar"),
+          foreground: withAlpha("--color-sidebar-foreground"),
+          muted: withAlpha("--color-sidebar-muted"),
+          hover: withAlpha("--color-sidebar-hover"),
+          active: withAlpha("--color-sidebar-active"),
+          "active-foreground": withAlpha("--color-sidebar-active-foreground"),
+          border: withAlpha("--color-sidebar-border"),
+          ring: withAlpha("--color-sidebar-ring"),
         },
 
         // functional / status
         success: {
-          DEFAULT: "var(--color-success)",
-          foreground: "var(--color-success-foreground)",
-          soft: "var(--color-success-soft)",
-          ink: "var(--color-success-ink)",
+          DEFAULT: withAlpha("--color-success"),
+          foreground: withAlpha("--color-success-foreground"),
+          soft: withAlpha("--color-success-soft"),
+          ink: withAlpha("--color-success-ink"),
         },
         warning: {
-          DEFAULT: "var(--color-warning)",
-          foreground: "var(--color-warning-foreground)",
-          soft: "var(--color-warning-soft)",
-          ink: "var(--color-warning-ink)",
+          DEFAULT: withAlpha("--color-warning"),
+          foreground: withAlpha("--color-warning-foreground"),
+          soft: withAlpha("--color-warning-soft"),
+          ink: withAlpha("--color-warning-ink"),
         },
         destructive: {
-          DEFAULT: "var(--color-destructive)",
-          foreground: "var(--color-destructive-foreground)",
-          soft: "var(--color-destructive-soft)",
-          ink: "var(--color-destructive-ink)",
+          DEFAULT: withAlpha("--color-destructive"),
+          foreground: withAlpha("--color-destructive-foreground"),
+          soft: withAlpha("--color-destructive-soft"),
+          ink: withAlpha("--color-destructive-ink"),
         },
         info: {
-          DEFAULT: "var(--color-info)",
-          foreground: "var(--color-info-foreground)",
-          soft: "var(--color-info-soft)",
-          ink: "var(--color-info-ink)",
+          DEFAULT: withAlpha("--color-info"),
+          foreground: withAlpha("--color-info-foreground"),
+          soft: withAlpha("--color-info-soft"),
+          ink: withAlpha("--color-info-ink"),
         },
         violet: {
-          DEFAULT: "var(--color-violet)",
-          soft: "var(--color-violet-soft)",
-          ink: "var(--color-violet-ink)",
+          DEFAULT: withAlpha("--color-violet"),
+          soft: withAlpha("--color-violet-soft"),
+          ink: withAlpha("--color-violet-ink"),
         },
         teal: {
-          DEFAULT: "var(--color-teal)",
-          soft: "var(--color-teal-soft)",
-          ink: "var(--color-teal-ink)",
+          DEFAULT: withAlpha("--color-teal"),
+          soft: withAlpha("--color-teal-soft"),
+          ink: withAlpha("--color-teal-ink"),
         },
 
         // categorical (charts)
         chart: {
-          1: "var(--color-chart-1)",
-          2: "var(--color-chart-2)",
-          3: "var(--color-chart-3)",
-          4: "var(--color-chart-4)",
-          5: "var(--color-chart-5)",
-          6: "var(--color-chart-6)",
+          1: withAlpha("--color-chart-1"),
+          2: withAlpha("--color-chart-2"),
+          3: withAlpha("--color-chart-3"),
+          4: withAlpha("--color-chart-4"),
+          5: withAlpha("--color-chart-5"),
+          6: withAlpha("--color-chart-6"),
         },
       },
       borderRadius: {

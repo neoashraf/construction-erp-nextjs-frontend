@@ -207,20 +207,26 @@ describe("EmployeeCreateDrawer → Detail (spec §5/§9)", () => {
     expect(await screen.findByTestId("emp-project-err")).toHaveTextContent("That project belongs to a different company.");
   });
 
-  it("blocks a negative wage amount with the exact spec §8 copy", async () => {
+  it("hard-blocks a negative wage amount at the keystroke — the '-' never lands", async () => {
+    // The wage field is a guarded NumericInput (decimal, non-negative), so the minus
+    // sign is rejected before it can enter the field; only the digit survives.
     listMock.mockResolvedValue({ data: [], page: 1, pageSize: 25, total: 0 });
     renderWith(<EmployeeList />);
     await screen.findByTestId("employee-empty-firstuse");
     await userEvent.click(screen.getByTestId("employee-empty-new"));
-    await userEvent.type(screen.getByTestId("emp-code"), "100");
-    await userEvent.type(screen.getByTestId("emp-name"), "N");
-    await userEvent.selectOptions(screen.getByTestId("emp-workbase"), "SITE");
-    await userEvent.selectOptions(screen.getByTestId("emp-wagetype"), "DAILY");
-    await userEvent.type(screen.getByTestId("emp-wageamount"), "-1");
-    await userEvent.type(screen.getByTestId("emp-joining"), "01/03/2024");
-    await userEvent.click(screen.getByTestId("employee-save"));
-    expect(await screen.findByTestId("emp-wageamount-err")).toHaveTextContent("Enter a wage amount of ৳0 or more.");
-    expect(createMock).not.toHaveBeenCalled();
+    const wage = screen.getByTestId("emp-wageamount") as HTMLInputElement;
+    await userEvent.type(wage, "-1");
+    expect(wage.value).toBe("1");
+  });
+
+  it("rejects non-numeric text typed into the wage amount", async () => {
+    listMock.mockResolvedValue({ data: [], page: 1, pageSize: 25, total: 0 });
+    renderWith(<EmployeeList />);
+    await screen.findByTestId("employee-empty-firstuse");
+    await userEvent.click(screen.getByTestId("employee-empty-new"));
+    const wage = screen.getByTestId("emp-wageamount") as HTMLInputElement;
+    await userEvent.type(wage, "12a3");
+    expect(wage.value).toBe("123");
   });
 
   it("rejects an employee code outside 1–500 and a non-numeric code", async () => {

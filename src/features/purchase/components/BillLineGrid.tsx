@@ -2,7 +2,7 @@
 
 import { Plus, Trash2 } from "lucide-react";
 import { Select } from "@/components/ui/select";
-import { Input } from "@/components/ui/input";
+import { NumericInput } from "@/components/ui/numeric-input";
 import { Button } from "@/components/ui/button";
 import { Badge } from "@/components/ui/badge";
 import { cn } from "@/lib/utils";
@@ -225,8 +225,9 @@ export function BillLineGrid({
                   </div>
 
                   <div className="pt-1">
-                    <Input
-                      inputMode="decimal"
+                    <NumericInput
+                      mode="decimal"
+                      decimalPlaces={3}
                       value={l.billedQty}
                       disabled={disabled || !l.isStockLine}
                       invalid={!!err.billedQty}
@@ -237,8 +238,9 @@ export function BillLineGrid({
                     />
                   </div>
                   <div className="pt-1">
-                    <Input
-                      inputMode="decimal"
+                    <NumericInput
+                      mode="decimal"
+                      decimalPlaces={4}
                       value={l.rate}
                       disabled={disabled}
                       invalid={!!err.rate}
@@ -252,8 +254,9 @@ export function BillLineGrid({
                     {amount != null ? money(amount) : "—"}
                   </div>
                   <div className="pt-1">
-                    <Input
-                      inputMode="decimal"
+                    <NumericInput
+                      mode="decimal"
+                      decimalPlaces={4}
                       value={l.vatInputAmount}
                       disabled={disabled}
                       invalid={!!err.vatInputAmount}
@@ -264,8 +267,9 @@ export function BillLineGrid({
                     />
                   </div>
                   <div className="pt-1">
-                    <Input
-                      inputMode="decimal"
+                    <NumericInput
+                      mode="decimal"
+                      decimalPlaces={4}
                       value={l.tdsAmount}
                       disabled={disabled}
                       invalid={!!err.tdsAmount}
@@ -276,8 +280,9 @@ export function BillLineGrid({
                     />
                   </div>
                   <div className="pt-1">
-                    <Input
-                      inputMode="decimal"
+                    <NumericInput
+                      mode="decimal"
+                      decimalPlaces={4}
                       value={l.aitAmount}
                       disabled={disabled}
                       invalid={!!err.aitAmount}
@@ -409,8 +414,9 @@ export function BillLineGrid({
               )}
               <div className="mt-2 grid grid-cols-3 gap-2">
                 <MobileField label="Qty">
-                  <Input
-                    inputMode="decimal"
+                  <NumericInput
+                    mode="decimal"
+                    decimalPlaces={3}
                     value={l.billedQty}
                     onChange={(e) => onLineChange(i, { billedQty: e.target.value })}
                     invalid={!!err.billedQty}
@@ -419,8 +425,9 @@ export function BillLineGrid({
                   />
                 </MobileField>
                 <MobileField label="Rate">
-                  <Input
-                    inputMode="decimal"
+                  <NumericInput
+                    mode="decimal"
+                    decimalPlaces={4}
                     value={l.rate}
                     onChange={(e) => onLineChange(i, { rate: e.target.value })}
                     invalid={!!err.rate}

@@ -3,7 +3,7 @@
 import { Plus, Trash2 } from "lucide-react";
 import { Label } from "@/components/ui/label";
 import { Select } from "@/components/ui/select";
-import { Input } from "@/components/ui/input";
+import { NumericInput } from "@/components/ui/numeric-input";
 import { Button } from "@/components/ui/button";
 import { cn } from "@/lib/utils";
 import { toDecimal } from "@/lib/money";
@@ -96,9 +96,10 @@ export function PoLineRow({
 
       <div className="mt-2 grid grid-cols-2 gap-2">
         <FieldBlock label="Ordered qty" htmlFor={`po-line-qty-${index}`} error={error?.orderedQty}>
-          <Input
+          <NumericInput
             id={`po-line-qty-${index}`}
-            inputMode="decimal"
+            mode="decimal"
+            decimalPlaces={3}
             value={line.orderedQty}
             disabled={disabled}
             invalid={!!error?.orderedQty}
@@ -109,9 +110,10 @@ export function PoLineRow({
           />
         </FieldBlock>
         <FieldBlock label={`Rate ৳${uom ? ` / ${uom}` : ""}`} htmlFor={`po-line-rate-${index}`} error={error?.rate}>
-          <Input
+          <NumericInput
             id={`po-line-rate-${index}`}
-            inputMode="decimal"
+            mode="decimal"
+            decimalPlaces={4}
             value={line.rate}
             disabled={disabled}
             invalid={!!error?.rate}

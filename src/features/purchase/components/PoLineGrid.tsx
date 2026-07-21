@@ -2,7 +2,7 @@
 
 import { Plus, Trash2 } from "lucide-react";
 import { Select } from "@/components/ui/select";
-import { Input } from "@/components/ui/input";
+import { NumericInput } from "@/components/ui/numeric-input";
 import { Button } from "@/components/ui/button";
 import { cn } from "@/lib/utils";
 import { money } from "../format";
@@ -116,8 +116,9 @@ export function PoLineGrid({
                     )}
                   </div>
                   <div className="pt-1">
-                    <Input
-                      inputMode="decimal"
+                    <NumericInput
+                      mode="decimal"
+                      decimalPlaces={3}
                       value={l.orderedQty}
                       disabled={disabled}
                       invalid={!!err.orderedQty}
@@ -129,8 +130,9 @@ export function PoLineGrid({
                   </div>
                   {/* rate + line amount follow */}
                   <div className="pt-1">
-                    <Input
-                      inputMode="decimal"
+                    <NumericInput
+                      mode="decimal"
+                      decimalPlaces={4}
                       value={l.rate}
                       disabled={disabled}
                       invalid={!!err.rate}
