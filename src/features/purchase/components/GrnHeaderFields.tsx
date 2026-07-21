@@ -59,77 +59,84 @@ export function GrnHeaderFields({
   );
 
   return (
-    <div className="grid gap-4 md:grid-cols-2">
-      <Field label="PO reference" htmlFor="grn-po" required hint="Approved · partially received" error={errors.purchaseOrderId} errorTestid="grn-po-error">
-        <PoPicker
-          id="grn-po"
-          value={values.purchaseOrderId}
-          onChange={(id) => onChange({ purchaseOrderId: id, purchaseBillId: "" })}
-          projectId={values.projectId || undefined}
-          supplierId={values.supplierId || undefined}
-          disabled={disabled}
-          invalid={!!errors.purchaseOrderId}
-          placeholder="Select a purchase order…"
-        />
-      </Field>
+    <div className="flex flex-col gap-4">
+      {/* Top row — PO ref / Bill ref / Project / Receipt date (design 4-col grid;
+          collapses to 2-col then 1-col below lg/sm). */}
+      <div className="grid gap-4 sm:grid-cols-2 lg:grid-cols-4">
+        <Field label="PO reference" htmlFor="grn-po" required hint="Approved · partially received" error={errors.purchaseOrderId} errorTestid="grn-po-error">
+          <PoPicker
+            id="grn-po"
+            value={values.purchaseOrderId}
+            onChange={(id) => onChange({ purchaseOrderId: id, purchaseBillId: "" })}
+            projectId={values.projectId || undefined}
+            supplierId={values.supplierId || undefined}
+            disabled={disabled}
+            invalid={!!errors.purchaseOrderId}
+            placeholder="Select a purchase order…"
+          />
+        </Field>
 
-      <Field label="Bill reference" htmlFor="grn-bill" hint="One of PO / Bill is required" error={errors.purchaseBillId} errorTestid="grn-bill-error">
-        <Select
-          id="grn-bill"
-          value={values.purchaseBillId}
-          disabled={disabled}
-          invalid={!!errors.purchaseBillId}
-          onChange={(e) => onChange({ purchaseBillId: e.target.value, purchaseOrderId: "" })}
-          data-testid="grn-bill"
-        >
-          <option value="">Optional — none linked</option>
-          {eligibleBills.map((b) => (
-            <option key={b.id} value={b.id}>
-              {b.entryNo ?? "Draft"} · {b.billDate}
-            </option>
-          ))}
-        </Select>
-      </Field>
+        <Field label="Bill reference" htmlFor="grn-bill" hint="One of PO / Bill is required" error={errors.purchaseBillId} errorTestid="grn-bill-error">
+          <Select
+            id="grn-bill"
+            value={values.purchaseBillId}
+            disabled={disabled}
+            invalid={!!errors.purchaseBillId}
+            onChange={(e) => onChange({ purchaseBillId: e.target.value, purchaseOrderId: "" })}
+            data-testid="grn-bill"
+          >
+            <option value="">Optional — none linked</option>
+            {eligibleBills.map((b) => (
+              <option key={b.id} value={b.id}>
+                {b.entryNo ?? "Draft"} · {b.billDate}
+              </option>
+            ))}
+          </Select>
+        </Field>
 
-      <Field label="Project" hint="Inherited from PO · locked">
-        <div
-          className="flex h-9 items-center rounded-token border border-border bg-muted px-3 text-sm text-foreground"
-          data-testid="grn-project"
-        >
-          {projectLabel || <span className="text-faint">Inherits from PO/Bill</span>}
-        </div>
-      </Field>
+        <Field label="Project" hint="Inherited from PO · locked">
+          <div
+            className="flex h-9 items-center rounded-token border border-dashed border-border-strong bg-surface-2 px-3 text-sm text-foreground"
+            data-testid="grn-project"
+          >
+            {projectLabel || <span className="text-faint">Inherits from PO/Bill</span>}
+          </div>
+        </Field>
 
-      <Field label="Receipt date" htmlFor="grn-date" required hint="Defaults to today" error={errors.receiptDate} errorTestid="grn-date-error">
-        <DatePickerInput
-          id="grn-date"
-          value={values.receiptDate}
-          onChange={(v) => onChange({ receiptDate: v })}
-          disabled={disabled}
-          invalid={!!errors.receiptDate}
-        />
-      </Field>
+        <Field label="Receipt date" htmlFor="grn-date" required hint="Defaults to today" error={errors.receiptDate} errorTestid="grn-date-error">
+          <DatePickerInput
+            id="grn-date"
+            value={values.receiptDate}
+            onChange={(v) => onChange({ receiptDate: v })}
+            disabled={disabled}
+            invalid={!!errors.receiptDate}
+          />
+        </Field>
+      </div>
 
-      <Field label="Supplier" hint="Inherited from PO · locked">
-        <div
-          className="flex h-9 items-center rounded-token border border-border bg-muted px-3 text-sm text-foreground"
-          data-testid="grn-supplier"
-        >
-          {supplierLabel || <span className="text-faint">Inherits from PO/Bill</span>}
-        </div>
-      </Field>
+      {/* Divider + Supplier (narrow) / Narration (wide) — design second row. */}
+      <div className="grid gap-4 border-t border-border pt-4 lg:grid-cols-[1.1fr_2.3fr]">
+        <Field label="Supplier" hint="Inherited from PO · locked">
+          <div
+            className="flex h-9 items-center rounded-token border border-dashed border-border-strong bg-surface-2 px-3 text-sm text-foreground"
+            data-testid="grn-supplier"
+          >
+            {supplierLabel || <span className="text-faint">Inherits from PO/Bill</span>}
+          </div>
+        </Field>
 
-      <Field label="Narration · discrepancy note" htmlFor="grn-narration" optional>
-        <Textarea
-          id="grn-narration"
-          value={values.narration}
-          disabled={disabled}
-          onChange={(e) => onChange({ narration: e.target.value })}
-          placeholder="e.g. 10 bags short — supplier will re-deliver"
-          rows={2}
-          data-testid="grn-narration"
-        />
-      </Field>
+        <Field label="Narration · discrepancy note" htmlFor="grn-narration" optional>
+          <Textarea
+            id="grn-narration"
+            value={values.narration}
+            disabled={disabled}
+            onChange={(e) => onChange({ narration: e.target.value })}
+            placeholder="e.g. 10 bags short — supplier will re-deliver"
+            rows={2}
+            data-testid="grn-narration"
+          />
+        </Field>
+      </div>
     </div>
   );
 }

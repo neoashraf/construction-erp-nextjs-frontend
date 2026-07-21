@@ -26,39 +26,52 @@ export function OnHandBadge({
   const q = useOnHand(godownId, itemId);
   const ready = !!godownId && !!itemId;
 
-  let label: string;
+  // `checking` renders just the "Checking…" text; otherwise a muted "On-hand"
+  // prefix + a bold qty (design "GRN and matching.dc.html" on-hand strip).
+  let checking = false;
+  let qtyText: string;
   let value: string | null = null;
   if (!ready) {
-    label = "On-hand —";
+    qtyText = "—";
   } else if (q.isLoading) {
-    label = "Checking…";
+    checking = true;
+    qtyText = "";
   } else if (q.isError) {
-    label = "On-hand —";
+    qtyText = "—";
   } else if (!q.data) {
-    label = uom ? `On-hand 0 ${uom}` : "On-hand 0";
+    qtyText = uom ? `0 ${uom}` : "0";
   } else {
     const qty = Number(q.data.quantityOnHand ?? "0").toLocaleString(undefined, {
       minimumFractionDigits: 0,
       maximumFractionDigits: 3,
     });
-    label = uom ? `On-hand ${qty} ${uom}` : `On-hand ${qty}`;
+    qtyText = uom ? `${qty} ${uom}` : qty;
     value = q.data.totalValue ? formatMoney(q.data.totalValue) : null;
   }
+
+  const ariaText = checking ? "Checking…" : qtyText;
 
   return (
     <span
       className={cn(
-        "inline-flex items-center gap-1.5 rounded-pill bg-accent-soft/60 px-2.5 py-0.5 text-[11.5px] font-semibold text-accent-ink",
+        "inline-flex items-center gap-1.5 rounded-token bg-muted px-2.5 py-1.5 text-[11.5px] text-muted-foreground",
         className,
       )}
-      title={value ? `${label} · ${value}` : undefined}
-      aria-label={`On-hand: ${label.replace("On-hand ", "")}`}
+      title={value ? `On-hand ${qtyText} · ${value}` : undefined}
+      aria-label={`On-hand: ${ariaText}`}
       data-testid="grn-on-hand"
     >
-      <Database className="h-3 w-3" aria-hidden />
-      {label}
+      <Database className="h-3.5 w-3.5 text-teal" aria-hidden />
+      {checking ? (
+        <span>Checking…</span>
+      ) : (
+        <span>
+          On-hand{" "}
+          <span className="font-semibold tabular-nums text-foreground">{qtyText}</span>
+        </span>
+      )}
       {value && (
-        <span className="font-mono tabular-nums text-accent-ink/80" data-testid="grn-on-hand-value">
+        <span className="tabular-nums text-muted-foreground" data-testid="grn-on-hand-value">
           · {value}
         </span>
       )}
