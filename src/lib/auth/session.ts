@@ -29,6 +29,10 @@ export interface SafeUser {
   role: Role;
   companyId: string;
   financialYearId: string;
+  /** Display name of the user's company (shell chip / profile); absent when degraded. */
+  companyName?: string | null;
+  /** Label of the user's default financial year, e.g. "FY 2025-26"; absent when degraded. */
+  financialYearLabel?: string | null;
   isActive: boolean;
   lastLoginAt?: string | null;
   /** Assigned project ids for project-scoped roles; absent/empty for unscoped roles. */

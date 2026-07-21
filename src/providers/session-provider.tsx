@@ -103,6 +103,15 @@ export function useAuthenticatedUser(): SafeUser {
   return user;
 }
 
+/**
+ * The current session user, or null — WITHOUT requiring a SessionProvider ancestor.
+ * Safe for shell chrome (the Company·FY switcher) that also renders standalone in
+ * tests, mirroring `useSessionRefresh`'s no-op-outside-provider contract.
+ */
+export function useOptionalSession(): SafeUser | null {
+  return useContext(SessionContext)?.user ?? null;
+}
+
 const NOOP_REFRESH = async () => {};
 
 /**
