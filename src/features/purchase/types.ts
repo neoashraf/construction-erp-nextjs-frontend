@@ -40,6 +40,12 @@ export interface PurchaseOrderLine {
   purposeId: string;
   billedQty?: string;
   receivedQty?: string;
+  /**
+   * Advisory per-line over-budget status, derived on the read (contract 08 GET /orders/:id;
+   * FR-PUR-019). Lets the read-only APPROVED PO render its per-line budget badge without a
+   * create/patch round-trip. `null`/absent on a zero-amount line. Advisory only — never blocks.
+   */
+  budgetStatus?: BudgetStatus | null;
 }
 
 /** Full PO resource (contract 08 § "Purchase Order"). */

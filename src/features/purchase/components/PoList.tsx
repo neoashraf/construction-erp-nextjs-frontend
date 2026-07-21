@@ -1,5 +1,6 @@
 "use client";
 
+import { useMemo, useState } from "react";
 import Link from "next/link";
 import { useRouter } from "next/navigation";
 import { MoreVertical } from "lucide-react";
@@ -23,6 +24,79 @@ export interface PoNameMaps {
 // Columns follow Purchase Orders.dc.html: PO ref · Project · Supplier · PO date ·
 // Expected delivery · Status · kebab. Status is the last data column before the kebab.
 const GRID = "minmax(120px,1.2fr) minmax(140px,1.4fr) minmax(140px,1.4fr) 110px 130px 150px 44px";
+
+export type PoSortKey = "poRefNo" | "poDate" | "expectedDeliveryDate";
+export type SortDirection = "asc" | "desc";
+export interface PoSortState {
+  key: PoSortKey;
+  direction: SortDirection;
+}
+
+/**
+ * Clickable sort-caret header (design-files table pattern — Purchase Orders.dc.html shows
+ * the up/down carets on the PO ref / PO date headers). Sorting is client-side over the
+ * current page of rows only — `GET /purchase/orders` has no sort param (contract 08 §230),
+ * so it can't reorder across pages. Cycle: asc → desc → unsorted.
+ */
+function SortHead({
+  label,
+  sortKey,
+  sort,
+  onSort,
+}: {
+  label: string;
+  sortKey: PoSortKey;
+  sort: PoSortState | null;
+  onSort: (key: PoSortKey) => void;
+}) {
+  const active = sort?.key === sortKey;
+  const sortedState = active
+    ? sort.direction === "asc"
+      ? "sorted ascending"
+      : "sorted descending"
+    : "not sorted";
+  return (
+    <button
+      type="button"
+      onClick={() => onSort(sortKey)}
+      aria-label={`${label}, ${sortedState}. Click to sort.`}
+      data-testid={`po-sort-${sortKey}`}
+      className="flex w-full items-center gap-1 py-3 text-left"
+    >
+      <span className="whitespace-nowrap">{label}</span>
+      <span className="flex shrink-0 flex-col text-[8px] leading-[0.6]" aria-hidden>
+        <span className={active && sort.direction === "asc" ? "text-foreground" : "text-border-strong"}>
+          ▲
+        </span>
+        <span className={active && sort.direction === "desc" ? "text-foreground" : "text-border-strong"}>
+          ▼
+        </span>
+      </span>
+    </button>
+  );
+}
+
+function compareRows(a: PurchaseOrderSummary, b: PurchaseOrderSummary, key: PoSortKey): number {
+  switch (key) {
+    case "poRefNo":
+      // Drafts (poRefNo null) sort last in asc; ref numbers compare naturally.
+      return (a.poRefNo ?? "￿").localeCompare(b.poRefNo ?? "￿");
+    case "poDate":
+      return a.poDate.localeCompare(b.poDate);
+    case "expectedDeliveryDate":
+      // Missing dates sort last in asc.
+      return (a.expectedDeliveryDate ?? "￿").localeCompare(b.expectedDeliveryDate ?? "￿");
+  }
+}
+
+export function sortRows(
+  rows: PurchaseOrderSummary[],
+  sort: PoSortState | null,
+): PurchaseOrderSummary[] {
+  if (!sort) return rows;
+  const sorted = [...rows].sort((a, b) => compareRows(a, b, sort.key));
+  return sort.direction === "asc" ? sorted : sorted.reverse();
+}
 
 function projectName(maps: PoNameMaps, id: string): string {
   const p = maps.projects.get(id);
@@ -50,6 +124,18 @@ export function PoList({
   basePath?: string;
 }) {
   const router = useRouter();
+  const [sort, setSort] = useState<PoSortState | null>(null);
+
+  function handleSort(key: PoSortKey) {
+    setSort((prev) => {
+      if (prev?.key !== key) return { key, direction: "asc" };
+      if (prev.direction === "asc") return { key, direction: "desc" };
+      return null;
+    });
+  }
+
+  const sortedRows = useMemo(() => sortRows(rows, sort), [rows, sort]);
+
   return (
     <div data-testid="po-list">
       {/* ≥lg table */}
@@ -60,15 +146,20 @@ export function PoList({
             className="grid items-center gap-2 border-b border-border-strong bg-surface-2 px-4 text-[11px] font-semibold uppercase tracking-[0.4px] text-muted-foreground"
             style={{ gridTemplateColumns: GRID }}
           >
-            <div className="py-3">PO ref no</div>
+            <SortHead label="PO ref no" sortKey="poRefNo" sort={sort} onSort={handleSort} />
             <div className="py-3">Project</div>
             <div className="py-3">Supplier</div>
-            <div className="py-3">PO date</div>
-            <div className="py-3">Expected delivery</div>
+            <SortHead label="PO date" sortKey="poDate" sort={sort} onSort={handleSort} />
+            <SortHead
+              label="Expected delivery"
+              sortKey="expectedDeliveryDate"
+              sort={sort}
+              onSort={handleSort}
+            />
             <div className="py-3">Status</div>
             <div className="py-3" />
           </div>
-          {rows.map((r) => (
+          {sortedRows.map((r) => (
             <div
               key={r.id}
               role="row"
@@ -110,7 +201,7 @@ export function PoList({
 
       {/* <lg cards */}
       <div className="flex flex-col lg:hidden">
-        {rows.map((r) => (
+        {sortedRows.map((r) => (
           <Link
             key={r.id}
             href={`${basePath}/${r.id}`}
