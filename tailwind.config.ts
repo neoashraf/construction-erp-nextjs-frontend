@@ -60,6 +60,7 @@ const config: Config = {
           foreground: withAlpha("--color-accent-foreground"),
           ink: withAlpha("--color-accent-ink"),
           soft: withAlpha("--color-accent-soft"),
+          border: withAlpha("--color-accent-border"),
         },
         sidebar: {
           DEFAULT: withAlpha("--color-sidebar"),
