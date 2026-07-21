@@ -262,7 +262,7 @@ describe("PoEditor (spec §4.editor/§6/§7; FR-PUR-001/-002/-024)", () => {
     getMock.mockResolvedValue(poResource({ id: "po-approved", status: "APPROVED", poRefNo: "PO-2026-0188" }));
     cancelMock.mockRejectedValue(new ApiError({ code: "PO_HAS_BILLS", message: "x", status: 409 }));
     renderWith(<PoEditor poId="po-approved" />);
-    await screen.findByTestId("po-readonly-banner");
+    await screen.findByTestId("po-readonly-view");
     await userEvent.click(screen.getAllByTestId("po-cancel")[0]!);
     expect(await screen.findByTestId("po-cancel-dialog")).toBeInTheDocument();
     await userEvent.type(screen.getByTestId("po-cancel-reason"), "Duplicate order raised in error");
@@ -292,14 +292,19 @@ describe("PoEditor (spec §4.editor/§6/§7; FR-PUR-001/-002/-024)", () => {
     );
   });
 
-  it("renders an APPROVED PO fully read-only with the status banner (FR-PUR-024)", async () => {
+  it("renders an APPROVED PO in the read-only view with its approval meta (FR-PUR-002/-017)", async () => {
     getMock.mockResolvedValue(
       poResource({ id: "po-approved", status: "APPROVED", poRefNo: "PO-2026-0188", approvedAt: "2026-07-10T08:00:00Z" }),
     );
     renderWith(<PoEditor poId="po-approved" />);
-    expect(await screen.findByTestId("po-readonly-banner")).toBeInTheDocument();
+    // The read-only view (not the editable form) renders — ref strip, approval meta, PO total.
+    expect(await screen.findByTestId("po-readonly-view")).toBeInTheDocument();
+    expect(screen.getByTestId("po-approved-meta")).toBeInTheDocument();
+    expect(screen.getByTestId("po-order-total")).toBeInTheDocument();
+    // No editable form / save / approve affordances.
     expect(screen.queryByTestId("po-save")).not.toBeInTheDocument();
     expect(screen.queryByTestId("po-approve")).not.toBeInTheDocument();
+    expect(screen.queryByTestId("po-lines")).not.toBeInTheDocument();
     expect(screen.getAllByTestId("po-status-APPROVED").length).toBeGreaterThan(0);
   });
 

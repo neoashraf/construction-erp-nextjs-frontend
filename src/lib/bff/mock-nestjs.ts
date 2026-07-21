@@ -1948,6 +1948,12 @@ function poSummary(o: MockPo) {
 }
 /** Full PO resource (contract 08 GET /orders/:id). */
 function poResource(o: MockPo) {
+  // Per-line advisory budgetStatus, derived on the read only (contract 08 GET /orders/:id;
+  // FR-PUR-019) — one classification per distinct cost centre, mapped back onto the lines,
+  // so the read-only APPROVED PO renders the same per-line badge the draft editor shows.
+  const byCostCentre = new Map<string, string>(
+    poBudgetWarnings(o).map((w) => [w.costCentreId, w.status]),
+  );
   return {
     id: o.id,
     projectId: o.projectId,
@@ -1957,7 +1963,10 @@ function poResource(o: MockPo) {
     expectedDeliveryDate: o.expectedDeliveryDate,
     status: o.status,
     narration: o.narration,
-    lines: o.lines,
+    lines: o.lines.map((l) => ({
+      ...l,
+      budgetStatus: byCostCentre.get(l.costCentreId) ?? null,
+    })),
     approvedBy: o.approvedBy,
     approvedAt: o.approvedAt,
     version: o.version,

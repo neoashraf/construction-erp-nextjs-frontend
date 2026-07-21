@@ -16,7 +16,7 @@ const TONE: Record<BudgetStatus, "success" | "warning" | "destructive" | "neutra
 
 const LABEL: Record<BudgetStatus, string> = {
   OK: "Within budget",
-  APPROACHING: "Nearing budget",
+  APPROACHING: "Approaching budget",
   OVER: "Over budget",
   UNBUDGETED: "No budget set",
 };
