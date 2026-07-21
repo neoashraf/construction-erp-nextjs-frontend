@@ -53,6 +53,20 @@
   .scrollbar-thin:hover::-webkit-scrollbar-thumb {
     background-color: var(--color-sidebar-border);
   }
+
+  /* Horizontal scroll without a visible scrollbar — for narrow tab/chip strips
+     (report switchers, category tablists) that must stay scroll-reachable when
+     they overflow but should not show a heavy always-on bar on Windows/Chrome.
+     Mirrors the design files' `.no-sb` helper. */
+  .no-scrollbar {
+    -ms-overflow-style: none;
+    scrollbar-width: none;
+  }
+  .no-scrollbar::-webkit-scrollbar {
+    width: 0;
+    height: 0;
+    display: none;
+  }
 }
 
 /* Full-width content: every screen's root wrapper is the direct child of

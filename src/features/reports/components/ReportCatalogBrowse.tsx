@@ -62,7 +62,7 @@ export function ReportCatalogBrowse({
       <div
         role="tablist"
         aria-label="Report categories"
-        className="flex gap-0.5 overflow-x-auto border-b border-border-strong"
+        className="no-scrollbar flex gap-0.5 overflow-x-auto border-b border-border-strong"
       >
         {tabs.map((c) => {
           const active = !q && c === activeCategory;
