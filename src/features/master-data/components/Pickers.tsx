@@ -32,11 +32,14 @@ export const ProjectManagerPicker = React.forwardRef<
 >(({ users, invalid, ...props }, ref) => (
   <Select ref={ref} invalid={invalid} aria-label="Project manager" {...props}>
     <option value="">Select a project manager…</option>
-    {users.map((u) => (
-      <option key={u.id} value={u.id}>
-        {u.name}
-      </option>
-    ))}
+    {/* Only users holding the Project Manager role are assignable — not every user. */}
+    {users
+      .filter((u) => u.role === "PROJECT_MANAGER")
+      .map((u) => (
+        <option key={u.id} value={u.id}>
+          {u.name}
+        </option>
+      ))}
   </Select>
 ));
 ProjectManagerPicker.displayName = "ProjectManagerPicker";

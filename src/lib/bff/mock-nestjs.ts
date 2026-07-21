@@ -379,10 +379,10 @@ const MOCK_ITEMS: MockItem[] = [
   { id: "it-fuel", code: "IT-05", name: "Fuel — Diesel", uom: "ltr", isActive: false },
 ];
 const MOCK_USER_LIST = [
-  { id: "00000000-0000-0000-0000-000000000001", name: "Admin User" },
-  { id: "u-rafiq", name: "Rafiqul Islam" },
-  { id: "u-farzana", name: "ফারজানা আক্তার" },
-  { id: "u-ashraf", name: "Ashraful Alam" },
+  { id: "00000000-0000-0000-0000-000000000001", name: "Admin User", role: "ADMIN" },
+  { id: "u-rafiq", name: "Rafiqul Islam", role: "PROJECT_MANAGER" },
+  { id: "u-farzana", name: "ফারজানা আক্তার", role: "PROJECT_MANAGER" },
+  { id: "u-ashraf", name: "Ashraful Alam", role: "SITE_ENGINEER" },
 ];
 const MOCK_STOCK_LEDGER: Array<{
   godownId: string;
