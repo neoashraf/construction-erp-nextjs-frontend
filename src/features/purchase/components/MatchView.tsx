@@ -11,6 +11,7 @@ import { Breadcrumb } from "@/components/ui/breadcrumb";
 import { EmptyState } from "@/components/ui/empty-state";
 import { FileText } from "lucide-react";
 import { useOnline } from "@/lib/hooks/use-online";
+import { cn } from "@/lib/utils";
 import { asApiError } from "@/lib/api";
 import { useMatch } from "../hooks/useMatch";
 import { useProjectOptions, useSupplierOptions, useItemOptions } from "../hooks/usePoOptions";
@@ -161,7 +162,7 @@ export function MatchView({ poId }: { poId: string }) {
         className="mb-4 grid gap-3 p-4 md:grid-cols-4"
         data-testid="match-header"
       >
-        <HeaderCell label="PO reference" value={data.poRefNo ?? "Draft"} />
+        <HeaderCell label="PO reference" value={data.poRefNo ?? "Draft"} mono />
         <HeaderCell label="Supplier" value={supplierLabel} />
         <HeaderCell label="Project" value={projectLabel} />
         <div className="min-w-0">
@@ -182,16 +183,14 @@ export function MatchView({ poId }: { poId: string }) {
         ) : (
           <>
             <div
-              className="flex items-center justify-between gap-3 border-b border-muted bg-surface-2 px-4 py-2 text-[11.5px] text-muted-foreground"
+              className="flex flex-wrap items-center gap-x-2 gap-y-1 border-b border-border bg-surface px-4 py-3 text-[11.5px] text-muted-foreground"
               data-testid="match-header-band"
             >
-              <span className="flex flex-col">
-                <span className="font-semibold text-foreground">Three-way match</span>
-                <span className="text-faint">
-                  ordered vs billed vs received · advisory, never blocks
-                </span>
+              <span className="text-[13px] font-semibold text-foreground">Three-way match</span>
+              <span className="text-faint">
+                ordered vs billed vs received · advisory, never blocks
               </span>
-              <span className="text-right" data-testid="match-count-breakdown">
+              <span className="ml-auto" data-testid="match-count-breakdown">
                 {data.lines.length} line{data.lines.length === 1 ? "" : "s"} · {counts.matched}{" "}
                 matched · {counts.under} under · {counts.over} over · {counts.pending} pending
               </span>
@@ -201,23 +200,36 @@ export function MatchView({ poId }: { poId: string }) {
         )}
       </Card>
 
-      <div className="mt-4 flex flex-wrap items-center justify-between gap-3">
-        <p className="text-[12px] text-muted-foreground" data-testid="match-advisory-note">
+      <Card className="mt-3 flex flex-wrap items-center justify-between gap-3 px-4 py-3">
+        <p className="text-[12px] text-faint" data-testid="match-advisory-note">
           Match status is advisory — it never blocks billing, receipt, or payment.
         </p>
-        <Button variant="outline" size="md" onClick={() => router.back()} data-testid="match-back">
+        <Button variant="ghost" size="md" onClick={() => router.back()} data-testid="match-back">
           Back
         </Button>
-      </div>
+      </Card>
     </div>
   );
 }
 
-function HeaderCell({ label, value }: { label: string; value: string }) {
+function HeaderCell({
+  label,
+  value,
+  mono,
+}: {
+  label: string;
+  value: string;
+  mono?: boolean;
+}) {
   return (
     <div className="min-w-0">
       <div className="text-[10.5px] uppercase tracking-[0.4px] text-faint">{label}</div>
-      <div className="text-[14px] font-semibold text-foreground [overflow-wrap:anywhere]">
+      <div
+        className={cn(
+          "text-[14px] font-semibold text-foreground [overflow-wrap:anywhere]",
+          mono && "font-mono",
+        )}
+      >
         {value}
       </div>
     </div>
