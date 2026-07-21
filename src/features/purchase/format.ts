@@ -14,3 +14,11 @@ export function money(value: DecimalInput): string {
 export function moneyWithSymbol(value: DecimalInput): string {
   return formatMoney(value, { fractionDigits: 2 });
 }
+
+/**
+ * Purchase display-quantity — Decimal(18,3), rendered to 3 decimals (grouped, no symbol) to
+ * match the design's `+100.000` inventory-movement quantity. Underlying precision is unchanged.
+ */
+export function qty(value: DecimalInput): string {
+  return formatMoney(value, { withSymbol: false, fractionDigits: 3 });
+}
