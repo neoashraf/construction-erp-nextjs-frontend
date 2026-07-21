@@ -105,8 +105,8 @@ export function GrnLineGrid({
             pre-filled from the PO&apos;s open / unreceived quantities
           </p>
         </div>
-        <span className="inline-flex items-center gap-1.5 text-[11.5px] text-faint">
-          <span className="h-1.5 w-1.5 rounded-full bg-muted-foreground" aria-hidden />
+        <span className="inline-flex items-center gap-1.5 text-[11.5px] text-muted-foreground">
+          <span className="h-1.5 w-1.5 rounded-full bg-info" aria-hidden />
           On-hand = live stock read · context only
         </span>
       </div>
@@ -260,6 +260,7 @@ function GrnLineRowDesktop(props: LineRowProps) {
           >
             {moneyWithSymbol(receivedValue)}
           </div>
+          <div className="text-[10px] text-faint">&rarr; receiveIn</div>
         </div>
       </div>
 

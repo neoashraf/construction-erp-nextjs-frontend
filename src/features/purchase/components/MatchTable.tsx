@@ -182,7 +182,7 @@ export function MatchTable({
                     {l.billRef ? (
                       <Link
                         href={`/purchase/bills/${l.billId}`}
-                        className="inline-flex items-center gap-0.5 whitespace-nowrap text-accent-ink hover:underline"
+                        className="inline-flex items-center gap-0.5 whitespace-nowrap text-info-ink hover:underline"
                         data-testid={`match-drill-bill-${l.lineNo}`}
                       >
                         Bill {l.billRef}
@@ -192,10 +192,10 @@ export function MatchTable({
                     {l.grnRef ? (
                       <Link
                         href={`/purchase/grn/${l.grnId}`}
-                        className="inline-flex items-center gap-0.5 whitespace-nowrap text-accent-ink hover:underline"
+                        className="inline-flex items-center gap-0.5 whitespace-nowrap text-info-ink hover:underline"
                         data-testid={`match-drill-grn-${l.lineNo}`}
                       >
-                        GRN {l.grnRef}
+                        {l.grnRef}
                         <ArrowUpRight className="h-3 w-3 shrink-0" aria-hidden />
                       </Link>
                     ) : null}
