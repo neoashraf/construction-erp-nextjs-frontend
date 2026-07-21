@@ -8,6 +8,7 @@ import { EmptyState } from "@/components/ui/empty-state";
 import { Skeleton } from "@/components/ui/skeleton";
 import { asApiError } from "@/lib/api/errors";
 import { useOnline } from "@/lib/hooks/use-online";
+import { useOptionalSession } from "@/providers/session-provider";
 import { useProfileRead } from "../hooks/useProfile";
 import { useFinancialYearLabels } from "../hooks/useFinancialYearLabels";
 import { AssignedProjects } from "./AssignedProjects";
@@ -26,6 +27,7 @@ import { PROFILE_LOAD_ERROR } from "../schemas/profile";
  */
 export function AccountProfileScreen() {
   const online = useOnline();
+  const session = useOptionalSession();
   const profile = useProfileRead();
   const fyLabels = useFinancialYearLabels();
 
@@ -52,8 +54,16 @@ export function AccountProfileScreen() {
   }
 
   const data = profile.data!;
-  const resolveFy = (id: string) =>
-    fyLabels.data?.find((f) => f.id === id)?.label ?? id;
+  // Prefer the FY-list label (admins); else the session's own default-FY label — non-admin
+  // roles get 403 on /masters/financial-years, so the session is what avoids a raw UUID here.
+  const resolveFy = (id: string) => {
+    const fromList = fyLabels.data?.find((f) => f.id === id)?.label;
+    if (fromList) return fromList;
+    if (session && id === session.financialYearId && session.financialYearLabel) {
+      return session.financialYearLabel;
+    }
+    return id;
+  };
 
   return (
     <div className="mx-auto max-w-5xl px-4 py-6" data-testid="profile-screen">

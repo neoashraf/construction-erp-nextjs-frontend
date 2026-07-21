@@ -7,7 +7,7 @@ import { Button } from "@/components/ui/button";
 import { useToast } from "@/components/ui/toast";
 import { useCompanyFy } from "@/providers/company-fy-provider";
 import { useShellMasters } from "@/lib/shell/shell-data";
-import { useSessionRefresh } from "@/providers/session-provider";
+import { useOptionalSession, useSessionRefresh } from "@/providers/session-provider";
 import { cn } from "@/lib/utils";
 
 /**
@@ -69,9 +69,16 @@ export function CompanyFySwitcher({
     };
   }, [open]);
 
-  const namesUnavailable = masters.isError;
-  const companyText = companyName ?? (namesUnavailable ? `Co ${companyId.slice(0, 8)}` : companyName ?? `Co ${companyId.slice(0, 8)}`);
-  const fyText = financialYearLabel ?? `FY ${financialYearId.slice(0, 8)}`;
+  // Name resolution order: the masters call (switcher popover, admins) → the session
+  // projection (every role carries its own company name + default-FY label, FR-AUD-031)
+  // → a short-id fallback. Non-admin roles can't read /masters/* (403), so the session is
+  // what keeps the chip from showing raw UUIDs for them.
+  const session = useOptionalSession();
+  const resolvedCompany = companyName ?? session?.companyName ?? null;
+  const resolvedFy = financialYearLabel ?? session?.financialYearLabel ?? null;
+  const companyText = resolvedCompany ?? `Co ${companyId.slice(0, 8)}`;
+  const fyText = resolvedFy ?? `FY ${financialYearId.slice(0, 8)}`;
+  const namesUnavailable = !resolvedCompany && !resolvedFy;
 
   const refreshSession = useSessionRefresh();
   const fyOptions = masters.data?.financialYears ?? [];
@@ -125,7 +132,7 @@ export function CompanyFySwitcher({
           </label>
           <div className="mt-1" title="Single-company setup">
             <Select value={companyId} disabled aria-label="Company (single-company setup)">
-              <option value={companyId}>{companyName ?? "This company"}</option>
+              <option value={companyId}>{resolvedCompany ?? "This company"}</option>
             </Select>
           </div>
 

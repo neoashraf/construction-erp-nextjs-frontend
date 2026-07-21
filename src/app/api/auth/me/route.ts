@@ -23,6 +23,8 @@ interface UpstreamSessionView {
     role?: string;
     companyId?: string;
     financialYearId?: string;
+    companyName?: string | null;
+    financialYearLabel?: string | null;
     isActive?: boolean;
     lastLoginAt?: string | null;
     mustChangePassword?: boolean;
@@ -60,6 +62,8 @@ export async function GET(req: NextRequest) {
         ...(view.user?.email !== undefined && { email: view.user.email }),
         ...(view.user?.role !== undefined && { role: view.user.role as Role }),
         ...(view.user?.financialYearId !== undefined && { financialYearId: view.user.financialYearId }),
+        ...(view.user?.companyName !== undefined && { companyName: view.user.companyName }),
+        ...(view.user?.financialYearLabel !== undefined && { financialYearLabel: view.user.financialYearLabel }),
         ...(view.user?.lastLoginAt !== undefined && { lastLoginAt: view.user.lastLoginAt }),
         mustChangePassword: view.user?.mustChangePassword ?? false,
         permissions: view.permissions ?? [],

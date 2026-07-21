@@ -2391,6 +2391,8 @@ function safeUser(u: MockUser) {
     role: u.role,
     companyId: u.companyId,
     financialYearId: u.financialYearId,
+    companyName: "Zakir Enterprise",
+    financialYearLabel: "FY 2025-26",
     isActive: u.isActive,
     lastLoginAt: null,
     assignedProjectIds: u.assignedProjectIds,
