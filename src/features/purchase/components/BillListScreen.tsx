@@ -163,15 +163,15 @@ export function BillListScreen() {
       />
 
       {rows.length > 0 && !query.isLoading && (
-        <div
-          className="mt-4 grid grid-cols-2 gap-3 md:grid-cols-4"
+        <Card
+          className="mt-4 grid grid-cols-2 overflow-hidden md:grid-cols-4"
           data-testid="bill-list-totals"
         >
           <TotalCard label="Bills in view" value={String(total)} kind="count" />
           <TotalCard label="Gross" value={totals.gross} />
           <TotalCard label="Net payable" value={totals.net} emphasise />
           <TotalCard label="Outstanding" value={totals.outstanding} tone="amber" />
-        </div>
+        </Card>
       )}
 
       <Card
@@ -202,7 +202,7 @@ export function BillListScreen() {
             </div>
             <div className="flex flex-col">
               {Array.from({ length: 12 }).map((_, i) => (
-                <div key={i} className="border-b border-muted px-4 py-3.5">
+                <div key={i} className="border-b border-border px-4 py-3.5 last:border-b-0">
                   <Skeleton className="h-4 w-full" />
                 </div>
               ))}
@@ -285,9 +285,11 @@ export function BillListScreen() {
 }
 
 /**
- * One totals-strip card (Purchase Bill.dc.html list header): Bills in view · Gross · Net
- * payable · Outstanding. Each is its own bordered surface card; Outstanding renders amber,
- * Net payable is emphasised, and the count card shows a plain integer (no ৳).
+ * One totals-strip cell (Purchase Bill.dc.html list header): Bills in view · Gross · Net
+ * payable · Outstanding. The four cells share a single connected card — dividers separate
+ * them (a top border on the wrapped 2nd row at <md, a left border between columns), with no
+ * gaps. Outstanding renders amber, Net payable is emphasised, and the count cell shows a
+ * plain integer (no ৳).
  */
 function TotalCard({
   label,
@@ -303,7 +305,7 @@ function TotalCard({
   kind?: "count";
 }) {
   return (
-    <div className="min-w-0 rounded-card border border-border bg-surface px-4 py-3">
+    <div className="min-w-0 border-border px-4 py-3 [&:not(:nth-child(-n+2))]:border-t [&:nth-child(even)]:border-l md:[&:not(:first-child)]:border-l md:[&:not(:first-child)]:border-t-0">
       <div className="text-[10.5px] font-semibold uppercase tracking-[0.4px] text-faint">
         {label}
       </div>
