@@ -504,6 +504,7 @@ export function GrnEntry({ grnId, onSaved }: { grnId: string | null; onSaved?: (
           values={form}
           errors={fieldErrors}
           disabled={readOnly || refBusy}
+          readOnly={readOnly}
           projects={projects}
           suppliers={suppliers}
           bills={bills}
@@ -527,6 +528,7 @@ export function GrnEntry({ grnId, onSaved }: { grnId: string | null; onSaved?: (
             purposesLoading={purposesQuery.isLoading}
             errors={lineErrors}
             disabled={readOnly || busy}
+            readOnly={readOnly}
             projectSelected={projectSelected}
             onLineChange={changeLine}
             onAddPurpose={(name) =>

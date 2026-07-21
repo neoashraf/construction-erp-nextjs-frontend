@@ -1,13 +1,20 @@
 "use client";
 
 import { type ReactNode } from "react";
+import { CalendarDays, ChevronDown } from "lucide-react";
 import { Label } from "@/components/ui/label";
 import { Select } from "@/components/ui/select";
 import { Textarea } from "@/components/ui/textarea";
 import { DatePickerInput } from "@/components/ui/date-picker";
 import { PoPicker } from "./PoPicker";
+import { usePurchaseOrders } from "../hooks/usePoList";
 import { type GrnFormValues } from "../schemas/grn.schema";
-import { type ProjectOption, type PurchaseBillSummary, type SupplierOption } from "../types";
+import {
+  type ProjectOption,
+  type PurchaseBillSummary,
+  type PurchaseOrderStatus,
+  type SupplierOption,
+} from "../types";
 
 export interface GrnHeaderErrors {
   projectId?: string;
@@ -29,6 +36,7 @@ export function GrnHeaderFields({
   values,
   errors,
   disabled,
+  readOnly = false,
   projects,
   suppliers,
   bills,
@@ -37,6 +45,12 @@ export function GrnHeaderFields({
   values: GrnFormValues;
   errors: GrnHeaderErrors;
   disabled: boolean;
+  /**
+   * Posted / read-only presentation: render the header as static value boxes
+   * matching the design's posted-GRN artboard (no live selects/inputs), instead
+   * of disabled interactive controls. The editable draft form ignores this.
+   */
+  readOnly?: boolean;
   projects: ProjectOption[];
   suppliers: SupplierOption[];
   bills: PurchaseBillSummary[];
@@ -58,40 +72,69 @@ export function GrnHeaderFields({
       (!values.supplierId || b.supplierId === values.supplierId),
   );
 
+  // Resolve the PO / Bill display refs for the read-only view. `usePurchaseOrders`
+  // is React-Query cached and shared with the PoPicker, so this adds no fetch.
+  const RECEIVABLE: readonly PurchaseOrderStatus[] = [
+    "APPROVED",
+    "PARTIALLY_BILLED",
+    "PARTIALLY_RECEIVED",
+  ];
+  const poList = usePurchaseOrders({
+    status: RECEIVABLE.join(","),
+    pageSize: 500,
+  });
+  const poRefLabel = readOnly
+    ? poList.data?.data.find((p) => p.id === values.purchaseOrderId)?.poRefNo ?? ""
+    : "";
+  const billRef = bills.find((b) => b.id === values.purchaseBillId);
+  const billRefLabel = billRef ? billRef.entryNo ?? "Draft" : "";
+
   return (
     <div className="flex flex-col gap-4">
       {/* Top row — PO ref / Bill ref / Project / Receipt date (design 4-col grid;
           collapses to 2-col then 1-col below lg/sm). */}
       <div className="grid gap-4 sm:grid-cols-2 lg:grid-cols-4">
-        <Field label="PO reference" htmlFor="grn-po" required hint="Approved · partially received" error={errors.purchaseOrderId} errorTestid="grn-po-error">
-          <PoPicker
-            id="grn-po"
-            value={values.purchaseOrderId}
-            onChange={(id) => onChange({ purchaseOrderId: id, purchaseBillId: "" })}
-            projectId={values.projectId || undefined}
-            supplierId={values.supplierId || undefined}
-            disabled={disabled}
-            invalid={!!errors.purchaseOrderId}
-            placeholder="Select a purchase order…"
-          />
+        <Field label="PO reference" htmlFor="grn-po" required={!readOnly} hint="Approved · partially received" error={errors.purchaseOrderId} errorTestid="grn-po-error">
+          {readOnly ? (
+            <ReadOnlyBox chevron mono testid="grn-po">
+              {poRefLabel || <span className="text-faint">—</span>}
+            </ReadOnlyBox>
+          ) : (
+            <PoPicker
+              id="grn-po"
+              value={values.purchaseOrderId}
+              onChange={(id) => onChange({ purchaseOrderId: id, purchaseBillId: "" })}
+              projectId={values.projectId || undefined}
+              supplierId={values.supplierId || undefined}
+              disabled={disabled}
+              invalid={!!errors.purchaseOrderId}
+              placeholder="Select a purchase order…"
+            />
+          )}
         </Field>
 
         <Field label="Bill reference" htmlFor="grn-bill" hint="One of PO / Bill is required" error={errors.purchaseBillId} errorTestid="grn-bill-error">
-          <Select
-            id="grn-bill"
-            value={values.purchaseBillId}
-            disabled={disabled}
-            invalid={!!errors.purchaseBillId}
-            onChange={(e) => onChange({ purchaseBillId: e.target.value, purchaseOrderId: "" })}
-            data-testid="grn-bill"
-          >
-            <option value="">Optional — none linked</option>
-            {eligibleBills.map((b) => (
-              <option key={b.id} value={b.id}>
-                {b.entryNo ?? "Draft"} · {b.billDate}
-              </option>
-            ))}
-          </Select>
+          {readOnly ? (
+            <ReadOnlyBox chevron testid="grn-bill">
+              {billRefLabel || <span className="text-faint">Optional — none linked</span>}
+            </ReadOnlyBox>
+          ) : (
+            <Select
+              id="grn-bill"
+              value={values.purchaseBillId}
+              disabled={disabled}
+              invalid={!!errors.purchaseBillId}
+              onChange={(e) => onChange({ purchaseBillId: e.target.value, purchaseOrderId: "" })}
+              data-testid="grn-bill"
+            >
+              <option value="">Optional — none linked</option>
+              {eligibleBills.map((b) => (
+                <option key={b.id} value={b.id}>
+                  {b.entryNo ?? "Draft"} · {b.billDate}
+                </option>
+              ))}
+            </Select>
+          )}
         </Field>
 
         <Field label="Project" hint="Inherited from PO · locked">
@@ -103,14 +146,20 @@ export function GrnHeaderFields({
           </div>
         </Field>
 
-        <Field label="Receipt date" htmlFor="grn-date" required hint="Defaults to today" error={errors.receiptDate} errorTestid="grn-date-error">
-          <DatePickerInput
-            id="grn-date"
-            value={values.receiptDate}
-            onChange={(v) => onChange({ receiptDate: v })}
-            disabled={disabled}
-            invalid={!!errors.receiptDate}
-          />
+        <Field label="Receipt date" htmlFor="grn-date" required={!readOnly} hint="Defaults to today" error={errors.receiptDate} errorTestid="grn-date-error">
+          {readOnly ? (
+            <ReadOnlyBox testid="grn-date" icon={<CalendarDays className="h-3.5 w-3.5 text-accent-ink" aria-hidden />}>
+              <span className="tabular-nums">{values.receiptDate || "—"}</span>
+            </ReadOnlyBox>
+          ) : (
+            <DatePickerInput
+              id="grn-date"
+              value={values.receiptDate}
+              onChange={(v) => onChange({ receiptDate: v })}
+              disabled={disabled}
+              invalid={!!errors.receiptDate}
+            />
+          )}
         </Field>
       </div>
 
@@ -125,18 +174,56 @@ export function GrnHeaderFields({
           </div>
         </Field>
 
-        <Field label="Narration · discrepancy note" htmlFor="grn-narration" optional>
-          <Textarea
-            id="grn-narration"
-            value={values.narration}
-            disabled={disabled}
-            onChange={(e) => onChange({ narration: e.target.value })}
-            placeholder="e.g. 10 bags short — supplier will re-deliver"
-            rows={2}
-            data-testid="grn-narration"
-          />
+        <Field label="Narration · discrepancy note" htmlFor="grn-narration" optional={!readOnly}>
+          {readOnly ? (
+            <div
+              className="min-h-[38px] whitespace-pre-wrap rounded-token border border-border-strong bg-surface px-3 py-2 text-sm leading-relaxed text-foreground"
+              data-testid="grn-narration"
+            >
+              {values.narration || <span className="text-faint">—</span>}
+            </div>
+          ) : (
+            <Textarea
+              id="grn-narration"
+              value={values.narration}
+              disabled={disabled}
+              onChange={(e) => onChange({ narration: e.target.value })}
+              placeholder="e.g. 10 bags short — supplier will re-deliver"
+              rows={2}
+              data-testid="grn-narration"
+            />
+          )}
         </Field>
       </div>
+    </div>
+  );
+}
+
+/**
+ * Read-only value box for the posted GRN header (design posted-GRN artboard): a
+ * 38px bordered box holding a static value, with an optional trailing chevron (to
+ * echo the picker) or a leading icon (receipt date's calendar). No interaction.
+ */
+function ReadOnlyBox({
+  children,
+  chevron,
+  mono,
+  icon,
+  testid,
+}: {
+  children: ReactNode;
+  chevron?: boolean;
+  mono?: boolean;
+  icon?: ReactNode;
+  testid?: string;
+}) {
+  return (
+    <div
+      className="flex h-[38px] items-center justify-between gap-2 rounded-token border border-border-strong bg-surface px-3 text-sm text-foreground"
+      data-testid={testid}
+    >
+      <span className={mono ? "truncate font-mono" : "truncate"}>{children}</span>
+      {icon ?? (chevron ? <ChevronDown className="h-3 w-3 shrink-0 text-faint" aria-hidden /> : null)}
     </div>
   );
 }

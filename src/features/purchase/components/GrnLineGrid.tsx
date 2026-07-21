@@ -20,6 +20,7 @@ import {
   type CostCentreOption,
   type GodownOption,
   type ItemOption,
+  type PurchaseMatchStatus,
   type PurposeOption,
 } from "../types";
 
@@ -43,6 +44,7 @@ export function GrnLineGrid({
   purposesLoading,
   errors,
   disabled,
+  readOnly = false,
   projectSelected,
   onLineChange,
   onAddPurpose,
@@ -56,6 +58,12 @@ export function GrnLineGrid({
   purposesLoading: boolean;
   errors: GrnLineError[];
   disabled: boolean;
+  /**
+   * Posted / read-only presentation: received qty renders as a static value box
+   * and the dimensions as static chips (matching the posted-GRN artboard), instead
+   * of a live input + native selects. The editable draft path ignores this.
+   */
+  readOnly?: boolean;
   projectSelected: boolean;
   onLineChange: (index: number, patch: Partial<GrnFormValues["lines"][number]>) => void;
   onAddPurpose: (name: string) => void;
@@ -139,6 +147,7 @@ export function GrnLineGrid({
             purposesLoading={purposesLoading}
             error={errors[i] ?? {}}
             disabled={disabled}
+            readOnly={readOnly}
             projectSelected={projectSelected}
             receivedValue={totals.perLine[i] ?? "0.0000"}
             onChange={(patch) => onLineChange(i, patch)}
@@ -174,6 +183,7 @@ export function GrnLineGrid({
             purposesLoading={purposesLoading}
             error={errors[i] ?? {}}
             disabled={disabled}
+            readOnly={readOnly}
             projectSelected={projectSelected}
             receivedValue={totals.perLine[i] ?? "0.0000"}
             onChange={(patch) => onLineChange(i, patch)}
@@ -198,6 +208,7 @@ function GrnLineRowDesktop(props: LineRowProps) {
     purposesLoading,
     error,
     disabled,
+    readOnly,
     projectSelected,
     receivedValue,
     onChange,
@@ -205,6 +216,8 @@ function GrnLineRowDesktop(props: LineRowProps) {
   } = props;
   const reference = line.orderedQty || line.billedQty || "0";
   const preview = previewMatch(reference, line.receivedQty);
+  const costCentreName = costCentres.find((c) => c.id === line.costCentreId)?.name ?? "—";
+  const purposeName = purposes.find((p) => p.id === line.purposeId)?.name ?? "—";
 
   return (
     <div className="border-b border-muted last:border-b-0">
@@ -230,19 +243,34 @@ function GrnLineRowDesktop(props: LineRowProps) {
         </div>
 
         <div>
-          <NumericInput
-            mode="decimal"
-            decimalPlaces={3}
-            min="0"
-            value={line.receivedQty}
-            disabled={disabled}
-            invalid={!!error.receivedQty}
-            onChange={(e) => onChange({ receivedQty: e.target.value })}
-            className="h-10 text-right font-mono text-[15px] font-bold tabular-nums"
-            data-testid={`grn-line-received-${index}`}
-            aria-label={`Received quantity, line ${index + 1}`}
-          />
-          {error.receivedQty && (
+          {readOnly ? (
+            <div
+              className={cn(
+                "flex h-10 items-center justify-between rounded-token border-[1.5px] px-3",
+                RECV_TONE[line.matchStatus ?? preview.status ?? "MATCHED"],
+              )}
+              data-testid={`grn-line-received-${index}`}
+            >
+              <span className="font-mono text-[15px] font-bold tabular-nums text-foreground">
+                {line.receivedQty || "0"}
+              </span>
+              {item?.uom && <span className="text-[11px] text-faint">{item.uom}</span>}
+            </div>
+          ) : (
+            <NumericInput
+              mode="decimal"
+              decimalPlaces={3}
+              min="0"
+              value={line.receivedQty}
+              disabled={disabled}
+              invalid={!!error.receivedQty}
+              onChange={(e) => onChange({ receivedQty: e.target.value })}
+              className="h-10 text-right font-mono text-[15px] font-bold tabular-nums"
+              data-testid={`grn-line-received-${index}`}
+              aria-label={`Received quantity, line ${index + 1}`}
+            />
+          )}
+          {!readOnly && error.receivedQty && (
             <p className="mt-1 text-[11.5px] text-destructive-ink" data-testid={`grn-line-received-error-${index}`}>
               {error.receivedQty}
             </p>
@@ -265,44 +293,54 @@ function GrnLineRowDesktop(props: LineRowProps) {
       </div>
 
       {/* Dimension footer — godown / cost centre / purpose + on-hand + match preview */}
-      <div className="grid items-end gap-2 border-t border-muted/60 bg-surface-2/50 px-4 py-2 lg:grid-cols-[minmax(180px,1fr)_minmax(180px,1fr)_minmax(180px,1fr)_auto_auto]">
-        <LineSelect
-          label="Godown"
-          value={line.godownId}
-          onChange={(v) => onChange({ godownId: v })}
-          disabled={disabled || !projectSelected}
-          invalid={!!error.godownId}
-          options={godowns.filter((g) => g.isActive || g.id === line.godownId).map((g) => ({ id: g.id, label: g.name }))}
-          placeholder={projectSelected ? "Select…" : "Select a project first"}
-          testid={`grn-line-godown-${index}`}
-          error={error.godownId}
-        />
-        <LineSelect
-          label="Cost centre"
-          value={line.costCentreId}
-          onChange={(v) => onChange({ costCentreId: v })}
-          disabled={disabled}
-          invalid={!!error.costCentreId}
-          options={costCentres.filter((c) => c.isActive || c.id === line.costCentreId).map((c) => ({ id: c.id, label: c.name }))}
-          placeholder="Select…"
-          testid={`grn-line-cc-${index}`}
-          error={error.costCentreId}
-        />
-        <LineSelect
-          label="Purpose"
-          value={line.purposeId}
-          onChange={(v) => onChange({ purposeId: v })}
-          disabled={disabled || !projectSelected || purposesLoading}
-          invalid={!!error.purposeId}
-          options={purposes.filter((p) => p.isActive || p.id === line.purposeId).map((p) => ({ id: p.id, label: p.name }))}
-          placeholder={projectSelected ? "Select…" : "Select a project first"}
-          testid={`grn-line-purpose-${index}`}
-          error={error.purposeId}
-          onCreate={(name) => onAddPurpose(name)}
-        />
+      <div className="flex flex-wrap items-center gap-2 border-t border-muted/60 bg-surface-2/50 px-4 py-2">
+        {readOnly ? (
+          <>
+            <DimensionChip label="Godown" value={godown?.name ?? "—"} testid={`grn-line-godown-${index}`} />
+            <DimensionChip label="Cost centre" value={costCentreName} testid={`grn-line-cc-${index}`} />
+            <DimensionChip label="Purpose" value={purposeName} testid={`grn-line-purpose-${index}`} />
+          </>
+        ) : (
+          <>
+            <LineSelect
+              label="Godown"
+              value={line.godownId}
+              onChange={(v) => onChange({ godownId: v })}
+              disabled={disabled || !projectSelected}
+              invalid={!!error.godownId}
+              options={godowns.filter((g) => g.isActive || g.id === line.godownId).map((g) => ({ id: g.id, label: g.name }))}
+              placeholder={projectSelected ? "Select…" : "Select a project first"}
+              testid={`grn-line-godown-${index}`}
+              error={error.godownId}
+            />
+            <LineSelect
+              label="Cost centre"
+              value={line.costCentreId}
+              onChange={(v) => onChange({ costCentreId: v })}
+              disabled={disabled}
+              invalid={!!error.costCentreId}
+              options={costCentres.filter((c) => c.isActive || c.id === line.costCentreId).map((c) => ({ id: c.id, label: c.name }))}
+              placeholder="Select…"
+              testid={`grn-line-cc-${index}`}
+              error={error.costCentreId}
+            />
+            <LineSelect
+              label="Purpose"
+              value={line.purposeId}
+              onChange={(v) => onChange({ purposeId: v })}
+              disabled={disabled || !projectSelected || purposesLoading}
+              invalid={!!error.purposeId}
+              options={purposes.filter((p) => p.isActive || p.id === line.purposeId).map((p) => ({ id: p.id, label: p.name }))}
+              placeholder={projectSelected ? "Select…" : "Select a project first"}
+              testid={`grn-line-purpose-${index}`}
+              error={error.purposeId}
+              onCreate={(name) => onAddPurpose(name)}
+            />
+          </>
+        )}
         <OnHandBadge godownId={line.godownId} itemId={line.itemId} uom={item?.uom} />
-        <div className="flex items-center justify-end gap-2">
-          {!line.matchStatus && (
+        <div className="ml-auto flex items-center justify-end gap-2">
+          {!readOnly && !line.matchStatus && (
             <Badge tone="neutral" className="text-[11px]" data-testid={`grn-match-resolves-${index}`}>
               Match resolves on post
             </Badge>
@@ -327,6 +365,7 @@ function GrnLineCardMobile(props: LineRowProps) {
     purposesLoading,
     error,
     disabled,
+    readOnly,
     projectSelected,
     receivedValue,
     onChange,
@@ -334,6 +373,8 @@ function GrnLineCardMobile(props: LineRowProps) {
   } = props;
   const reference = line.orderedQty || line.billedQty || "0";
   const preview = previewMatch(reference, line.receivedQty);
+  const costCentreName = costCentres.find((c) => c.id === line.costCentreId)?.name ?? "—";
+  const purposeName = purposes.find((p) => p.id === line.purposeId)?.name ?? "—";
 
   return (
     <div className="rounded-card border border-border bg-surface px-4 py-3" data-testid={`grn-line-card-${index}`}>
@@ -357,19 +398,34 @@ function GrnLineCardMobile(props: LineRowProps) {
           </div>
         </div>
         <div>
-          <NumericInput
-            mode="decimal"
-            decimalPlaces={3}
-            min="0"
-            value={line.receivedQty}
-            disabled={disabled}
-            invalid={!!error.receivedQty}
-            onChange={(e) => onChange({ receivedQty: e.target.value })}
-            className="h-12 text-right font-mono text-[18px] font-bold tabular-nums"
-            data-testid={`grn-line-received-mobile-${index}`}
-            aria-label={`Received quantity, line ${index + 1}`}
-          />
-          {error.receivedQty && (
+          {readOnly ? (
+            <div
+              className={cn(
+                "flex h-12 items-center justify-between rounded-token border-[1.5px] px-3",
+                RECV_TONE[line.matchStatus ?? preview.status ?? "MATCHED"],
+              )}
+              data-testid={`grn-line-received-mobile-${index}`}
+            >
+              <span className="font-mono text-[18px] font-bold tabular-nums text-foreground">
+                {line.receivedQty || "0"}
+              </span>
+              {item?.uom && <span className="text-[11px] text-faint">{item.uom}</span>}
+            </div>
+          ) : (
+            <NumericInput
+              mode="decimal"
+              decimalPlaces={3}
+              min="0"
+              value={line.receivedQty}
+              disabled={disabled}
+              invalid={!!error.receivedQty}
+              onChange={(e) => onChange({ receivedQty: e.target.value })}
+              className="h-12 text-right font-mono text-[18px] font-bold tabular-nums"
+              data-testid={`grn-line-received-mobile-${index}`}
+              aria-label={`Received quantity, line ${index + 1}`}
+            />
+          )}
+          {!readOnly && error.receivedQty && (
             <p className="mt-1 text-right text-[11.5px] text-destructive-ink">{error.receivedQty}</p>
           )}
         </div>
@@ -394,7 +450,7 @@ function GrnLineCardMobile(props: LineRowProps) {
         </div>
       </dl>
 
-      {!line.matchStatus && (
+      {!readOnly && !line.matchStatus && (
         <div className="mt-3">
           <Badge tone="neutral" className="text-[11px]" data-testid={`grn-match-resolves-mobile-${index}`}>
             Match resolves on post
@@ -402,42 +458,50 @@ function GrnLineCardMobile(props: LineRowProps) {
         </div>
       )}
 
-      <div className="mt-3 grid gap-2">
-        <LineSelect
-          label="Godown"
-          value={line.godownId}
-          onChange={(v) => onChange({ godownId: v })}
-          disabled={disabled || !projectSelected}
-          invalid={!!error.godownId}
-          options={godowns.filter((g) => g.isActive || g.id === line.godownId).map((g) => ({ id: g.id, label: g.name }))}
-          placeholder={projectSelected ? "Select…" : "Select a project first"}
-          testid={`grn-line-godown-mobile-${index}`}
-          error={error.godownId}
-        />
-        <LineSelect
-          label="Cost centre"
-          value={line.costCentreId}
-          onChange={(v) => onChange({ costCentreId: v })}
-          disabled={disabled}
-          invalid={!!error.costCentreId}
-          options={costCentres.filter((c) => c.isActive || c.id === line.costCentreId).map((c) => ({ id: c.id, label: c.name }))}
-          placeholder="Select…"
-          testid={`grn-line-cc-mobile-${index}`}
-          error={error.costCentreId}
-        />
-        <LineSelect
-          label="Purpose"
-          value={line.purposeId}
-          onChange={(v) => onChange({ purposeId: v })}
-          disabled={disabled || !projectSelected || purposesLoading}
-          invalid={!!error.purposeId}
-          options={purposes.filter((p) => p.isActive || p.id === line.purposeId).map((p) => ({ id: p.id, label: p.name }))}
-          placeholder={projectSelected ? "Select…" : "Select a project first"}
-          testid={`grn-line-purpose-mobile-${index}`}
-          error={error.purposeId}
-          onCreate={(name) => onAddPurpose(name)}
-        />
-      </div>
+      {readOnly ? (
+        <div className="mt-3 flex flex-wrap gap-2">
+          <DimensionChip label="Godown" value={godown?.name ?? "—"} testid={`grn-line-godown-mobile-${index}`} />
+          <DimensionChip label="Cost centre" value={costCentreName} testid={`grn-line-cc-mobile-${index}`} />
+          <DimensionChip label="Purpose" value={purposeName} testid={`grn-line-purpose-mobile-${index}`} />
+        </div>
+      ) : (
+        <div className="mt-3 grid gap-2">
+          <LineSelect
+            label="Godown"
+            value={line.godownId}
+            onChange={(v) => onChange({ godownId: v })}
+            disabled={disabled || !projectSelected}
+            invalid={!!error.godownId}
+            options={godowns.filter((g) => g.isActive || g.id === line.godownId).map((g) => ({ id: g.id, label: g.name }))}
+            placeholder={projectSelected ? "Select…" : "Select a project first"}
+            testid={`grn-line-godown-mobile-${index}`}
+            error={error.godownId}
+          />
+          <LineSelect
+            label="Cost centre"
+            value={line.costCentreId}
+            onChange={(v) => onChange({ costCentreId: v })}
+            disabled={disabled}
+            invalid={!!error.costCentreId}
+            options={costCentres.filter((c) => c.isActive || c.id === line.costCentreId).map((c) => ({ id: c.id, label: c.name }))}
+            placeholder="Select…"
+            testid={`grn-line-cc-mobile-${index}`}
+            error={error.costCentreId}
+          />
+          <LineSelect
+            label="Purpose"
+            value={line.purposeId}
+            onChange={(v) => onChange({ purposeId: v })}
+            disabled={disabled || !projectSelected || purposesLoading}
+            invalid={!!error.purposeId}
+            options={purposes.filter((p) => p.isActive || p.id === line.purposeId).map((p) => ({ id: p.id, label: p.name }))}
+            placeholder={projectSelected ? "Select…" : "Select a project first"}
+            testid={`grn-line-purpose-mobile-${index}`}
+            error={error.purposeId}
+            onCreate={(name) => onAddPurpose(name)}
+          />
+        </div>
+      )}
     </div>
   );
 }
@@ -455,10 +519,45 @@ interface LineRowProps {
   purposesLoading: boolean;
   error: GrnLineError;
   disabled: boolean;
+  readOnly?: boolean;
   projectSelected: boolean;
   receivedValue: string;
   onChange: (patch: Partial<GrnFormValues["lines"][number]>) => void;
   onAddPurpose: (name: string) => void;
+}
+
+/** Variance-toned border for the read-only received-qty box (design posted artboard). */
+const RECV_TONE: Record<PurchaseMatchStatus, string> = {
+  MATCHED: "border-success/50 bg-success-soft/40",
+  OVER_RECEIVED: "border-info/50 bg-info-soft/40",
+  UNDER_RECEIVED: "border-warning/50 bg-warning-soft/40",
+  PENDING_RECEIPT: "border-border-strong bg-surface",
+};
+
+/**
+ * Static dimension chip for the posted read-only line (design posted-GRN artboard):
+ * a bordered pill with an uppercase micro-label + the resolved value. No dropdown.
+ */
+function DimensionChip({
+  label,
+  value,
+  testid,
+}: {
+  label: string;
+  value: string;
+  testid: string;
+}) {
+  return (
+    <span
+      className="inline-flex h-8 items-center gap-1.5 rounded-token border border-border-strong bg-surface px-2.5"
+      data-testid={testid}
+    >
+      <span className="text-[9.5px] font-semibold uppercase tracking-[0.4px] text-faint">
+        {label}
+      </span>
+      <span className="whitespace-nowrap text-[12.5px] text-foreground">{value}</span>
+    </span>
+  );
 }
 
 function LineSelect({
