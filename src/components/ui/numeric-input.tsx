@@ -1,3 +1,5 @@
+"use client";
+
 import * as React from "react";
 import { Input, type InputProps } from "@/components/ui/input";
 import { useMergedGuardRef, useNumericGuard } from "@/components/ui/use-numeric-guard";
