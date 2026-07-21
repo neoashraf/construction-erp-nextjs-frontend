@@ -38,6 +38,7 @@
   --color-accent-foreground: #16243f; /* dark text ON a lime fill */
   --color-accent-ink: #5e7f18; /* accent-coloured text/links on light bg (≥14px / medium) */
   --color-accent-soft: #eef6dc; /* lime tint background (chips, hovers) */
+  --color-accent-border: #d8e8b0; /* lime-tinted border framing accent-soft surfaces (chips, inline forms) */
 
   /* Sidebar — the navy app chrome (its own scale so the body stays light). */
   --color-sidebar: #16243f;
@@ -152,6 +153,7 @@
   --color-primary-foreground: #0b1220;
   --color-accent-ink: #b6d85c;
   --color-accent-soft: #20301a;
+  --color-accent-border: #3a4d2a;
 
   --color-sidebar: #0e1626;
   --color-sidebar-foreground: #c3ccdb;
