@@ -79,6 +79,12 @@ export function ProjectsScreen() {
     const u = usersQuery.data;
     return Array.isArray(u) ? u : [];
   }, [usersQuery.data]);
+  // The PM filter lists only users holding the Project Manager role — not every user.
+  // (The full `users` list is still used for id→name label resolution below.)
+  const projectManagers = useMemo(
+    () => users.filter((u) => u.role === "PROJECT_MANAGER"),
+    [users],
+  );
 
   const customerLabel = useMemo(() => {
     const map = new Map(customers.map((c) => [c.id, c.name]));
@@ -182,7 +188,7 @@ export function ProjectsScreen() {
             <Label htmlFor="pj-pm">Project manager</Label>
             <Select id="pj-pm" value={draftPm} onChange={(e) => setDraftPm(e.target.value)}>
               <option value="">All PMs</option>
-              {users.map((u) => (
+              {projectManagers.map((u) => (
                 <option key={u.id} value={u.id}>
                   {u.name}
                 </option>
