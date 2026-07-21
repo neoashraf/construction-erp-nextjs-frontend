@@ -7,6 +7,7 @@ import { AlertTriangle, Minus, Plus } from "lucide-react";
 import { Sheet, SheetContent } from "@/components/ui/sheet";
 import * as DialogPrimitive from "@radix-ui/react-dialog";
 import { Input } from "@/components/ui/input";
+import { NumericBareInput } from "@/components/ui/numeric-input";
 import { Label } from "@/components/ui/label";
 import { Button } from "@/components/ui/button";
 import { cn } from "@/lib/utils";
@@ -234,12 +235,9 @@ export function SeriesEditorDrawer({
                     >
                       <Minus className="h-4 w-4" aria-hidden />
                     </button>
-                    <input
+                    <NumericBareInput
                       id="series-padding"
-                      type="number"
-                      min={1}
-                      step={1}
-                      inputMode="numeric"
+                      mode="integer"
                       aria-invalid={!!errors.paddingWidth || undefined}
                       disabled={update.isPending}
                       className="h-full w-14 border-0 bg-background text-center font-mono text-sm font-semibold tabular-nums text-foreground focus:outline-none"

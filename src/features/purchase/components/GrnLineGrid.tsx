@@ -2,7 +2,7 @@
 
 import { useMemo } from "react";
 import { Package } from "lucide-react";
-import { Input } from "@/components/ui/input";
+import { NumericInput } from "@/components/ui/numeric-input";
 import { Select } from "@/components/ui/select";
 import { Badge } from "@/components/ui/badge";
 import { Button } from "@/components/ui/button";
@@ -230,10 +230,9 @@ function GrnLineRowDesktop(props: LineRowProps) {
         </div>
 
         <div>
-          <Input
-            type="number"
-            inputMode="decimal"
-            step="any"
+          <NumericInput
+            mode="decimal"
+            decimalPlaces={3}
             min="0"
             value={line.receivedQty}
             disabled={disabled}
@@ -357,10 +356,9 @@ function GrnLineCardMobile(props: LineRowProps) {
           </div>
         </div>
         <div>
-          <Input
-            type="number"
-            inputMode="decimal"
-            step="any"
+          <NumericInput
+            mode="decimal"
+            decimalPlaces={3}
             min="0"
             value={line.receivedQty}
             disabled={disabled}

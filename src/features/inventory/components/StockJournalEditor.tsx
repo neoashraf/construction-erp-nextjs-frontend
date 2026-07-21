@@ -7,6 +7,7 @@ import { AlertTriangle, Trash2 } from "lucide-react";
 import { Card } from "@/components/ui/card";
 import { Button } from "@/components/ui/button";
 import { Input } from "@/components/ui/input";
+import { NumericInput } from "@/components/ui/numeric-input";
 import { Label } from "@/components/ui/label";
 import { Select } from "@/components/ui/select";
 import { Textarea } from "@/components/ui/textarea";
@@ -462,9 +463,10 @@ export function StockJournalEditor({ id }: { id: string }) {
               Quantity <span className="text-destructive">*</span>
             </Label>
             <div className="relative">
-              <Input
+              <NumericInput
                 id="sj-qty"
-                inputMode="decimal"
+                mode="decimal"
+                decimalPlaces={3}
                 className="pr-12 tabular-nums"
                 value={form.quantity}
                 disabled={!editable}

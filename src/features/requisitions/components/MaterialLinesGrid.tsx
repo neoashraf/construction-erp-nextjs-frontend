@@ -2,7 +2,7 @@
 
 import { Plus, Trash2 } from "lucide-react";
 import { Select } from "@/components/ui/select";
-import { Input } from "@/components/ui/input";
+import { NumericInput } from "@/components/ui/numeric-input";
 import { Button } from "@/components/ui/button";
 import { Card } from "@/components/ui/card";
 import { formatMoney } from "@/lib/money";
@@ -116,7 +116,7 @@ export function MaterialLinesGrid({
                   </div>
                   <div className="py-2 text-[12.5px] text-muted-foreground">{item?.uom ?? "—"}</div>
                   <div className="py-2">
-                    <Input inputMode="decimal" value={l.requestedQuantity} disabled={disabled} invalid={!!err?.qty}
+                    <NumericInput mode="decimal" decimalPlaces={3} value={l.requestedQuantity} disabled={disabled} invalid={!!err?.qty}
                       className="text-right font-mono tabular-nums" aria-label={`Line ${i + 1} requested quantity`} data-testid="req-line-qty"
                       onChange={(e) => onLineChange(i, { requestedQuantity: e.target.value })} />
                   </div>

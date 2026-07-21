@@ -4512,6 +4512,35 @@ export async function mockNestjsFetch(req: MockReq): Promise<MockResult> {
           accountType: "EXPENSE",
           isActive: true,
         },
+        // Purchase-posting accounts — resolve the bill viewer's balanced ledger lines to names.
+        {
+          id: "1440",
+          code: "1440",
+          name: "VAT Input (recoverable)",
+          accountType: "ASSET",
+          isActive: true,
+        },
+        {
+          id: "2100",
+          code: "2100",
+          name: "Accounts Payable",
+          accountType: "LIABILITY",
+          isActive: true,
+        },
+        {
+          id: "2210",
+          code: "2210",
+          name: "TDS Payable",
+          accountType: "LIABILITY",
+          isActive: true,
+        },
+        {
+          id: "2220",
+          code: "2220",
+          name: "AIT Payable",
+          accountType: "LIABILITY",
+          isActive: true,
+        },
       ]),
     };
   }

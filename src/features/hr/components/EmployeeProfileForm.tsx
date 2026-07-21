@@ -3,6 +3,7 @@
 import { useEffect, useRef } from "react";
 import { Lock } from "lucide-react";
 import { Input } from "@/components/ui/input";
+import { NumericInput } from "@/components/ui/numeric-input";
 import { Select } from "@/components/ui/select";
 import { Checkbox } from "@/components/ui/checkbox";
 import { DatePickerInput } from "@/components/ui/date-picker";
@@ -192,13 +193,15 @@ export function EmployeeProfileForm({
           <span className="pointer-events-none absolute left-3 top-1/2 -translate-y-1/2 text-[13px] text-muted-foreground">
             ৳
           </span>
-          <Input
+          <NumericInput
             id="emp-wageamount"
+            mode="decimal"
+            decimalPlaces={4}
+            allowGrouping
             value={values.wageAmount}
             onChange={(e) => onChange({ wageAmount: e.target.value })}
             invalid={!!errors.wageAmount}
             disabled={disabled}
-            inputMode="decimal"
             className="pl-7 font-mono"
             data-testid="emp-wageamount"
           />

@@ -3,7 +3,7 @@
 import { Trash2 } from "lucide-react";
 import { Label } from "@/components/ui/label";
 import { Select } from "@/components/ui/select";
-import { Input } from "@/components/ui/input";
+import { NumericInput } from "@/components/ui/numeric-input";
 import { cn } from "@/lib/utils";
 import { formatMoney, toDecimal } from "@/lib/money";
 import { OnHandBadge } from "./OnHandBadge";
@@ -74,7 +74,7 @@ export function MaterialLineCard({
       <div className="mt-2 flex items-end gap-2">
         <div className="flex flex-1 flex-col gap-1.5">
           <Label htmlFor={`req-line-qty-${index}`}>Requested qty</Label>
-          <Input id={`req-line-qty-${index}`} inputMode="decimal" value={quantity} disabled={disabled} invalid={!!error?.qty}
+          <NumericInput id={`req-line-qty-${index}`} mode="decimal" decimalPlaces={3} value={quantity} disabled={disabled} invalid={!!error?.qty}
             className="font-mono tabular-nums" data-testid="req-line-qty" onChange={(e) => onChange({ requestedQuantity: e.target.value })} />
         </div>
         <div className="pb-2 text-[12px] text-muted-foreground">{uom || "—"}</div>

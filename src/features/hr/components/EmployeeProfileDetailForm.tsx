@@ -3,6 +3,7 @@
 import { Lock } from "lucide-react";
 import { Card, CardHeader, CardTitle, CardContent } from "@/components/ui/card";
 import { Input } from "@/components/ui/input";
+import { NumericBareInput } from "@/components/ui/numeric-input";
 import { Select } from "@/components/ui/select";
 import { Switch } from "@/components/ui/switch";
 import { formatDate } from "@/lib/format";
@@ -199,11 +200,13 @@ export function EmployeeProfileDetailForm({
               <span className="flex-none border-r border-border px-2.5 font-medium text-muted-foreground">
                 ৳
               </span>
-              <input
+              <NumericBareInput
+                mode="decimal"
+                decimalPlaces={4}
+                allowGrouping
                 value={values.wageAmount}
                 onChange={(e) => onChange({ wageAmount: e.target.value })}
                 disabled={disabled}
-                inputMode="decimal"
                 className="h-full min-w-0 flex-1 bg-transparent px-3 text-right font-mono text-sm text-foreground outline-none disabled:cursor-not-allowed"
                 data-testid="emp-wageamount"
               />

@@ -3,6 +3,7 @@
 import { useState } from "react";
 import { Lock, Home, User, Plus } from "lucide-react";
 import { Input } from "@/components/ui/input";
+import { NumericInput } from "@/components/ui/numeric-input";
 import { Select } from "@/components/ui/select";
 import { Textarea } from "@/components/ui/textarea";
 import { MoneyInput } from "@/components/ui/money-input";
@@ -116,9 +117,9 @@ export function IpcCaptureFields({
       {/* Sequence + dates */}
       <div className="grid gap-4 sm:grid-cols-2 lg:grid-cols-4">
         <Field label="IPC seq no" htmlFor="ipc-seq" required error={errors.ipcSeqNo}>
-          <Input
+          <NumericInput
             id="ipc-seq"
-            inputMode="numeric"
+            mode="integer"
             value={values.ipcSeqNo}
             invalid={!!errors.ipcSeqNo}
             disabled={readOnly}
@@ -141,9 +142,9 @@ export function IpcCaptureFields({
       <div className="grid gap-4 sm:grid-cols-2">
         <Field label="Work completed %" htmlFor="ipc-work" required error={errors.workCompletedPct}>
           <div className="relative">
-            <Input
+            <NumericInput
               id="ipc-work"
-              inputMode="decimal"
+              mode="decimal"
               className="pr-8 text-right tabular-nums"
               value={values.workCompletedPct}
               invalid={!!errors.workCompletedPct}

@@ -6,6 +6,7 @@ import { zodResolver } from "@hookform/resolvers/zod";
 import { Trash2 } from "lucide-react";
 import { Card, CardContent, CardHeader, CardTitle } from "@/components/ui/card";
 import { Input } from "@/components/ui/input";
+import { NumericInput } from "@/components/ui/numeric-input";
 import { Label } from "@/components/ui/label";
 import { Button } from "@/components/ui/button";
 import { Skeleton } from "@/components/ui/skeleton";
@@ -156,9 +157,9 @@ export function UomConversionsTable({
               <Label htmlFor="conv-factor" className="mb-1.5 block text-[10.5px]">
                 Factor to {baseUom} <span className="text-destructive">*</span>
               </Label>
-              <Input
+              <NumericInput
                 id="conv-factor"
-                inputMode="decimal"
+                mode="decimal"
                 aria-describedby="conv-factor-hint"
                 invalid={!!errors.factorToBase}
                 disabled={upsert.isPending}

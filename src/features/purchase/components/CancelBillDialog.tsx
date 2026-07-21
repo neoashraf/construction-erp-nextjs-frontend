@@ -1,6 +1,7 @@
 "use client";
 
 import { useEffect, useState } from "react";
+import { AlertTriangle } from "lucide-react";
 import { Button } from "@/components/ui/button";
 import { Label } from "@/components/ui/label";
 import { Textarea } from "@/components/ui/textarea";
@@ -8,10 +9,12 @@ import { Dialog, DialogContent, DialogTitle, DialogDescription } from "@/compone
 import { cancelBillSchema } from "../schemas/bill.schema";
 
 /**
- * Cancel-Bill confirm dialog (brief §Scope 10; spec §8; FR-PUR-022). Mandatory non-empty
- * reason (zod-validated on submit). Default focus is on the non-destructive "Keep bill"
- * button. A server-side `409 BILL_HAS_APPLIED_PAYMENTS` closes the dialog and surfaces
- * the exact inline banner in the viewer.
+ * Cancel-Bill confirm dialog (brief §Scope 10; spec §8; FR-PUR-022; Purchase Bill.dc.html
+ * viewer). A destructive-intent alertdialog: warning-triangle icon + title on one row, the
+ * reverse-and-repost consequence copy, and a mandatory non-empty reason (zod-validated on
+ * submit). Default focus is on the non-destructive "Keep bill" (ghost); the confirm is the
+ * red-filled "Cancel bill". A server-side `409 BILL_HAS_APPLIED_PAYMENTS` closes the dialog
+ * and surfaces the exact inline banner in the viewer.
  */
 export function CancelBillDialog({
   open,
@@ -49,6 +52,8 @@ export function CancelBillDialog({
   return (
     <Dialog open={open} onOpenChange={onOpenChange}>
       <DialogContent
+        hideClose
+        className="max-w-[472px] p-[22px]"
         data-testid="bill-cancel-dialog"
         role="alertdialog"
         onOpenAutoFocus={(e) => {
@@ -57,22 +62,28 @@ export function CancelBillDialog({
           btn?.focus();
         }}
       >
-        <DialogTitle>Cancel this posted bill?</DialogTitle>
-        <DialogDescription className="mt-2">
+        <div className="flex items-center gap-[11px]">
+          <span className="grid h-[38px] w-[38px] flex-none place-items-center rounded-full bg-destructive-soft text-destructive-ink">
+            <AlertTriangle className="h-[19px] w-[19px]" aria-hidden />
+          </span>
+          <DialogTitle className="text-[17px]">Cancel this posted bill?</DialogTitle>
+        </div>
+        <DialogDescription className="mt-3 text-[13px] leading-[1.6]">
           This reverses the ledger entry and the inventory receipt. The original number{" "}
-          {entryNo ? <strong>{entryNo}</strong> : "on this bill"} is kept on the reversed bill.
-          This can&apos;t be undone.
+          {entryNo ? <span className="font-mono font-semibold text-foreground">{entryNo}</span> : "on this bill"} is
+          kept on the reversed bill. This can&apos;t be undone.
         </DialogDescription>
-        <div className="mt-4 flex flex-col gap-1.5">
-          <Label htmlFor="bill-cancel-reason">
+        <div className="mt-3.5 flex flex-col gap-1.5">
+          <Label htmlFor="bill-cancel-reason" className="text-[10.5px] uppercase tracking-[0.4px] text-muted-foreground">
             Reason
-            <span className="ml-0.5 text-destructive" aria-hidden>
+            <span className="ml-0.5 text-destructive-ink" aria-hidden>
               *
             </span>
           </Label>
           <Textarea
             id="bill-cancel-reason"
-            rows={3}
+            rows={2}
+            placeholder="Wrong VAT rate applied on the freight line."
             value={reason}
             onChange={(e) => {
               setReason(e.target.value);
@@ -87,9 +98,9 @@ export function CancelBillDialog({
             </p>
           )}
         </div>
-        <div className="mt-5 flex justify-end gap-2.5">
+        <div className="mt-[18px] flex justify-end gap-2">
           <Button
-            variant="outline"
+            variant="ghost"
             size="md"
             onClick={() => onOpenChange(false)}
             disabled={busy}
@@ -98,6 +109,7 @@ export function CancelBillDialog({
             Keep bill
           </Button>
           <Button
+            variant="destructive"
             size="md"
             onClick={submit}
             disabled={busy}

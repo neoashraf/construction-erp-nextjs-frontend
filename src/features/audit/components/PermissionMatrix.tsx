@@ -2,6 +2,7 @@
 
 import { useMemo, useState } from "react";
 import { Check, Minus, ChevronRight } from "lucide-react";
+import { NumericBareInput } from "@/components/ui/numeric-input";
 import { cn } from "@/lib/utils";
 import {
   PERMISSION_ACTIONS,
@@ -424,10 +425,12 @@ export function PermissionMatrix({
                               <span className="flex-none border-r border-border px-2 text-[12px] font-medium text-faint" aria-hidden>
                                 ৳
                               </span>
-                              <input
+                              <NumericBareInput
+                                mode="decimal"
+                                decimalPlaces={4}
+                                allowGrouping
                                 value={rowLimit}
                                 placeholder="Role limit"
-                                inputMode="decimal"
                                 disabled={disabled || (isAdminRole && rowLimit === "")}
                                 data-testid={`value-limit-${res.resource}`}
                                 aria-label={`Value limit — ${res.resource}`}

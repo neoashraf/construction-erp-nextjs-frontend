@@ -4,6 +4,7 @@ import { useForm } from "react-hook-form";
 import { zodResolver } from "@hookform/resolvers/zod";
 import { Sheet, SheetContent, SheetHeader, SheetBody, SheetFooter } from "@/components/ui/sheet";
 import { Input } from "@/components/ui/input";
+import { NumericInput } from "@/components/ui/numeric-input";
 import { Textarea } from "@/components/ui/textarea";
 import { Label } from "@/components/ui/label";
 import { Button } from "@/components/ui/button";
@@ -401,10 +402,9 @@ export function PartyFormSheet({
                     Payment terms
                   </FieldLabel>
                   <div className="relative">
-                    <Input
+                    <NumericInput
                       id="pf-terms"
-                      type="number"
-                      min={0}
+                      mode="integer"
                       className="pr-12 font-mono"
                       invalid={!!errors.paymentTermsDays}
                       disabled={saving}

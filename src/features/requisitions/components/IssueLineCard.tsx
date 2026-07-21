@@ -3,6 +3,7 @@
 import { type ReactNode } from "react";
 import { Minus, Plus } from "lucide-react";
 import { Select } from "@/components/ui/select";
+import { NumericBareInput } from "@/components/ui/numeric-input";
 import { cn } from "@/lib/utils";
 import { formatQty, toDecimal } from "@/lib/money";
 import { OnHandBadge } from "./OnHandBadge";
@@ -72,8 +73,9 @@ export function QtyStepper({
       >
         <Minus className="h-4 w-4" aria-hidden />
       </button>
-      <input
-        inputMode="decimal"
+      <NumericBareInput
+        mode="decimal"
+        decimalPlaces={3}
         value={value}
         disabled={disabled}
         onChange={(e) => onChange(e.target.value)}

@@ -1,6 +1,6 @@
 "use client";
 
-import { Input } from "@/components/ui/input";
+import { NumericInput } from "@/components/ui/numeric-input";
 import { Label } from "@/components/ui/label";
 import { cn } from "@/lib/utils";
 import { type ReportParams } from "../../types";
@@ -88,11 +88,10 @@ export function InventoryFilters({
         {tab === "LOW_STOCK" && (
           <div>
             <Label htmlFor="iv-reorder">Re-order level</Label>
-            <Input
+            <NumericInput
               id="iv-reorder"
-              type="number"
-              inputMode="decimal"
-              min="0"
+              mode="decimal"
+              decimalPlaces={3}
               value={reorderLevel}
               onChange={(e) => setExtra("reorderLevel", e.target.value || null)}
               placeholder="e.g. 500"
