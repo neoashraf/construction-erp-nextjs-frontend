@@ -64,6 +64,8 @@ const GODOWNS = [
 ];
 const ITEMS = [
   { id: "it-cement", code: "IT-01", name: "OPC Cement 50kg", uom: "bag", isActive: true },
+  { id: "it-sand", code: "IT-02", name: "Sand — FM 2.5", uom: "cft", isActive: true },
+  { id: "it-stone", code: "IT-03", name: "Stone chips — 3/4\"", uom: "cft", isActive: true },
 ];
 const EXPENSE_ACCOUNTS: never[] = [];
 
@@ -408,5 +410,62 @@ describe("MatchView (spec §4/§6; FR-PUR-017)", () => {
     getMatchMock.mockResolvedValue(matchPayload({ lines: [] }));
     renderWith(<MatchView poId="po-1" />);
     expect(await screen.findByTestId("match-empty")).toBeInTheDocument();
+  });
+
+  // ── Column sorting (design "GRN and matching.dc.html" PO/Bill-match table) ──
+  const MULTI_LINES: MatchViewType["lines"] = [
+    { lineNo: 1, itemId: "it-stone", orderedQty: "3000.0000", billedQty: "3000.0000", receivedQty: "3000.0000", openQty: "0.0000", matchStatus: "MATCHED" },
+    { lineNo: 2, itemId: "it-cement", orderedQty: "200.0000", billedQty: "200.0000", receivedQty: "190.0000", openQty: "10.0000", matchStatus: "UNDER_RECEIVED" },
+    { lineNo: 3, itemId: "it-sand", orderedQty: "5000.0000", billedQty: "5000.0000", receivedQty: "5200.0000", openQty: "0.0000", matchStatus: "OVER_RECEIVED" },
+  ];
+
+  function lineOrder(): number[] {
+    const grid = screen.getByTestId("match-table");
+    return within(grid)
+      .getAllByTestId(/^match-row-\d+$/)
+      .map((el) => Number(el.getAttribute("data-testid")!.replace("match-row-", "")));
+  }
+
+  it("defaults to Line ascending and re-sorts by Item name on click", async () => {
+    getMatchMock.mockResolvedValue(matchPayload({ lines: MULTI_LINES }));
+    renderWith(<MatchView poId="po-1" />);
+    await screen.findByTestId("match-table");
+
+    // Default: Line ascending (design shows LINE ▲ active).
+    expect(lineOrder()).toEqual([1, 2, 3]);
+    expect(screen.getByTestId("match-sort-lineNo")).toHaveAttribute(
+      "aria-label",
+      expect.stringContaining("sorted ascending"),
+    );
+
+    // Click Item → asc by name: OPC Cement (line 2) · Sand (line 3) · Stone (line 1).
+    await userEvent.click(screen.getByTestId("match-sort-item"));
+    expect(lineOrder()).toEqual([2, 3, 1]);
+
+    // Click Item again → desc by name.
+    await userEvent.click(screen.getByTestId("match-sort-item"));
+    expect(lineOrder()).toEqual([1, 3, 2]);
+
+    // Third click → unsorted (falls back to payload order).
+    await userEvent.click(screen.getByTestId("match-sort-item"));
+    expect(lineOrder()).toEqual([1, 2, 3]);
+  });
+
+  it("renders the Unit subline and the two-line no-ref drill-down fallback", async () => {
+    getMatchMock.mockResolvedValue(
+      matchPayload({
+        lines: [
+          { lineNo: 1, itemId: "it-cement", orderedQty: "400.0000", billedQty: "0.0000", receivedQty: "0.0000", openQty: "400.0000", matchStatus: "PENDING_RECEIPT" },
+        ],
+      }),
+    );
+    renderWith(<MatchView poId="po-1" />);
+    const grid = await screen.findByTestId("match-table");
+    // UOM subline under the item name.
+    expect(within(grid).getAllByText("Unit: bag").length).toBeGreaterThan(0);
+    // A line with no contributing bill / GRN shows the two-line fallback.
+    const none = within(grid).getByTestId("match-drill-none-1");
+    expect(none).toHaveTextContent("No bill");
+    expect(none).toHaveTextContent("No GRN");
   });
 });
