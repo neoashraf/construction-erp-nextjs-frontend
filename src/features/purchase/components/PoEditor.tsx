@@ -34,12 +34,12 @@ import {
   isEditablePo,
   mapPoError,
   poFormSchema,
-  PO_STATUS_LABEL,
   type PoFormValues,
   type PoLineError,
 } from "../schemas/order.schema";
 import { PoHeaderFields } from "./PoHeaderFields";
 import { PoLineGrid } from "./PoLineGrid";
+import { PoReadOnlyView } from "./PoReadOnlyView";
 import { PurchaseStatusBadge } from "./PurchaseStatusBadge";
 import { ApproveDialog } from "./ApproveDialog";
 import { CancelPoDialog } from "./CancelPoDialog";
@@ -306,7 +306,7 @@ export function PoEditor({ poId }: { poId: string | null }) {
   // ── Render ──
   if (poId && detail.isLoading) {
     return (
-      <div className="mx-auto max-w-5xl">
+      <div className="mx-auto max-w-6xl">
         <div className="mb-4 mt-1 flex flex-col gap-2">
           <Skeleton className="h-6 w-48" />
           <Skeleton className="h-4 w-64" />
@@ -330,7 +330,7 @@ export function PoEditor({ poId }: { poId: string | null }) {
           ? "This purchase order could not be found."
           : "This purchase order could not be loaded.";
     return (
-      <div className="mx-auto max-w-5xl">
+      <div className="mx-auto max-w-6xl">
         <Breadcrumb items={[{ label: "Purchase" }, { label: "Purchase orders", href: "/purchase/orders" }, { label: "Purchase order" }]} />
         <Alert tone="destructive" title={msg} className="mt-4" data-testid="po-detail-error">
           <div className="mt-2 flex gap-2">
@@ -348,7 +348,7 @@ export function PoEditor({ poId }: { poId: string | null }) {
 
   if (isNew && !canWrite) {
     return (
-      <div className="mx-auto max-w-5xl">
+      <div className="mx-auto max-w-6xl">
         <Breadcrumb items={[{ label: "Purchase" }, { label: "Purchase orders", href: "/purchase/orders" }, { label: "New" }]} />
         <Alert
           tone="destructive"
@@ -369,7 +369,7 @@ export function PoEditor({ poId }: { poId: string | null }) {
   const projectSelected = !!form.projectId;
 
   return (
-    <div className="mx-auto max-w-5xl pb-24 lg:pb-6">
+    <div className="mx-auto max-w-6xl pb-24 lg:pb-6">
       <Breadcrumb
         items={[
           { label: "Purchase" },
@@ -386,97 +386,76 @@ export function PoEditor({ poId }: { poId: string | null }) {
         ) : (
           <PurchaseStatusBadge status="DRAFT" />
         )}
-        {readOnly && saved && isCancellablePo(saved.status) && canCancel && (
-          <Button
-            variant="outline"
-            size="md"
-            className="ml-auto"
-            onClick={() => {
-              setBanner(null);
-              setCancelOpen(true);
-            }}
-            disabled={busy}
-            data-testid="po-cancel"
-          >
-            Cancel PO
-          </Button>
-        )}
       </div>
 
       {banner && (
         <Alert tone="destructive" title={banner} className="mb-4" data-testid="po-banner" />
       )}
 
-      {readOnly && saved && (
-        <Alert
-          tone="info"
-          title={`This purchase order is ${PO_STATUS_LABEL[saved.status]} and can't be edited here.`}
-          className="mb-4"
-          data-testid="po-readonly-banner"
-        >
-          <span className="text-[12.5px]">
-            {saved.approvedAt && `Approved on ${formatDate(saved.approvedAt.slice(0, 10))}. `}
-            {`PO ref: ${saved.poRefNo ?? "(pending)"}.`}
-          </span>
-        </Alert>
-      )}
-
-      <Card className="flex flex-col gap-5 p-5">
-        <PoHeaderFields
-          values={form}
-          errors={fieldErrors}
-          disabled={readOnly}
+      {readOnly && saved ? (
+        <PoReadOnlyView
+          po={saved}
           projects={projects}
           suppliers={suppliers}
-          onChange={patch}
+          items={items}
+          costCentres={costCentres}
+          purposes={purposes}
+          godowns={godowns}
         />
-
-        <div>
-          <div className="mb-2 flex items-center justify-between">
-            <h2 className="text-[13px] font-semibold uppercase tracking-[0.4px] text-muted-foreground">
-              Order lines
-            </h2>
-            <span className="font-mono text-[13px] tabular-nums text-muted-foreground" data-testid="po-total">
-              Total {moneyWithSymbol(totalAmount)}
-            </span>
-          </div>
-          <PoLineGrid
-            lines={form.lines}
-            items={items}
-            costCentres={costCentres}
-            purposes={purposes}
-            godowns={godowns}
-            purposesLoading={purposesQuery.isLoading}
-            budgetByLine={budgetByLine}
-            errors={lineErrors}
+      ) : (
+        <Card className="flex flex-col gap-5 p-5">
+          <PoHeaderFields
+            values={form}
+            errors={fieldErrors}
             disabled={readOnly}
-            projectSelected={projectSelected}
-            onLineChange={changeLine}
-            onAddLine={addLine}
-            onRemoveLine={removeLine}
-            onAddPurpose={(name) =>
-              createPurpose.mutate(
-                { projectId: form.projectId, name },
-                {
-                  onSuccess: () => {
-                    // Refresh happens via query invalidation; user re-picks the new option.
-                  },
-                },
-              )
-            }
+            projects={projects}
+            suppliers={suppliers}
+            onChange={patch}
           />
-        </div>
 
-        {saved && (
-          <ReadOnlyMeta saved={saved} />
-        )}
-      </Card>
+          <div>
+            <div className="mb-2 flex items-center justify-between">
+              <h2 className="text-[13px] font-semibold uppercase tracking-[0.4px] text-muted-foreground">
+                Order lines
+              </h2>
+              <span className="font-mono text-[13px] tabular-nums text-muted-foreground" data-testid="po-total">
+                Total {moneyWithSymbol(totalAmount)}
+              </span>
+            </div>
+            <PoLineGrid
+              lines={form.lines}
+              items={items}
+              costCentres={costCentres}
+              purposes={purposes}
+              godowns={godowns}
+              purposesLoading={purposesQuery.isLoading}
+              budgetByLine={budgetByLine}
+              errors={lineErrors}
+              disabled={readOnly}
+              projectSelected={projectSelected}
+              onLineChange={changeLine}
+              onAddLine={addLine}
+              onRemoveLine={removeLine}
+              onAddPurpose={(name) =>
+                createPurpose.mutate(
+                  { projectId: form.projectId, name },
+                  {
+                    onSuccess: () => {
+                      // Refresh happens via query invalidation; user re-picks the new option.
+                    },
+                  },
+                )
+              }
+            />
+          </div>
+        </Card>
+      )}
 
       {/* Sticky action bar — "N lines" + Back · Cancel PO · Save draft · Approve
           (Purchase Orders.dc.html editor). Viewport-pinned; content centered to the page width. */}
       {editable && (
         <div className="fixed inset-x-0 bottom-0 z-40 border-t border-border bg-surface px-4 py-3 shadow-lg">
-          <div className="mx-auto flex max-w-5xl items-center justify-between gap-3">
+          <div className="mx-auto flex max-w-6xl items-center justify-between gap-3">
             <span className="hidden text-[12.5px] text-muted-foreground sm:block" data-testid="po-lines-caption">
               {form.lines.length} line{form.lines.length === 1 ? "" : "s"}
             </span>
@@ -523,6 +502,40 @@ export function PoEditor({ poId }: { poId: string | null }) {
         </div>
       )}
 
+      {/* Read-only action bar — "N lines" + Back · Cancel PO only (Purchase Orders.dc.html approved
+          read-only artboard). A sticky-bottom card in the flow (not viewport-pinned). */}
+      {readOnly && saved && (
+        <div className="sticky bottom-0 z-30 mt-3 flex items-center gap-3 rounded-token border border-border bg-surface px-4 py-3 shadow-lg">
+          <span className="text-[12px] text-faint" data-testid="po-lines-caption">
+            {saved.lines.length} line{saved.lines.length === 1 ? "" : "s"}
+          </span>
+          <div className="ml-auto flex items-center gap-2">
+            <Button
+              variant="ghost"
+              size="md"
+              onClick={() => router.push("/purchase/orders")}
+              data-testid="po-back"
+            >
+              Back
+            </Button>
+            {isCancellablePo(saved.status) && canCancel && (
+              <Button
+                variant="destructive-outline"
+                size="md"
+                onClick={() => {
+                  setBanner(null);
+                  setCancelOpen(true);
+                }}
+                disabled={busy}
+                data-testid="po-cancel"
+              >
+                Cancel PO
+              </Button>
+            )}
+          </div>
+        </div>
+      )}
+
       <ApproveDialog
         open={approveOpen}
         busy={busy}
@@ -535,39 +548,6 @@ export function PoEditor({ poId }: { poId: string | null }) {
         onOpenChange={(o) => !o && setCancelOpen(false)}
         onConfirm={onCancelConfirm}
       />
-    </div>
-  );
-}
-
-function ReadOnlyMeta({ saved }: { saved: PurchaseOrder }) {
-  const totalBilled = saved.lines.reduce(
-    (acc, l) => acc.plus(toDecimal(l.billedQty ?? "0")),
-    toDecimal("0"),
-  );
-  const totalReceived = saved.lines.reduce(
-    (acc, l) => acc.plus(toDecimal(l.receivedQty ?? "0")),
-    toDecimal("0"),
-  );
-  if (totalBilled.eq(0) && totalReceived.eq(0)) return null;
-  return (
-    <div className="grid gap-3 border-t border-border pt-4 text-[12.5px] md:grid-cols-3">
-      <Meta label="Total billed" value={totalBilled.toFixed(3)} />
-      <Meta label="Total received" value={totalReceived.toFixed(3)} />
-      <Meta
-        label="Expected delivery"
-        value={saved.expectedDeliveryDate ? formatDate(saved.expectedDeliveryDate) : "—"}
-      />
-    </div>
-  );
-}
-
-function Meta({ label, value }: { label: string; value: string }) {
-  return (
-    <div>
-      <div className="text-[10.5px] font-semibold uppercase tracking-[0.4px] text-muted-foreground">
-        {label}
-      </div>
-      <div className="mt-0.5 font-mono tabular-nums text-foreground">{value}</div>
     </div>
   );
 }

@@ -57,5 +57,5 @@ test("PO editor — create draft, save, approve behind the confirm dialog", asyn
 
   // The PO flips read-only and shows the APPROVED badge.
   await expect(page.getByTestId("po-status-APPROVED").first()).toBeVisible({ timeout: 10_000 });
-  await expect(page.getByTestId("po-readonly-banner")).toBeVisible();
+  await expect(page.getByTestId("po-readonly-view")).toBeVisible();
 });
