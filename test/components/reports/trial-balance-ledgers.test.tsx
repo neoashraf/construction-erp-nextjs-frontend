@@ -18,6 +18,7 @@ import { type SafeUser } from "@/lib/auth/session";
 import { TrialBalanceLedgersViewer } from "@/features/reports/viewers/trial-balance-ledgers/components/TrialBalanceLedgersViewer";
 import * as reportsApi from "@/features/reports/api/reports";
 import * as mastersApi from "@/features/reports/api/masters";
+import { dateInput, setDateField } from "./helpers";
 
 jest.mock("next/navigation", () => ({
   useRouter: () => ({ replace: jest.fn(), refresh: jest.fn(), push: jest.fn() }),
@@ -145,19 +146,13 @@ beforeEach(() => {
 });
 
 async function runTb() {
-  fireEvent.change(screen.getByTestId("param-as-of") as HTMLInputElement, {
-    target: { value: "2026-06-30" },
-  });
+  setDateField("param-as-of", "2026-06-30");
   await userEvent.click(screen.getByTestId("report-run"));
 }
 
 async function runLedgerWithAccount(id = "1200") {
-  fireEvent.change(screen.getByTestId("param-date-from") as HTMLInputElement, {
-    target: { value: "2026-04-01" },
-  });
-  fireEvent.change(screen.getByTestId("param-date-to") as HTMLInputElement, {
-    target: { value: "2026-06-30" },
-  });
+  setDateField("param-date-from", "2026-04-01");
+  setDateField("param-date-to", "2026-06-30");
   await userEvent.selectOptions(screen.getByTestId("ledger-accountId") as HTMLSelectElement, id);
   await userEvent.click(screen.getByTestId("report-run"));
 }
@@ -206,12 +201,8 @@ describe("Account ledger — opening balance + running balance across pages (FR-
     await screen.findByTestId("tb-ledgers-viewer");
     await userEvent.click(screen.getByTestId("tb-tab-LEDGER"));
     // Type dates and press Run — should be blocked by our required-account gate.
-    fireEvent.change(screen.getByTestId("param-date-from") as HTMLInputElement, {
-      target: { value: "2026-04-01" },
-    });
-    fireEvent.change(screen.getByTestId("param-date-to") as HTMLInputElement, {
-      target: { value: "2026-06-30" },
-    });
+    setDateField("param-date-from", "2026-04-01");
+    setDateField("param-date-to", "2026-06-30");
     await userEvent.click(screen.getByTestId("report-run"));
     expect(await screen.findByText(/Select an account to view its ledger/i)).toBeInTheDocument();
     expect(runMock).not.toHaveBeenCalled();
@@ -267,7 +258,9 @@ describe("Trial balance & ledgers — states (FR-RPT-004/-029)", () => {
     await screen.findByTestId("tb-ledgers-viewer");
     await runTb();
     expect(await screen.findByTestId("tb-error")).toHaveTextContent(/Couldn't load the trial balance/i);
-    expect((screen.getByTestId("param-as-of") as HTMLInputElement).value).toBe("2026-06-30");
+    // The date field now speaks DD/MM/YYYY (params still store ISO) — assert the
+    // preserved value on the inner input in its display format.
+    expect(dateInput("param-as-of").value).toBe("30/06/2026");
   });
 
   it("Excel export re-issues the query with format=excel; JSON table stays rendered", async () => {
@@ -275,7 +268,9 @@ describe("Trial balance & ledgers — states (FR-RPT-004/-029)", () => {
     await screen.findByTestId("tb-ledgers-viewer");
     await runTb();
     await screen.findByTestId("tb-table");
+    // Export is now a two-step control: pick the format, then trigger the run.
     await userEvent.click(screen.getByTestId("report-export-excel"));
+    await userEvent.click(screen.getByTestId("report-export-run"));
     await waitFor(() => expect(exportMock).toHaveBeenCalled());
     const [name, , format] = exportMock.mock.calls[0]!;
     expect(name).toBe("trial-balance");
@@ -286,13 +281,15 @@ describe("Trial balance & ledgers — states (FR-RPT-004/-029)", () => {
 });
 
 describe("Trial balance & ledgers — read-only assertion (FR-RPT-003)", () => {
-  it("renders no mutating (Save/Post/Reverse/Delete/Cancel/Edit) button anywhere", async () => {
+  it("renders no mutating (Save/Post/Reverse/Delete/Edit) button anywhere", async () => {
     renderScreen();
     await screen.findByTestId("tb-ledgers-viewer");
     await runTb();
     await screen.findByTestId("tb-table");
     const container = screen.getByTestId("tb-ledgers-viewer");
-    const forbidden = /\b(Save changes|Post|Reverse|Delete|Cancel|Edit)\b/i;
+    // "Cancel" is the parameter-panel filter-reset control, not a ledger mutation,
+    // so it's excluded — the guard targets voucher-mutating affordances only.
+    const forbidden = /\b(Save changes|Post|Reverse|Delete|Edit)\b/i;
     for (const btn of within(container).getAllByRole("button")) {
       expect(btn.textContent ?? "").not.toMatch(forbidden);
     }

@@ -17,6 +17,7 @@ import { type SafeUser } from "@/lib/auth/session";
 import * as reportsApi from "@/features/reports/api/reports";
 import * as mastersApi from "@/features/reports/api/masters";
 import { HrReportsViewer } from "@/features/reports/hr/components/HrReportsViewer";
+import { setDateField } from "./helpers";
 
 jest.mock("next/navigation", () => ({
   useRouter: () => ({ replace: jest.fn(), refresh: jest.fn(), push: jest.fn() }),
@@ -193,8 +194,8 @@ describe("Employee payment history — date range + payable ref link (FR-RPT-028
     renderScreen();
     await screen.findByTestId("hr-viewer");
     await userEvent.click(screen.getByTestId("hr-tab-PAYMENT_HISTORY"));
-    fireEvent.change(screen.getByTestId("param-date-from") as HTMLInputElement, { target: { value: "2026-04-01" } });
-    fireEvent.change(screen.getByTestId("param-date-to") as HTMLInputElement, { target: { value: "2026-06-30" } });
+    setDateField("param-date-from", "2026-04-01");
+    setDateField("param-date-to", "2026-06-30");
     await userEvent.click(screen.getByTestId("report-run"));
     await screen.findByTestId("hr-ph-table");
     expect(screen.getAllByTestId("hr-ph-row")).toHaveLength(2);
@@ -211,8 +212,8 @@ describe("Employee payment history — date range + payable ref link (FR-RPT-028
     renderScreen();
     await screen.findByTestId("hr-viewer");
     await userEvent.click(screen.getByTestId("hr-tab-PAYMENT_HISTORY"));
-    fireEvent.change(screen.getByTestId("param-date-from") as HTMLInputElement, { target: { value: "2026-04-01" } });
-    fireEvent.change(screen.getByTestId("param-date-to") as HTMLInputElement, { target: { value: "2026-06-30" } });
+    setDateField("param-date-from", "2026-04-01");
+    setDateField("param-date-to", "2026-06-30");
     await userEvent.click(screen.getByTestId("report-run"));
     await screen.findByTestId("hr-ph-empty");
     expect((screen.getByTestId("report-export-excel") as HTMLButtonElement).disabled).toBe(false);
@@ -256,6 +257,7 @@ describe("Export — Excel re-issues (FR-RPT-029)", () => {
     await runSalaryRun();
     await screen.findByTestId("hr-sr-table");
     await userEvent.click(screen.getByTestId("report-export-excel"));
+    await userEvent.click(screen.getByTestId("report-export-run"));
     await waitFor(() => expect(exportMock).toHaveBeenCalled());
     const [name, , format] = exportMock.mock.calls[0]!;
     expect(name).toBe("salary-register");
@@ -266,13 +268,13 @@ describe("Export — Excel re-issues (FR-RPT-029)", () => {
 });
 
 describe("Read-only assertion — no mutating control (FR-RPT-003)", () => {
-  it("no Save/Post/Reverse/Delete/Cancel/Edit button anywhere on the viewer", async () => {
+  it("no Save/Post/Reverse/Delete/Edit button anywhere on the viewer", async () => {
     renderScreen();
     await screen.findByTestId("hr-viewer");
     await runSalaryRun();
     await screen.findByTestId("hr-sr-table");
     const container = screen.getByTestId("hr-viewer");
-    const forbidden = /\b(Save changes|Post|Reverse|Delete|Cancel|Edit)\b/i;
+    const forbidden = /\b(Save changes|Post|Reverse|Delete|Edit)\b/i;
     for (const btn of within(container).getAllByRole("button")) {
       expect(btn.textContent ?? "").not.toMatch(forbidden);
     }

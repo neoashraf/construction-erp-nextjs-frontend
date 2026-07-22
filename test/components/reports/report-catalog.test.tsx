@@ -1,16 +1,16 @@
 /**
- * FE-54 fe-report-catalog tests (FR-RPT-001/-003/-008). The hub's own
- * responsibility is the CATALOG + mounting the right report viewer INLINE — it no
- * longer renders results itself. Run / result / totals / empty / error / export
- * behaviour is covered by each viewer's own suite (trial-balance-ledgers,
- * financial-statements, …). Here we assert: role-filtered category tabs, that
- * clicking a category tab opens its viewer inline (no chip row) WITHOUT
- * navigating, that searching surfaces cross-category chips, catalog-level error +
- * retry, and the read-only guarantee.
+ * FE-54 fe-report-catalog tests (FR-RPT-001/-003/-008). Post the "match design
+ * files" refactor the hub is a single-page RUNNER, not a browse-then-open list:
+ * it opens the default category's viewer INLINE on load (no idle prompt, no chip
+ * row, no category-tab strip, no cross-category search) and lets that viewer's
+ * own switcher move between sibling reports. The hub's own responsibility is
+ * therefore: role-filter the catalog, mount the right viewer inline WITHOUT
+ * navigating, keep the breadcrumb in sync with the open report, surface a
+ * catalog-level error + retry, and stay read-only. Run / result / totals / empty
+ * / export behaviour lives in each viewer's own suite.
  */
 import React from "react";
 import { render, screen, waitFor, within } from "@testing-library/react";
-import userEvent from "@testing-library/user-event";
 import { QueryClient, QueryClientProvider } from "@tanstack/react-query";
 import { SessionProvider } from "@/providers/session-provider";
 import { ToastProvider } from "@/components/ui/toast";
@@ -123,65 +123,71 @@ beforeEach(() => {
   ccMock.mockResolvedValue([{ id: "cc-mat", label: "MAT · Materials" }]);
 });
 
-describe("Reports hub — catalog + role filtering (FR-RPT-001/-008)", () => {
-  it("lists role-filtered category tabs, each opening its viewer inline (no chip row)", async () => {
+describe("Reports hub — inline runner on load (FR-RPT-001/-002)", () => {
+  it("opens the default category's viewer INLINE on load — no idle prompt, no navigation", async () => {
     renderScreen();
-    await screen.findByTestId("report-catalog-browse");
-    // No chip row without a search — clicking a tab opens that category's viewer
-    // directly (its own switcher handles multi-report categories).
-    expect(screen.queryByTestId("catalog-chip-trial-balance")).not.toBeInTheDocument();
-    // Admin sees every category tab.
-    expect(screen.getByTestId("catalog-tab-LEDGERS_REGISTERS")).toBeInTheDocument();
-    expect(screen.getByTestId("catalog-tab-PROJECT_IPC")).toBeInTheDocument();
-    expect(screen.getByTestId("catalog-tab-HR")).toBeInTheDocument();
-    // Each tab mounts its viewer inline (shared parameter panel appears).
-    await userEvent.click(screen.getByTestId("catalog-tab-PROJECT_IPC"));
+    // The hub mounts the first-category (LEDGERS) viewer straight away; its shared
+    // parameter panel appears with the shell FY seeded, and we never route away.
+    await screen.findByTestId("report-runner");
+    await screen.findByTestId("tb-ledgers-viewer");
     await screen.findByTestId("report-parameter-panel");
-    await userEvent.click(screen.getByTestId("catalog-tab-HR"));
-    await screen.findByTestId("report-parameter-panel");
-  });
-
-  it("opens the default category's viewer on load — no idle prompt", async () => {
-    renderScreen();
-    await screen.findByTestId("report-catalog-browse");
-    await screen.findByTestId("report-parameter-panel");
+    await waitFor(() =>
+      expect((screen.getByTestId("param-fy") as HTMLSelectElement).value).toBe("fy-1"),
+    );
     expect(screen.queryByTestId("reports-idle")).not.toBeInTheDocument();
+    expect(pushMock).not.toHaveBeenCalled();
   });
 
-  it("searching surfaces cross-category report chips", async () => {
+  it("renders no legacy browse chrome — no chip row, no category-tab strip, no search box", async () => {
     renderScreen();
-    await screen.findByTestId("report-catalog-browse");
-    await userEvent.type(screen.getByTestId("reports-search"), "salary");
-    // Chips reappear while searching (results span categories).
-    expect(await screen.findByTestId("catalog-chip-salary-register")).toBeInTheDocument();
+    await screen.findByTestId("report-parameter-panel");
+    // These were the pre-refactor browse affordances; the runner replaced them.
+    expect(screen.queryByTestId("report-catalog-browse")).not.toBeInTheDocument();
+    expect(screen.queryByTestId("reports-search")).not.toBeInTheDocument();
+    expect(screen.queryByTestId("catalog-tab-PROJECT_IPC")).not.toBeInTheDocument();
+    expect(screen.queryByTestId("catalog-chip-trial-balance")).not.toBeInTheDocument();
   });
 
-  it("shows a catalog-level error + Retry when the catalog fails", async () => {
-    catalogMock.mockRejectedValueOnce(new ApiError({ code: "UNKNOWN", message: "x", status: 500 }));
+  it("keeps the breadcrumb in sync with the open report", async () => {
     renderScreen();
-    expect(await screen.findByTestId("catalog-error")).toHaveTextContent(/Couldn't load the report list/i);
+    await screen.findByTestId("tb-ledgers-viewer");
+    const crumb = await screen.findByTestId("breadcrumb");
+    // Breadcrumb shows Reports › <default report label>.
+    expect(within(crumb).getByText("Reports")).toBeInTheDocument();
+    expect(within(crumb).getByText("Trial balance")).toBeInTheDocument();
   });
 });
 
-describe("Reports hub — inline report runner (FR-RPT-002/-003)", () => {
-  it("opens a report's parameters INLINE (no navigation) with FY defaulted", async () => {
-    renderScreen();
-    await screen.findByTestId("report-catalog-browse");
-    // The default category's viewer mounts inline inside the hub — its shared
-    // parameter panel appears with the shell FY seeded; we never route away.
-    await screen.findByTestId("report-parameter-panel");
-    await waitFor(() => expect((screen.getByTestId("param-fy") as HTMLSelectElement).value).toBe("fy-1"));
-    expect(pushMock).not.toHaveBeenCalled();
-    expect(screen.queryByTestId("reports-idle")).not.toBeInTheDocument();
+describe("Reports hub — role filtering (FR-RPT-008)", () => {
+  it("mounts the first role-available category's viewer when LEDGERS is absent", async () => {
+    // Simulate a role whose catalog only surfaces the PROJECT_IPC category — the
+    // hub should default straight into that viewer, not the LEDGERS one.
+    catalogMock.mockResolvedValue([PROJECT_PNL]);
+    renderScreen("PROJECT_MANAGER");
+    await screen.findByTestId("pi-viewer");
+    expect(screen.queryByTestId("tb-ledgers-viewer")).not.toBeInTheDocument();
   });
+});
 
+describe("Reports hub — catalog error (FR-RPT-004)", () => {
+  it("shows a catalog-level error + Retry when the catalog fails", async () => {
+    catalogMock.mockRejectedValueOnce(new ApiError({ code: "UNKNOWN", message: "x", status: 500 }));
+    renderScreen();
+    expect(await screen.findByTestId("catalog-error")).toHaveTextContent(
+      /Couldn't load the report list/i,
+    );
+    expect(screen.getByTestId("catalog-retry")).toBeInTheDocument();
+  });
+});
+
+describe("Reports hub — read-only guarantee (FR-RPT-003)", () => {
   it("renders NO save/post/reverse/edit/delete affordance anywhere on the hub", async () => {
     renderScreen();
-    await screen.findByTestId("report-catalog-browse");
     await screen.findByTestId("report-parameter-panel");
     const container = screen.getByTestId("report-catalog-screen");
     // Word-boundary regex so "credit"/"debit" in labels don't false-match "edit".
-    const forbidden = /\b(Save changes|Post|Reverse|Delete|Cancel|Edit)\b/i;
+    // "Cancel" is the parameter-panel filter-reset control, not a ledger mutation.
+    const forbidden = /\b(Save changes|Post|Reverse|Delete|Edit)\b/i;
     for (const btn of within(container).getAllByRole("button")) {
       expect(btn.textContent ?? "").not.toMatch(forbidden);
     }
