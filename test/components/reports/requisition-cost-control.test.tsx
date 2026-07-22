@@ -17,6 +17,7 @@ import { type SafeUser } from "@/lib/auth/session";
 import * as reportsApi from "@/features/reports/api/reports";
 import * as mastersApi from "@/features/reports/api/masters";
 import { RequisitionCostControlView } from "@/features/reports/rcc/components/RequisitionCostControlView";
+import { dateInput, setDateField } from "./helpers";
 
 jest.mock("next/navigation", () => ({
   useRouter: () => ({ replace: jest.fn(), refresh: jest.fn(), push: jest.fn() }),
@@ -97,10 +98,15 @@ async function waitForProjectOption(value: string) {
   });
 }
 async function runReport(_tab: string) {
+  // param-project is now collapsed behind the Filters disclosure — open it
+  // first (guarded so it stays open across the switcher test's tab switch).
+  const toggle = screen.getByTestId("report-filters-toggle");
+  if (toggle.getAttribute("aria-expanded") !== "true") await userEvent.click(toggle);
+  await screen.findByTestId("param-project");
   await waitForProjectOption("proj-a");
   await userEvent.selectOptions(screen.getByTestId("param-project") as HTMLSelectElement, "proj-a");
-  fireEvent.change(screen.getByTestId("param-date-from") as HTMLInputElement, { target: { value: "2026-04-01" } });
-  fireEvent.change(screen.getByTestId("param-date-to") as HTMLInputElement, { target: { value: "2026-06-30" } });
+  setDateField("param-date-from", "2026-04-01");
+  setDateField("param-date-to", "2026-06-30");
   await userEvent.click(screen.getByTestId("report-run"));
 }
 
@@ -228,7 +234,8 @@ describe("Error + retry preserves params (FR-RPT-004)", () => {
     await runReport("REQUISITION_VS_ISSUE");
     const banner = await screen.findByTestId("rcc-rvi-error");
     expect(banner).toHaveTextContent(/Couldn't load requisition vs issue/);
-    expect((screen.getByTestId("param-date-from") as HTMLInputElement).value).toBe("2026-04-01");
+    // Field displays DD/MM/YYYY; params still store the ISO the run committed.
+    expect(dateInput("param-date-from").value).toBe("01/04/2026");
     await userEvent.click(screen.getByTestId("rcc-rvi-retry"));
     await screen.findByTestId("rcc-rvi-table");
   });
@@ -240,7 +247,9 @@ describe("Export — Excel re-issues (FR-RPT-029)", () => {
     await screen.findByTestId("rcc-viewer");
     await runReport("REQUISITION_VS_ISSUE");
     await screen.findByTestId("rcc-rvi-table");
+    // report-export-excel is now an inert format radio; report-export-run triggers.
     await userEvent.click(screen.getByTestId("report-export-excel"));
+    await userEvent.click(screen.getByTestId("report-export-run"));
     await waitFor(() => expect(exportMock).toHaveBeenCalled());
     const [name, , format] = exportMock.mock.calls[0]!;
     expect(name).toBe("requisition-vs-issue");
@@ -251,13 +260,14 @@ describe("Export — Excel re-issues (FR-RPT-029)", () => {
 });
 
 describe("Read-only assertion — no mutating control (FR-RPT-003)", () => {
-  it("no Save/Post/Reverse/Delete/Cancel/Edit button anywhere on the viewer", async () => {
+  it("no Save/Post/Reverse/Delete/Edit button anywhere on the viewer", async () => {
     renderScreen();
     await screen.findByTestId("rcc-viewer");
     await runReport("REQUISITION_VS_ISSUE");
     await screen.findByTestId("rcc-rvi-table");
     const container = screen.getByTestId("rcc-viewer");
-    const forbidden = /\b(Save changes|Post|Reverse|Delete|Cancel|Edit)\b/i;
+    // Cancel is a filter-reset, not a mutation — not forbidden.
+    const forbidden = /\b(Save changes|Post|Reverse|Delete|Edit)\b/i;
     for (const btn of within(container).getAllByRole("button")) {
       expect(btn.textContent ?? "").not.toMatch(forbidden);
     }

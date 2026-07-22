@@ -8,7 +8,7 @@
  * anywhere), tab shows only its own time control.
  */
 import React from "react";
-import { fireEvent, render, screen, waitFor, within } from "@testing-library/react";
+import { render, screen, waitFor, within } from "@testing-library/react";
 import userEvent from "@testing-library/user-event";
 import { QueryClient, QueryClientProvider } from "@tanstack/react-query";
 import { SessionProvider } from "@/providers/session-provider";
@@ -18,6 +18,7 @@ import { type SafeUser } from "@/lib/auth/session";
 import { FinancialStatementsScreen } from "@/features/reports/financial-statements/components/FinancialStatementsScreen";
 import * as reportsApi from "@/features/reports/api/reports";
 import * as mastersApi from "@/features/reports/api/masters";
+import { dateInput, openFilters, setDateField } from "./helpers";
 
 jest.mock("next/navigation", () => ({
   useRouter: () => ({ replace: jest.fn(), refresh: jest.fn(), push: jest.fn() }),
@@ -129,13 +130,9 @@ beforeEach(() => {
 });
 
 async function runPnl() {
-  // Set dates via fireEvent so calling this twice doesn't append.
-  fireEvent.change(screen.getByTestId("param-date-from") as HTMLInputElement, {
-    target: { value: "2026-04-01" },
-  });
-  fireEvent.change(screen.getByTestId("param-date-to") as HTMLInputElement, {
-    target: { value: "2026-06-30" },
-  });
+  // Set dates via setDateField so calling this twice doesn't append.
+  setDateField("param-date-from", "2026-04-01");
+  setDateField("param-date-to", "2026-06-30");
   await userEvent.click(screen.getByTestId("report-run"));
 }
 
@@ -197,7 +194,7 @@ describe("Financial statements — Balance sheet body (FR-RPT-014)", () => {
     renderScreen();
     await userEvent.click(screen.getByTestId("statement-tab-BS"));
     await screen.findByTestId("param-as-of");
-    await userEvent.type(screen.getByTestId("param-as-of") as HTMLInputElement, "2026-06-30");
+    setDateField("param-as-of", "2026-06-30");
     await userEvent.click(screen.getByTestId("report-run"));
     await screen.findByTestId("bs-statement");
     const band = screen.getByTestId("bs-band");
@@ -227,9 +224,10 @@ describe("Financial statements — Balance sheet body (FR-RPT-014)", () => {
     renderScreen();
     await userEvent.click(screen.getByTestId("statement-tab-BS"));
     await userEvent.click(screen.getByTestId("scope-PROJECT_WISE"));
+    openFilters();
     await screen.findByTestId("param-project");
     await userEvent.selectOptions(screen.getByTestId("param-project") as HTMLSelectElement, "proj-a");
-    await userEvent.type(screen.getByTestId("param-as-of") as HTMLInputElement, "2026-06-30");
+    setDateField("param-as-of", "2026-06-30");
     await userEvent.click(screen.getByTestId("report-run"));
     await screen.findByTestId("bs-statement");
     expect(screen.getByTestId("bs-caveat")).toBeInTheDocument();
@@ -241,6 +239,7 @@ describe("Financial statements — scope toggle + error + export (FR-RPT-006/-00
   it("scope toggle re-queries and clears projectId on Consolidated", async () => {
     renderScreen();
     await userEvent.click(screen.getByTestId("scope-PROJECT_WISE"));
+    openFilters();
     await screen.findByTestId("param-project");
     await userEvent.selectOptions(screen.getByTestId("param-project") as HTMLSelectElement, "proj-a");
     await runPnl();
@@ -262,7 +261,7 @@ describe("Financial statements — scope toggle + error + export (FR-RPT-006/-00
     await screen.findByTestId("report-parameter-panel");
     await runPnl();
     expect(await screen.findByTestId("pnl-error")).toHaveTextContent(/Couldn't load the profit & loss/i);
-    expect(screen.getByTestId("param-date-from")).toHaveValue("2026-04-01");
+    expect(dateInput("param-date-from")).toHaveValue("01/04/2026");
   });
 
   it("Export → Excel re-issues the query with format=excel and does not re-render the table", async () => {
@@ -271,6 +270,7 @@ describe("Financial statements — scope toggle + error + export (FR-RPT-006/-00
     await runPnl();
     await screen.findByTestId("pnl-statement");
     await userEvent.click(screen.getByTestId("report-export-excel"));
+    await userEvent.click(screen.getByTestId("report-export-run"));
     await waitFor(() => expect(exportMock).toHaveBeenCalled());
     const [name, , format] = exportMock.mock.calls[0]!;
     expect(name).toBe("profit-and-loss");
@@ -281,13 +281,13 @@ describe("Financial statements — scope toggle + error + export (FR-RPT-006/-00
 });
 
 describe("Financial statements — read-only assertion (FR-RPT-003)", () => {
-  it("renders no mutating (Save/Post/Reverse/Delete/Cancel/Edit) button anywhere", async () => {
+  it("renders no mutating (Save/Post/Reverse/Delete/Edit) button anywhere", async () => {
     renderScreen();
     await screen.findByTestId("report-parameter-panel");
     await runPnl();
     await screen.findByTestId("pnl-statement");
     const container = screen.getByTestId("financial-statements-screen");
-    const forbidden = /\b(Save changes|Post|Reverse|Delete|Cancel|Edit)\b/i;
+    const forbidden = /\b(Save changes|Post|Reverse|Delete|Edit)\b/i;
     for (const btn of within(container).getAllByRole("button")) {
       expect(btn.textContent ?? "").not.toMatch(forbidden);
     }

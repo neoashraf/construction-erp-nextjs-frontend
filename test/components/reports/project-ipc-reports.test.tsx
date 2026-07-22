@@ -9,7 +9,7 @@
  * re-issue (Excel), read-only assertion (no mutating buttons).
  */
 import React from "react";
-import { fireEvent, render, screen, waitFor, within } from "@testing-library/react";
+import { render, screen, waitFor, within } from "@testing-library/react";
 import userEvent from "@testing-library/user-event";
 import { QueryClient, QueryClientProvider } from "@tanstack/react-query";
 import { SessionProvider } from "@/providers/session-provider";
@@ -19,6 +19,7 @@ import { type SafeUser } from "@/lib/auth/session";
 import * as reportsApi from "@/features/reports/api/reports";
 import * as mastersApi from "@/features/reports/api/masters";
 import { ProjectIpcViewer } from "@/features/reports/project-ipc/components/ProjectIpcViewer";
+import { dateInput, setDateField } from "./helpers";
 
 jest.mock("next/navigation", () => ({
   useRouter: () => ({ replace: jest.fn(), refresh: jest.fn(), push: jest.fn() }),
@@ -184,6 +185,12 @@ async function waitForProjectOption(value: string) {
 }
 
 async function pickProject(value: string) {
+  // `param-project` is collapsed behind the Filters disclosure — open it first.
+  // Idempotent: the disclosure persists open across tab switches, so opening a
+  // second time would toggle it closed.
+  const toggle = screen.getByTestId("report-filters-toggle");
+  if (toggle.getAttribute("aria-expanded") !== "true") await userEvent.click(toggle);
+  await screen.findByTestId("param-project");
   await waitForProjectOption(value);
   await userEvent.selectOptions(
     screen.getByTestId("param-project") as HTMLSelectElement,
@@ -193,12 +200,8 @@ async function pickProject(value: string) {
 
 async function runPnl() {
   await pickProject("proj-a");
-  fireEvent.change(screen.getByTestId("param-date-from") as HTMLInputElement, {
-    target: { value: "2026-04-01" },
-  });
-  fireEvent.change(screen.getByTestId("param-date-to") as HTMLInputElement, {
-    target: { value: "2026-06-30" },
-  });
+  setDateField("param-date-from", "2026-04-01");
+  setDateField("param-date-to", "2026-06-30");
   await userEvent.click(screen.getByTestId("report-run"));
 }
 
@@ -286,12 +289,8 @@ describe("IPC report — ageing badges + cumulative footer (FR-RPT-016/-017)", (
     // Switch to IPC first so date-from is required for gate; project already set below.
     await userEvent.click(screen.getByTestId("pi-tab-IPC_BILLING"));
     await pickProject("proj-a");
-    fireEvent.change(screen.getByTestId("param-date-from") as HTMLInputElement, {
-      target: { value: "2026-04-01" },
-    });
-    fireEvent.change(screen.getByTestId("param-date-to") as HTMLInputElement, {
-      target: { value: "2026-06-30" },
-    });
+    setDateField("param-date-from", "2026-04-01");
+    setDateField("param-date-to", "2026-06-30");
     await userEvent.click(screen.getByTestId("report-run"));
     await screen.findByTestId("pi-ipc-table");
 
@@ -307,12 +306,8 @@ describe("IPC report — ageing badges + cumulative footer (FR-RPT-016/-017)", (
     await screen.findByTestId("pi-viewer");
     await userEvent.click(screen.getByTestId("pi-tab-IPC_BILLING"));
     await pickProject("proj-a");
-    fireEvent.change(screen.getByTestId("param-date-from") as HTMLInputElement, {
-      target: { value: "2026-04-01" },
-    });
-    fireEvent.change(screen.getByTestId("param-date-to") as HTMLInputElement, {
-      target: { value: "2026-06-30" },
-    });
+    setDateField("param-date-from", "2026-04-01");
+    setDateField("param-date-to", "2026-06-30");
     await userEvent.click(screen.getByTestId("report-run"));
     const footer = await screen.findByTestId("pi-ipc-cumulative-footer");
     expect(footer).toHaveTextContent("Project cumulative");
@@ -330,12 +325,8 @@ describe("IPC report — ageing badges + cumulative footer (FR-RPT-016/-017)", (
     await screen.findByTestId("pi-viewer");
     await userEvent.click(screen.getByTestId("pi-tab-IPC_BILLING"));
     await pickProject("proj-a");
-    fireEvent.change(screen.getByTestId("param-date-from") as HTMLInputElement, {
-      target: { value: "2026-04-01" },
-    });
-    fireEvent.change(screen.getByTestId("param-date-to") as HTMLInputElement, {
-      target: { value: "2026-06-30" },
-    });
+    setDateField("param-date-from", "2026-04-01");
+    setDateField("param-date-to", "2026-06-30");
     await userEvent.click(screen.getByTestId("report-run"));
     await screen.findByTestId("pi-ipc-empty");
     expect(screen.getByTestId("pi-ipc-empty")).toHaveTextContent(/No IPCs raised/);
@@ -352,9 +343,7 @@ describe("Outstanding — per-project reconciliation band (FR-RPT-020)", () => {
     await screen.findByTestId("pi-viewer");
     await userEvent.click(screen.getByTestId("pi-tab-OUTSTANDING"));
     await pickProject("proj-a");
-    fireEvent.change(screen.getByTestId("param-as-of") as HTMLInputElement, {
-      target: { value: "2026-06-30" },
-    });
+    setDateField("param-as-of", "2026-06-30");
     await userEvent.click(screen.getByTestId("report-run"));
     await screen.findByTestId("pi-out-table");
 
@@ -373,12 +362,8 @@ describe("Material consumption — UNBUDGETED renders '—' + verbatim CC status
     await screen.findByTestId("pi-viewer");
     await userEvent.click(screen.getByTestId("pi-tab-MATERIAL_CONSUMPTION"));
     await pickProject("proj-a");
-    fireEvent.change(screen.getByTestId("param-date-from") as HTMLInputElement, {
-      target: { value: "2026-04-01" },
-    });
-    fireEvent.change(screen.getByTestId("param-date-to") as HTMLInputElement, {
-      target: { value: "2026-06-30" },
-    });
+    setDateField("param-date-from", "2026-04-01");
+    setDateField("param-date-to", "2026-06-30");
     await userEvent.click(screen.getByTestId("report-run"));
     await screen.findByTestId("pi-mc-table");
 
@@ -396,12 +381,8 @@ describe("Labour cost — server-supplied per-CC labour EXPENSE (FR-RPT-019)", (
     await screen.findByTestId("pi-viewer");
     await userEvent.click(screen.getByTestId("pi-tab-LABOUR_COST"));
     await pickProject("proj-a");
-    fireEvent.change(screen.getByTestId("param-date-from") as HTMLInputElement, {
-      target: { value: "2026-04-01" },
-    });
-    fireEvent.change(screen.getByTestId("param-date-to") as HTMLInputElement, {
-      target: { value: "2026-06-30" },
-    });
+    setDateField("param-date-from", "2026-04-01");
+    setDateField("param-date-to", "2026-06-30");
     await userEvent.click(screen.getByTestId("report-run"));
     await screen.findByTestId("pi-lc-table");
     expect(screen.getAllByTestId("pi-lc-row")).toHaveLength(1);
@@ -437,8 +418,8 @@ describe("Error + retry preserves params (FR-RPT-004, spec §6)", () => {
     await runPnl();
     const banner = await screen.findByTestId("pi-pnl-error");
     expect(banner).toHaveTextContent(/Couldn't load the project P&L/);
-    // Params preserved.
-    expect((screen.getByTestId("param-date-from") as HTMLInputElement).value).toBe("2026-04-01");
+    // Params preserved (field displays DD/MM/YYYY).
+    expect(dateInput("param-date-from").value).toBe("01/04/2026");
     // Retry runs again.
     await userEvent.click(screen.getByTestId("pi-pnl-retry"));
     await screen.findByTestId("pi-pnl-table");
@@ -451,7 +432,9 @@ describe("Export — Excel re-issues the same query with format=excel (FR-RPT-02
     await screen.findByTestId("pi-viewer");
     await runPnl();
     await screen.findByTestId("pi-pnl-table");
+    // Export is two-step: pick the format radio, then trigger the export.
     await userEvent.click(screen.getByTestId("report-export-excel"));
+    await userEvent.click(screen.getByTestId("report-export-run"));
     await waitFor(() => expect(exportMock).toHaveBeenCalled());
     const [name, , format] = exportMock.mock.calls[0]!;
     expect(name).toBe("project-pnl");
@@ -463,13 +446,13 @@ describe("Export — Excel re-issues the same query with format=excel (FR-RPT-02
 });
 
 describe("Read-only assertion — RPT owns no mutating control (FR-RPT-003)", () => {
-  it("no Save / Post / Reverse / Delete / Cancel / Edit button exists anywhere on the viewer", async () => {
+  it("no Save / Post / Reverse / Delete / Edit button exists anywhere on the viewer", async () => {
     renderScreen();
     await screen.findByTestId("pi-viewer");
     await runPnl();
     await screen.findByTestId("pi-pnl-table");
     const container = screen.getByTestId("pi-viewer");
-    const forbidden = /\b(Save changes|Post|Reverse|Delete|Cancel|Edit)\b/i;
+    const forbidden = /\b(Save changes|Post|Reverse|Delete|Edit)\b/i;
     for (const btn of within(container).getAllByRole("button")) {
       expect(btn.textContent ?? "").not.toMatch(forbidden);
     }

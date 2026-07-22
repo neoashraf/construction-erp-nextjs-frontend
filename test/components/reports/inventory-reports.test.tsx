@@ -17,6 +17,7 @@ import { type SafeUser } from "@/lib/auth/session";
 import * as reportsApi from "@/features/reports/api/reports";
 import * as mastersApi from "@/features/reports/api/masters";
 import { InventoryReportsViewer } from "@/features/reports/inventory/components/InventoryReportsViewer";
+import { dateInput, setDateField } from "./helpers";
 
 jest.mock("next/navigation", () => ({
   useRouter: () => ({ replace: jest.fn(), refresh: jest.fn(), push: jest.fn() }),
@@ -118,9 +119,7 @@ function renderScreen() {
 }
 
 async function runValuation() {
-  fireEvent.change(screen.getByTestId("param-as-of") as HTMLInputElement, {
-    target: { value: "2026-06-30" },
-  });
+  setDateField("param-as-of", "2026-06-30");
   await userEvent.click(screen.getByTestId("report-run"));
 }
 
@@ -192,9 +191,7 @@ describe("Low-stock — re-order parameter + breached count (FR-RPT-022)", () =>
     fireEvent.change(screen.getByTestId("iv-filter-reorder") as HTMLInputElement, {
       target: { value: "500" },
     });
-    fireEvent.change(screen.getByTestId("param-as-of") as HTMLInputElement, {
-      target: { value: "2026-06-30" },
-    });
+    setDateField("param-as-of", "2026-06-30");
     await userEvent.click(screen.getByTestId("report-run"));
     await screen.findByTestId("iv-ls-table");
     expect(screen.getByTestId("iv-ls-totals-footer")).toHaveTextContent(/2 items at or below re-order/);
@@ -210,12 +207,8 @@ describe("Transfer summary — flow + voucher link + mode pill (FR-RPT-023)", ()
     renderScreen();
     await screen.findByTestId("iv-viewer");
     await userEvent.click(screen.getByTestId("iv-tab-TRANSFER_SUMMARY"));
-    fireEvent.change(screen.getByTestId("param-date-from") as HTMLInputElement, {
-      target: { value: "2026-04-01" },
-    });
-    fireEvent.change(screen.getByTestId("param-date-to") as HTMLInputElement, {
-      target: { value: "2026-06-30" },
-    });
+    setDateField("param-date-from", "2026-04-01");
+    setDateField("param-date-to", "2026-06-30");
     await userEvent.click(screen.getByTestId("report-run"));
     await screen.findByTestId("iv-ts-table");
     // Mode pills carry a text label (WCAG 1.4.1).
@@ -236,12 +229,8 @@ describe("Transfer summary — flow + voucher link + mode pill (FR-RPT-023)", ()
     renderScreen();
     await screen.findByTestId("iv-viewer");
     await userEvent.click(screen.getByTestId("iv-tab-TRANSFER_SUMMARY"));
-    fireEvent.change(screen.getByTestId("param-date-from") as HTMLInputElement, {
-      target: { value: "2026-04-01" },
-    });
-    fireEvent.change(screen.getByTestId("param-date-to") as HTMLInputElement, {
-      target: { value: "2026-06-30" },
-    });
+    setDateField("param-date-from", "2026-04-01");
+    setDateField("param-date-to", "2026-06-30");
     await userEvent.click(screen.getByTestId("report-run"));
     await screen.findByTestId("iv-ts-empty");
     expect(
@@ -276,7 +265,7 @@ describe("Error + retry preserves params (FR-RPT-004)", () => {
     await runValuation();
     const banner = await screen.findByTestId("iv-sv-error");
     expect(banner).toHaveTextContent(/Couldn't load stock valuation/);
-    expect((screen.getByTestId("param-as-of") as HTMLInputElement).value).toBe("2026-06-30");
+    expect(dateInput("param-as-of").value).toBe("30/06/2026");
     await userEvent.click(screen.getByTestId("iv-sv-retry"));
     await screen.findByTestId("iv-sv-table");
   });
@@ -289,6 +278,7 @@ describe("Export — Excel re-issues the query (FR-RPT-029)", () => {
     await runValuation();
     await screen.findByTestId("iv-sv-table");
     await userEvent.click(screen.getByTestId("report-export-excel"));
+    await userEvent.click(screen.getByTestId("report-export-run"));
     await waitFor(() => expect(exportMock).toHaveBeenCalled());
     const [name, , format] = exportMock.mock.calls[0]!;
     expect(name).toBe("stock-valuation");
@@ -299,13 +289,13 @@ describe("Export — Excel re-issues the query (FR-RPT-029)", () => {
 });
 
 describe("Read-only assertion — RPT owns no mutating control (FR-RPT-003)", () => {
-  it("no Save / Post / Reverse / Delete / Cancel / Edit button exists anywhere on the viewer", async () => {
+  it("no Save / Post / Reverse / Delete / Edit button exists anywhere on the viewer", async () => {
     renderScreen();
     await screen.findByTestId("iv-viewer");
     await runValuation();
     await screen.findByTestId("iv-sv-table");
     const container = screen.getByTestId("iv-viewer");
-    const forbidden = /\b(Save changes|Post|Reverse|Delete|Cancel|Edit)\b/i;
+    const forbidden = /\b(Save changes|Post|Reverse|Delete|Edit)\b/i;
     for (const btn of within(container).getAllByRole("button")) {
       expect(btn.textContent ?? "").not.toMatch(forbidden);
     }
