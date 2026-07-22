@@ -25,6 +25,7 @@ export function GrnPostDialog({
   return (
     <Dialog open={open} onOpenChange={onOpenChange}>
       <DialogContent
+        hideClose
         data-testid="grn-post-dialog"
         role="alertdialog"
         onOpenAutoFocus={(e) => {

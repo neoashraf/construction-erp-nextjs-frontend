@@ -174,7 +174,11 @@ export function GrnHeaderFields({
           </div>
         </Field>
 
-        <Field label="Narration · discrepancy note" htmlFor="grn-narration" optional={!readOnly}>
+        <Field
+          label="Narration"
+          labelSuffix="· discrepancy note (optional)"
+          htmlFor="grn-narration"
+        >
           {readOnly ? (
             <div
               className="min-h-[38px] whitespace-pre-wrap rounded-token border border-border-strong bg-surface px-3 py-2 text-sm leading-relaxed text-foreground"
@@ -235,6 +239,7 @@ function ReadOnlyBox({
  */
 function Field({
   label,
+  labelSuffix,
   htmlFor,
   required,
   optional,
@@ -244,6 +249,8 @@ function Field({
   children,
 }: {
   label: string;
+  /** Faint, normal-case suffix appended after the label (design narration label). */
+  labelSuffix?: string;
   htmlFor?: string;
   required?: boolean;
   optional?: boolean;
@@ -259,6 +266,11 @@ function Field({
         {required && (
           <span className="ml-0.5 text-destructive" aria-hidden>
             *
+          </span>
+        )}
+        {labelSuffix && (
+          <span className="ml-1 font-medium normal-case tracking-normal text-faint">
+            {labelSuffix}
           </span>
         )}
         {optional && <span className="ml-1 font-normal normal-case text-faint">— optional</span>}
