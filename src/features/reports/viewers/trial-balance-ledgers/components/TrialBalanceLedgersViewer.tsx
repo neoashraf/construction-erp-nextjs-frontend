@@ -3,8 +3,10 @@
 import { useMemo, useState } from "react";
 import { WifiOff } from "lucide-react";
 import { Alert } from "@/components/ui/alert";
-import { Breadcrumb } from "@/components/ui/breadcrumb";
 import { Card } from "@/components/ui/card";
+import { ReportViewerHeader, type ReportScopeTone } from "../../../components/ReportViewerHeader";
+import { FieldLabel, REPORT_SELECT_CLASS } from "../../../components/ReportParameterPanel";
+import { cn } from "@/lib/utils";
 import { useOnline } from "@/lib/hooks/use-online";
 import { useAuthenticatedUser } from "@/providers/session-provider";
 import { ReportExportControl } from "../../../components/ReportExportControl";
@@ -14,7 +16,6 @@ import { REPORT_NAME, readLedgerMeta, useReportForTab } from "../hooks/useTrialB
 import { type LedgerRow, type ReportTab, type TrialBalanceRow, type TrialBalanceTotals } from "../types";
 import { LedgerTable } from "./LedgerTable";
 import { ReportSwitcher } from "./ReportSwitcher";
-import { TbLedgerFilters } from "./TbLedgerFilters";
 import { TrialBalanceTable } from "./TrialBalanceTable";
 
 /**
@@ -23,6 +24,14 @@ import { TrialBalanceTable } from "./TrialBalanceTable";
  * range) are preserved across tab switches; only the report-specific extras
  * reset (spec §9).
  */
+/** Per-tab breadcrumb / report label. */
+const TAB_LABEL: Record<ReportTab, string> = {
+  TB: "Trial balance",
+  LEDGER: "Account ledger",
+  DAYBOOK: "Journal register",
+  CASH_BANK: "Cash & bank book",
+};
+
 /** Reverse REPORT_NAME → tab so the hub can open this viewer on a chosen report. */
 function reportToTab(name?: string): ReportTab {
   const found = (Object.entries(REPORT_NAME) as [ReportTab, string][]).find(
@@ -34,7 +43,12 @@ function reportToTab(name?: string): ReportTab {
 export function TrialBalanceLedgersViewer({
   embedded = false,
   initialReport,
-}: { embedded?: boolean; initialReport?: string } = {}) {
+  onReportChange,
+}: {
+  embedded?: boolean;
+  initialReport?: string;
+  onReportChange?: (reportName: string, reportLabel: string) => void;
+} = {}) {
   const online = useOnline();
   const user = useAuthenticatedUser();
   const [tab, setTab] = useState<ReportTab>(() => reportToTab(initialReport));
@@ -48,11 +62,16 @@ export function TrialBalanceLedgersViewer({
 
   const effectiveParams = useMemo<ReportParams>(() => {
     const p: ReportParams = { ...params };
-    // Trial balance is as-of; the three flow reports are range.
     if (tab === "TB") {
-      p.dateFrom = null;
-      p.dateTo = null;
+      // Trial balance accepts both; as-of/period takes precedence over the range
+      // (matches the panel's precedence note) — drop the range only when an
+      // as-of/period is actually set.
+      if (p.asOf || p.periodId) {
+        p.dateFrom = null;
+        p.dateTo = null;
+      }
     } else {
+      // The three flow registers are date-range only.
       p.asOf = null;
       p.periodId = null;
     }
@@ -76,6 +95,7 @@ export function TrialBalanceLedgersViewer({
     setAccountIdError(null);
     setRan(false);
     setTab(next);
+    onReportChange?.(REPORT_NAME[next], TAB_LABEL[next]);
   }
 
   function onRun(p: ReportParams) {
@@ -99,34 +119,156 @@ export function TrialBalanceLedgersViewer({
       ? readLedgerMeta(query.data.meta as Parameters<typeof readLedgerMeta>[0])
       : null;
 
-  const breadcrumbLabel = {
-    TB: "Trial balance",
-    LEDGER: "Account ledger",
-    DAYBOOK: "Journal register",
-    CASH_BANK: "Cash & bank book",
-  }[tab];
+  const breadcrumbLabel = TAB_LABEL[tab];
+
+  // Scope pill: the trial balance is an as-of / period balance report (violet);
+  // the three flow registers carry a running balance over a date range (blue).
+  const scopeLabel = tab === "TB" ? "Balance · as-of / period" : "Register · running balance";
+  const scopeTone: ReportScopeTone = tab === "TB" ? "violet" : "blue";
+
+  const extras = params.extras ?? {};
+  const setExtra = (key: string, next: string | null) =>
+    setParams({ ...params, extras: { ...extras, [key]: next } });
+  const slotDisabled = !online || query.isFetching;
+
+  // Account-first tabs render their account control FIRST in the row (design
+  // order), via the panel's leadingSlot: the Account ledger shows Account* + Party;
+  // the Cash & bank book shows the Cash / bank account.
+  function renderLeadingSlot() {
+    if (tab === "LEDGER") {
+      return (
+        <>
+          <div className="min-w-[180px]">
+            <FieldLabel htmlFor="ledger-account" required>
+              Account
+            </FieldLabel>
+            <select
+              id="ledger-account"
+              value={(extras.accountId as string) ?? ""}
+              onChange={(e) => setExtra("accountId", e.target.value || null)}
+              disabled={slotDisabled}
+              className={cn(
+                REPORT_SELECT_CLASS,
+                accountIdError && "border-destructive focus:shadow-focus-error",
+              )}
+              data-testid="ledger-accountId"
+            >
+              <option value="">Select an account…</option>
+              {SAMPLE_ACCOUNTS.map((a) => (
+                <option key={a.id} value={a.id}>
+                  {a.label}
+                </option>
+              ))}
+            </select>
+          </div>
+          <div className="min-w-[180px]">
+            <FieldLabel htmlFor="ledger-party">Party</FieldLabel>
+            <select
+              id="ledger-party"
+              value={(extras.partyId as string) ?? ""}
+              onChange={(e) => setExtra("partyId", e.target.value || null)}
+              disabled={slotDisabled}
+              className={REPORT_SELECT_CLASS}
+              data-testid="ledger-partyId"
+            >
+              <option value="">All parties</option>
+              {SAMPLE_PARTIES.map((p) => (
+                <option key={p.id} value={p.id}>
+                  {p.label}
+                </option>
+              ))}
+            </select>
+          </div>
+        </>
+      );
+    }
+    if (tab === "CASH_BANK") {
+      return (
+        <div className="min-w-[200px]">
+          <FieldLabel htmlFor="cash-account">Cash / bank account</FieldLabel>
+          <select
+            id="cash-account"
+            value={(extras.accountId as string) ?? ""}
+            onChange={(e) => setExtra("accountId", e.target.value || null)}
+            disabled={slotDisabled}
+            className={REPORT_SELECT_CLASS}
+            data-testid="cash-bank-accountId"
+          >
+            <option value="">All cash &amp; bank accounts</option>
+            {SAMPLE_CASH_BANK.map((a) => (
+              <option key={a.id} value={a.id}>
+                {a.label}
+              </option>
+            ))}
+          </select>
+        </div>
+      );
+    }
+    return undefined;
+  }
+
+  // Report-specific controls rendered INLINE after the standard fields:
+  //   TB → Group by · DAYBOOK → Voucher type.
+  //   (Account ledger + Cash & bank book put their account control first — see
+  //   renderLeadingSlot.)
+  function renderPrimarySlot() {
+    if (tab === "TB") {
+      return (
+        <div className="min-w-[160px]">
+          <FieldLabel htmlFor="tb-groupby-select">Group by</FieldLabel>
+          <select
+            id="tb-groupby-select"
+            value={((extras.groupBy as string) ?? "account").split(",")[0] || "account"}
+            onChange={(e) => setExtra("groupBy", e.target.value)}
+            disabled={slotDisabled}
+            className={REPORT_SELECT_CLASS}
+            data-testid="tb-groupby"
+          >
+            {TB_GROUPBYS.map((g) => (
+              <option key={g.value} value={g.value}>
+                {g.label}
+              </option>
+            ))}
+          </select>
+        </div>
+      );
+    }
+    if (tab === "LEDGER") return undefined;
+    if (tab === "DAYBOOK") {
+      return (
+        <div className="min-w-[180px]">
+          <FieldLabel htmlFor="daybook-voucher-type">Voucher type</FieldLabel>
+          <select
+            id="daybook-voucher-type"
+            value={(extras.voucherType as string) ?? ""}
+            onChange={(e) => setExtra("voucherType", e.target.value || null)}
+            disabled={slotDisabled}
+            className={REPORT_SELECT_CLASS}
+            data-testid="daybook-voucherType"
+          >
+            <option value="">All voucher types</option>
+            {VOUCHER_TYPES.map((v) => (
+              <option key={v.value} value={v.value}>
+                {v.label}
+              </option>
+            ))}
+          </select>
+        </div>
+      );
+    }
+    // CASH_BANK renders its account control first (leadingSlot) — nothing here.
+    return undefined;
+  }
 
   return (
     <div className={embedded ? "" : "mx-auto max-w-[1400px] px-6 py-6"} data-testid="tb-ledgers-viewer">
       {!embedded && (
-        <>
-          <Breadcrumb
-            items={[
-              { label: "Reports", href: "/reports" },
-              { label: breadcrumbLabel },
-            ]}
-          />
-          <div className="mb-4 mt-1 flex flex-wrap items-center justify-between gap-3">
-            <div>
-              <h1 className="text-[23px] font-bold tracking-[-0.02em]" data-testid="tb-title">
-                Ledgers &amp; registers
-              </h1>
-              <p className="mt-1 text-[13px] text-muted-foreground">
-                Trial balance, account &amp; party ledgers, journal register, cash &amp; bank book — read-only, server-computed.
-              </p>
-            </div>
-          </div>
-        </>
+        <ReportViewerHeader
+          breadcrumbLabel={breadcrumbLabel}
+          title={breadcrumbLabel}
+          scopeLabel={scopeLabel}
+          scopeTone={scopeTone}
+        />
       )}
 
       <ReportSwitcher value={tab} onChange={onTabChange} />
@@ -153,18 +295,15 @@ export function TrialBalanceLedgersViewer({
           onRun={onRun}
           running={query.isFetching}
           disabled={!online}
+          leadingSlot={renderLeadingSlot()}
+          primarySlot={renderPrimarySlot()}
         />
 
-        <TbLedgerFilters
-          tab={tab}
-          value={params}
-          onChange={setParams}
-          accounts={SAMPLE_ACCOUNTS}
-          parties={SAMPLE_PARTIES}
-          cashBankAccounts={SAMPLE_CASH_BANK}
-          voucherTypes={VOUCHER_TYPES}
-          errors={{ accountId: accountIdError ?? undefined }}
-        />
+        {tab === "LEDGER" && accountIdError && (
+          <p className="text-[12px] text-destructive" role="alert" data-testid="ledger-account-error">
+            {accountIdError}
+          </p>
+        )}
       </div>
 
       <Card className="mt-4 overflow-hidden">
@@ -240,10 +379,23 @@ function buildDescriptor(tab: ReportTab): ReportDescriptor {
     requiredPermission: "reports",
     parameters: [],
     projectScoped: false,
+    // The trial balance exposes BOTH an as-of/period control and a date range
+    // (per the design); the panel shows the as-of-takes-precedence note when both
+    // are set. The three flow registers are date-range only.
     supportsAsOf: tab === "TB",
-    supportsDateRange: tab !== "TB",
+    supportsDateRange: true,
   };
 }
+
+// Trial-balance grouping dimensions (single-select, per the design's Group by).
+const TB_GROUPBYS: Array<{ value: string; label: string }> = [
+  { value: "account", label: "Account" },
+  { value: "project", label: "Project" },
+  { value: "cost_centre", label: "Cost centre" },
+  { value: "purpose", label: "Purpose" },
+  { value: "godown", label: "Godown" },
+  { value: "party", label: "Party" },
+];
 
 // Sample master options for the report-specific filters — real data comes
 // through hooks the sibling briefs already wire; keep these inline for now.

@@ -3,8 +3,8 @@
 import { useMemo, useState } from "react";
 import { WifiOff } from "lucide-react";
 import { Alert } from "@/components/ui/alert";
-import { Breadcrumb } from "@/components/ui/breadcrumb";
 import { Card } from "@/components/ui/card";
+import { ReportViewerHeader, type ReportScopeTone } from "../../components/ReportViewerHeader";
 import { useOnline } from "@/lib/hooks/use-online";
 import { useAuthenticatedUser } from "@/providers/session-provider";
 import { ReportParameterPanel } from "../../components/ReportParameterPanel";
@@ -35,7 +35,12 @@ import { StatementSwitcher } from "./StatementSwitcher";
 export function FinancialStatementsScreen({
   embedded = false,
   initialReport,
-}: { embedded?: boolean; initialReport?: string } = {}) {
+  onReportChange,
+}: {
+  embedded?: boolean;
+  initialReport?: string;
+  onReportChange?: (reportName: string, reportLabel: string) => void;
+} = {}) {
   const online = useOnline();
   const user = useAuthenticatedUser();
   const [tab, setTab] = useState<StatementTab>(
@@ -85,6 +90,10 @@ export function FinancialStatementsScreen({
   function onTabChange(next: StatementTab) {
     setTab(next);
     setRan(false);
+    onReportChange?.(
+      next === "PNL" ? "profit-and-loss" : "balance-sheet",
+      next === "PNL" ? "Profit & loss" : "Balance sheet",
+    );
   }
 
   const projectWise = scope === "PROJECT_WISE" && !!effectiveParams.projectId;
@@ -110,32 +119,26 @@ export function FinancialStatementsScreen({
 
   const bsPartial = tab === "BS" && projectWise;
 
+  const statementLabel = tab === "PNL" ? "Profit & loss" : "Balance sheet";
+  // P&L is a date-range flow report (blue dot); Balance sheet is an as-of report (violet).
+  const scopeLabel = tab === "PNL" ? "Flow · date range" : "Balance · point-in-time";
+  const scopeTone: ReportScopeTone = tab === "PNL" ? "blue" : "violet";
+
   return (
     <div className={embedded ? "" : "mx-auto max-w-[1400px] px-6 py-6"} data-testid="financial-statements-screen">
       {!embedded && (
-        <Breadcrumb
-          items={[
-            { label: "Reports", href: "/reports" },
-            { label: tab === "PNL" ? "Profit & loss" : "Balance sheet" },
-          ]}
+        <ReportViewerHeader
+          breadcrumbLabel={statementLabel}
+          title={statementLabel}
+          scopeLabel={scopeLabel}
+          scopeTone={scopeTone}
+          titleTestId="fs-title"
         />
       )}
-      <div className="mb-4 mt-1 flex flex-wrap items-center justify-between gap-3">
-        {!embedded && (
-          <div>
-            <h1 className="text-[23px] font-bold tracking-[-0.02em]" data-testid="fs-title">
-              Financial statements
-            </h1>
-            <p className="mt-1 text-[13px] text-muted-foreground">
-              Profit & loss and Balance sheet — consolidated or project-wise. Read-only, always
-              server-computed.
-            </p>
-          </div>
-        )}
-        <div className="flex items-center gap-3">
-          <StatementSwitcher value={tab} onChange={onTabChange} />
-          <ScopeToggle value={scope} onChange={onScopeChange} />
-        </div>
+      {/* Statement switcher (underline tabs) on the left, scope toggle on the right. */}
+      <div className="mb-4 flex flex-wrap items-center justify-between gap-3">
+        <StatementSwitcher value={tab} onChange={onTabChange} />
+        <ScopeToggle value={scope} onChange={onScopeChange} />
       </div>
 
       {!online && (

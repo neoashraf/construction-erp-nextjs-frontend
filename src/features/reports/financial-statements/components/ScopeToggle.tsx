@@ -37,9 +37,11 @@ export function ScopeToggle({
             aria-checked={active}
             onClick={() => onChange(o.id)}
             className={cn(
-              "px-3 py-1.5 text-[12px] font-semibold transition-colors",
+              "px-3.5 py-1.5 text-[12.5px] font-semibold transition-colors",
               "focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-accent",
-              active ? "bg-accent-soft text-accent-ink" : "bg-surface text-muted-foreground hover:bg-canvas",
+              active
+                ? "bg-primary text-primary-foreground"
+                : "bg-surface text-muted-foreground hover:bg-canvas",
             )}
             title={o.hint}
             data-testid={`scope-${o.id}`}

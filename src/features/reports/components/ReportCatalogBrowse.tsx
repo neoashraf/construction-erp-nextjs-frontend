@@ -1,29 +1,13 @@
 "use client";
 
-import { useMemo } from "react";
 import { cn } from "@/lib/utils";
-import {
-  REPORT_CATEGORY_ORDER,
-  type ReportCategory,
-  type ReportDescriptor,
-} from "../types";
+import { type ReportDescriptor } from "../types";
 
 /**
- * FE-54 browse-view catalog — category tabs + report chips (matches the
- * `Reports.dc.html` default "browse" layout). Selecting a chip calls
- * `onSelect(descriptor)`; the parent decides inline-vs-viewer routing.
- * `activeCategory` is controlled so the tab follows the selected report.
+ * FE-54 browse-view catalog — report search chips only. The category-tab strip
+ * was removed; without a search the catalog shows no browse chips (a report is
+ * opened via its own viewer switcher). Selecting a chip calls `onSelect`.
  */
-
-/** Short tab labels — the design collapses the long category names to fit one row. */
-const CATEGORY_TAB_LABEL: Record<ReportCategory, string> = {
-  LEDGERS_REGISTERS: "Ledgers & registers",
-  FINANCIAL_STATEMENTS: "Financial statements",
-  PROJECT_IPC: "Project",
-  INVENTORY: "Inventory",
-  REQUISITION_COST_CONTROL: "Cost control",
-  HR: "HR",
-};
 
 /** Balance reports use an as-of/period (violet); flow reports use a date range (blue). */
 function chipTone(r: ReportDescriptor): "balance" | "flow" {
@@ -33,60 +17,20 @@ function chipTone(r: ReportDescriptor): "balance" | "flow" {
 export function ReportCatalogBrowse({
   reports,
   selected,
-  activeCategory,
-  onCategoryChange,
   onSelect,
   query,
 }: {
   reports: ReportDescriptor[];
   selected: string | null;
-  activeCategory: ReportCategory;
-  onCategoryChange: (c: ReportCategory) => void;
   onSelect: (d: ReportDescriptor) => void;
   query: string;
 }) {
-  const byCategory = useMemo(() => groupByCategory(reports), [reports]);
-
-  // Which categories actually have reports (role-filtered) → those become tabs.
-  const tabs = REPORT_CATEGORY_ORDER.filter((c) => (byCategory.get(c)?.length ?? 0) > 0);
-
   const q = query.trim().toLowerCase();
-  // Chips only appear while searching — results span categories, so they're the
-  // picker. Without a query, clicking a category tab opens its viewer directly
-  // (the viewer's own switcher handles multi-report categories), so no chip row.
+  // Chips only appear while searching — results span categories, so they're the picker.
   const chips = q ? reports.filter((r) => r.title.toLowerCase().includes(q)) : [];
 
   return (
     <div data-testid="report-catalog-browse">
-      {/* category tabs */}
-      <div
-        role="tablist"
-        aria-label="Report categories"
-        className="no-scrollbar flex gap-0.5 overflow-x-auto border-b border-border-strong"
-      >
-        {tabs.map((c) => {
-          const active = !q && c === activeCategory;
-          return (
-            <button
-              key={c}
-              type="button"
-              role="tab"
-              aria-selected={active}
-              onClick={() => onCategoryChange(c)}
-              data-testid={`catalog-tab-${c}`}
-              className={cn(
-                "-mb-px whitespace-nowrap border-b-2 px-3.5 pb-2.5 pt-2.5 text-[13px] transition-colors",
-                "focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-accent",
-                active
-                  ? "border-accent font-bold text-foreground"
-                  : "border-transparent font-medium text-muted-foreground hover:text-foreground",
-              )}
-            >
-              {CATEGORY_TAB_LABEL[c]}
-            </button>
-          );
-        })}
-      </div>
 
       {/* report chips — only while searching (results span categories) */}
       {q && chips.length === 0 ? (
@@ -129,16 +73,4 @@ export function ReportCatalogBrowse({
       )}
     </div>
   );
-}
-
-function groupByCategory(
-  reports: ReportDescriptor[],
-): Map<ReportCategory, ReportDescriptor[]> {
-  const map = new Map<ReportCategory, ReportDescriptor[]>();
-  for (const r of reports) {
-    const list = map.get(r.category) ?? [];
-    list.push(r);
-    map.set(r.category, list);
-  }
-  return map;
 }
