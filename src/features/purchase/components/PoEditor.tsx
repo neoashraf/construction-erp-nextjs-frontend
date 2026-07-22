@@ -10,7 +10,6 @@ import { Breadcrumb } from "@/components/ui/breadcrumb";
 import { useToast } from "@/components/ui/toast";
 import { formatDate } from "@/lib/format";
 import { toDecimal } from "@/lib/money";
-import { moneyWithSymbol } from "../format";
 import { useOnline } from "@/lib/hooks/use-online";
 import { asApiError } from "@/lib/api";
 import { useAuthenticatedUser } from "@/providers/session-provider";
@@ -40,7 +39,6 @@ import {
 import { PoHeaderFields } from "./PoHeaderFields";
 import { PoLineGrid } from "./PoLineGrid";
 import { PoReadOnlyView } from "./PoReadOnlyView";
-import { PurchaseStatusBadge } from "./PurchaseStatusBadge";
 import { ApproveDialog } from "./ApproveDialog";
 import { CancelPoDialog } from "./CancelPoDialog";
 import type { BudgetStatus, BudgetWarning, PurchaseOrder } from "../types";
@@ -367,9 +365,15 @@ export function PoEditor({ poId }: { poId: string | null }) {
       : "Edit purchase order";
   const crumbTail = isNew ? "New PO" : saved?.poRefNo ?? "Draft PO";
   const projectSelected = !!form.projectId;
+  const selectedProject = projects.find((p) => p.id === form.projectId);
+  const projectLabel = selectedProject
+    ? selectedProject.projectCode
+      ? `${selectedProject.projectCode} — ${selectedProject.name}`
+      : selectedProject.name
+    : "";
 
   return (
-    <div className="mx-auto max-w-6xl pb-24 lg:pb-6">
+    <div className="mx-auto max-w-6xl pb-6">
       <Breadcrumb
         items={[
           { label: "Purchase" },
@@ -381,11 +385,6 @@ export function PoEditor({ poId }: { poId: string | null }) {
         <h1 className="text-[22px] font-bold tracking-[-0.02em]" data-testid="po-form-title">
           {title}
         </h1>
-        {saved ? (
-          <PurchaseStatusBadge status={saved.status} />
-        ) : (
-          <PurchaseStatusBadge status="DRAFT" />
-        )}
       </div>
 
       {banner && (
@@ -403,60 +402,54 @@ export function PoEditor({ poId }: { poId: string | null }) {
           godowns={godowns}
         />
       ) : (
-        <Card className="flex flex-col gap-5 p-5">
+        <div className="flex flex-col gap-3">
           <PoHeaderFields
             values={form}
             errors={fieldErrors}
             disabled={readOnly}
+            poRefNo={saved?.poRefNo ?? "New draft"}
+            status={saved?.status ?? "DRAFT"}
             projects={projects}
             suppliers={suppliers}
             onChange={patch}
           />
 
-          <div>
-            <div className="mb-2 flex items-center justify-between">
-              <h2 className="text-[13px] font-semibold uppercase tracking-[0.4px] text-muted-foreground">
-                Order lines
-              </h2>
-              <span className="font-mono text-[13px] tabular-nums text-muted-foreground" data-testid="po-total">
-                Total {moneyWithSymbol(totalAmount)}
-              </span>
-            </div>
-            <PoLineGrid
-              lines={form.lines}
-              items={items}
-              costCentres={costCentres}
-              purposes={purposes}
-              godowns={godowns}
-              purposesLoading={purposesQuery.isLoading}
-              budgetByLine={budgetByLine}
-              errors={lineErrors}
-              disabled={readOnly}
-              projectSelected={projectSelected}
-              onLineChange={changeLine}
-              onAddLine={addLine}
-              onRemoveLine={removeLine}
-              onAddPurpose={(name) =>
-                createPurpose.mutate(
-                  { projectId: form.projectId, name },
-                  {
-                    onSuccess: () => {
-                      // Refresh happens via query invalidation; user re-picks the new option.
-                    },
+          <PoLineGrid
+            lines={form.lines}
+            items={items}
+            costCentres={costCentres}
+            purposes={purposes}
+            godowns={godowns}
+            purposesLoading={purposesQuery.isLoading}
+            budgetByLine={budgetByLine}
+            errors={lineErrors}
+            disabled={readOnly}
+            projectSelected={projectSelected}
+            projectLabel={projectLabel}
+            orderTotal={totalAmount}
+            onLineChange={changeLine}
+            onAddLine={addLine}
+            onRemoveLine={removeLine}
+            onAddPurpose={(name) =>
+              createPurpose.mutate(
+                { projectId: form.projectId, name },
+                {
+                  onSuccess: () => {
+                    // Refresh happens via query invalidation; user re-picks the new option.
                   },
-                )
-              }
-            />
-          </div>
-        </Card>
+                },
+              )
+            }
+          />
+        </div>
       )}
 
       {/* Sticky action bar — "N lines" + Back · Cancel PO · Save draft · Approve
-          (Purchase Orders.dc.html editor). Viewport-pinned; content centered to the page width. */}
+          (Purchase Orders.dc.html editor). A sticky-bottom rounded card in the flow, inset to
+          the content column and matching the cards above — NOT a viewport-wide pinned bar. */}
       {editable && (
-        <div className="fixed inset-x-0 bottom-0 z-40 border-t border-border bg-surface px-4 py-3 shadow-lg">
-          <div className="mx-auto flex max-w-6xl items-center justify-between gap-3">
-            <span className="hidden text-[12.5px] text-muted-foreground sm:block" data-testid="po-lines-caption">
+        <div className="sticky bottom-0 z-40 mt-3 flex items-center gap-3 rounded-card border border-border bg-surface px-4 py-3 shadow-[0_-2px_10px_rgba(16,24,40,0.05)]">
+            <span className="text-[12px] text-faint" data-testid="po-lines-caption">
               {form.lines.length} line{form.lines.length === 1 ? "" : "s"}
             </span>
             <div className="ml-auto flex items-center gap-2">
@@ -498,14 +491,13 @@ export function PoEditor({ poId }: { poId: string | null }) {
                 </Button>
               )}
             </div>
-          </div>
         </div>
       )}
 
       {/* Read-only action bar — "N lines" + Back · Cancel PO only (Purchase Orders.dc.html approved
           read-only artboard). A sticky-bottom card in the flow (not viewport-pinned). */}
       {readOnly && saved && (
-        <div className="sticky bottom-0 z-30 mt-3 flex items-center gap-3 rounded-token border border-border bg-surface px-4 py-3 shadow-lg">
+        <div className="sticky bottom-0 z-30 mt-3 flex items-center gap-3 rounded-card border border-border bg-surface px-4 py-3 shadow-[0_-2px_10px_rgba(16,24,40,0.05)]">
           <span className="text-[12px] text-faint" data-testid="po-lines-caption">
             {saved.lines.length} line{saved.lines.length === 1 ? "" : "s"}
           </span>

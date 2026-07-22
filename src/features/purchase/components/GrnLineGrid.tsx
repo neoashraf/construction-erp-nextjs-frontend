@@ -104,35 +104,31 @@ export function GrnLineGrid({
 
   return (
     <div className="flex flex-col" data-testid="grn-line-grid">
-      <div className="mb-2 flex items-end justify-between gap-3">
-        <div className="min-w-0">
-          <h2 className="text-[13px] font-semibold uppercase tracking-[0.4px] text-muted-foreground">
-            Received lines
-          </h2>
-          <p className="mt-0.5 text-[11.5px] text-faint">
-            pre-filled from the PO&apos;s open / unreceived quantities
-          </p>
-        </div>
-        <span className="inline-flex items-center gap-1.5 text-[11.5px] text-muted-foreground">
-          <span className="h-1.5 w-1.5 rounded-full bg-info" aria-hidden />
-          On-hand = live stock read · context only
-        </span>
-      </div>
-
       {/* ≥lg data grid — one row per line, expandable dimension footer */}
-      <div className="hidden overflow-hidden rounded-card border border-border lg:block">
+      <div className="hidden overflow-hidden rounded-card border border-border bg-surface shadow-sm lg:block">
+        <div className="flex flex-wrap items-center gap-x-2.5 gap-y-1 border-b border-border bg-surface px-4 py-3">
+          <span className="text-[13px] font-semibold text-foreground">Received lines</span>
+          <span className="text-[12px] text-faint">
+            pre-filled from the PO&apos;s open / unreceived quantities
+          </span>
+          <span className="ml-auto inline-flex items-center gap-1.5 text-[11.5px] text-muted-foreground">
+            <span className="h-1.5 w-1.5 rounded-full bg-info" aria-hidden />
+            On-hand = live stock read · context only
+          </span>
+        </div>
         <div
           role="row"
-          className="grid gap-2 border-b border-border-strong bg-surface-2 px-4 text-[11px] font-semibold uppercase tracking-[0.4px] text-muted-foreground"
+          className="grid gap-2 border-b border-border-strong bg-surface-2 px-4 text-[10.5px] font-semibold uppercase tracking-[0.4px] text-muted-foreground"
           style={{
-            gridTemplateColumns: "minmax(200px,1.6fr) 130px 160px 110px 130px",
+            gridTemplateColumns: "30px minmax(200px,1.7fr) 118px 172px 104px 138px",
           }}
         >
+          <div className="py-3" aria-hidden />
           <div className="py-3">Item</div>
           <div className="py-3 text-right">Ordered / Billed</div>
-          <div className="py-3 text-right text-success-ink">Received qty</div>
-          <div className="py-3 text-right">Rate</div>
-          <div className="py-3 text-right">Received value</div>
+          <div className="py-3 text-success-ink">Received qty</div>
+          <div className="py-3 text-right">Rate ৳</div>
+          <div className="py-3 text-right">Received value ৳</div>
         </div>
         {lines.map((line, i) => (
           <GrnLineRowDesktop
@@ -155,21 +151,28 @@ export function GrnLineGrid({
           />
         ))}
         <div
-          className="flex items-center justify-between border-t border-border bg-surface-2 px-4 py-3 text-[12.5px]"
+          className="flex items-center justify-between bg-surface-2 px-4 py-3 text-[12px]"
           data-testid="grn-line-total"
         >
-          <span className="text-muted-foreground">
+          <span className="text-faint">
             {lines.length} line{lines.length === 1 ? "" : "s"} · received quantity may be less than,
             equal to, or greater than the reference — never blocked.
           </span>
-          <span className="font-mono font-semibold tabular-nums text-foreground">
-            Total received value {moneyWithSymbol(totals.total)}
+          <span className="text-muted-foreground">
+            Total received value{" "}
+            <span className="font-mono font-bold tabular-nums text-foreground">
+              {moneyWithSymbol(totals.total)}
+            </span>
           </span>
         </div>
       </div>
 
       {/* <lg stacked per-line cards — warehouse-floor / mobile use */}
-      <div className="flex flex-col gap-3 lg:hidden">
+      <div className="lg:hidden">
+        <div className="mb-2 mt-0.5 px-0.5 text-[11px] font-semibold uppercase tracking-[0.4px] text-muted-foreground">
+          Received lines · {lines.length}
+        </div>
+        <div className="flex flex-col gap-3">
         {lines.map((line, i) => (
           <GrnLineCardMobile
             key={i}
@@ -190,6 +193,7 @@ export function GrnLineGrid({
             onAddPurpose={onAddPurpose}
           />
         ))}
+        </div>
       </div>
     </div>
   );
@@ -218,40 +222,46 @@ function GrnLineRowDesktop(props: LineRowProps) {
   const preview = previewMatch(reference, line.receivedQty);
   const costCentreName = costCentres.find((c) => c.id === line.costCentreId)?.name ?? "—";
   const purposeName = purposes.find((p) => p.id === line.purposeId)?.name ?? "—";
+  const poLineNote = item?.uom
+    ? `Unit: ${item.uom} · from PO line ${index + 1}`
+    : `from PO line ${index + 1}`;
 
   return (
-    <div className="border-b border-muted last:border-b-0">
+    <div className="border-b border-muted bg-surface last:border-b-0">
       <div
-        className="grid items-start gap-2 px-4 py-3"
-        style={{ gridTemplateColumns: "minmax(200px,1.6fr) 130px 160px 110px 130px" }}
+        className="grid items-start gap-2 px-4 pb-1 pt-3.5"
+        style={{ gridTemplateColumns: "30px minmax(200px,1.7fr) 118px 172px 104px 138px" }}
       >
-        <div className="min-w-0">
-          <div className="text-[13px] font-semibold text-foreground [overflow-wrap:anywhere]">
+        {/* leading row index */}
+        <div className="pt-2.5 text-[12px] font-semibold text-faint tabular-nums">{index + 1}</div>
+
+        <div className="min-w-0 px-2 py-1">
+          <div className="text-[13.5px] font-semibold leading-[1.35] text-foreground [overflow-wrap:anywhere]">
             {item ? `${item.name}` : line.itemId || "(item unavailable)"}
           </div>
-          <div className="mt-0.5 text-[12px] text-muted-foreground [overflow-wrap:anywhere]">
-            {godown ? godown.name : "Godown pending"}
-            {item?.uom ? ` · Unit: ${item.uom}` : ""}
+          <div className="mt-0.5 text-[11.5px] text-faint [overflow-wrap:anywhere]">
+            {poLineNote}
           </div>
         </div>
 
-        <div className="py-1 text-right">
-          <div className="font-mono text-[13px] font-semibold tabular-nums text-foreground">
+        {/* ordered / billed reference (boxed) */}
+        <div className="px-2 py-1 text-right">
+          <div className="flex h-[38px] items-center justify-end rounded-token border border-dashed border-border-strong bg-surface-2 px-2.5 font-mono text-[13px] tabular-nums text-muted-foreground">
             {reference}
           </div>
-          <div className="text-[10.5px] uppercase tracking-[0.4px] text-faint">reference</div>
+          <div className="mt-[3px] text-[10px] text-faint">reference</div>
         </div>
 
-        <div>
+        <div className="px-2 py-1">
           {readOnly ? (
             <div
               className={cn(
-                "flex h-10 items-center justify-between rounded-token border-[1.5px] px-3",
+                "flex h-[46px] items-center justify-between rounded-[9px] border-[1.5px] px-3",
                 RECV_TONE[line.matchStatus ?? preview.status ?? "MATCHED"],
               )}
               data-testid={`grn-line-received-${index}`}
             >
-              <span className="font-mono text-[15px] font-bold tabular-nums text-foreground">
+              <span className="font-mono text-[16px] font-bold tabular-nums text-foreground">
                 {line.receivedQty || "0"}
               </span>
               {item?.uom && <span className="text-[11px] text-faint">{item.uom}</span>}
@@ -265,11 +275,15 @@ function GrnLineRowDesktop(props: LineRowProps) {
               disabled={disabled}
               invalid={!!error.receivedQty}
               onChange={(e) => onChange({ receivedQty: e.target.value })}
-              className="h-10 text-right font-mono text-[15px] font-bold tabular-nums"
+              className="h-[46px] text-right font-mono text-[16px] font-bold tabular-nums"
               data-testid={`grn-line-received-${index}`}
               aria-label={`Received quantity, line ${index + 1}`}
             />
           )}
+          {/* variance delta pill under the received box (design posted + draft) */}
+          <div className="mt-[5px]">
+            <DeltaPill preview={preview} status={line.matchStatus} />
+          </div>
           {!readOnly && error.receivedQty && (
             <p className="mt-1 text-[11.5px] text-destructive-ink" data-testid={`grn-line-received-error-${index}`}>
               {error.receivedQty}
@@ -277,28 +291,33 @@ function GrnLineRowDesktop(props: LineRowProps) {
           )}
         </div>
 
-        <div className="py-1 text-right font-mono text-[13px] tabular-nums text-muted-foreground">
-          {line.rate ? money(line.rate) : "—"}
+        {/* rate (boxed) */}
+        <div className="px-2 py-1 text-right">
+          <div className="flex h-[38px] items-center justify-end rounded-token border border-dashed border-border-strong bg-surface-2 px-2.5 font-mono text-[13px] tabular-nums text-muted-foreground">
+            {line.rate ? money(line.rate) : "—"}
+          </div>
         </div>
 
-        <div className="py-1 text-right">
+        <div className="px-2 py-1 text-right">
           <div
-            className="font-mono text-[14px] font-semibold tabular-nums text-foreground"
+            className="flex h-[38px] items-center justify-end whitespace-nowrap font-mono text-[14px] font-semibold tabular-nums text-foreground"
             data-testid={`grn-line-value-${index}`}
           >
             {moneyWithSymbol(receivedValue)}
           </div>
-          <div className="text-[10px] text-faint">&rarr; receiveIn</div>
+          <div className="mt-px text-[10px] text-faint">&rarr; receiveIn</div>
         </div>
       </div>
 
-      {/* Dimension footer — godown / cost centre / purpose + on-hand + match preview */}
-      <div className="flex flex-wrap items-center gap-2 border-t border-muted/60 bg-surface-2/50 px-4 py-2">
+      {/* Dimension strip — godown / cost centre / purpose + on-hand + match badge.
+          Left-indented to clear the 30px index column (design posted-GRN artboard). */}
+      <div className="flex flex-wrap items-center gap-2 pb-3.5 pl-[38px] pr-4 pt-0.5">
         {readOnly ? (
           <>
             <DimensionChip label="Godown" value={godown?.name ?? "—"} testid={`grn-line-godown-${index}`} />
             <DimensionChip label="Cost centre" value={costCentreName} testid={`grn-line-cc-${index}`} />
             <DimensionChip label="Purpose" value={purposeName} testid={`grn-line-purpose-${index}`} />
+            <span className="mx-0.5 h-5 w-px bg-border" aria-hidden />
           </>
         ) : (
           <>
@@ -339,14 +358,20 @@ function GrnLineRowDesktop(props: LineRowProps) {
           </>
         )}
         <OnHandBadge godownId={line.godownId} itemId={line.itemId} uom={item?.uom} />
-        <div className="ml-auto flex items-center justify-end gap-2">
-          {!readOnly && !line.matchStatus && (
-            <Badge tone="neutral" className="text-[11px]" data-testid={`grn-match-resolves-${index}`}>
-              Match resolves on post
-            </Badge>
-          )}
-          <MatchPreview preview={preview} status={line.matchStatus} reference={reference} />
-        </div>
+        {readOnly ? (
+          // Posted line: the definitive match badge flows inline after on-hand
+          // (design posted-GRN artboard), wrapping below when the row is tight.
+          line.matchStatus && <MatchStatusBadge status={line.matchStatus} />
+        ) : (
+          <div className="ml-auto flex items-center justify-end gap-2">
+            {!line.matchStatus && (
+              <Badge tone="neutral" className="text-[11px]" data-testid={`grn-match-resolves-${index}`}>
+                Match resolves on post
+              </Badge>
+            )}
+            <MatchPreview preview={preview} status={line.matchStatus} reference={reference} />
+          </div>
+        )}
       </div>
     </div>
   );
@@ -425,6 +450,9 @@ function GrnLineCardMobile(props: LineRowProps) {
               aria-label={`Received quantity, line ${index + 1}`}
             />
           )}
+          <div className="mt-1.5 flex justify-end">
+            <DeltaPill preview={preview} status={line.matchStatus} />
+          </div>
           {!readOnly && error.receivedQty && (
             <p className="mt-1 text-right text-[11.5px] text-destructive-ink">{error.receivedQty}</p>
           )}
@@ -526,11 +554,15 @@ interface LineRowProps {
   onAddPurpose: (name: string) => void;
 }
 
-/** Variance-toned border for the read-only received-qty box (design posted artboard). */
+/**
+ * Variance-toned border for the read-only received-qty box (design posted artboard):
+ * a white box with a solid colour-toned 1.5px border — under=warning, exact=success,
+ * over=info — never a tinted fill.
+ */
 const RECV_TONE: Record<PurchaseMatchStatus, string> = {
-  MATCHED: "border-success/50 bg-success-soft/40",
-  OVER_RECEIVED: "border-info/50 bg-info-soft/40",
-  UNDER_RECEIVED: "border-warning/50 bg-warning-soft/40",
+  MATCHED: "border-success bg-surface",
+  OVER_RECEIVED: "border-info bg-surface",
+  UNDER_RECEIVED: "border-warning bg-surface",
   PENDING_RECEIPT: "border-border-strong bg-surface",
 };
 
@@ -549,14 +581,62 @@ function DimensionChip({
 }) {
   return (
     <span
-      className="inline-flex h-8 items-center gap-1.5 rounded-token border border-border-strong bg-surface px-2.5"
+      className="inline-flex h-8 items-center gap-[7px] rounded-[7px] border border-border-strong bg-surface px-[9px]"
       data-testid={testid}
     >
-      <span className="text-[9.5px] font-semibold uppercase tracking-[0.4px] text-faint">
+      <span className="shrink-0 text-[9.5px] font-bold uppercase tracking-[0.4px] text-faint">
         {label}
       </span>
       <span className="whitespace-nowrap text-[12.5px] text-foreground">{value}</span>
     </span>
+  );
+}
+
+/**
+ * Variance delta pill shown under the received-qty box (design posted + draft
+ * artboards): "−10 short" (warning), "Exact" (success), "+200 over" (info). Uses
+ * the committed match status on a posted line, else the live client preview. Renders
+ * nothing until there's a valid received qty to compare.
+ */
+function DeltaPill({
+  preview,
+  status,
+}: {
+  preview: ReturnType<typeof previewMatch>;
+  status: GrnFormValues["lines"][number]["matchStatus"];
+}) {
+  // Resolve the effective variance (posted status wins over the live preview).
+  const effective =
+    status === "MATCHED" || preview.status === "MATCHED"
+      ? "MATCHED"
+      : status === "OVER_RECEIVED" || preview.status === "OVER_RECEIVED"
+        ? "OVER_RECEIVED"
+        : status === "UNDER_RECEIVED" || preview.status === "UNDER_RECEIVED"
+          ? "UNDER_RECEIVED"
+          : null;
+  if (!effective) return null;
+  if (effective === "MATCHED") {
+    return (
+      <Badge tone="success" dot className="h-[19px] px-2 text-[10.5px]" data-testid="grn-delta-pill">
+        Exact
+      </Badge>
+    );
+  }
+  const sign = preview.delta > 0 ? "+" : "";
+  const magnitude = preview.delta ? Math.abs(preview.delta).toFixed(3).replace(/\.?0+$/, "") : "";
+  const label =
+    effective === "OVER_RECEIVED"
+      ? `${sign || "+"}${magnitude} over`
+      : `−${magnitude} short`;
+  return (
+    <Badge
+      tone={effective === "OVER_RECEIVED" ? "info" : "warning"}
+      dot
+      className="h-[19px] px-2 text-[10.5px]"
+      data-testid="grn-delta-pill"
+    >
+      {label}
+    </Badge>
   );
 }
 

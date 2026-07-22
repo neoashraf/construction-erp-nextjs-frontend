@@ -428,41 +428,34 @@ export function GrnEntry({ grnId, onSaved }: { grnId: string | null; onSaved?: (
           {title}
         </h1>
         {saved ? (
-          <GrnStatusBadge status={saved.status} />
+          <GrnStatusBadge status={saved.status} className="uppercase tracking-wide" />
         ) : (
-          <GrnStatusBadge status="DRAFT" />
+          <GrnStatusBadge status="DRAFT" className="uppercase tracking-wide" />
         )}
+        {/* Posted "Received by … · date · time" note — right-aligned in the title row
+            (design posted-GRN artboard). Only shown once the GRN is posted. */}
+        {readOnly && saved?.postedAt && (
+          <span
+            className="ml-auto text-[12px] text-faint"
+            data-testid="grn-posted-meta"
+          >
+            Received by{" "}
+            <span className="text-muted-foreground">{saved.receivedBy ?? "—"}</span> ·{" "}
+            <span className="tabular-nums">{formatDate(saved.postedAt)}</span> ·{" "}
+            <span className="tabular-nums">{formatDateTime(saved.postedAt).slice(-5)}</span>
+          </span>
+        )}
+        {/* Draft meta — right-aligned in the title row (design default artboard).
+            The GRN number is assigned on save, so a new/draft shows the placeholder;
+            a saved draft shows its assigned ref. Actions live in the bottom bar. */}
         {editable && (
-          <div className="ml-auto hidden items-center gap-3 lg:flex">
-            <span className="max-w-[300px] text-right text-[11.5px] leading-tight text-faint">
-              GRN Post drives inventory only — no ledger entry, no PURCHASE number.
-            </span>
-            <div className="flex gap-2">
-              <Button variant="ghost" size="md" asChild data-testid="grn-back">
-                <Link href="/purchase/grn">Back</Link>
-              </Button>
-              <Button
-                variant="outline"
-                size="md"
-                onClick={onSaveDraft}
-                disabled={busy || refBusy}
-                data-testid="grn-save"
-              >
-                Save draft
-              </Button>
-              {canPost && (
-                <Button
-                  size="md"
-                  onClick={onPostClick}
-                  disabled={busy || refBusy || !postable}
-                  aria-busy={busy || undefined}
-                  data-testid="grn-post"
-                >
-                  {busy ? "Posting…" : "Post"}
-                </Button>
-              )}
-            </div>
-          </div>
+          <span className="ml-auto text-[12px] text-faint" data-testid="grn-draft-meta">
+            Draft ·{" "}
+            <span className="font-mono tabular-nums text-muted-foreground">
+              {saved?.grnRefNo ?? "GRN-2026-…"}
+            </span>{" "}
+            {saved?.grnRefNo ? "" : "(assigned on save)"}
+          </span>
         )}
       </div>
 
@@ -499,6 +492,7 @@ export function GrnEntry({ grnId, onSaved }: { grnId: string | null; onSaved?: (
         </Alert>
       )}
 
+      {/* Section 1 — header fields (its own card, per the design). */}
       <Card className="flex flex-col gap-5 p-5">
         <GrnHeaderFields
           values={form}
@@ -510,14 +504,17 @@ export function GrnEntry({ grnId, onSaved }: { grnId: string | null; onSaved?: (
           bills={bills}
           onChange={patch}
         />
+      </Card>
 
+      {/* Section 2 — received lines (a separate card below the header). */}
+      <div className="mt-4">
         {refBusy ? (
-          <div className="flex flex-col gap-2" data-testid="grn-ref-loading">
+          <Card className="flex flex-col gap-2 p-5" data-testid="grn-ref-loading">
             <Skeleton className="h-6 w-40" />
             {Array.from({ length: 3 }).map((_, i) => (
               <Skeleton key={i} className="h-16 w-full" />
             ))}
-          </div>
+          </Card>
         ) : (
           <GrnLineGrid
             lines={form.lines}
@@ -544,61 +541,92 @@ export function GrnEntry({ grnId, onSaved }: { grnId: string | null; onSaved?: (
             }
           />
         )}
+      </div>
 
-        {readOnly && saved?.postedAt && (
-          <div
-            className="rounded-card border border-border bg-surface-2 px-4 py-3 text-[12.5px] text-muted-foreground"
-            data-testid="grn-posted-meta"
-          >
-            Received by{" "}
-            <span className="font-semibold text-foreground">{saved.receivedBy ?? "—"}</span> ·{" "}
-            <span className="font-semibold text-foreground">{formatDate(saved.postedAt)}</span> ·{" "}
-            <span className="font-semibold tabular-nums text-foreground">
-              {formatDateTime(saved.postedAt).slice(-5)}
-            </span>
-          </div>
-        )}
-      </Card>
-
-      {/* Mobile sticky bottom bar — the warehouse-floor Post action. */}
+      {/* Desktop bottom action bar (design default artboard): a full-width bar at
+          the foot of the page — helper note at the left, Back · Save draft · Post at
+          the right. On <lg it becomes the compact warehouse-floor Post bar. */}
       {editable && (
-        <div className="fixed inset-x-0 bottom-0 z-40 flex items-center justify-between gap-3 border-t border-border bg-surface px-4 py-3 shadow-lg lg:hidden">
-          <Button
-            variant="outline"
-            size="md"
-            onClick={onSaveDraft}
-            disabled={busy || refBusy}
-            data-testid="grn-save-mobile"
+        <>
+          <div
+            className="mt-4 hidden flex-wrap items-center gap-3 rounded-card border border-border bg-surface px-4 py-3 shadow-sm lg:flex"
+            data-testid="grn-action-bar"
           >
-            Draft
-          </Button>
-          {canPost && (
+            <span className="text-[12px] text-faint">
+              GRN Post drives inventory only — no ledger entry, no PURCHASE number.
+            </span>
+            <div className="ml-auto flex items-center gap-2">
+              <Button variant="ghost" size="md" asChild data-testid="grn-back">
+                <Link href="/purchase/grn">Back</Link>
+              </Button>
+              <Button
+                variant="outline"
+                size="md"
+                onClick={onSaveDraft}
+                disabled={busy || refBusy}
+                data-testid="grn-save"
+              >
+                Save draft
+              </Button>
+              {canPost && (
+                <Button
+                  size="md"
+                  onClick={onPostClick}
+                  disabled={busy || refBusy || !postable}
+                  aria-busy={busy || undefined}
+                  data-testid="grn-post"
+                >
+                  {busy ? "Posting…" : "Post"}
+                </Button>
+              )}
+            </div>
+          </div>
+
+          {/* <lg sticky bottom bar — the warehouse-floor Post action. */}
+          <div className="fixed inset-x-0 bottom-0 z-40 flex items-center justify-between gap-3 border-t border-border bg-surface px-4 py-3 shadow-lg lg:hidden">
             <Button
+              variant="outline"
               size="md"
-              className="flex-1"
-              onClick={onPostClick}
-              disabled={busy || refBusy || !postable}
-              aria-busy={busy || undefined}
-              data-testid="grn-post-mobile"
+              onClick={onSaveDraft}
+              disabled={busy || refBusy}
+              data-testid="grn-save-mobile"
             >
-              {busy ? "Posting…" : "Post goods receipt"}
+              Draft
             </Button>
-          )}
-        </div>
+            {canPost && (
+              <Button
+                size="md"
+                className="flex-1"
+                onClick={onPostClick}
+                disabled={busy || refBusy || !postable}
+                aria-busy={busy || undefined}
+                data-testid="grn-post-mobile"
+              >
+                {busy ? "Posting…" : "Post goods receipt"}
+              </Button>
+            )}
+          </div>
+        </>
       )}
 
-      {/* Read-only posted view — no cancel/repost; just a Back affordance. */}
+      {/* Read-only posted action bar (design posted-GRN artboard): a bordered card
+          with the foot note at the left, then Back + the no-cancel/repost note. */}
       {readOnly && (
         <div
-          className="mt-4 flex flex-wrap items-center justify-between gap-3"
+          className="mt-3 flex flex-wrap items-center gap-3 rounded-card border border-border bg-surface px-4 py-3 shadow-sm"
           data-testid="grn-readonly-bar"
         >
-          <span className="text-[11.5px] text-faint">
-            Posted GRN is read-only — no cancel or repost.
+          <span className="text-[12px] text-faint">
+            A posted GRN is read-only. Corrections are a new GRN or a reversal.
           </span>
-          <Button variant="ghost" size="md" asChild data-testid="grn-back">
-            <Link href="/purchase/grn">Back</Link>
-          </Button>
+          <div className="ml-auto flex items-center gap-3">
+            <Button variant="ghost" size="md" asChild data-testid="grn-back">
+              <Link href="/purchase/grn">Back</Link>
+            </Button>
+            <span className="text-[12px] text-muted-foreground">
+              Posted GRN is read-only — no cancel or repost.
+            </span>
+          </div>
         </div>
       )}
 
