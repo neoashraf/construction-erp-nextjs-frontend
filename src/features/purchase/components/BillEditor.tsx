@@ -434,7 +434,7 @@ export function BillEditor({ billId, onSaved }: { billId: string | null; onSaved
   const postable = editable && canPost && isPostable(form, totals);
 
   return (
-    <div className="mx-auto max-w-6xl pb-24 lg:pb-6">
+    <div className="mx-auto max-w-6xl pb-6">
       <Breadcrumb
         items={[
           { label: "Purchase" },
@@ -447,9 +447,9 @@ export function BillEditor({ billId, onSaved }: { billId: string | null; onSaved
           {title}
         </h1>
         {saved ? (
-          <BillStatusBadge status={saved.status} />
+          <BillStatusBadge status={saved.status} className="uppercase tracking-wide" />
         ) : (
-          <BillStatusBadge status="DRAFT" />
+          <BillStatusBadge status="DRAFT" className="uppercase tracking-wide" />
         )}
       </div>
 
@@ -466,104 +466,107 @@ export function BillEditor({ billId, onSaved }: { billId: string | null; onSaved
         />
       )}
 
-      <Card className="flex flex-col gap-5 p-5">
-        <div className="flex flex-wrap items-center justify-between gap-2 border-b border-border pb-4">
-          <div className="flex items-baseline gap-2">
+      <div className="flex flex-col gap-3">
+        {/* Header card — ENTRY NO + status chip + actor meta (Purchase Bill.dc.html header card). */}
+        <div className="rounded-card border border-border bg-surface p-4 shadow-sm">
+          <div className="mb-3.5 flex flex-wrap items-center gap-3 border-b border-border pb-3">
             <span className="text-[10.5px] font-semibold uppercase tracking-[0.4px] text-faint">
               Entry no
             </span>
             {saved?.entryNo ? (
-              <span className="font-mono text-[13px] font-semibold text-foreground">
+              <span className="font-mono text-[13px] font-semibold text-foreground" data-testid="bill-entry-no">
                 {saved.entryNo}
               </span>
             ) : (
-              <span className="text-[12.5px] text-muted-foreground">Draft — allocated at post</span>
+              <span
+                className="inline-flex h-[22px] items-center rounded-pill bg-muted px-2.5 text-[11.5px] font-semibold text-muted-foreground"
+                data-testid="bill-entry-no"
+              >
+                Draft — allocated at post
+              </span>
             )}
+            <span className="ml-auto text-[12px] text-muted-foreground" data-testid="bill-actor-meta">
+              {roleLabel(user.role)} · {user.name}
+            </span>
           </div>
-          <span className="text-[12.5px] text-muted-foreground">
-            {roleLabel(user.role)} · {user.name}
-          </span>
-        </div>
 
-        <BillHeaderFields
-          values={form}
-          errors={fieldErrors}
-          disabled={readOnly}
-          projects={projects}
-          suppliers={suppliers}
-          onChange={patch}
-        />
-
-        <div>
-          <BillLineGrid
-            lines={form.lines}
-            items={items}
-            expenseAccounts={expenseAccounts}
-            costCentres={costCentres}
-            purposes={purposes}
-            godowns={godowns}
-            purposesLoading={purposesQuery.isLoading}
-            budgetByLine={budgetByLine}
-            errors={lineErrors}
+          <BillHeaderFields
+            values={form}
+            errors={fieldErrors}
             disabled={readOnly}
-            projectSelected={projectSelected}
-            onLineChange={changeLine}
-            onAddLine={addLine}
-            onRemoveLine={removeLine}
-            onAddPurpose={(name) =>
-              createPurpose.mutate(
-                { projectId: form.projectId, name },
-                {
-                  onSuccess: () => {
-                    // Refresh happens via query invalidation; user re-picks the new option.
-                  },
-                },
-              )
-            }
+            projects={projects}
+            suppliers={suppliers}
+            onChange={patch}
           />
         </div>
 
+        <BillLineGrid
+          lines={form.lines}
+          items={items}
+          expenseAccounts={expenseAccounts}
+          costCentres={costCentres}
+          purposes={purposes}
+          godowns={godowns}
+          purposesLoading={purposesQuery.isLoading}
+          budgetByLine={budgetByLine}
+          errors={lineErrors}
+          disabled={readOnly}
+          projectSelected={projectSelected}
+          onLineChange={changeLine}
+          onAddLine={addLine}
+          onRemoveLine={removeLine}
+          onAddPurpose={(name) =>
+            createPurpose.mutate(
+              { projectId: form.projectId, name },
+              {
+                onSuccess: () => {
+                  // Refresh happens via query invalidation; user re-picks the new option.
+                },
+              },
+            )
+          }
+        />
+
         <BillTotalsStrip totals={totals} />
-      </Card>
+      </div>
 
       {/* Sticky action bar — "N lines · draft not yet numbered" + Back · Save draft · Post
-          (Purchase Bill.dc.html editor). Viewport-pinned; content centered to the page width. */}
+          (Purchase Bill.dc.html editor). A sticky-bottom rounded card in the flow, inset to the
+          content column and matching the cards above — NOT a viewport-wide pinned bar. */}
       {editable && (
-        <div className="fixed inset-x-0 bottom-0 z-40 border-t border-border bg-surface px-4 py-3 shadow-lg">
-          <div className="mx-auto flex max-w-6xl items-center justify-between gap-3">
-            <span className="hidden text-[12.5px] text-muted-foreground sm:block" data-testid="bill-lines-caption">
-              {form.lines.length} line{form.lines.length === 1 ? "" : "s"} · draft not yet numbered
-            </span>
-            <div className="ml-auto flex gap-2">
+        <div className="sticky bottom-0 z-40 mt-3 flex items-center gap-3 rounded-card border border-border bg-surface px-4 py-3 shadow-[0_-2px_10px_rgba(16,24,40,0.05)]">
+          <span className="text-[12px] text-faint" data-testid="bill-lines-caption">
+            {form.lines.length} line{form.lines.length === 1 ? "" : "s"} · draft not yet numbered
+          </span>
+          <div className="ml-auto flex items-center gap-2">
+            <Button
+              variant="ghost"
+              size="md"
+              onClick={() => setDiscardOpen(true)}
+              disabled={busy}
+              data-testid="bill-discard"
+            >
+              Back
+            </Button>
+            <Button
+              variant="outline"
+              size="md"
+              onClick={onSaveDraft}
+              disabled={busy}
+              data-testid="bill-save"
+            >
+              Save draft
+            </Button>
+            {canPost && (
               <Button
-                variant="ghost"
                 size="md"
-                onClick={() => setDiscardOpen(true)}
-                disabled={busy}
-                data-testid="bill-discard"
+                onClick={onPostClick}
+                disabled={busy || !postable}
+                data-testid="bill-post"
               >
-                Back
+                {busy ? "Posting…" : "Post"}
               </Button>
-              <Button
-                variant="outline"
-                size="md"
-                onClick={onSaveDraft}
-                disabled={busy}
-                data-testid="bill-save"
-              >
-                Save draft
-              </Button>
-              {canPost && (
-                <Button
-                  size="md"
-                  onClick={onPostClick}
-                  disabled={busy || !postable}
-                  data-testid="bill-post"
-                >
-                  {busy ? "Posting…" : "Post"}
-                </Button>
-              )}
-            </div>
+            )}
           </div>
         </div>
       )}

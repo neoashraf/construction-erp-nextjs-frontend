@@ -1,5 +1,6 @@
 "use client";
 
+import { ArrowRight } from "lucide-react";
 import { Button } from "@/components/ui/button";
 import { Dialog, DialogContent, DialogTitle, DialogDescription } from "@/components/ui/dialog";
 
@@ -23,6 +24,8 @@ export function PostDialog({
   return (
     <Dialog open={open} onOpenChange={onOpenChange}>
       <DialogContent
+        hideClose
+        className="max-w-[452px] p-[22px]"
         data-testid="bill-post-dialog"
         role="alertdialog"
         onOpenAutoFocus={(e) => {
@@ -31,15 +34,20 @@ export function PostDialog({
           btn?.focus();
         }}
       >
-        <DialogTitle>Post this bill?</DialogTitle>
-        <DialogDescription className="mt-2">
-          Posting allocates the official PUR/2526/… number, moves the supplier ledger, and
-          updates inventory. Posted bills can&apos;t be edited — corrections are a
-          reverse-and-repost.
+        <div className="flex items-center gap-3">
+          <div className="grid h-10 w-10 flex-none place-items-center rounded-full bg-info-soft text-info-ink">
+            <ArrowRight className="h-5 w-5" aria-hidden />
+          </div>
+          <DialogTitle className="text-[17px]">Post this bill?</DialogTitle>
+        </div>
+        <DialogDescription className="mt-3 text-[13px] leading-[1.55]">
+          Posting allocates the official <span className="font-semibold text-foreground">PUR/2526/…</span>{" "}
+          number, moves the supplier ledger, and updates inventory. Posted bills can&apos;t be
+          edited — corrections are a reverse-and-repost.
         </DialogDescription>
-        <div className="mt-5 flex justify-end gap-2.5">
+        <div className="mt-5 flex justify-end gap-2">
           <Button
-            variant="outline"
+            variant="ghost"
             size="md"
             onClick={() => onOpenChange(false)}
             disabled={busy}

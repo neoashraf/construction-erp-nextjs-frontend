@@ -49,6 +49,7 @@ export function PoLineRow({
   disabled,
   canRemove,
   projectSelected,
+  projectLabel,
   onChange,
   onRemove,
   onAddPurpose,
@@ -65,6 +66,7 @@ export function PoLineRow({
   disabled?: boolean;
   canRemove: boolean;
   projectSelected: boolean;
+  projectLabel?: string;
   onChange: (patch: Partial<LineDraft>) => void;
   onRemove: () => void;
   onAddPurpose?: (name: string) => void;
@@ -123,6 +125,12 @@ export function PoLineRow({
             onChange={(e) => onChange({ rate: e.target.value })}
           />
         </FieldBlock>
+      </div>
+
+      <div className="mt-3 flex items-center gap-1.5 px-0.5">
+        <span className="text-[9.5px] font-bold uppercase tracking-[0.4px] text-faint">Project</span>
+        <span className="min-w-0 truncate text-[11.5px] text-muted-foreground">{projectLabel || "—"}</span>
+        <span className="flex-none text-[9.5px] text-faint">· from header</span>
       </div>
 
       <div className="mt-2 grid grid-cols-2 gap-2">

@@ -5,10 +5,12 @@ import { moneyWithSymbol } from "../format";
 import { type BillTotals } from "../schemas/bill.schema";
 
 /**
- * Live totals strip (brief §Scope 6; spec §5). Gross · VAT input · TDS · AIT · Net
- * payable — client preview reconciled to the server figure on Save/Post. `aria-live`
- * polite so net-payable changes are announced as the user edits. `NET_PAYABLE_NEGATIVE`
- * (FR-PUR-007) is surfaced by the parent editor as an inline banner under this strip.
+ * Live totals strip (brief §Scope 6; spec §5; Purchase Bill.dc.html "LIVE TOTALS STRIP").
+ * A single bordered card split into five cells by vertical dividers: Gross · + VAT input ·
+ * − TDS · − AIT · Net payable — the last cell wider, emphasised, and tinted. Client preview
+ * reconciled to the server figure on Save/Post. `aria-live` polite so net-payable changes are
+ * announced. `NET_PAYABLE_NEGATIVE` (FR-PUR-007) is surfaced by the parent editor as an inline
+ * banner under this strip.
  */
 export function BillTotalsStrip({
   totals,
@@ -20,21 +22,20 @@ export function BillTotalsStrip({
   return (
     <div
       className={cn(
-        "grid grid-cols-2 gap-3 rounded-card border border-border bg-surface-2 px-4 py-3 md:grid-cols-5",
+        "flex flex-col overflow-hidden rounded-card border border-border bg-surface shadow-sm sm:flex-row sm:items-stretch",
         className,
       )}
       aria-live="polite"
       data-testid="bill-totals-strip"
     >
-      <Cell label="Gross" value={totals.gross} />
-      <Cell label="+ VAT input" value={totals.vatInput} tone="green" />
-      <Cell label="− TDS" value={totals.tds} tone="amber" />
-      <Cell label="− AIT" value={totals.ait} tone="amber" />
+      <Cell label="Gross ৳" value={totals.gross} />
+      <Cell label="＋ VAT input ৳" value={totals.vatInput} tone="green" />
+      <Cell label="− TDS ৳" value={totals.tds} tone="amber" />
+      <Cell label="− AIT ৳" value={totals.ait} tone="amber" />
       <Cell
-        label="Net payable"
+        label="Net payable ৳"
         value={totals.netPayable}
         emphasise
-        highlight={totals.netPayableNegative ? "error" : "net"}
         error={totals.netPayableNegative}
         testId="bill-net-payable"
       />
@@ -48,7 +49,6 @@ function Cell({
   emphasise,
   error,
   tone,
-  highlight,
   testId,
 }: {
   label: string;
@@ -56,32 +56,38 @@ function Cell({
   emphasise?: boolean;
   error?: boolean;
   tone?: "green" | "amber";
-  highlight?: "net" | "error";
   testId?: string;
 }) {
   return (
     <div
       className={cn(
-        "min-w-0 rounded-token px-2 py-1",
-        highlight === "net" && "bg-accent-soft",
-        highlight === "error" && "bg-destructive-soft",
+        "min-w-0 flex-1 border-b border-border px-4 py-3.5 last:border-b-0 sm:border-b-0 sm:border-r sm:last:border-r-0",
+        emphasise && !error && "bg-accent-soft sm:flex-[1.35]",
+        emphasise && error && "bg-destructive-soft sm:flex-[1.35]",
       )}
     >
-      <div className="text-[10.5px] font-semibold uppercase tracking-[0.4px] text-faint">
+      <div
+        className={cn(
+          "text-[10px] font-semibold uppercase tracking-[0.4px]",
+          emphasise ? (error ? "text-destructive-ink" : "text-success-ink") : "text-faint",
+        )}
+      >
         {label}
       </div>
       <div
         data-testid={testId}
         className={cn(
-          "mt-0.5 font-mono tabular-nums",
-          emphasise ? "text-[16px] font-bold" : "text-[13px] font-semibold",
+          "mt-1 font-mono tabular-nums",
+          emphasise ? "text-[22px] font-bold" : "text-[17px] font-semibold",
           error
             ? "text-destructive-ink"
-            : tone === "green"
+            : emphasise
               ? "text-success-ink"
-              : tone === "amber"
-                ? "text-warning-ink"
-                : "text-foreground",
+              : tone === "green"
+                ? "text-success-ink"
+                : tone === "amber"
+                  ? "text-warning-ink"
+                  : "text-foreground",
         )}
       >
         {moneyWithSymbol(value)}
