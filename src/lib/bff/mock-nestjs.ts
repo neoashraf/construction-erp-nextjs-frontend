@@ -157,6 +157,23 @@ const MOCK_PROJECTS: MockProject[] = [
 // Sequence for ids of projects created through the mock's POST handler.
 let mockProjectSeq = 900;
 
+// Per-cost-centre project budgets (FR-MAS-007/008). Mutated in place by the
+// budgets PUT/DELETE handlers so the Budgets tab behaves like the real backend
+// under USE_MOCK_NESTJS. `budgetedAmount` is a Decimal(18,4) string.
+interface MockProjectBudget {
+  id: string;
+  projectId: string;
+  costCentreId: string;
+  budgetedAmount: string;
+  version: number;
+}
+const MOCK_PROJECT_BUDGETS: MockProjectBudget[] = [
+  { id: "bud-a-mat", projectId: "proj-a", costCentreId: "cc-mat", budgetedAmount: "1200000000.0000", version: 1 },
+  { id: "bud-a-lab", projectId: "proj-a", costCentreId: "cc-lab", budgetedAmount: "450000000.0000", version: 1 },
+  { id: "bud-a-fuel", projectId: "proj-a", costCentreId: "cc-fuel", budgetedAmount: "120000000.0000", version: 1 },
+];
+let mockBudgetSeq = 500;
+
 // ── Cost-control sample data (dev/preview only) ──
 const MOCK_COST_CENTRES = [
   { id: "cc-mat", code: "CC-01", name: "Materials — Cement & Steel", isActive: true },
@@ -191,6 +208,9 @@ const MOCK_FINANCIAL_YEARS = [
     version: 1,
   },
 ];
+// Sequence for mock-created FY ids (create/edit/set-active mutate MOCK_FINANCIAL_YEARS
+// in place so the FY master screen behaves like the real backend under USE_MOCK_NESTJS).
+let mockFinancialYearSeq = 100;
 
 /** Budget-vs-actual rows for Bridge-04 (proj-a) — mirrors the design sample. */
 const MOCK_BVA_ROWS = [
@@ -345,19 +365,26 @@ const MOCK_PROFITABILITY_BY_PROJECT = [
 ];
 
 // ── Inventory sample (dev/preview only) ──
+// `location` + `version` mirror the frontend `Godown` type so the project Godowns
+// tab renders the address column and can deactivate/reactivate (which round-trips
+// `version` for optimistic concurrency). Mutated in place by the write handlers.
 interface MockGodown {
   id: string;
   code: string;
   name: string;
   projectId: string;
+  location: string | null;
   isActive: boolean;
+  version: number;
 }
 const MOCK_GODOWNS: MockGodown[] = [
-  { id: "gd-a", code: "G-Site-A", name: "Site A store", projectId: "proj-a", isActive: true },
-  { id: "gd-b", code: "G-Site-B", name: "Site B store", projectId: "proj-a", isActive: true },
-  { id: "gd-c", code: "G-Central", name: "Central warehouse", projectId: "proj-b", isActive: true },
-  { id: "gd-d", code: "G-Yard", name: "Yard — Savar", projectId: "proj-c", isActive: true },
+  { id: "gd-a", code: "G-Site-A", name: "Site A store", projectId: "proj-a", location: "Buriganga site, Dhaka", isActive: true, version: 1 },
+  { id: "gd-b", code: "G-Site-B", name: "Site B store", projectId: "proj-a", location: "Buriganga site (east), Dhaka", isActive: true, version: 1 },
+  { id: "gd-c", code: "G-Central", name: "Central warehouse", projectId: "proj-b", location: "Gulshan, Dhaka", isActive: true, version: 1 },
+  { id: "gd-d", code: "G-Yard", name: "Yard — Savar", projectId: "proj-c", location: "Savar, Dhaka", isActive: true, version: 1 },
 ];
+// Sequence for ids/codes of godowns created through the mock's POST handler.
+let mockGodownSeq = 700;
 interface MockItem {
   id: string;
   code: string;
@@ -3999,6 +4026,53 @@ export async function mockNestjsFetch(req: MockReq): Promise<MockResult> {
     target.version += 1;
     return { status: 200, body: success(target) };
   }
+  // ── Project budgets (FR-MAS-007/008) — list / upsert / delete. Matched BEFORE the
+  // single-segment project matcher below (deeper path wins). ──
+  const budgetItemMatch = /^\/masters\/projects\/([^/]+)\/budgets\/([^/]+)$/.exec(pathname ?? "");
+  if (budgetItemMatch && req.method === "DELETE") {
+    const [, , budgetId] = budgetItemMatch;
+    const idx = MOCK_PROJECT_BUDGETS.findIndex((x) => x.id === budgetId);
+    if (idx === -1) return { status: 404, body: envelope("NOT_FOUND", "Budget not found.") };
+    MOCK_PROJECT_BUDGETS.splice(idx, 1);
+    return { status: 204, body: null };
+  }
+  const budgetsMatch = /^\/masters\/projects\/([^/]+)\/budgets$/.exec(pathname ?? "");
+  if (budgetsMatch) {
+    const projectId = budgetsMatch[1]!;
+    if (req.method === "GET") {
+      const rows = MOCK_PROJECT_BUDGETS.filter((x) => x.projectId === projectId);
+      return { status: 200, body: pageEnvelope(rows) };
+    }
+    // PUT — upsert on (project, cost centre). Existing row → update (+bump version);
+    // new pair → insert. Optimistic-locked on `version` when the client sends it.
+    if (req.method === "PUT") {
+      const b = body as Partial<{ costCentreId: string; budgetedAmount: string; version: number }>;
+      const costCentreId = String(b.costCentreId ?? "").trim();
+      const amount = String(b.budgetedAmount ?? "").trim();
+      if (!costCentreId) return { status: 400, body: envelope("VALIDATION_ERROR", "Cost centre is required.") };
+      if (!amount) return { status: 400, body: envelope("VALIDATION_ERROR", "Budget amount is required.") };
+      const existing = MOCK_PROJECT_BUDGETS.find(
+        (x) => x.projectId === projectId && x.costCentreId === costCentreId,
+      );
+      if (existing) {
+        if (b.version !== undefined && b.version !== existing.version)
+          return { status: 409, body: envelope("OPTIMISTIC_LOCK_CONFLICT", "This budget was changed by someone else.") };
+        existing.budgetedAmount = amount;
+        existing.version += 1;
+        return { status: 200, body: success(existing) };
+      }
+      const created: MockProjectBudget = {
+        id: `bud-${(mockBudgetSeq += 1)}`,
+        projectId,
+        costCentreId,
+        budgetedAmount: amount,
+        version: 1,
+      };
+      MOCK_PROJECT_BUDGETS.push(created);
+      return { status: 200, body: success(created) };
+    }
+  }
+
   const projectIdMatch = /^\/masters\/projects\/([^/]+)$/.exec(pathname ?? "");
   if (projectIdMatch) {
     const target = MOCK_PROJECTS.find((p) => p.id === projectIdMatch[1]);
@@ -4030,9 +4104,74 @@ export async function mockNestjsFetch(req: MockReq): Promise<MockResult> {
     return { status: 200, body: pageEnvelope(MOCK_COST_CENTRES) };
   }
 
-  // GET /masters/financial-years — the company's financial years.
+  // GET /masters/financial-years — the company's financial years (optional ?isActive=true).
   if (pathname === "/masters/financial-years" && req.method === "GET") {
-    return { status: 200, body: pageEnvelope(MOCK_FINANCIAL_YEARS) };
+    const rows = params.get("isActive") === "true"
+      ? MOCK_FINANCIAL_YEARS.filter((fy) => fy.isActive)
+      : MOCK_FINANCIAL_YEARS;
+    return { status: 200, body: pageEnvelope(rows) };
+  }
+
+  // POST /masters/financial-years — create (FR-MAS-002). New years aren't active until
+  // set active; overlap is allowed. Returns the new id so the screen can refresh.
+  if (pathname === "/masters/financial-years" && req.method === "POST") {
+    const b = body as Partial<{ label: string; startDate: string; endDate: string }>;
+    const label = String(b.label ?? "").trim();
+    const startDate = String(b.startDate ?? "");
+    const endDate = String(b.endDate ?? "");
+    if (!label) return { status: 400, body: envelope("VALIDATION_ERROR", "Label is required.") };
+    if (!startDate || !endDate)
+      return { status: 400, body: envelope("VALIDATION_ERROR", "Start and end dates are required.") };
+    if (endDate <= startDate)
+      return { status: 400, body: envelope("VALIDATION_ERROR", "End date must be after the start date.") };
+    if (MOCK_FINANCIAL_YEARS.some((fy) => fy.label.toLowerCase() === label.toLowerCase()))
+      return { status: 409, body: envelope("DUPLICATE_LABEL", "A financial year with this label already exists.") };
+    const created = {
+      id: `fy-${(mockFinancialYearSeq += 1)}`,
+      label,
+      startDate,
+      endDate,
+      isActive: false,
+      version: 1,
+    };
+    MOCK_FINANCIAL_YEARS.push(created);
+    return { status: 201, body: success(created) };
+  }
+
+  // POST /masters/financial-years/:id/set-active — flip the active year (FR-MAS-003).
+  // Exactly one year is active: clear the rest, activate the target.
+  const fySetActiveMatch = /^\/masters\/financial-years\/([^/]+)\/set-active$/.exec(pathname ?? "");
+  if (fySetActiveMatch && req.method === "POST") {
+    const target = MOCK_FINANCIAL_YEARS.find((fy) => fy.id === fySetActiveMatch[1]);
+    if (!target) return { status: 404, body: envelope("NOT_FOUND", "Financial year not found.") };
+    for (const fy of MOCK_FINANCIAL_YEARS) fy.isActive = fy.id === target.id;
+    target.version += 1;
+    return { status: 200, body: success(target) };
+  }
+
+  // PATCH /masters/financial-years/:id — edit (FR-MAS-002), optimistic-locked on version.
+  const fyIdMatch = /^\/masters\/financial-years\/([^/]+)$/.exec(pathname ?? "");
+  if (fyIdMatch && req.method === "PATCH") {
+    const target = MOCK_FINANCIAL_YEARS.find((fy) => fy.id === fyIdMatch[1]);
+    if (!target) return { status: 404, body: envelope("NOT_FOUND", "Financial year not found.") };
+    const b = body as Partial<{ label: string; startDate: string; endDate: string; version: number }>;
+    if (b.version !== undefined && b.version !== target.version)
+      return { status: 409, body: envelope("OPTIMISTIC_LOCK_CONFLICT", "This financial year was changed by someone else.") };
+    const nextStart = b.startDate !== undefined ? String(b.startDate) : target.startDate;
+    const nextEnd = b.endDate !== undefined ? String(b.endDate) : target.endDate;
+    if (nextEnd <= nextStart)
+      return { status: 400, body: envelope("VALIDATION_ERROR", "End date must be after the start date.") };
+    if (b.label !== undefined) {
+      const label = String(b.label).trim();
+      if (!label) return { status: 400, body: envelope("VALIDATION_ERROR", "Label is required.") };
+      if (MOCK_FINANCIAL_YEARS.some((fy) => fy.id !== target.id && fy.label.toLowerCase() === label.toLowerCase()))
+        return { status: 409, body: envelope("DUPLICATE_LABEL", "A financial year with this label already exists.") };
+      target.label = label;
+    }
+    target.startDate = nextStart;
+    target.endDate = nextEnd;
+    target.version += 1;
+    return { status: 200, body: success(target) };
   }
 
   // GET /masters/companies/:id — the single company profile (Mushak print BIN/TIN source).
@@ -4553,6 +4692,79 @@ export async function mockNestjsFetch(req: MockReq): Promise<MockResult> {
     const rows = projectId ? MOCK_GODOWNS.filter((g) => g.projectId === projectId) : MOCK_GODOWNS;
     return { status: 200, body: pageEnvelope(rows) };
   }
+
+  // POST /masters/godowns — create a project-scoped godown (FR-MAS-014). Name is unique
+  // per project (case-insensitive). Returns the new id so the tab can refresh.
+  if (pathname === "/masters/godowns" && req.method === "POST") {
+    const b = body as Partial<{ projectId: string; name: string; location: string | null }>;
+    const projectId = String(b.projectId ?? "").trim();
+    const name = String(b.name ?? "").trim();
+    if (!projectId) return { status: 400, body: envelope("VALIDATION_ERROR", "projectId is required.") };
+    if (!name) return { status: 400, body: envelope("VALIDATION_ERROR", "name is required.") };
+    if (
+      MOCK_GODOWNS.some(
+        (g) => g.projectId === projectId && g.name.toLowerCase() === name.toLowerCase(),
+      )
+    ) {
+      return { status: 409, body: envelope("DUPLICATE_NAME", "A godown with this name already exists for this project.") };
+    }
+    const seq = (mockGodownSeq += 1);
+    const created: MockGodown = {
+      id: `gd-${seq}`,
+      code: `G-${seq}`,
+      name,
+      projectId,
+      location: b.location ? String(b.location) : null,
+      isActive: true,
+      version: 1,
+    };
+    MOCK_GODOWNS.push(created);
+    return { status: 201, body: success(created) };
+  }
+
+  // POST /masters/godowns/:id/deactivate | /reactivate — soft delete / restore
+  // (FR-MAS-015/016). Optimistic-locked on `version`. Matched BEFORE the bare :id PATCH.
+  const godownActionMatch = /^\/masters\/godowns\/([^/]+)\/(deactivate|reactivate)$/.exec(pathname ?? "");
+  if (godownActionMatch && req.method === "POST") {
+    const [, godownId, action] = godownActionMatch;
+    const target = MOCK_GODOWNS.find((g) => g.id === godownId);
+    if (!target) return { status: 404, body: envelope("NOT_FOUND", "Godown not found.") };
+    const ver = (body as { version?: number }).version;
+    if (ver !== undefined && ver !== target.version)
+      return { status: 409, body: envelope("OPTIMISTIC_LOCK_CONFLICT", "This godown was changed by someone else.") };
+    target.isActive = action === "reactivate";
+    target.version += 1;
+    return { status: 200, body: success(target) };
+  }
+
+  // PATCH /masters/godowns/:id — edit name/location (FR-MAS-014), optimistic-locked.
+  const godownIdMatch = /^\/masters\/godowns\/([^/]+)$/.exec(pathname ?? "");
+  if (godownIdMatch && req.method === "PATCH") {
+    const target = MOCK_GODOWNS.find((g) => g.id === godownIdMatch[1]);
+    if (!target) return { status: 404, body: envelope("NOT_FOUND", "Godown not found.") };
+    const b = body as Partial<{ name: string; location: string | null; version: number }>;
+    if (b.version !== undefined && b.version !== target.version)
+      return { status: 409, body: envelope("OPTIMISTIC_LOCK_CONFLICT", "This godown was changed by someone else.") };
+    if (b.name !== undefined) {
+      const name = String(b.name).trim();
+      if (!name) return { status: 400, body: envelope("VALIDATION_ERROR", "name is required.") };
+      if (
+        MOCK_GODOWNS.some(
+          (g) =>
+            g.id !== target.id &&
+            g.projectId === target.projectId &&
+            g.name.toLowerCase() === name.toLowerCase(),
+        )
+      ) {
+        return { status: 409, body: envelope("DUPLICATE_NAME", "A godown with this name already exists for this project.") };
+      }
+      target.name = name;
+    }
+    if (b.location !== undefined) target.location = b.location ? String(b.location) : null;
+    target.version += 1;
+    return { status: 200, body: success(target) };
+  }
+
   if (pathname === "/masters/items" && req.method === "GET") {
     return { status: 200, body: pageEnvelope(MOCK_ITEMS) };
   }

@@ -1,5 +1,6 @@
 "use client";
 
+import { useMemo, useState } from "react";
 import { useRouter } from "next/navigation";
 import Link from "next/link";
 import { MoreHorizontal } from "lucide-react";
@@ -19,10 +20,18 @@ import { ProjectStatusBadge } from "./ProjectStatusBadge";
  * cards below. Columns mirror the design: Code (mono lime link) · Name (+ location
  * sub-line) · Customer (lime link) · PM · Status badge · Start · Expected end · kebab
  * (Open / Edit). Rows open the detail; the kebab's Edit is gated by `canManage`.
+ *
+ * Sorting: Code · Name · Start · Expected end are column-sortable (design headers carry
+ * the ▲▼ affordance + cursor:pointer; Customer/PM/Status are not). Sort is client-side
+ * over the current page and defaults to Code ascending.
  */
 
 // Matches the design's grid: Code · Name · Customer · PM · Status · Start · End · kebab.
 const GRID = "grid-cols-[0.78fr_1.7fr_1.35fr_1.05fr_0.92fr_0.85fr_0.95fr_50px]";
+
+// Columns the design marks sortable (the others render as plain headers).
+type SortKey = "projectCode" | "name" | "startDate" | "expectedEndDate";
+type SortDir = "asc" | "desc";
 
 const dash = (v: string | null | undefined) => (v && String(v).trim() ? v : "—");
 
@@ -44,6 +53,32 @@ export function ProjectsTable({
 }) {
   const router = useRouter();
 
+  // Client-side sort over the current page. Defaults to Code ascending; clicking a
+  // sortable header toggles asc↔desc (or switches column, resetting to asc).
+  const [sort, setSort] = useState<{ key: SortKey; dir: SortDir }>({
+    key: "projectCode",
+    dir: "asc",
+  });
+
+  function toggleSort(key: SortKey) {
+    setSort((prev) =>
+      prev.key === key
+        ? { key, dir: prev.dir === "asc" ? "desc" : "asc" }
+        : { key, dir: "asc" },
+    );
+  }
+
+  const sortedProjects = useMemo(() => {
+    const dir = sort.dir === "asc" ? 1 : -1;
+    // Copy before sort — never mutate the prop array in place.
+    return [...projects].sort((a, b) => {
+      const av = a[sort.key] ?? "";
+      const bv = b[sort.key] ?? "";
+      // Code/Name are text; Start/Expected end are YYYY-MM-DD (lexical = chronological).
+      return av.localeCompare(bv, undefined, { numeric: true }) * dir;
+    });
+  }, [projects, sort]);
+
   return (
     <div>
       {/* Desktop / tablet grid (≥768) */}
@@ -53,17 +88,25 @@ export function ProjectsTable({
           role="row"
           className={cn("grid rounded-t-card border-b border-border-strong bg-surface-2", GRID)}
         >
-          <HeaderCell>Code</HeaderCell>
-          <HeaderCell>Name</HeaderCell>
+          <SortHeaderCell sortKey="projectCode" sort={sort} onSort={toggleSort}>
+            Code
+          </SortHeaderCell>
+          <SortHeaderCell sortKey="name" sort={sort} onSort={toggleSort}>
+            Name
+          </SortHeaderCell>
           <HeaderCell>Customer</HeaderCell>
           <HeaderCell>PM</HeaderCell>
           <HeaderCell>Status</HeaderCell>
-          <HeaderCell>Start</HeaderCell>
-          <HeaderCell>Expected end</HeaderCell>
+          <SortHeaderCell sortKey="startDate" sort={sort} onSort={toggleSort}>
+            Start
+          </SortHeaderCell>
+          <SortHeaderCell sortKey="expectedEndDate" sort={sort} onSort={toggleSort}>
+            Expected end
+          </SortHeaderCell>
           <div role="columnheader" className="h-11" />
         </div>
 
-        {projects.map((p) => {
+        {sortedProjects.map((p) => {
           const customer = customerLabel(p.customerId);
           const pm = pmLabel(p.projectManagerId);
           return (
@@ -90,7 +133,7 @@ export function ProjectsTable({
                 <Link
                   href={detailHref(p.id)}
                   onClick={(ev) => ev.stopPropagation()}
-                  className="font-mono text-[13px] font-semibold text-accent-ink hover:underline"
+                  className="font-mono text-[13px] font-medium text-accent-ink hover:underline"
                 >
                   {p.projectCode}
                 </Link>
@@ -164,7 +207,7 @@ export function ProjectsTable({
 
       {/* Mobile cards (≤767) */}
       <ul className="flex flex-col gap-2 md:hidden" data-testid="projects-cards">
-        {projects.map((p) => (
+        {sortedProjects.map((p) => (
           <li
             key={p.id}
             className="rounded-card border border-border bg-surface p-3"
@@ -173,7 +216,7 @@ export function ProjectsTable({
             <div className="flex items-start justify-between gap-2">
               <Link
                 href={detailHref(p.id)}
-                className="font-mono text-[13px] font-semibold text-accent-ink hover:underline"
+                className="font-mono text-[13px] font-medium text-accent-ink hover:underline"
               >
                 {p.projectCode}
               </Link>
@@ -198,6 +241,47 @@ function HeaderCell({ children }: { children: React.ReactNode }) {
       className="flex h-11 items-center px-4 text-[11px] font-semibold uppercase tracking-[0.4px] text-muted-foreground"
     >
       {children}
+    </div>
+  );
+}
+
+/**
+ * Sortable column header (design `Projects.dc.html` headers with the ▲▼ affordance).
+ * The active column reads darker and lights its current-direction chevron; a click (or
+ * Enter/Space, since it's a real button) toggles the sort direction. `aria-sort` exposes
+ * the state to assistive tech.
+ */
+function SortHeaderCell({
+  children,
+  sortKey,
+  sort,
+  onSort,
+}: {
+  children: React.ReactNode;
+  sortKey: SortKey;
+  sort: { key: SortKey; dir: SortDir };
+  onSort: (key: SortKey) => void;
+}) {
+  const active = sort.key === sortKey;
+  return (
+    <div
+      role="columnheader"
+      aria-sort={active ? (sort.dir === "asc" ? "ascending" : "descending") : "none"}
+    >
+      <button
+        type="button"
+        onClick={() => onSort(sortKey)}
+        className={cn(
+          "flex h-11 w-full items-center gap-1.5 px-4 text-left text-[11px] font-semibold uppercase tracking-[0.4px] outline-none transition-colors hover:text-foreground focus-visible:ring-2 focus-visible:ring-ring",
+          active ? "text-foreground" : "text-muted-foreground",
+        )}
+      >
+        {children}
+        <span className="flex flex-col text-[8px] leading-[0.6]" aria-hidden>
+          <span className={active && sort.dir === "asc" ? "text-foreground" : "text-faint"}>▲</span>
+          <span className={active && sort.dir === "desc" ? "text-foreground" : "text-faint"}>▼</span>
+        </span>
+      </button>
     </div>
   );
 }

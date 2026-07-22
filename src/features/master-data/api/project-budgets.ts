@@ -15,7 +15,9 @@ function csrf() {
 
 export async function listBudgets(projectId: string): Promise<ProjectBudget[]> {
   const res = await apiClient.get<{ data: ProjectBudget[] }>(`${base(projectId)}?pageSize=200`);
-  return res.data;
+  // Guard the array contract: an unexpected envelope shape must not reach `.reduce`
+  // in the caller (BudgetsTab totals) as a non-array and crash the tab.
+  return Array.isArray(res.data) ? res.data : [];
 }
 
 export async function upsertBudget(
