@@ -4,9 +4,10 @@ import { cn } from "@/lib/utils";
 import { type StatementTab } from "../types";
 
 /**
- * FE-55 tablist between Profit & Loss and Balance sheet (spec §3). Keyboard
- * navigation follows the standard tablist pattern via arrow keys; each tab has
- * a stable testid.
+ * FE-55 Profit & loss ⇄ Balance sheet switcher. Per the design this family uses
+ * the **underline-tab** idiom (like the catalog category tabs) — the active tab
+ * is bold dark text with a 2px lime underline; the inactive tab is muted. (The
+ * other report viewers use the pill chip row; financial statements does not.)
  */
 const TABS: Array<{ id: StatementTab; label: string }> = [
   { id: "PNL", label: "Profit & loss" },
@@ -24,7 +25,7 @@ export function StatementSwitcher({
     <div
       role="tablist"
       aria-label="Financial statement"
-      className="inline-flex rounded-token border border-border-strong bg-background p-1"
+      className="flex items-center gap-1 border-b border-border-strong"
       data-testid="statement-switcher"
     >
       {TABS.map((t) => {
@@ -44,9 +45,11 @@ export function StatementSwitcher({
               }
             }}
             className={cn(
-              "rounded-token px-4 py-1.5 text-[13px] font-semibold transition-colors",
+              "-mb-px whitespace-nowrap border-b-2 px-3.5 pb-2.5 pt-2 text-[13px] transition-colors",
               "focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-accent",
-              active ? "bg-foreground text-background" : "text-muted-foreground hover:bg-muted",
+              active
+                ? "border-accent font-bold text-foreground"
+                : "border-transparent font-medium text-muted-foreground hover:text-foreground",
             )}
             data-testid={`statement-tab-${t.id}`}
           >

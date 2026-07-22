@@ -4,9 +4,9 @@ import { useMemo, useState } from "react";
 import { Ban, WifiOff } from "lucide-react";
 import { Alert } from "@/components/ui/alert";
 import { Badge } from "@/components/ui/badge";
-import { Breadcrumb } from "@/components/ui/breadcrumb";
 import { Card } from "@/components/ui/card";
 import { EmptyState } from "@/components/ui/empty-state";
+import { ReportViewerHeader, type ReportScopeTone } from "../../components/ReportViewerHeader";
 import { asApiError } from "@/lib/api/errors";
 import { useOnline } from "@/lib/hooks/use-online";
 import { isUnscopedRole, isRole } from "@/lib/auth/roles";
@@ -59,7 +59,12 @@ function reportToTab(name?: string): ProjectReportTab {
 export function ProjectIpcViewer({
   embedded = false,
   initialReport,
-}: { embedded?: boolean; initialReport?: string } = {}) {
+  onReportChange,
+}: {
+  embedded?: boolean;
+  initialReport?: string;
+  onReportChange?: (reportName: string, reportLabel: string) => void;
+} = {}) {
   const online = useOnline();
   const user = useAuthenticatedUser();
   const [tab, setTab] = useState<ProjectReportTab>(() => reportToTab(initialReport));
@@ -90,6 +95,7 @@ export function ProjectIpcViewer({
     // Preserve project + FY + CC + range/as-of across the switch (spec §9).
     setRan(false);
     setTab(next);
+    onReportChange?.(REPORT_NAME[next], breadcrumbFor(next));
   }
 
   function onRun(p: ReportParams) {
@@ -102,36 +108,31 @@ export function ProjectIpcViewer({
   const roleUnscoped = isRole(user.role) ? isUnscopedRole(user.role) : false;
 
   const pmChip = !roleUnscoped ? (
-    <Badge tone="info" className="ml-2" data-testid="pi-pm-scope-chip">
+    <Badge tone="info" data-testid="pi-pm-scope-chip">
       PM · assigned only
     </Badge>
   ) : null;
 
+  // Scope pill per report: flow reports (blue) carry a date range; Outstanding is
+  // an as-of balance (violet); the two budget-variance reports are amber.
+  const { scopeLabel, scopeTone } = ((): { scopeLabel: string; scopeTone: ReportScopeTone } => {
+    if (tab === "OUTSTANDING") return { scopeLabel: "Balance · as-of", scopeTone: "violet" };
+    if (tab === "MATERIAL_CONSUMPTION" || tab === "LABOUR_COST")
+      return { scopeLabel: "Budget · variance", scopeTone: "amber" };
+    return { scopeLabel: "Flow · date range", scopeTone: "blue" };
+  })();
+
   return (
     <div className={embedded ? "" : "mx-auto max-w-[1400px] px-6 py-6"} data-testid="pi-viewer">
       {!embedded && (
-        <>
-          <Breadcrumb
-            items={[
-              { label: "Reports", href: "/reports" },
-              { label: breadcrumbFor(tab) },
-            ]}
-          />
-          <div className="mb-4 mt-1 flex flex-wrap items-center justify-between gap-3">
-            <div>
-              <h1
-                className="text-[23px] font-bold tracking-[-0.02em]"
-                data-testid="pi-title"
-              >
-                Project &amp; IPC reports
-                {pmChip}
-              </h1>
-              <p className="mt-1 text-[13px] text-muted-foreground">
-                One project across five lenses — read-only, server-computed.
-              </p>
-            </div>
-          </div>
-        </>
+        <ReportViewerHeader
+          breadcrumbLabel={breadcrumbFor(tab)}
+          title={breadcrumbFor(tab)}
+          scopeLabel={scopeLabel}
+          scopeTone={scopeTone}
+          titleTestId="pi-title"
+          extra={pmChip}
+        />
       )}
 
       <ProjectIpcReportSwitcher value={tab} onChange={onTabChange} />

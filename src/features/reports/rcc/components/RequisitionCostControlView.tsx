@@ -3,9 +3,9 @@
 import { useMemo, useState } from "react";
 import { Ban, WifiOff } from "lucide-react";
 import { Alert } from "@/components/ui/alert";
-import { Breadcrumb } from "@/components/ui/breadcrumb";
 import { Card } from "@/components/ui/card";
 import { EmptyState } from "@/components/ui/empty-state";
+import { ReportViewerHeader } from "../../components/ReportViewerHeader";
 import { asApiError } from "@/lib/api/errors";
 import { useOnline } from "@/lib/hooks/use-online";
 import { useAuthenticatedUser } from "@/providers/session-provider";
@@ -39,7 +39,12 @@ import { StatusFilterChips } from "./StatusFilterChips";
 export function RequisitionCostControlView({
   embedded = false,
   initialReport,
-}: { embedded?: boolean; initialReport?: string } = {}) {
+  onReportChange,
+}: {
+  embedded?: boolean;
+  initialReport?: string;
+  onReportChange?: (reportName: string, reportLabel: string) => void;
+} = {}) {
   const online = useOnline();
   const user = useAuthenticatedUser();
   const [tab, setTab] = useState<RccReportTab>(() => reportToTab(initialReport));
@@ -65,6 +70,7 @@ export function RequisitionCostControlView({
     }));
     setRan(false);
     setTab(next);
+    onReportChange?.(REPORT_NAME[next], breadcrumbFor(next));
   }
 
   function onRun(p: ReportParams) {
@@ -78,24 +84,13 @@ export function RequisitionCostControlView({
   return (
     <div className={embedded ? "" : "mx-auto max-w-[1400px] px-6 py-6"} data-testid="rcc-viewer">
       {!embedded && (
-        <>
-          <Breadcrumb
-            items={[
-              { label: "Reports", href: "/reports" },
-              { label: breadcrumbFor(tab) },
-            ]}
-          />
-          <div className="mb-4 mt-1 flex flex-wrap items-center justify-between gap-3">
-            <div>
-              <h1 className="text-[23px] font-bold tracking-[-0.02em]" data-testid="rcc-title">
-                Requisition &amp; cost-control reports
-              </h1>
-              <p className="mt-1 text-[13px] text-muted-foreground">
-                Read-only — REQ &amp; CC figures rendered verbatim.
-              </p>
-            </div>
-          </div>
-        </>
+        <ReportViewerHeader
+          breadcrumbLabel={breadcrumbFor(tab)}
+          title={breadcrumbFor(tab)}
+          scopeLabel="Flow · date range"
+          scopeTone="blue"
+          titleTestId="rcc-title"
+        />
       )}
 
       <RccReportSwitcher value={tab} onChange={onTabChange} />

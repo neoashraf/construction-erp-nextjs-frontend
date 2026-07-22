@@ -3,10 +3,9 @@
 import { useMemo, useState } from "react";
 import { Ban, WifiOff } from "lucide-react";
 import { Alert } from "@/components/ui/alert";
-import { Badge } from "@/components/ui/badge";
-import { Breadcrumb } from "@/components/ui/breadcrumb";
 import { Card } from "@/components/ui/card";
 import { EmptyState } from "@/components/ui/empty-state";
+import { ReportViewerHeader, type ReportScopeTone } from "../../components/ReportViewerHeader";
 import { asApiError } from "@/lib/api/errors";
 import { useOnline } from "@/lib/hooks/use-online";
 import { useAuthenticatedUser } from "@/providers/session-provider";
@@ -52,7 +51,12 @@ function reportToTab(name?: string): HrReportTab {
 export function HrReportsViewer({
   embedded = false,
   initialReport,
-}: { embedded?: boolean; initialReport?: string } = {}) {
+  onReportChange,
+}: {
+  embedded?: boolean;
+  initialReport?: string;
+  onReportChange?: (reportName: string, reportLabel: string) => void;
+} = {}) {
   const online = useOnline();
   const user = useAuthenticatedUser();
   const [tab, setTab] = useState<HrReportTab>(() => reportToTab(initialReport));
@@ -94,6 +98,7 @@ export function HrReportsViewer({
     setRunXorError(null);
     setRan(false);
     setTab(next);
+    onReportChange?.(REPORT_NAME[next], breadcrumbFor(next));
   }
 
   function onRun(p: ReportParams) {
@@ -124,31 +129,24 @@ export function HrReportsViewer({
       ? "'Date from' must be before 'Date to'."
       : null;
 
+  // Scope pill: attendance (by month) + salary register (by run) are balance
+  // reports (violet); payment history is a date-range flow report (blue).
+  const { scopeLabel, scopeTone } = ((): { scopeLabel: string; scopeTone: ReportScopeTone } => {
+    if (tab === "PAYMENT_HISTORY") return { scopeLabel: "Flow · date range", scopeTone: "blue" };
+    if (tab === "ATTENDANCE_SUMMARY") return { scopeLabel: "Balance · month", scopeTone: "violet" };
+    return { scopeLabel: "Balance · run", scopeTone: "violet" };
+  })();
+
   return (
     <div className={embedded ? "" : "mx-auto max-w-[1400px] px-6 py-6"} data-testid="hr-viewer">
       {!embedded && (
-        <>
-          <Breadcrumb
-            items={[
-              { label: "Reports", href: "/reports" },
-              { label: breadcrumbFor(tab) },
-            ]}
-          />
-          <div className="mb-4 mt-1 flex flex-wrap items-center justify-between gap-3">
-            <div>
-              <h1 className="text-[23px] font-bold tracking-[-0.02em]" data-testid="hr-title">
-                HR reports
-                <Badge tone="neutral" className="ml-2" data-testid="hr-readonly-pill">
-                  Read-only · exportable
-                </Badge>
-              </h1>
-              <p className="mt-1 text-[13px] text-muted-foreground">
-                Attendance · salary register · payment history — HR&rsquo;s
-                numbers, rendered verbatim.
-              </p>
-            </div>
-          </div>
-        </>
+        <ReportViewerHeader
+          breadcrumbLabel={breadcrumbFor(tab)}
+          title={breadcrumbFor(tab)}
+          scopeLabel={scopeLabel}
+          scopeTone={scopeTone}
+          titleTestId="hr-title"
+        />
       )}
 
       <HrReportSwitcher value={tab} onChange={onTabChange} />

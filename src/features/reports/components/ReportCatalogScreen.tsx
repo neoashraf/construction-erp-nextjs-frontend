@@ -1,7 +1,7 @@
 "use client";
 
 import { type ComponentType, useEffect, useMemo, useState } from "react";
-import { AlertCircle, WifiOff, FileText, Search } from "lucide-react";
+import { AlertCircle, WifiOff, FileText } from "lucide-react";
 import { Alert } from "@/components/ui/alert";
 import { Breadcrumb } from "@/components/ui/breadcrumb";
 import { Button } from "@/components/ui/button";
@@ -15,7 +15,6 @@ import {
   type ReportCategory,
   type ReportDescriptor,
 } from "../types";
-import { ReportCatalogBrowse } from "./ReportCatalogBrowse";
 import { FinancialStatementsScreen } from "../financial-statements/components/FinancialStatementsScreen";
 import { HrReportsViewer } from "../hr/components/HrReportsViewer";
 import { InventoryReportsViewer } from "../inventory/components/InventoryReportsViewer";
@@ -24,7 +23,14 @@ import { RequisitionCostControlView } from "../rcc/components/RequisitionCostCon
 import { TrialBalanceLedgersViewer } from "../viewers/trial-balance-ledgers/components/TrialBalanceLedgersViewer";
 
 /** Each report category is rendered inline by its own viewer (embedded mode). */
-type EmbeddableViewer = ComponentType<{ embedded?: boolean; initialReport?: string }>;
+type EmbeddableViewer = ComponentType<{
+  embedded?: boolean;
+  initialReport?: string;
+  /** Fired when the viewer's own switcher changes the active report, so the hub
+   *  can keep the breadcrumb in sync. Carries the report's display label because
+   *  the catalog list may not include every sibling report (mock/partial rosters). */
+  onReportChange?: (reportName: string, reportLabel: string) => void;
+}>;
 const CATEGORY_VIEWER: Record<ReportCategory, EmbeddableViewer> = {
   LEDGERS_REGISTERS: TrialBalanceLedgersViewer,
   FINANCIAL_STATEMENTS: FinancialStatementsScreen,
@@ -44,7 +50,9 @@ export function ReportCatalogScreen() {
   const online = useOnline();
   const catalog = useReportCatalog();
   const [selected, setSelected] = useState<ReportDescriptor | null>(null);
-  const [query, setQuery] = useState("");
+  // The active report's display label for the breadcrumb — set when a report is
+  // opened, and kept fresh when the embedded viewer switches report internally.
+  const [activeLabel, setActiveLabel] = useState<string | null>(null);
 
   const reports = useMemo(() => catalog.data ?? [], [catalog.data]);
   // First non-empty category becomes the default tab; the tab follows the
@@ -53,33 +61,39 @@ export function ReportCatalogScreen() {
     const present = new Set(reports.map((r) => r.category));
     return REPORT_CATEGORY_ORDER.find((c) => present.has(c)) ?? "LEDGERS_REGISTERS";
   }, [reports]);
-  const [category, setCategory] = useState<ReportCategory | null>(null);
-  const activeCategory = category ?? selected?.category ?? firstCategory;
+  const activeCategory = selected?.category ?? firstCategory;
 
-  function onSelect(d: ReportDescriptor) {
-    setSelected(d);
-    setCategory(d.category);
-  }
-
-  // Clicking a category tab opens that category's viewer directly (no chip row):
-  // auto-select the category's first report so its own in-viewer switcher shows.
-  function onCategoryChange(c: ReportCategory) {
-    setCategory(c);
-    const first = reports.find((r) => r.category === c) ?? null;
-    setSelected(first);
+  // The embedded viewer switched report via its own chip row — update the
+  // breadcrumb label. Uses the label the viewer passes (the catalog roster may
+  // not list every sibling report), and syncs `selected` when it is listed.
+  function onReportChange(reportName: string, reportLabel: string) {
+    setActiveLabel(reportLabel);
+    setSelected((prev) => reports.find((r) => r.name === reportName) ?? prev);
   }
 
   // First load: open the default category's viewer immediately (no idle state).
   useEffect(() => {
     if (selected || reports.length === 0) return;
-    setSelected(reports.find((r) => r.category === activeCategory) ?? null);
+    const first = reports.find((r) => r.category === activeCategory) ?? null;
+    setSelected(first);
+    if (first) setActiveLabel(first.title);
   }, [selected, reports, activeCategory]);
 
   const SelectedViewer = selected ? CATEGORY_VIEWER[selected.category] : null;
+  // Prefer the label the embedded viewer reported (survives switches to reports
+  // the catalog roster doesn't list); fall back to the selected descriptor.
+  const breadcrumbReport = activeLabel ?? selected?.title ?? null;
 
   return (
     <div className="mx-auto max-w-[1400px] px-6 py-6" data-testid="report-catalog-screen">
-      <Breadcrumb items={[{ label: "Reports" }]} />
+      {/* Breadcrumb tracks the open report so it updates as chips are switched. */}
+      <Breadcrumb
+        items={
+          breadcrumbReport
+            ? [{ label: "Reports", href: "/reports" }, { label: breadcrumbReport }]
+            : [{ label: "Reports" }]
+        }
+      />
       <div className="mb-4 mt-1 flex flex-wrap items-center gap-3">
         <h1 className="text-[23px] font-bold tracking-[-0.02em]" data-testid="reports-title">
           Reports
@@ -88,19 +102,6 @@ export function ReportCatalogScreen() {
           <span aria-hidden className="h-1.5 w-1.5 rounded-full bg-faint" />
           Read-only · no records created here
         </span>
-        <label className="relative ml-auto flex h-9 w-[280px] items-center gap-2 rounded-token border border-border-strong bg-surface px-3 focus-within:border-accent focus-within:shadow-focus">
-          <Search className="h-[15px] w-[15px] shrink-0 text-faint" aria-hidden />
-          <input
-            type="search"
-            value={query}
-            onChange={(e) => setQuery(e.target.value)}
-            placeholder="Search reports…"
-            aria-label="Search reports"
-            data-testid="reports-search"
-            suppressHydrationWarning
-            className="min-w-0 flex-1 bg-transparent text-[13px] text-foreground outline-none placeholder:text-faint"
-          />
-        </label>
       </div>
 
       {!online && (
@@ -118,7 +119,6 @@ export function ReportCatalogScreen() {
       )}
 
       <div className="space-y-4">
-        {/* Catalog — top browse strip: category tabs + report chips. */}
         {catalog.isLoading ? (
           <Card className="space-y-3 px-4 py-3" data-testid="catalog-loading">
             <Skeleton className="h-8 w-full max-w-md" />
@@ -140,18 +140,7 @@ export function ReportCatalogScreen() {
               }
             />
           </Card>
-        ) : (
-          <Card className="px-4 pb-3 pt-2">
-            <ReportCatalogBrowse
-              reports={reports}
-              selected={selected?.name ?? null}
-              activeCategory={activeCategory}
-              onCategoryChange={onCategoryChange}
-              onSelect={onSelect}
-              query={query}
-            />
-          </Card>
-        )}
+        ) : null}
 
         <section className="min-w-0" data-testid="report-runner">
           {!selected || !SelectedViewer ? (
@@ -165,7 +154,12 @@ export function ReportCatalogScreen() {
           ) : (
             // Keyed by report name so switching chips re-opens the viewer on the
             // right sub-report. The viewer runs + renders its own result inline.
-            <SelectedViewer key={selected.name} embedded initialReport={selected.name} />
+            <SelectedViewer
+              key={selected.category}
+              embedded
+              initialReport={selected.name}
+              onReportChange={onReportChange}
+            />
           )}
         </section>
 
