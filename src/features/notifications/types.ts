@@ -55,5 +55,5 @@ export interface NotificationsFeedResponse {
 }
 
 /** Options page-size defaults for the two surfaces. */
-export const DRAWER_PAGE_SIZE = 25;
+export const DRAWER_PAGE_SIZE = 20;
 export const PAGE_PAGE_SIZE = 25;

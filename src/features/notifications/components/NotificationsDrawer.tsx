@@ -32,7 +32,8 @@ export function NotificationsDrawer({
   const feed = useDrawerFeed(open);
   const { markOne, markAll, markError } = useMarkRead();
 
-  const rows = feed.data?.data;
+  // Flatten every loaded page into one list; "See more" appends the next page.
+  const rows = feed.data?.pages.flatMap((p) => p.data);
 
   function onOpenRow(n: Notification) {
     if (n.readAt === null) void markOne(n.id, true).catch(() => undefined);
@@ -118,7 +119,10 @@ export function NotificationsDrawer({
               onRetry={() => feed.refetch()}
               onOpen={onOpenRow}
               onMarkRead={(n) => void markOne(n.id, true).catch(() => undefined)}
-              showEndMarker={!!rows && rows.length > 0}
+              hasMore={feed.hasNextPage}
+              isLoadingMore={feed.isFetchingNextPage}
+              onLoadMore={() => void feed.fetchNextPage()}
+              showEndMarker={!!rows && rows.length > 0 && !feed.hasNextPage}
             />
           </div>
 

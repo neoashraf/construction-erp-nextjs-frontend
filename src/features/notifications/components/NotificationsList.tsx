@@ -22,6 +22,9 @@ export function NotificationsList({
   onOpen,
   onMarkRead,
   showEndMarker,
+  hasMore,
+  isLoadingMore,
+  onLoadMore,
 }: {
   rows: Notification[] | undefined;
   isLoading: boolean;
@@ -31,6 +34,11 @@ export function NotificationsList({
   onOpen: (n: Notification) => void;
   onMarkRead: (n: Notification) => void;
   showEndMarker?: boolean;
+  /** More pages exist — render a "See more" affordance instead of the end marker. */
+  hasMore?: boolean;
+  /** The next page is being fetched (button shows a busy label, stays disabled). */
+  isLoadingMore?: boolean;
+  onLoadMore?: () => void;
 }) {
   if (isLoading) {
     return (
@@ -75,7 +83,20 @@ export function NotificationsList({
       {rows.map((n) => (
         <NotificationRow key={n.id} n={n} onOpen={onOpen} onMarkRead={onMarkRead} />
       ))}
-      {showEndMarker && (
+      {hasMore && (
+        <li className="px-4 py-3 text-center">
+          <button
+            type="button"
+            onClick={onLoadMore}
+            disabled={isLoadingMore}
+            className="rounded-token px-3 py-1.5 text-[12px] font-semibold text-accent-ink hover:bg-accent-soft focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-accent disabled:cursor-not-allowed disabled:opacity-60"
+            data-testid="notifications-see-more"
+          >
+            {isLoadingMore ? "Loading…" : "See more"}
+          </button>
+        </li>
+      )}
+      {showEndMarker && !hasMore && (
         <li className="px-4 py-3 text-center text-[11px] text-muted-foreground" data-testid="notifications-end">
           That&rsquo;s everything from the last 30 days
         </li>
