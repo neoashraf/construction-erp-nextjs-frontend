@@ -5,6 +5,8 @@ import { useForm } from "react-hook-form";
 import { zodResolver } from "@hookform/resolvers/zod";
 import { useRouter } from "next/navigation";
 import { asApiError } from "@/lib/api/errors";
+import { BrandLogo } from "@/components/shell/brand-logo";
+import { BRAND_NAME } from "@/lib/brand";
 import { Button } from "@/components/ui/button";
 import { loginSchema, type LoginInput } from "../schemas/login";
 import { type AuthBannerVariant } from "../types";
@@ -113,21 +115,8 @@ export function LoginCard({ sessionExpired = false }: LoginCardProps) {
       aria-label="Sign in"
     >
       {/* ── Brand mark ── */}
-      <div className="flex flex-col items-center gap-3">
-        <div
-          className="flex h-[30px] w-[30px] items-center justify-center rounded-[8px] bg-accent"
-          aria-hidden="true"
-        >
-          <span className="text-[14px] font-bold leading-none tracking-tight text-accent-foreground">
-            ZE
-          </span>
-        </div>
-        <div className="text-center">
-          <p className="text-[15px] font-bold text-foreground">Zakir Enterprise</p>
-          <p className="mt-[3px] text-[10.5px] font-semibold uppercase tracking-[0.6px] text-faint">
-            Construction ERP
-          </p>
-        </div>
+      <div className="flex flex-col items-center">
+        <BrandLogo className="h-20" alt={BRAND_NAME} />
       </div>
 
       {/* ── Heading ── */}
