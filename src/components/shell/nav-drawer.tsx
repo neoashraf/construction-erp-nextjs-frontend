@@ -1,13 +1,15 @@
 "use client";
 
-import { useEffect } from "react";
+import { useEffect, useState } from "react";
 import Link from "next/link";
 import { usePathname } from "next/navigation";
 import * as DialogPrimitive from "@radix-ui/react-dialog";
-import { X } from "lucide-react";
+import { ChevronDown, X } from "lucide-react";
 import {
   visibleTreeForRole,
   matchNav,
+  isDirectLink,
+  directLinkRoute,
   CHIP_CLASS,
   type NavModule,
   type NavSubItem,
@@ -18,19 +20,31 @@ import { UserMenu, type UserMenuUser } from "./user-menu";
 import { cn } from "@/lib/utils";
 
 /**
- * Mobile navigation drawer (screen spec §4 responsive · §10). At <768 the sidebar is
- * replaced by a topbar hamburger opening this full-height left **drawer** (Radix
+ * Mobile navigation drawer (screen spec §4 responsive · §9/§10). At <768 the sidebar
+ * is replaced by a topbar hamburger opening this full-height left **drawer** (Radix
  * Dialog — focus-trap, Esc, scroll-lock, focus restored on close) with the same
- * role-filtered tree, sections as headers, all groups pre-expanded, and the user
- * block pinned at the drawer bottom (same upward profile menu — v3). Tapping a built
- * sub-item navigates + closes; unbuilt items render de-emphasised + non-navigating.
+ * role-filtered tree and sections as headers. It follows the same **accordion**
+ * disclosure as the desktop sidebar (§3.1/§9): one module open at a time, the active
+ * route's module auto-expanded on open, single-item modules as direct links (no
+ * chevron). The user block is pinned at the drawer bottom (same upward profile menu —
+ * v3). Tapping a built sub-item navigates + closes; unbuilt items render
+ * de-emphasised + non-navigating.
  */
 export function NavDrawer({ user }: { user: UserMenuUser & { permissions?: import("@/lib/auth/session").SessionPermission[] | null } }) {
   const pathname = usePathname();
   const { drawerOpen, setDrawerOpen } = useShellChrome();
   // FE-21: permission-driven filtering when the projection is present; role fallback otherwise.
   const tree = visibleTreeForRole(user);
-  const activeItemRoute = matchNav(pathname)?.item.route ?? null;
+  const match = matchNav(pathname);
+  const activeModuleId = match?.module.id ?? null;
+  const activeItemRoute = match?.item.route ?? null;
+
+  // Accordion: which module is expanded. Seed with the active route's module and
+  // keep it expanded across navigations (never auto-collapse it) — same as desktop.
+  const [openId, setOpenId] = useState<string | null>(activeModuleId);
+  useEffect(() => {
+    if (activeModuleId) setOpenId(activeModuleId);
+  }, [activeModuleId]);
 
   // Close the drawer whenever the route changes (a nav tap navigated).
   useEffect(() => {
@@ -78,9 +92,24 @@ export function NavDrawer({ user }: { user: UserMenuUser & { permissions?: impor
                   <div className="px-3 pb-1 pt-4 text-[10px] font-semibold uppercase tracking-wide text-sidebar-muted">
                     {group.section}
                   </div>
-                  {group.modules.map((module) => (
-                    <DrawerModule key={module.id} module={module} activeItemRoute={activeItemRoute} />
-                  ))}
+                  {group.modules.map((module) =>
+                    isDirectLink(module) ? (
+                      <DrawerDirectLink
+                        key={module.id}
+                        module={module}
+                        active={module.id === activeModuleId}
+                      />
+                    ) : (
+                      <DrawerModule
+                        key={module.id}
+                        module={module}
+                        open={openId === module.id}
+                        onToggle={() => setOpenId((prev) => (prev === module.id ? null : module.id))}
+                        activeItemRoute={activeItemRoute}
+                        hasActiveChild={module.id === activeModuleId}
+                      />
+                    ),
+                  )}
                 </div>
               ))
             )}
@@ -96,23 +125,84 @@ export function NavDrawer({ user }: { user: UserMenuUser & { permissions?: impor
   );
 }
 
-function DrawerModule({ module, activeItemRoute }: { module: NavModule; activeItemRoute: string | null }) {
+function ModuleChip({ module }: { module: NavModule }) {
   const Icon = NAV_ICON[module.icon];
   return (
+    <span
+      className={cn("grid h-[22px] w-[22px] shrink-0 place-items-center rounded-md", CHIP_CLASS[module.chip])}
+      aria-hidden
+    >
+      <Icon className="h-3.5 w-3.5" />
+    </span>
+  );
+}
+
+/** A single-screen module: a plain link (no chevron), same as the desktop sidebar. */
+function DrawerDirectLink({ module, active }: { module: NavModule; active: boolean }) {
+  const route = directLinkRoute(module);
+  return (
+    <Link
+      href={route}
+      aria-current={active ? "page" : undefined}
+      className={cn(
+        "relative my-0.5 flex items-center gap-2.5 rounded-token px-2.5 py-2 text-[13px] transition-colors",
+        active
+          ? "bg-sidebar-active font-semibold text-sidebar-active-foreground"
+          : "text-sidebar-foreground hover:bg-sidebar-hover",
+      )}
+    >
+      {active && <span className="absolute inset-y-1.5 left-0 w-[3px] rounded-r bg-accent" aria-hidden />}
+      <ModuleChip module={module} />
+      {module.label}
+    </Link>
+  );
+}
+
+/** A multi-screen module: a disclosure button (accordion) controlling its sub-items. */
+function DrawerModule({
+  module,
+  open,
+  onToggle,
+  activeItemRoute,
+  hasActiveChild,
+}: {
+  module: NavModule;
+  open: boolean;
+  onToggle: () => void;
+  activeItemRoute: string | null;
+  hasActiveChild: boolean;
+}) {
+  const listId = `drawer-sub-${module.id}`;
+  return (
     <div className="mb-1">
-      <div className="flex items-center gap-2.5 px-2.5 py-1.5">
-        <span className={cn("grid h-[22px] w-[22px] place-items-center rounded-md", CHIP_CLASS[module.chip])} aria-hidden>
-          <Icon className="h-3.5 w-3.5" />
-        </span>
-        <span className="text-[12px] font-semibold uppercase tracking-wide text-sidebar-muted">{module.label}</span>
-      </div>
-      <ul className="ml-[26px] flex flex-col border-l border-sidebar-border pl-1.5">
-        {module.items.map((item) => (
-          <li key={item.route}>
-            <DrawerSubItem item={item} active={item.route === activeItemRoute} />
-          </li>
-        ))}
-      </ul>
+      <button
+        type="button"
+        aria-expanded={open}
+        aria-controls={listId}
+        onClick={onToggle}
+        className={cn(
+          "my-0.5 flex w-full items-center gap-2.5 rounded-token px-2.5 py-2 text-left text-[12px] font-semibold uppercase tracking-wide transition-colors",
+          hasActiveChild
+            ? "text-sidebar-active-foreground"
+            : "text-sidebar-muted hover:bg-sidebar-hover",
+        )}
+      >
+        <ModuleChip module={module} />
+        <span className="flex-1 truncate">{module.label}</span>
+        <ChevronDown
+          className={cn("h-3.5 w-3.5 shrink-0 text-sidebar-muted transition-transform", open && "rotate-180")}
+          aria-hidden
+        />
+      </button>
+      {open && (
+        <ul id={listId} className="ml-[26px] flex flex-col border-l border-sidebar-border pl-1.5">
+          {module.items.map((item) => (
+            <li key={item.route}>
+              <DrawerSubItem item={item} active={item.route === activeItemRoute} />
+            </li>
+          ))}
+        </ul>
+      )}
     </div>
   );
 }

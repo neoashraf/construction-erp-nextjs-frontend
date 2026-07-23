@@ -1,8 +1,9 @@
 "use client";
 
 import { useEffect, useMemo, useRef, useState } from "react";
+import Link from "next/link";
 import { useRouter } from "next/navigation";
-import { ChevronDown, Loader2, Printer } from "lucide-react";
+import { ArrowRight, ChevronDown, Loader2, Printer } from "lucide-react";
 import { Card } from "@/components/ui/card";
 import { Button } from "@/components/ui/button";
 import { Alert } from "@/components/ui/alert";
@@ -432,7 +433,9 @@ export function IpcEditor({ ipcId }: { ipcId: string | null }) {
   );
 
   return (
-    <div className="mx-auto max-w-6xl pb-28 lg:pb-24">
+    // -mb-5/lg:-mb-6 cancel <main>'s bottom padding (p-5 lg:p-6) so the sticky action
+    // bar sits flush at the content-area bottom with no gap beneath it.
+    <div className="mx-auto -mb-5 flex min-h-full max-w-6xl flex-col lg:-mb-6">
       <Breadcrumb items={[{ label: "IPCs", href: "/sales/ipcs" }, { label: crumbTail }]} />
       <div className="mb-4 mt-1 flex flex-wrap items-center gap-3">
         <h1 className="text-[23px] font-bold tracking-[-0.02em]" data-testid="ipc-editor-title">{title}</h1>
@@ -521,10 +524,13 @@ export function IpcEditor({ ipcId }: { ipcId: string | null }) {
         </div>
       )}
 
-      {/* Fixed action bar */}
-      <div className="fixed inset-x-0 bottom-0 z-40 border-t border-border bg-surface px-4 py-3 shadow-lg lg:pl-[var(--sidebar-w,0)]">
+      {/* Sticky action bar — rides the content scroll, bleeding to the <main> padding
+          edges. -mx / -bottom cancel app-shell's p-5 lg:p-6 so the bar spans only the
+          content column (never under the sidebar) AND sticks flush to the very bottom
+          with no gap beneath it. */}
+      <div className="sticky -bottom-5 z-40 -mx-5 mt-6 border-t border-border-strong bg-surface px-5 py-3.5 shadow-[0_-4px_16px_rgba(16,24,40,0.05)] lg:-bottom-6 lg:-mx-6 lg:px-6">
         <div className="mx-auto flex max-w-6xl flex-wrap items-center justify-between gap-3">
-          <p className="hidden max-w-lg text-[12.5px] text-muted-foreground sm:block">
+          <p className="hidden max-w-[520px] text-[12px] leading-normal text-faint sm:block">
             {correcting
               ? "Correcting — posting reverses the original and posts the correction."
               : readOnly
@@ -548,10 +554,16 @@ export function IpcEditor({ ipcId }: { ipcId: string | null }) {
                   <Button variant="outline" size="md" onClick={onSaveDraft} disabled={busy} data-testid="ipc-save">Save draft</Button>
                 )}
                 {correcting ? (
-                  <Button size="md" onClick={onRepostClick} disabled={busy || !postReady} data-testid="ipc-repost">Post correction</Button>
+                  <Button size="md" className="gap-1.5" onClick={onRepostClick} disabled={busy || !postReady} data-testid="ipc-repost">
+                    <ArrowRight className="h-4 w-4" aria-hidden />
+                    Post correction
+                  </Button>
                 ) : (
                   canPost && (
-                    <Button size="md" className="gap-1.5" onClick={onPostClick} disabled={busy || !postReady} data-testid="ipc-post">Post</Button>
+                    <Button size="md" className="gap-1.5" onClick={onPostClick} disabled={busy || !postReady} data-testid="ipc-post">
+                      <ArrowRight className="h-4 w-4" aria-hidden />
+                      Post
+                    </Button>
                   )
                 )}
               </>
@@ -560,10 +572,10 @@ export function IpcEditor({ ipcId }: { ipcId: string | null }) {
                 <>
                   {(saved.status === "POSTED" || saved.status === "CANCELLED") && (
                     <Button variant="outline" size="md" className="gap-1.5" asChild data-testid="ipc-print">
-                      <a href={`/sales/ipcs/${saved.id}/view`}>
+                      <Link href={`/sales/ipcs/${saved.id}/view`}>
                         <Printer className="h-4 w-4" aria-hidden />
                         Print
-                      </a>
+                      </Link>
                     </Button>
                   )}
                   {saved.status === "POSTED" && canCancel && (
