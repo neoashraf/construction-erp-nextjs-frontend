@@ -32,11 +32,12 @@ const jetbrainsMono = JetBrains_Mono({
 export const metadata: Metadata = {
   title: "Zakir Enterprise — Construction ERP",
   description: "Project-centric construction & engineering ERP.",
-  // Favicon: the Zakir Enterprise logo, served via a Cloudinary transform
-  // (w_64,h_64,c_fit) so the browser fetches a small ~64px icon rather than the
-  // multi-MB source PNG.
+  // Favicon: the Zakir Enterprise logo. The brand asset is a WIDE wordmark (768x231),
+  // which squashes into an illegible sliver in the square favicon slot — so we crop the
+  // leftmost square (the "ZE" monogram, x_0,y_0,231x231) and scale it to a 64px PNG.
+  // Same live Cloudinary asset used by <BrandLogo>; ~3.7KB.
   icons: {
-    icon: "https://res.cloudinary.com/dzczxr9ns/image/upload/w_64,h_64,c_fit,f_png/v1784800536/Zakir_Enterprise_Logo_nvxvls.png",
+    icon: "https://res.cloudinary.com/dzczxr9ns/image/upload/c_crop,x_0,y_0,w_231,h_231/w_64,h_64,c_fit,f_png/v1782117605/uploads/tqkwjq4urh5r13pir8oz.png",
   },
 };
 
