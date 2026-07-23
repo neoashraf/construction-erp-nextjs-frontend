@@ -208,12 +208,16 @@ describe("NotificationsBell — mark-read (FR-NTF-004)", () => {
 });
 
 describe("NotificationsBell — deep-link + informational (FR-NTF-015)", () => {
-  it('null deepLink renders informational (non-clickable, "Informational" label)', async () => {
+  it("null deepLink renders a non-clickable (informational) row", async () => {
     renderBell(undefined, true);
     await screen.findByTestId("notifications-drawer");
     const rows = await screen.findAllByTestId("notification-row");
-    // Row 2 (`n2`) has deepLink: null.
-    expect(rows[1]).toHaveTextContent(/Informational/);
+    // Row 2 (`n2`) has deepLink: null → informational, so it is not clickable
+    // (no cursor-pointer affordance) unlike the deep-linked first row. Per the
+    // design file (frame 01/02) informational rows carry no visible tag; the
+    // distinction is the absence of the click affordance.
+    expect(rows[1]!.className).not.toContain("cursor-pointer");
+    expect(rows[0]!.className).toContain("cursor-pointer");
   });
 });
 
