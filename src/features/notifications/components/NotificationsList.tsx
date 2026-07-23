@@ -21,6 +21,7 @@ export function NotificationsList({
   onRetry,
   onOpen,
   onMarkRead,
+  showMarkRead,
   showEndMarker,
   hasMore,
   isLoadingMore,
@@ -33,6 +34,8 @@ export function NotificationsList({
   onRetry: () => void;
   onOpen: (n: Notification) => void;
   onMarkRead: (n: Notification) => void;
+  /** Show the per-row "Mark as read" affordance (drawer only, per design). */
+  showMarkRead?: boolean;
   showEndMarker?: boolean;
   /** More pages exist — render a "See more" affordance instead of the end marker. */
   hasMore?: boolean;
@@ -81,7 +84,13 @@ export function NotificationsList({
   return (
     <ul role="list" className="divide-y divide-border/70" data-testid="notifications-list">
       {rows.map((n) => (
-        <NotificationRow key={n.id} n={n} onOpen={onOpen} onMarkRead={onMarkRead} />
+        <NotificationRow
+          key={n.id}
+          n={n}
+          onOpen={onOpen}
+          onMarkRead={onMarkRead}
+          showMarkRead={showMarkRead}
+        />
       ))}
       {hasMore && (
         <li className="px-4 py-3 text-center">

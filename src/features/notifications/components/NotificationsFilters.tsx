@@ -1,6 +1,7 @@
 "use client";
 
 import { useState } from "react";
+import { ChevronDown } from "lucide-react";
 import { Button } from "@/components/ui/button";
 import { Input } from "@/components/ui/input";
 import { Label } from "@/components/ui/label";
@@ -53,13 +54,13 @@ export function NotificationsFilters({
 }) {
   const [draft, setDraft] = useState<NotificationsFiltersValue>(value);
   return (
-    <Card className="p-4" data-testid="notifications-filter-bar">
-      <div className="flex flex-wrap items-end gap-3">
-        <div>
-          <Label className="text-[11px] uppercase tracking-wide text-muted-foreground">
+    <Card className="mt-[18px] p-[13px]" data-testid="notifications-filter-bar">
+      <div className="flex flex-wrap items-end gap-4">
+        <div className="flex flex-col gap-1.5">
+          <Label className="text-[10.5px] font-semibold uppercase tracking-wide text-muted-foreground">
             Read state
           </Label>
-          <div className="mt-1 inline-flex overflow-hidden rounded-token border border-border-strong">
+          <div className="inline-flex gap-0.5 rounded-token bg-canvas p-[3px]">
             {(["ALL", "UNREAD"] as const).map((v) => (
               <button
                 type="button"
@@ -67,10 +68,10 @@ export function NotificationsFilters({
                 onClick={() => setDraft((d) => ({ ...d, readState: v }))}
                 data-testid={`filter-read-${v.toLowerCase()}`}
                 className={cn(
-                  "px-3 py-1.5 text-[12px] font-semibold transition-colors",
+                  "h-[30px] rounded-sm px-3.5 text-[12.5px] font-semibold transition-colors",
                   draft.readState === v
-                    ? "bg-foreground text-background"
-                    : "bg-surface text-muted-foreground hover:bg-canvas",
+                    ? "bg-foreground text-background shadow-sm"
+                    : "bg-transparent text-muted-foreground hover:text-foreground",
                 )}
               >
                 {v === "ALL" ? "All" : "Unread"}
@@ -79,27 +80,39 @@ export function NotificationsFilters({
           </div>
         </div>
 
-        <div>
-          <Label htmlFor="filter-type" className="text-[11px] uppercase tracking-wide text-muted-foreground">
+        <div className="flex w-[220px] flex-col gap-1.5">
+          <Label
+            htmlFor="filter-type"
+            className="text-[10.5px] font-semibold uppercase tracking-wide text-muted-foreground"
+          >
             Type
           </Label>
-          <select
-            id="filter-type"
-            value={draft.type}
-            onChange={(e) => setDraft((d) => ({ ...d, type: e.target.value }))}
-            className="mt-1 block h-9 rounded-token border border-border-strong bg-background px-3 text-sm text-foreground focus:border-accent focus:shadow-focus focus:outline-none"
-            data-testid="filter-type"
-          >
-            {TYPE_OPTIONS.map((o) => (
-              <option key={o.value} value={o.value}>
-                {o.label}
-              </option>
-            ))}
-          </select>
+          <div className="relative">
+            <select
+              id="filter-type"
+              value={draft.type}
+              onChange={(e) => setDraft((d) => ({ ...d, type: e.target.value }))}
+              className="h-9 w-full appearance-none rounded-token border border-border-strong bg-surface pl-3 pr-8 text-[13px] text-foreground focus:border-accent focus:shadow-focus focus:outline-none"
+              data-testid="filter-type"
+            >
+              {TYPE_OPTIONS.map((o) => (
+                <option key={o.value} value={o.value}>
+                  {o.label}
+                </option>
+              ))}
+            </select>
+            <ChevronDown
+              className="pointer-events-none absolute right-3 top-1/2 h-4 w-4 -translate-y-1/2 text-faint"
+              aria-hidden
+            />
+          </div>
         </div>
 
-        <div>
-          <Label htmlFor="filter-since" className="text-[11px] uppercase tracking-wide text-muted-foreground">
+        <div className="flex w-[200px] flex-col gap-1.5">
+          <Label
+            htmlFor="filter-since"
+            className="text-[10.5px] font-semibold uppercase tracking-wide text-muted-foreground"
+          >
             Since
           </Label>
           <Input
@@ -108,11 +121,11 @@ export function NotificationsFilters({
             value={draft.since}
             onChange={(e) => setDraft((d) => ({ ...d, since: e.target.value }))}
             data-testid="filter-since"
-            className="mt-1 w-[170px]"
+            className="w-full"
           />
         </div>
 
-        <div className="ml-auto flex gap-2">
+        <div className="ml-auto flex items-center gap-2">
           <Button
             type="button"
             size="md"

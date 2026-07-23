@@ -274,64 +274,7 @@ export function PurposesScreen() {
             )}
           </Card>
 
-          {/* ============ INLINE-CREATE DROPDOWN (SHARED COMPONENT) ============
-              The same combobox voucher forms reuse to pick — or inline-create — a
-              purpose. Kept below the list, as in the design file. */}
-          {canCreate && (
-            <section className="mt-[26px]" data-testid="purpose-shared-component">
-              <div className="mb-1 flex items-center gap-2.5">
-                <span className="whitespace-nowrap text-[10.5px] font-bold uppercase tracking-[0.5px] text-accent-ink">
-                  Shared component
-                </span>
-                <span className="h-px flex-1 bg-border" aria-hidden />
-              </div>
-              <div className="mb-3.5">
-                <div className="text-[15.5px] font-bold text-foreground">
-                  Inline-create dropdown
-                </div>
-                <p className="mt-0.5 max-w-[74ch] text-[12.5px] leading-normal text-muted-foreground">
-                  The same combobox reused inside voucher forms to pick a purpose — or create a
-                  new reusable one on the fly. ARIA-wired; inline-create is{" "}
-                  <strong className="font-semibold text-foreground">idempotent</strong> — choosing
-                  Create on an existing name returns that purpose, never a duplicate.
-                </p>
-              </div>
-
-              {/* faux voucher card containing the dimension picker */}
-              <Card className="max-w-[560px] p-[18px]">
-                <div className="mb-3 flex items-center gap-2">
-                  <span className="text-[10px] font-semibold uppercase tracking-[0.4px] text-faint">
-                    Voucher · posting dimension
-                  </span>
-                  <span className="inline-flex h-5 items-center rounded-pill bg-accent-soft px-2 text-[10.5px] font-semibold text-accent-ink">
-                    Purpose
-                  </span>
-                </div>
-
-                <Label htmlFor="purpose-combobox" className="mb-1.5 block text-[11px]">
-                  Purpose
-                </Label>
-
-                <PurposeCombobox
-                  id="purpose-combobox"
-                  projectId={projectId}
-                  value={null}
-                  canCreate={canCreate}
-                  closedProject={closedProject}
-                  onChange={(p) => {
-                    toast(`‘${p.name}’ selected.`, "success");
-                    query.refetch();
-                  }}
-                />
-
-                <p className="mt-2.5 text-[11.5px] text-faint">
-                  Lists active purposes for{" "}
-                  <span className="text-muted-foreground">{projectName ?? "this project"}</span>.
-                  Works down to 360px on phones at site.
-                </p>
-              </Card>
-            </section>
-          )}
+      
         </>
       )}
 
