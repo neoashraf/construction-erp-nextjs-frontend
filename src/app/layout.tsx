@@ -32,6 +32,12 @@ const jetbrainsMono = JetBrains_Mono({
 export const metadata: Metadata = {
   title: "Zakir Enterprise — Construction ERP",
   description: "Project-centric construction & engineering ERP.",
+  // Favicon: the Zakir Enterprise logo, served via a Cloudinary transform
+  // (w_64,h_64,c_fit) so the browser fetches a small ~64px icon rather than the
+  // multi-MB source PNG.
+  icons: {
+    icon: "https://res.cloudinary.com/dzczxr9ns/image/upload/w_64,h_64,c_fit,f_png/v1784800536/Zakir_Enterprise_Logo_nvxvls.png",
+  },
 };
 
 /**

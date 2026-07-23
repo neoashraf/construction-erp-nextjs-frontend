@@ -15,6 +15,8 @@ import {
   type NavSubItem,
 } from "@/lib/nav/nav-tree";
 import { NAV_ICON } from "./nav-icons";
+import { BrandLogo } from "./brand-logo";
+import { BRAND_NAME } from "@/lib/brand";
 import { useShellChrome } from "./shell-chrome-context";
 import { UserMenu, type UserMenuUser } from "./user-menu";
 import { cn } from "@/lib/utils";
@@ -65,12 +67,9 @@ export function NavDrawer({ user }: { user: UserMenuUser & { permissions?: impor
         >
           <div className="flex items-center justify-between px-4 py-4">
             <div className="flex items-center gap-2.5">
-              <div className="grid h-8 w-8 place-items-center rounded-md bg-accent text-[11px] font-extrabold text-accent-foreground">
-                ZE
-              </div>
-              <DialogPrimitive.Title className="text-sm font-bold text-sidebar-active-foreground">
-                Zakir Enterprise
-              </DialogPrimitive.Title>
+              <BrandLogo className="h-14" alt={BRAND_NAME} />
+              {/* Radix requires an accessible Title; hidden since the logo shows alone. */}
+              <DialogPrimitive.Title className="sr-only">{BRAND_NAME}</DialogPrimitive.Title>
             </div>
             <DialogPrimitive.Close
               aria-label="Close menu"

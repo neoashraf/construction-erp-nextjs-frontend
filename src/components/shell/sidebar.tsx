@@ -14,6 +14,8 @@ import {
   type NavSubItem,
 } from "@/lib/nav/nav-tree";
 import { NAV_ICON } from "./nav-icons";
+import { BrandLogo } from "./brand-logo";
+import { BRAND_NAME } from "@/lib/brand";
 import { useShellChrome } from "./shell-chrome-context";
 import { useCompanyFy } from "@/providers/company-fy-provider";
 import { UserMenu, type UserMenuUser } from "./user-menu";
@@ -60,21 +62,11 @@ export function Sidebar({ user }: { user: SidebarUser }) {
         collapsed ? "w-14" : "w-[230px]",
       )}
     >
-      {/* brand — pinned top chrome (shrink-0 so a short viewport can't compress it) */}
-      <div className={cn("flex shrink-0 items-center gap-2.5 px-4 py-4", collapsed && "justify-center px-0")}>
-        <div className="grid h-8 w-8 shrink-0 place-items-center rounded-md bg-accent text-[11px] font-extrabold text-accent-foreground">
-          ZE
-        </div>
-        {!collapsed && (
-          <div className="min-w-0">
-            <div className="truncate text-sm font-bold leading-none text-sidebar-active-foreground">
-              Zakir Enterprise
-            </div>
-            <div className="mt-1 text-[10px] uppercase tracking-wide text-sidebar-muted">
-              Construction ERP
-            </div>
-          </div>
-        )}
+      {/* brand — pinned top chrome (shrink-0 so a short viewport can't compress it).
+          The logo is a wide wordmark, so size by HEIGHT only (width auto) — expanded
+          shows the full wordmark; the 56px rail shows a small height-capped crop. */}
+      <div className={cn("flex shrink-0 items-center px-4 py-4", collapsed ? "justify-center px-0" : "gap-2.5")}>
+        <BrandLogo className={cn(collapsed ? "h-12" : "h-16")} alt={BRAND_NAME} />
       </div>
 
       {/* nav tree — the only scrolling region; min-h-0 lets it shrink below its

@@ -64,8 +64,8 @@ describe("LoginCard", () => {
   // AC: Screen renders elements per spec; no sidebar/topbar
   it("renders brand mark, heading, email, password, and sign-in button", () => {
     renderCard();
-    expect(screen.getByText("Zakir Enterprise")).toBeInTheDocument();
-    expect(screen.getByText("Construction ERP")).toBeInTheDocument();
+    // Brand block is the logo image alone (no visible text); alt carries the name.
+    expect(screen.getByRole("img", { name: "Zakir Enterprise" })).toBeInTheDocument();
     expect(screen.getByRole("heading", { name: /sign in/i })).toBeInTheDocument();
     expect(screen.getByLabelText("Email")).toBeInTheDocument();
     expect(screen.getByLabelText("Password")).toBeInTheDocument();
