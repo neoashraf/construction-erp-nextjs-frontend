@@ -1,4 +1,3 @@
-import { AlertTriangle, Bell, Info } from "lucide-react";
 import { cn } from "@/lib/utils";
 import { type NotificationSeverity } from "../types";
 
@@ -14,9 +13,16 @@ const CLASS: Record<NotificationSeverity, string> = {
   LOW: "bg-muted text-muted-foreground",
 };
 
+const DOT: Record<NotificationSeverity, string> = {
+  HIGH: "bg-destructive",
+  NORMAL: "bg-info",
+  LOW: "bg-muted-foreground",
+};
+
 /**
- * FE-53 — severity pill with icon + text label (never colour-alone) per spec §10.
- * Severity is presentation-only (FR-NTF-022); grants nothing.
+ * FE-53 — severity pill: a coloured dot + an uppercase text label (never
+ * colour-alone) per spec §10. Matches the design file's inline pill (dot +
+ * uppercase). Severity is presentation-only (FR-NTF-022); grants nothing.
  */
 export function SeverityBadge({
   severity,
@@ -25,17 +31,16 @@ export function SeverityBadge({
   severity: NotificationSeverity;
   className?: string;
 }) {
-  const Icon = severity === "HIGH" ? AlertTriangle : severity === "NORMAL" ? Bell : Info;
   return (
     <span
       className={cn(
-        "inline-flex items-center gap-1 rounded-pill px-2 py-0.5 text-[10.5px] font-semibold",
+        "inline-flex items-center gap-1.5 rounded-pill px-2 py-0.5 text-[10px] font-bold uppercase tracking-wide",
         CLASS[severity],
         className,
       )}
       aria-label={`Severity: ${LABEL[severity]}`}
     >
-      <Icon className="h-3 w-3" aria-hidden />
+      <span className={cn("h-1.5 w-1.5 rounded-full", DOT[severity])} aria-hidden />
       {LABEL[severity]}
     </span>
   );

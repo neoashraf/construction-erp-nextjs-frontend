@@ -1,8 +1,10 @@
 "use client";
 
 import { useMemo, useState } from "react";
+import { Check } from "lucide-react";
 import { Button } from "@/components/ui/button";
 import { Badge } from "@/components/ui/badge";
+import { cn } from "@/lib/utils";
 import { useMarkRead } from "../hooks/useMarkRead";
 import { usePageFeed } from "../hooks/useNotificationsFeed";
 import { useUnreadCount } from "../hooks/useUnreadCount";
@@ -37,14 +39,22 @@ export function NotificationsPage() {
   const filtered =
     applied.readState !== "ALL" || applied.type !== "" || applied.since !== "";
 
+  // A compact window of up to 5 page numbers centred on the current page.
+  const pageNumbers = useMemo(() => {
+    const span = Math.min(5, totalPages);
+    let first = Math.max(1, page - Math.floor(span / 2));
+    first = Math.min(first, totalPages - span + 1);
+    return Array.from({ length: span }, (_, i) => first + i);
+  }, [page, totalPages]);
+
   function onOpenRow(n: Notification) {
     if (n.readAt === null) void markOne(n.id, true).catch(() => undefined);
   }
 
   return (
-    <div className="mx-auto max-w-5xl px-4 py-6" data-testid="notifications-page">
-      <div className="mb-4 flex items-start justify-between gap-3">
-        <div>
+    <div className="mx-auto max-w-[860px] px-6 py-6" data-testid="notifications-page">
+      <div className="mb-4 flex flex-wrap items-start justify-between gap-x-3 gap-y-2">
+        <div className="min-w-0 flex-1 basis-[280px]">
           <div className="flex items-center gap-2">
             <h1 className="text-[23px] font-bold tracking-[-0.02em]" data-testid="page-title">
               Notifications
@@ -56,8 +66,8 @@ export function NotificationsPage() {
             )}
           </div>
           <p className="mt-1 text-[13px] text-muted-foreground">
-            Everything the app has flagged for you — most recent first. Marking one read here syncs
-            every open tab.
+            Everything you&rsquo;ve been sent, most recent first. Click a row to open its source;
+            it&rsquo;s marked read as you go.
           </p>
         </div>
         <Button
@@ -66,7 +76,9 @@ export function NotificationsPage() {
           onClick={() => void markAll().catch(() => undefined)}
           disabled={(unread.data ?? 0) === 0}
           data-testid="page-mark-all"
+          className="shrink-0 whitespace-nowrap"
         >
+          <Check className="h-4 w-4" aria-hidden />
           Mark all read
         </Button>
       </div>
@@ -93,7 +105,7 @@ export function NotificationsPage() {
         </div>
       )}
 
-      <div className="mt-4 rounded-card border border-border bg-surface">
+      <div className="mt-3.5 overflow-hidden rounded-card border border-border bg-surface shadow-sm">
         <NotificationsList
           rows={rows}
           isLoading={feed.isLoading}
@@ -104,15 +116,21 @@ export function NotificationsPage() {
           onRetry={() => feed.refetch()}
           onOpen={onOpenRow}
           onMarkRead={(n) => void markOne(n.id, true).catch(() => undefined)}
+          showMarkRead={false}
         />
       </div>
 
       {rows && rows.length > 0 && (
-        <div className="mt-4 flex items-center justify-between text-[12px] text-muted-foreground">
+        <div className="mt-3.5 flex items-center justify-between text-[12.5px] text-muted-foreground">
           <span data-testid="page-pagination-summary">
-            Showing {start}–{end} of {total} · page size {PAGE_PAGE_SIZE}
+            Showing{" "}
+            <span className="font-semibold text-foreground">
+              {start}&ndash;{end}
+            </span>{" "}
+            of <span className="font-semibold text-foreground">{total}</span> notifications{" "}
+            <span className="text-faint">&middot; page size {PAGE_PAGE_SIZE}</span>
           </span>
-          <div className="flex items-center gap-2">
+          <div className="flex items-center gap-1.5">
             <Button
               size="sm"
               variant="outline"
@@ -122,9 +140,23 @@ export function NotificationsPage() {
             >
               Prev
             </Button>
-            <span className="px-2">
-              {page} / {totalPages}
-            </span>
+            {pageNumbers.map((p) => (
+              <button
+                key={p}
+                type="button"
+                onClick={() => setPage(p)}
+                aria-current={p === page ? "page" : undefined}
+                data-testid={`page-num-${p}`}
+                className={cn(
+                  "grid h-[30px] min-w-[30px] place-items-center rounded-token px-2 text-[12.5px] font-semibold transition-colors",
+                  p === page
+                    ? "bg-primary text-primary-foreground"
+                    : "border border-border-strong bg-surface text-foreground hover:bg-surface-2",
+                )}
+              >
+                {p}
+              </button>
+            ))}
             <Button
               size="sm"
               variant="outline"
