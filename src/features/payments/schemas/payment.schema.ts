@@ -215,7 +215,7 @@ export function formToWriteInput(v: PaymentFormValues): PaymentWriteInput {
 
 export function paymentToForm(p: Payment): PaymentFormValues {
   return {
-    partyId: p.partyId,
+    partyId: p.partyId ?? "",
     paymentDate: apiDateToUi(p.paymentDate),
     paymentMode: p.paymentMode,
     paymentAccountId: p.paymentAccountId,
