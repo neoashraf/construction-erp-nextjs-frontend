@@ -1,13 +1,26 @@
 import { requireModuleAccess } from "@/lib/auth/guard-module-page";
-import { AttendanceShell } from "@/features/hr/components/AttendanceShell";
+import { Breadcrumb } from "@/components/ui/breadcrumb";
+import { AttendanceLogsShell } from "@/features/hr/components/AttendanceLogsShell";
 
 /**
- * `/hr/attendance` — three-mode attendance shell (FR-HR-004..-012; spec §3). The module
- * guard redirects Site Engineer / Store Keeper / PM (no HR module) to /403; HR Manager /
- * Admin / Accounts reach the shell. The shell further hides Confirm/Reverse via
- * `canConfirmAttendance` — server re-checks every write/post regardless.
+ * `/hr/attendance` — biometric attendance logs.
+ *
+ * Reporting over the device feed: filterable per-day and aggregate views, a per-employee
+ * detail drawer, device sync, and Excel export. Nothing on this screen posts to the ledger.
+ *
+ * The ledger-posting capture screen (three-mode office / daily-labour / subcontractor, with
+ * the daily-labour accrual Confirm/Reverse) still lives in `AttendanceShell` and its
+ * sibling components — it is retained, not deleted, pending its own route.
+ *
+ * The module guard redirects roles without HR access to /403; the backend re-checks every
+ * call regardless.
  */
 export default async function HrAttendancePage() {
   await requireModuleAccess("hr");
-  return <AttendanceShell />;
+  return (
+    <div className="mx-auto max-w-6xl">
+      <Breadcrumb items={[{ label: "HR" }, { label: "Attendance" }]} />
+      <AttendanceLogsShell />
+    </div>
+  );
 }
