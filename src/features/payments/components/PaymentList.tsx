@@ -35,6 +35,12 @@ function money(v: string) {
   return formatMoney(v, { fractionDigits: 2 });
 }
 
+/** A payment with no allocations may carry no payee (payment.schema §payee rule). */
+function partyLabel(parties: PartyMap, partyId: string | null) {
+  if (!partyId) return "—";
+  return parties.byId.get(partyId) ?? `${partyId.slice(0, 8)} (name unavailable)`;
+}
+
 export function PaymentList({
   rows,
   isLoading,
@@ -78,7 +84,7 @@ export function PaymentList({
           {rows.map((r) => {
             const isDraft = r.status === "DRAFT";
             const href = isDraft ? `/payments/${r.id}` : `/payments/${r.id}/view`;
-            const partyName = parties.byId.get(r.partyId) ?? `${r.partyId.slice(0, 8)} (name unavailable)`;
+            const partyName = partyLabel(parties, r.partyId);
             const unallocatedZero = Number(r.unallocatedAmount) === 0;
             return (
               <div
@@ -163,7 +169,7 @@ export function PaymentList({
         {rows.map((r) => {
           const isDraft = r.status === "DRAFT";
           const href = isDraft ? `/payments/${r.id}` : `/payments/${r.id}/view`;
-          const partyName = parties.byId.get(r.partyId) ?? `${r.partyId.slice(0, 8)} (name unavailable)`;
+          const partyName = partyLabel(parties, r.partyId);
           return (
             <div
               key={r.id}

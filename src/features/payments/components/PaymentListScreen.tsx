@@ -77,7 +77,7 @@ export function PaymentListScreen() {
   const accounts = useMemo(() => accountsQ.data ?? [], [accountsQ.data]);
 
   const partyMap: PartyMap = useMemo(
-    () => ({ byId: new Map(parties.map((p) => [p.id, p.name])) }),
+    () => ({ byId: new Map(parties?.map((p) => [p.id, p.name])) }),
     [parties],
   );
 

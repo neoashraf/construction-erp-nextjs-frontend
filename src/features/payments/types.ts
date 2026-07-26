@@ -57,7 +57,7 @@ export interface PaymentLinkage {
 /** The full Payment Voucher resource (`GET /api/payment/{id}`). */
 export interface Payment {
   id: string;
-  partyId: string;
+  partyId: string | null;
   paymentDate: string;
   paymentMode: PaymentMode;
   paymentAccountId: string;
@@ -84,7 +84,7 @@ export interface Payment {
 export interface PaymentSummary {
   id: string;
   entryNo: string | null;
-  partyId: string;
+  partyId: string | null;
   paymentDate: string;
   paymentMode: PaymentMode;
   paymentAccountId: string;
