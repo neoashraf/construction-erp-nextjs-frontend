@@ -135,10 +135,14 @@ export function FinancialStatementsScreen({
           titleTestId="fs-title"
         />
       )}
-      {/* Statement switcher (underline tabs) on the left, scope toggle on the right. */}
+      {/* Statement switcher (underline tabs) on the left, scope toggle on the right.
+          Embedded in the `/reports` hub the catalog card already renders the chip
+          row, so only the scope toggle stays — kept right-aligned. */}
       <div className="mb-4 flex flex-wrap items-center justify-between gap-3">
-        <StatementSwitcher value={tab} onChange={onTabChange} />
-        <ScopeToggle value={scope} onChange={onScopeChange} />
+        {!embedded && <StatementSwitcher value={tab} onChange={onTabChange} />}
+        <div className="ml-auto">
+          <ScopeToggle value={scope} onChange={onScopeChange} />
+        </div>
       </div>
 
       {!online && (

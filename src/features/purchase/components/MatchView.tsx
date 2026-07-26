@@ -71,7 +71,7 @@ export function MatchView({ poId }: { poId: string }) {
   if (query.isLoading) {
     return (
       <div className="mx-auto max-w-6xl" data-testid="match-loading">
-        <Breadcrumb items={[{ label: "Purchase" }, { label: "PO Bill match" }, { label: poId }]} />
+        <Breadcrumb items={[{ label: "GRN & matching", href: "/purchase/grn" }, { label: poId }]} />
         <div className="mb-4 mt-1 flex flex-col gap-2">
           <Skeleton className="h-6 w-64" />
           <Skeleton className="h-4 w-40" />
@@ -104,7 +104,7 @@ export function MatchView({ poId }: { poId: string }) {
         : "Couldn't load the match data. Please try again.";
     return (
       <div className="mx-auto max-w-6xl">
-        <Breadcrumb items={[{ label: "Purchase" }, { label: "PO Bill match" }, { label: poId }]} />
+        <Breadcrumb items={[{ label: "GRN & matching", href: "/purchase/grn" }, { label: poId }]} />
         <Alert
           tone="destructive"
           title={title}
@@ -131,7 +131,7 @@ export function MatchView({ poId }: { poId: string }) {
 
   return (
     <div className="mx-auto max-w-6xl">
-      <Breadcrumb items={[{ label: "Purchase" }, { label: "PO Bill match" }, { label: title }]} />
+      <Breadcrumb items={[{ label: "GRN & matching", href: "/purchase/grn" }, { label: title }]} />
       <div className="mb-4 mt-1 flex flex-wrap items-center gap-3">
         <h1 className="text-[22px] font-bold tracking-[-0.02em]" data-testid="match-title">
           PO / Bill match — {title}

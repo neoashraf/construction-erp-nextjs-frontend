@@ -289,8 +289,7 @@ export function ContraVoucherEditor({ voucherId }: { voucherId: string | null })
   return (
     <div className="relative mx-auto max-w-5xl pb-28 lg:pb-24" data-testid="contra-voucher-editor">
       <Breadcrumb items={[
-        { label: "Contra & Journal", href: "/contra-journal/vouchers" },
-        { label: "Contra vouchers", href: "/contra-journal/vouchers" },
+        { label: "Vouchers", href: "/contra-journal/vouchers" },
         { label: crumbTail },
       ]} />
       <div className="mb-4 mt-1 flex flex-wrap items-center gap-3">
@@ -609,7 +608,7 @@ export function ContraVoucherEditor({ voucherId }: { voucherId: string | null })
 function LoadingShell() {
   return (
     <div className="mx-auto max-w-5xl">
-      <Breadcrumb items={[{ label: "Contra & Journal" }, { label: "Vouchers", href: "/contra-journal/vouchers" }, { label: "Voucher" }]} />
+      <Breadcrumb items={[{ label: "Vouchers", href: "/contra-journal/vouchers" }, { label: "Voucher" }]} />
       <div className="mb-3 mt-1 flex items-center gap-3">
         <Skeleton className="h-7 w-56" />
         <Skeleton className="h-6 w-20 rounded-pill" />
@@ -624,7 +623,7 @@ function LoadingShell() {
 function ErrorShell({ notFound, onBack }: { notFound: boolean; onBack: () => void }) {
   return (
     <div className="mx-auto max-w-5xl">
-      <Breadcrumb items={[{ label: "Contra & Journal" }, { label: "Vouchers", href: "/contra-journal/vouchers" }, { label: "Voucher" }]} />
+      <Breadcrumb items={[{ label: "Vouchers", href: "/contra-journal/vouchers" }, { label: "Voucher" }]} />
       <Card className="mt-6 p-10" data-testid="contra-editor-error">
         <EmptyState
           icon={Lock}
@@ -639,7 +638,7 @@ function ErrorShell({ notFound, onBack }: { notFound: boolean; onBack: () => voi
 function ForbiddenShell() {
   return (
     <div className="mx-auto max-w-5xl">
-      <Breadcrumb items={[{ label: "Contra & Journal" }, { label: "Vouchers", href: "/contra-journal/vouchers" }, { label: "Voucher" }]} />
+      <Breadcrumb items={[{ label: "Vouchers", href: "/contra-journal/vouchers" }, { label: "Voucher" }]} />
       <Card className="mt-6 p-10" data-testid="contra-editor-403">
         <EmptyState
           icon={Lock}

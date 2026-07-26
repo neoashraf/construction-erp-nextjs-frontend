@@ -114,7 +114,7 @@ export function RequisitionApprovalDetail({ requisitionId }: { requisitionId: st
     if (e.code === "FORBIDDEN") return <PermissionDenied />;
     return (
       <div className="mx-auto max-w-5xl">
-        <Breadcrumb items={[{ label: "Requisitions", href: WORKLIST }, { label: "Requisition" }]} />
+        <Breadcrumb items={[{ label: "Approvals", href: WORKLIST }, { label: "Requisition" }]} />
         <Card
           className="mt-6 flex flex-col items-center gap-3 p-10 text-center"
           data-testid="req-approval-error"
@@ -239,7 +239,7 @@ export function RequisitionApprovalDetail({ requisitionId }: { requisitionId: st
     <div className="mx-auto max-w-5xl pb-28 lg:pb-6">
       <Breadcrumb
         items={[
-          { label: "Requisitions", href: WORKLIST },
+          { label: "Approvals", href: WORKLIST },
           { label: req.requisitionNo ?? "Requisition" },
         ]}
       />
@@ -616,7 +616,7 @@ function BudgetPanel({ status }: { status: BudgetStatus | undefined }) {
 function PermissionDenied() {
   return (
     <div className="mx-auto max-w-5xl">
-      <Breadcrumb items={[{ label: "Requisitions", href: WORKLIST }, { label: "Review" }]} />
+      <Breadcrumb items={[{ label: "Approvals", href: WORKLIST }, { label: "Review" }]} />
       <Card
         className="mt-6 flex flex-col items-center gap-3 p-10 text-center"
         data-testid="req-approval-403"

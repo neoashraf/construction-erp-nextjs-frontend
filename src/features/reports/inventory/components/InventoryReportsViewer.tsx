@@ -119,7 +119,8 @@ export function InventoryReportsViewer({
         />
       )}
 
-      <InventoryReportsSwitcher value={tab} onChange={onTabChange} />
+      {/* The `/reports` hub's catalog card already renders the chip row. */}
+      {!embedded && <InventoryReportsSwitcher value={tab} onChange={onTabChange} />}
 
       {!online && (
         <Alert

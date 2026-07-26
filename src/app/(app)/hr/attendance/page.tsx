@@ -1,5 +1,4 @@
 import { requireModuleAccess } from "@/lib/auth/guard-module-page";
-import { Breadcrumb } from "@/components/ui/breadcrumb";
 import { AttendanceLogsShell } from "@/features/hr/components/AttendanceLogsShell";
 
 /**
@@ -19,7 +18,6 @@ export default async function HrAttendancePage() {
   await requireModuleAccess("hr");
   return (
     <div className="mx-auto max-w-6xl">
-      <Breadcrumb items={[{ label: "HR" }, { label: "Attendance" }]} />
       <AttendanceLogsShell />
     </div>
   );

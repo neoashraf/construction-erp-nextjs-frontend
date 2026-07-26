@@ -8,7 +8,6 @@ import { Button } from "@/components/ui/button";
 import { EmptyState } from "@/components/ui/empty-state";
 import { Alert } from "@/components/ui/alert";
 import { asApiError } from "@/lib/api/errors";
-import { Breadcrumb as UiBreadcrumb } from "@/components/ui/breadcrumb";
 import { useSetRecordCrumb } from "@/components/shell/breadcrumb";
 import { useJournalEntry } from "../hooks/useJournalEntry";
 import { EntryHeaderBlock } from "./EntryHeaderBlock";
@@ -70,7 +69,6 @@ export function EntryViewerScreen({ id, fyLabel = "Active FY" }: { id: string | 
   if (query.isLoading) {
     return (
       <div className="mx-auto max-w-6xl">
-        <Breadcrumb entryNo="…" />
         <EntryViewerSkeleton />
       </div>
     );
@@ -83,7 +81,6 @@ export function EntryViewerScreen({ id, fyLabel = "Active FY" }: { id: string | 
   if (forbidden) {
     return (
       <div className="mx-auto max-w-6xl" data-testid="entry-forbidden">
-        <Breadcrumb entryNo={id} />
         <Card className="mt-4 p-8">
           <EmptyState
             icon={Lock}
@@ -103,7 +100,6 @@ export function EntryViewerScreen({ id, fyLabel = "Active FY" }: { id: string | 
   if (otherError) {
     return (
       <div className="mx-auto max-w-6xl" data-testid="entry-error">
-        <Breadcrumb entryNo={id} />
         <Card className="mt-4 p-8">
           <EmptyState
             icon={AlertCircle}
@@ -127,8 +123,6 @@ export function EntryViewerScreen({ id, fyLabel = "Active FY" }: { id: string | 
 
   return (
     <div className="mx-auto max-w-6xl" data-testid="entry-viewer-loaded">
-      <Breadcrumb entryNo={entry.entryNo} />
-
       <div className="flex flex-wrap items-start gap-4">
         <h1 className="text-[23px] font-bold tracking-[-0.02em] text-foreground">
           Journal entry <span className="font-mono">{entry.entryNo}</span>
@@ -170,7 +164,6 @@ export function EntryViewerScreen({ id, fyLabel = "Active FY" }: { id: string | 
 function NotFoundView({ onBack }: { onBack: () => void }) {
   return (
     <div className="mx-auto max-w-6xl" data-testid="entry-not-found">
-      <Breadcrumb />
       <Card className="mt-4 p-8">
         <EmptyState
           icon={Search}
@@ -184,17 +177,5 @@ function NotFoundView({ onBack }: { onBack: () => void }) {
         />
       </Card>
     </div>
-  );
-}
-
-function Breadcrumb({ entryNo }: { entryNo?: string }) {
-  return (
-    <UiBreadcrumb
-      items={[
-        { label: "Ledger" },
-        { label: "Journal entries", href: entryNo ? "/ledger/journal-entries" : undefined },
-        ...(entryNo ? [{ label: entryNo }] : []),
-      ]}
-    />
   );
 }

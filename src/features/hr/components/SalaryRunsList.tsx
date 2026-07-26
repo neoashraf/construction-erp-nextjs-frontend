@@ -10,7 +10,6 @@ import { Button } from "@/components/ui/button";
 import { Skeleton } from "@/components/ui/skeleton";
 import { EmptyState } from "@/components/ui/empty-state";
 import { Alert } from "@/components/ui/alert";
-import { Breadcrumb } from "@/components/ui/breadcrumb";
 import { useToast } from "@/components/ui/toast";
 import { cn } from "@/lib/utils";
 import { formatMoney } from "@/lib/money";
@@ -88,7 +87,6 @@ export function SalaryRunsList() {
 
   return (
     <div className="mx-auto max-w-6xl" data-testid="salary-runs-list">
-      <Breadcrumb items={[{ label: "HR" }, { label: "Salary sheet" }]} />
       <div className="mb-4 mt-1 flex flex-wrap items-center gap-3">
         <h1 className="text-[23px] font-bold tracking-[-0.02em]" data-testid="salary-runs-title">
           Salary sheet

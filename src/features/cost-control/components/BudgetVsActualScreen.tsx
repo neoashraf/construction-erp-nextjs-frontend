@@ -8,7 +8,6 @@ import { Button } from "@/components/ui/button";
 import { Skeleton } from "@/components/ui/skeleton";
 import { EmptyState } from "@/components/ui/empty-state";
 import { Alert } from "@/components/ui/alert";
-import { Breadcrumb } from "@/components/ui/breadcrumb";
 import { cn } from "@/lib/utils";
 import { asApiError } from "@/lib/api/errors";
 import { hasGrant } from "@/lib/auth/roles";
@@ -139,7 +138,6 @@ export function BudgetVsActualScreen({
 
   return (
     <div className="mx-auto max-w-6xl">
-      <Breadcrumb items={[{ label: "Cost Control" }, { label: "Budget vs Actual" }]} />
       <div className="mb-4 mt-1 flex flex-wrap items-center gap-3">
         <h1 className="text-[23px] font-bold tracking-[-0.02em]" data-testid="bva-title">
           Budget vs Actual

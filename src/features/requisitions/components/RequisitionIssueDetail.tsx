@@ -153,7 +153,7 @@ export function RequisitionIssueDetail({ requisitionId }: { requisitionId: strin
     if (e.code === "FORBIDDEN") return <PermissionDenied />;
     return (
       <div className="mx-auto max-w-6xl">
-        <Breadcrumb items={[{ label: "Requisitions", href: WORKLIST }, { label: "Requisition" }]} />
+        <Breadcrumb items={[{ label: "Issues", href: WORKLIST }, { label: "Requisition" }]} />
         <Card
           className="mt-6 flex flex-col items-center gap-3 p-10 text-center"
           data-testid="req-issue-error"
@@ -333,7 +333,7 @@ export function RequisitionIssueDetail({ requisitionId }: { requisitionId: strin
     <div className="mx-auto max-w-6xl pb-28 lg:pb-6">
       <Breadcrumb
         items={[
-          { label: "Requisitions", href: WORKLIST },
+          { label: "Issues", href: WORKLIST },
           { label: req.requisitionNo ?? "Requisition" },
         ]}
       />
@@ -643,7 +643,7 @@ function IssueSkeleton() {
 function PermissionDenied() {
   return (
     <div className="mx-auto max-w-6xl">
-      <Breadcrumb items={[{ label: "Requisitions", href: WORKLIST }, { label: "Issue" }]} />
+      <Breadcrumb items={[{ label: "Issues", href: WORKLIST }, { label: "Issue" }]} />
       <Card
         className="mt-6 flex flex-col items-center gap-3 p-10 text-center"
         data-testid="req-issue-403"

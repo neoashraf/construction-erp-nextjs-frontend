@@ -366,8 +366,7 @@ export function GrnEntry({ grnId, onSaved }: { grnId: string | null; onSaved?: (
       <div className="mx-auto max-w-6xl">
         <Breadcrumb
           items={[
-            { label: "Purchase" },
-            { label: "Goods receipt", href: "/purchase/grn" },
+            { label: "GRN & matching", href: "/purchase/grn" },
             { label: "GRN" },
           ]}
         />
@@ -390,8 +389,7 @@ export function GrnEntry({ grnId, onSaved }: { grnId: string | null; onSaved?: (
       <div className="mx-auto max-w-6xl">
         <Breadcrumb
           items={[
-            { label: "Purchase" },
-            { label: "Goods receipt", href: "/purchase/grn" },
+            { label: "GRN & matching", href: "/purchase/grn" },
             { label: "New" },
           ]}
         />
@@ -415,8 +413,7 @@ export function GrnEntry({ grnId, onSaved }: { grnId: string | null; onSaved?: (
     <div className="mx-auto max-w-6xl pb-24 lg:pb-6">
       <Breadcrumb
         items={[
-          { label: "Purchase" },
-          { label: "Goods receipt", href: "/purchase/grn" },
+          { label: "GRN & matching", href: "/purchase/grn" },
           { label: crumbTail },
         ]}
       />

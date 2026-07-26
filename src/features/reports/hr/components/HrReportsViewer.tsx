@@ -149,7 +149,8 @@ export function HrReportsViewer({
         />
       )}
 
-      <HrReportSwitcher value={tab} onChange={onTabChange} />
+      {/* The `/reports` hub's catalog card already renders the chip row. */}
+      {!embedded && <HrReportSwitcher value={tab} onChange={onTabChange} />}
 
       {!online && (
         <Alert
