@@ -1,11 +1,13 @@
 "use client";
 
 import { useMemo, useState } from "react";
-import { Users } from "lucide-react";
+import { FileDown, Users } from "lucide-react";
+import { Button } from "@/components/ui/button";
 import { EmptyState } from "@/components/ui/empty-state";
 import { Skeleton } from "@/components/ui/skeleton";
 import { ApiError } from "@/lib/api/errors";
 import { AttendanceDetailDrawer } from "./AttendanceDetailDrawer";
+import { AttendanceImportDrawer } from "./AttendanceImportDrawer";
 import { AttendanceLogFilterBar } from "./AttendanceLogFilterBar";
 import { AttendanceLogTable } from "./AttendanceLogTable";
 import { AttendancePagination } from "./AttendancePagination";
@@ -51,6 +53,7 @@ export function AttendanceLogsShell() {
   // Only the key is held — the row itself is resolved from the live page below, so a
   // background refresh flows into the open drawer instead of freezing it at open time.
   const [selectedKey, setSelectedKey] = useState<string | null>(null);
+  const [importOpen, setImportOpen] = useState(false);
 
   const appliedFilters = useMemo(() => toRequestFilters(applied), [applied]);
   const rangeView = isRangeView(applied.mode);
@@ -133,6 +136,26 @@ export function AttendanceLogsShell() {
           <DeviceStatusBadge />
         </div>
         <div className="flex items-center gap-2.5">
+          <Button
+            variant="outline"
+            size="sm"
+            onClick={() => setImportOpen(true)}
+            title="Import attendance from a spreadsheet"
+            data-testid="open-import"
+          >
+            {/*
+              FileDown / FileUp rather than Upload / Download: the latter pair share an
+              identical tray path and differ only by a flipped 5px arrowhead, so side by side
+              at 16px Import and Export read as the same button twice. The document outline
+              distinguishes them at a glance, and is literally what both actions move.
+
+              Import points DOWN and Export points UP — data coming INTO the table vs leaving
+              it. The pair must stay opposite; matching arrows defeats the whole point of
+              choosing a directional icon.
+            */}
+            <FileDown className="h-4 w-4" aria-hidden />
+            Import
+          </Button>
           <SyncDeviceButton />
           <ExportMenu
             filters={appliedFilters}
@@ -229,6 +252,8 @@ export function AttendanceLogsShell() {
         scopeLabel={scopeLabel}
         onClose={() => setSelectedKey(null)}
       />
+
+      <AttendanceImportDrawer open={importOpen} onClose={() => setImportOpen(false)} />
     </div>
   );
 }

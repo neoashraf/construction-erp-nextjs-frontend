@@ -1,7 +1,7 @@
 "use client";
 
 import { useState } from "react";
-import { ChevronDown, Download } from "lucide-react";
+import { ChevronDown, FileUp } from "lucide-react";
 import { Button } from "@/components/ui/button";
 import {
   DropdownMenu,
@@ -65,7 +65,11 @@ export function ExportMenu({
           aria-haspopup="menu"
           data-testid="export-menu"
         >
-          <Download className="h-4 w-4" aria-hidden />
+          {/*
+            Arrow UP, opposite Import's FileDown — data leaving the table rather than entering
+            it. See AttendanceLogsShell for why this pair, not plain Upload/Download.
+          */}
+          <FileUp className="h-4 w-4" aria-hidden />
           {busy ? "Exporting…" : "Export"}
           <ChevronDown className="h-3.5 w-3.5" aria-hidden />
         </Button>

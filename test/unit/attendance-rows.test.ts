@@ -185,10 +185,21 @@ describe("filtersForExport", () => {
     });
   });
 
-  it("narrows a range to its first date for a daily export", () => {
-    expect(filtersForExport("daily", { dateFrom: "2026-07-01", dateTo: "2026-07-31" })).toEqual({
-      date: "2026-07-01",
+  it("narrows a range to its most recent measured day, not its first", () => {
+    // The 1st of a month is usually before the data starts, so a daily export taken from a
+    // month view arrived full of blank "Absent" rows and looked broken.
+    const today = new Date();
+    const iso = (d: Date) =>
+      `${d.getFullYear()}-${String(d.getMonth() + 1).padStart(2, "0")}-${String(d.getDate()).padStart(2, "0")}`;
+
+    // A past range collapses to its end date.
+    expect(filtersForExport("daily", { dateFrom: "2020-01-01", dateTo: "2020-01-31" })).toEqual({
+      date: "2020-01-31",
     });
+    // A range running past today is clamped — never export a day that hasn't happened.
+    expect(
+      filtersForExport("daily", { dateFrom: "2020-01-01", dateTo: "2999-12-31" }).date,
+    ).toBe(iso(today));
   });
 
   it("squares off a half-open range, which the reports API rejects", () => {
@@ -216,5 +227,40 @@ describe("pageItems", () => {
     expect(pageItems(10, 20)).toEqual([1, null, 9, 10, 11, null, 20]);
     expect(pageItems(2, 20)).toEqual([1, 2, 3, null, 20]);
     expect(pageItems(19, 20)).toEqual([1, null, 18, 19, 20]);
+  });
+});
+
+describe("single-day check-in resolution", () => {
+  it("reads times from the DAY RECORD when the top level is null", () => {
+    // Exactly what /api/logs?date=… returns: top-level timestamps null, real times in the
+    // day record. Reading only the top level left check-in blank while check-out rendered.
+    const row = mapLogEntry(
+      logEntry({
+        status: "Late",
+        occurredAt: null,
+        deviceTimestamp: null,
+        receivedAt: null,
+        attendanceRecords: [
+          {
+            id: "r1",
+            attendanceDate: "2026-07-27",
+            deviceTimestamp: "2026-07-27 09:59:39",
+            occurredAt: "2026-07-27 09:59:39",
+            receivedAt: "2026-07-27T04:00:25.247Z",
+            checkInAt: "2026-07-27 09:59:39",
+            checkOutAt: "2026-07-27 09:59:39",
+            status: "Late",
+          },
+        ],
+      }),
+    );
+    expect(row.checkIn).toBe("2026-07-27 09:59:39");
+    expect(row.checkOut).toBe("2026-07-27 09:59:39");
+  });
+
+  it("still falls back to the top level when there is no day record", () => {
+    expect(mapLogEntry(logEntry({ occurredAt: "2026-07-27 08:00:00" })).checkIn).toBe(
+      "2026-07-27 08:00:00",
+    );
   });
 });

@@ -7,6 +7,7 @@ import {
   listAttendanceLogs,
   runSync,
 } from "@/features/hr/api/attendance-logs";
+import { describeSyncSummary } from "@/features/hr/hooks/useAttendanceLogs";
 import {
   getWeeklyOffDays,
   importHolidaysFromRows,
@@ -100,19 +101,120 @@ describe("getDeviceStatus", () => {
 });
 
 describe("sync", () => {
+  it("reads a PULL response flat — these routes carry no { data } envelope", async () => {
+    // The real backend body, captured from the running server against a live device.
+    postSpy.mockResolvedValue({
+      mode: "pull",
+      users: { fetched: 55, created: 55, updated: 0, unchanged: 0, skipped: 0 },
+      attendance: { fetched: 857, inserted: 857, duplicates: 0, skipped: 0 },
+      unnamedUsers: 1,
+      durationMs: 688,
+      reconciled: 12,
+      skippedReasons: {},
+    });
+    const summary = await runSync();
+    expect(summary.mode).toBe("pull");
+    expect(summary.users.created).toBe(55);
+    expect(summary.attendance.inserted).toBe(857);
+    expect(summary.reconciled).toBe(12);
+  });
+
+  it("folds reconcile-mode's skipped[] rows into the same reason map", async () => {
+    postSpy.mockResolvedValue({
+      mode: "reconcile",
+      dateFrom: "2026-06-27",
+      dateTo: "2026-07-26",
+      days: 12,
+      reconciled: 10,
+      skipped: [{ reason: "NO_PROJECT" }, { reason: "NO_PROJECT" }, { reason: "NO_FINANCIAL_YEAR" }],
+    });
+    const summary = await runSync();
+    expect(summary.mode).toBe("reconcile");
+    expect(summary.skippedReasons).toEqual({ NO_PROJECT: 2, NO_FINANCIAL_YEAR: 1 });
+  });
+
   it("zeroes malformed counters so the summary line never shows NaN", async () => {
     postSpy.mockResolvedValue({ data: MOCK_CATCH_ALL });
     const summary = await runSync();
+    expect(summary.reconciled).toBe(0);
     expect(summary.users.created).toBe(0);
     expect(summary.attendance.inserted).toBe(0);
-    expect(Number.isNaN(summary.durationMs)).toBe(false);
+    expect(summary.skippedReasons).toEqual({});
   });
 
-  it("treats configured as true unless the server says otherwise", async () => {
+  it("reports configured + freshness and nests device status", async () => {
+    getSpy.mockResolvedValue({
+      syncing: false,
+      configured: true,
+      deviceIp: "192.168.0.200",
+      devicePort: 4370,
+      lastSyncAt: "2026-07-26T10:05:00.000Z",
+      lastSync: null,
+      device: { status: "online", online: true, lastSeenAt: "2026-07-26T10:00:00.000Z" },
+      lastRecordAt: "2026-07-26T09:15:00.000Z",
+      lastDeviceTimestamp: "2026-07-26 09:15:00",
+    });
+    const status = await getSyncStatus();
+    expect(status.configured).toBe(true);
+    expect(status.deviceIp).toBe("192.168.0.200");
+    expect(status.device.online).toBe(true);
+  });
+
+  it("reads a junk payload as not-configured and offline", async () => {
+    // Claiming "configured" here would promise a pull that cannot happen.
     getSpy.mockResolvedValue({ ok: true });
-    expect((await getSyncStatus()).configured).toBe(true);
-    getSpy.mockResolvedValue({ configured: false });
-    expect((await getSyncStatus()).configured).toBe(false);
+    const status = await getSyncStatus();
+    expect(status.configured).toBe(false);
+    expect(status.device.online).toBe(false);
+    expect(status.lastRecordAt).toBeNull();
+  });
+});
+
+describe("describeSyncSummary", () => {
+  const base = {
+    mode: "pull" as const,
+    users: { fetched: 0, created: 0, updated: 0, unchanged: 0, skipped: 0 },
+    attendance: { fetched: 0, inserted: 0, duplicates: 0, skipped: 0 },
+    unnamedUsers: 0,
+    durationMs: 0,
+    reconciled: 0,
+    skippedReasons: {} as Record<string, number>,
+  };
+
+  it("summarises what a pull actually changed", () => {
+    expect(
+      describeSyncSummary({
+        ...base,
+        users: { ...base.users, created: 3, updated: 2 },
+        attendance: { ...base.attendance, inserted: 41 },
+        reconciled: 12,
+      }),
+    ).toBe("3 employee(s) added · 2 name(s) updated · 41 new punch(es) · 12 day(s) reconciled");
+  });
+
+  it("leads with the blockage when punches land but nothing reaches the reports", () => {
+    // The failure most easily mistaken for success — it must not read as "done".
+    expect(
+      describeSyncSummary({
+        ...base,
+        attendance: { ...base.attendance, inserted: 857 },
+        reconciled: 0,
+        skippedReasons: { NO_FINANCIAL_YEAR: 141 },
+      }),
+    ).toBe("Nothing reached the reports — 141 day(s) blocked (no financial year covers those dates)");
+  });
+
+  it("mentions blocked days alongside real progress", () => {
+    expect(
+      describeSyncSummary({ ...base, reconciled: 10, skippedReasons: { NO_PROJECT: 2 } }),
+    ).toBe("10 day(s) reconciled · 2 day(s) blocked");
+  });
+
+  it("reads a no-op as up to date", () => {
+    expect(describeSyncSummary(base)).toBe("Already up to date");
+    expect(
+      describeSyncSummary({ ...base, attendance: { ...base.attendance, duplicates: 857 } }),
+    ).toBe("Already up to date");
   });
 });
 

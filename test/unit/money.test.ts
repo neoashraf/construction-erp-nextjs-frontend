@@ -1,6 +1,7 @@
 import Decimal from "decimal.js";
 import {
   formatMoney,
+  formatMoneyOr,
   formatQty,
   parseMoney,
   parseQty,
@@ -68,5 +69,26 @@ describe("money — exact decimal (no float)", () => {
     expect(isNonNegativeMoney("10.5")).toBe(true);
     expect(isNonNegativeMoney("-1")).toBe(false);
     expect(isNonNegativeMoney("nope")).toBe(false);
+  });
+
+  it("names the offending value when a money amount is missing", () => {
+    // decimal.js would otherwise throw a bare "Invalid argument: undefined", which gives
+    // no clue which field the API omitted.
+    expect(() => formatMoney(undefined as unknown as string)).toThrow(/not a valid money amount/i);
+    expect(() => formatMoney(null as unknown as string)).toThrow(/not a valid money amount/i);
+    expect(() => formatMoney("")).toThrow(/not a valid money amount/i);
+  });
+
+  it("formatMoneyOr renders a fallback instead of throwing on an absent amount", () => {
+    expect(formatMoneyOr(undefined)).toBe("—");
+    expect(formatMoneyOr(null)).toBe("—");
+    expect(formatMoneyOr("")).toBe("—");
+    expect(formatMoneyOr("bad")).toBe("—");
+    expect(formatMoneyOr(undefined, "0.00")).toBe("0.00");
+  });
+
+  it("formatMoneyOr formats a present amount exactly like formatMoney", () => {
+    expect(formatMoneyOr("1234.5", "—", { fractionDigits: 2 })).toBe(`${TAKA} 1,234.50`);
+    expect(formatMoneyOr("0", "—", { fractionDigits: 2 })).toBe(`${TAKA} 0.00`);
   });
 });

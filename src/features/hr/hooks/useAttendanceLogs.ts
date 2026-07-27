@@ -5,9 +5,11 @@ import {
   getDeviceStatus,
   getSummaryReport,
   getSyncStatus,
+  importAttendanceRows,
   listAttendanceLogs,
   runSync,
   type AttendanceLogQuery,
+  type ImportResult,
   type SyncSummary,
 } from "../api/attendance-logs";
 
@@ -101,14 +103,101 @@ export function useRunSync(onSuccess?: (summary: SyncSummary) => void) {
 }
 
 /**
+ * Import parsed spreadsheet rows, then refresh exactly what a sync refreshes.
+ *
+ * Import writes to the same `checkin_log` → `attendance_record` rail as the device, so it can
+ * change the same cached views — invalidating less would leave the table showing pre-import
+ * counts until the next filter change, which reads as "the import did nothing".
+ */
+export function useImportAttendance(onSuccess?: (result: ImportResult) => void) {
+  const queryClient = useQueryClient();
+  return useMutation({
+    mutationFn: importAttendanceRows,
+    onSuccess: (result) => {
+      queryClient.invalidateQueries({ queryKey: ["hr", "attendance-logs"] });
+      queryClient.invalidateQueries({ queryKey: ["hr", "attendance-summary"] });
+      queryClient.invalidateQueries({ queryKey: ["hr", "attendance-sync-status"] });
+      onSuccess?.(result);
+    },
+  });
+}
+
+/**
+ * Plain-language summary of an import.
+ *
+ * `duplicates` is reported rather than hidden because it answers the question an operator
+ * actually has when re-uploading a file: nothing was doubled. A run that inserts nothing and
+ * duplicates everything is a SUCCESS — it means the data was already there.
+ */
+export function describeImportResult(result: ImportResult): string {
+  if (result.acceptedRows === 0) {
+    return result.errors.length > 0
+      ? `No rows imported — ${result.errors.length} row(s) had errors`
+      : "No rows imported";
+  }
+
+  const parts: string[] = [`${result.acceptedRows} row(s) read`];
+  if (result.inserted > 0) parts.push(`${result.inserted} new punch(es)`);
+  if (result.duplicates > 0) parts.push(`${result.duplicates} already present`);
+  if (result.reconciled > 0) parts.push(`${result.reconciled} day(s) updated`);
+
+  const blocked = Object.values(result.skippedReasons).reduce((sum, n) => sum + n, 0);
+  if (blocked > 0 && result.reconciled === 0) {
+    const [reason] = Object.entries(result.skippedReasons).sort((a, b) => b[1] - a[1])[0] ?? [];
+    return `Stored, but nothing reached the reports — ${blocked} day(s) blocked${
+      reason ? ` (${humanizeSkipReason(reason)})` : ""
+    }`;
+  }
+  if (blocked > 0) parts.push(`${blocked} day(s) blocked`);
+  if (result.errors.length > 0) parts.push(`${result.errors.length} row(s) skipped`);
+
+  return parts.join(" · ");
+}
+
+/**
  * Plain-language summary of what a sync actually changed, e.g.
- * `"3 employee(s) added · 2 name(s) updated · 41 new record(s)"`. Returns a stable
- * "Already up to date" when nothing moved, so a no-op sync still reads as a success.
+ * `"41 day(s) reconciled · 2 could not be placed"`.
+ *
+ * The skipped count is surfaced rather than hidden: those punches exist but are missing from
+ * the reports, and only an admin fixing the employee/project data can bring them in.
+ *
+ * Deliberately terse when nothing moved. This string appears as transient feedback beside the
+ * button, so it must describe *the click* — "Nothing to reconcile" — and not editorialise
+ * about the state of the data, which belongs in the table's own empty state.
  */
 export function describeSyncSummary(summary: SyncSummary): string {
   const parts: string[] = [];
   if (summary.users.created > 0) parts.push(`${summary.users.created} employee(s) added`);
   if (summary.users.updated > 0) parts.push(`${summary.users.updated} name(s) updated`);
-  if (summary.attendance.inserted > 0) parts.push(`${summary.attendance.inserted} new record(s)`);
+  if (summary.attendance.inserted > 0) {
+    parts.push(`${summary.attendance.inserted} new punch(es)`);
+  }
+  if (summary.reconciled > 0) parts.push(`${summary.reconciled} day(s) reconciled`);
+
+  const blocked = Object.values(summary.skippedReasons).reduce((sum, n) => sum + n, 0);
+  if (blocked > 0 && summary.reconciled === 0) {
+    // The failure worth shouting about: punches were stored but none of them will show up
+    // in a report. Naming the dominant reason turns a mystery into a fixable task.
+    const [reason] = Object.entries(summary.skippedReasons).sort((a, b) => b[1] - a[1])[0] ?? [];
+    return `Nothing reached the reports — ${blocked} day(s) blocked${reason ? ` (${humanizeSkipReason(reason)})` : ""}`;
+  }
+  if (blocked > 0) parts.push(`${blocked} day(s) blocked`);
+
   return parts.length > 0 ? parts.join(" · ") : "Already up to date";
+}
+
+/** Turn a server skip code into something an operator can act on. */
+function humanizeSkipReason(reason: string): string {
+  switch (reason) {
+    case "NO_FINANCIAL_YEAR":
+      return "no financial year covers those dates";
+    case "NO_PROJECT":
+      return "employees have no project assigned";
+    case "UNKNOWN_EMPLOYEE_CODE":
+      return "unknown employee codes";
+    case "ALREADY_CONFIRMED":
+      return "already posted to the ledger";
+    default:
+      return reason.toLowerCase().replace(/_/g, " ");
+  }
 }

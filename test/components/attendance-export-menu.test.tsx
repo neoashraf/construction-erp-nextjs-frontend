@@ -6,12 +6,20 @@
  * capped to a narrow hardcoded window that made a year like 2028 unreachable.
  */
 import React from "react";
-import { render, screen, within } from "@testing-library/react";
+import { render, screen, waitFor, within } from "@testing-library/react";
 import userEvent from "@testing-library/user-event";
 import { ToastProvider } from "@/components/ui/toast";
 import { ExportMenu } from "@/features/hr/components/ExportMenu";
 import { AttendanceLogFilterBar } from "@/features/hr/components/AttendanceLogFilterBar";
 import { initialDraft } from "@/features/hr/lib/attendance-filters";
+
+// Stub the network + the browser download so the test exercises the CLICK path only.
+jest.mock("@/features/hr/api/attendance-logs", () => ({
+  fetchExportCsv: jest.fn().mockResolvedValue("A,B\r\n1,2"),
+}));
+jest.mock("@/features/hr/lib/attendance-export", () => ({
+  downloadCsvAsXlsx: jest.fn().mockResolvedValue(undefined),
+}));
 
 function renderExportMenu() {
   return render(
@@ -104,6 +112,25 @@ describe("year picker", () => {
     await user.selectOptions(yearSelect, "2028");
     expect(onDraftChange).toHaveBeenCalledWith(
       expect.objectContaining({ dateFrom: "2028-07-01", dateTo: "2028-07-31" }),
+    );
+  });
+});
+
+describe("ExportMenu — click behaviour", () => {
+  const api = jest.requireMock("@/features/hr/api/attendance-logs") as {
+    fetchExportCsv: jest.Mock;
+  };
+
+  it("actually calls the export endpoint when an item is chosen", async () => {
+    const user = userEvent.setup();
+    renderExportMenu();
+    await user.click(screen.getByTestId("export-menu"));
+    await user.click(await screen.findByText("Summary totals"));
+
+    await waitFor(() => expect(api.fetchExportCsv).toHaveBeenCalledTimes(1));
+    expect(api.fetchExportCsv).toHaveBeenCalledWith(
+      "summary",
+      expect.objectContaining({ dateFrom: "2026-07-01", dateTo: "2026-07-31" }),
     );
   });
 });

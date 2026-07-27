@@ -271,3 +271,24 @@ describe("PaymentListScreen — role/scope (spec §11)", () => {
     expect(screen.queryByTestId("payment-list")).not.toBeInTheDocument();
   });
 });
+
+describe("PaymentListScreen — resilience to a money field the API omits", () => {
+  it("renders the list instead of crashing when allocated/unallocated are missing", async () => {
+    // Regression: the list endpoint once returned rows without the derived
+    // allocatedAmount/unallocatedAmount. decimal.js threw "Invalid argument: undefined"
+    // mid-render and the whole route died with a client-side exception.
+    const partial = {
+      ...summary({ id: "pay-9", status: "POSTED", entryNo: "PAY/2526/0040" }),
+    } as PaymentSummary & { allocatedAmount?: string; unallocatedAmount?: string };
+    delete partial.allocatedAmount;
+    delete partial.unallocatedAmount;
+    listMock.mockResolvedValue(page([partial as PaymentSummary]));
+
+    renderScreen();
+
+    // The row renders, and the absent money cells degrade to an em-dash.
+    expect(await screen.findByTestId("payment-list")).toBeInTheDocument();
+    expect(screen.getByTestId("payment-row-link-pay-9")).toHaveTextContent("PAY/2526/0040");
+    expect(screen.getAllByText("—").length).toBeGreaterThan(0);
+  });
+});

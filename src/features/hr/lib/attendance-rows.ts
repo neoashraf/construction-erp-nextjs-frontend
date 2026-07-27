@@ -82,8 +82,20 @@ export function mapLogEntry(entry: LogEntry): EmployeeRow {
     holidayCount,
     attendancePercent,
     status: entry.status ?? first?.status ?? "Absent",
-    // The device populates whichever of these it has; take the most specific first.
-    checkIn: entry.occurredAt ?? entry.deviceTimestamp ?? entry.receivedAt ?? null,
+    // Times come from the DAY RECORD first, then the top-level entry.
+    //
+    // On a single-day query the server returns the row as an aggregate: the top-level
+    // `occurredAt`/`deviceTimestamp`/`receivedAt` are all null and the real times sit in
+    // `attendanceRecords[0]`. Reading only the top level left check-in blank while check-out
+    // (already read from the record) rendered — the two must resolve from the same place.
+    checkIn:
+      first?.checkInAt ??
+      first?.occurredAt ??
+      first?.deviceTimestamp ??
+      entry.occurredAt ??
+      entry.deviceTimestamp ??
+      entry.receivedAt ??
+      null,
     checkOut: first?.checkOutAt ?? null,
     records,
   };

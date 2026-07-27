@@ -4,7 +4,7 @@ import Link from "next/link";
 import { MoreHorizontal, Trash2, Eye, Pencil } from "lucide-react";
 import { cn } from "@/lib/utils";
 import { formatDate } from "@/lib/format";
-import { formatMoney } from "@/lib/money";
+import { formatMoneyOr } from "@/lib/money";
 import { Skeleton } from "@/components/ui/skeleton";
 import {
   DropdownMenu,
@@ -31,8 +31,10 @@ const GRID =
   "minmax(104px,1fr) minmax(112px,1.4fr) 84px 112px minmax(84px,0.9fr) minmax(96px,1fr) minmax(92px,0.95fr) minmax(96px,0.95fr) 92px 40px";
 const MONEY = "font-mono text-[13px] tabular-nums";
 
-function money(v: string) {
-  return formatMoney(v, { fractionDigits: 2 });
+// A money cell must never take the page down: a value the API omitted renders as an
+// em-dash rather than throwing mid-render (decimal.js rejects undefined).
+function money(v: string | null | undefined) {
+  return formatMoneyOr(v, "—", { fractionDigits: 2 });
 }
 
 export function PaymentList({
@@ -79,7 +81,9 @@ export function PaymentList({
             const isDraft = r.status === "DRAFT";
             const href = isDraft ? `/payments/${r.id}` : `/payments/${r.id}/view`;
             const partyName = parties.byId.get(r.partyId) ?? `${r.partyId.slice(0, 8)} (name unavailable)`;
-            const unallocatedZero = Number(r.unallocatedAmount) === 0;
+            // Treat an absent remainder as "nothing outstanding" so the cell stays muted
+            // rather than styling a NaN as an unallocated balance.
+            const unallocatedZero = !r.unallocatedAmount || Number(r.unallocatedAmount) === 0;
             return (
               <div
                 key={r.id}

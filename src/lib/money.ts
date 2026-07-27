@@ -27,7 +27,31 @@ Decimal.set({ precision: 40, rounding: Decimal.ROUND_HALF_UP });
  */
 export function toDecimal(value: DecimalInput): Decimal {
   if (value instanceof Decimal) return value;
+  if (value === null || value === undefined || value === "") {
+    // decimal.js throws a bare "[DecimalError] Invalid argument: undefined" with no hint
+    // as to WHICH field was missing — during a render that takes the whole page down.
+    // Name the problem instead; callers that can legitimately be empty use formatMoneyOr.
+    throw new Error(`Not a valid money amount: ${JSON.stringify(value)}`);
+  }
   return new Decimal(value);
+}
+
+/**
+ * Format a money value that MAY be absent (a field the API omits, an optional total),
+ * rendering `fallback` instead of throwing. Use this at display sites that can tolerate
+ * a gap; keep `formatMoney` where a missing amount is a real contract violation.
+ */
+export function formatMoneyOr(
+  value: DecimalInput | null | undefined,
+  fallback = "—",
+  options: FormatMoneyOptions = {},
+): string {
+  if (value === null || value === undefined || value === "") return fallback;
+  try {
+    return formatMoney(value, options);
+  } catch {
+    return fallback;
+  }
 }
 
 /**

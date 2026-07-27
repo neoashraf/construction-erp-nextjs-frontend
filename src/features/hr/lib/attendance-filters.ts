@@ -1,5 +1,5 @@
 import { type AttendanceLogFilters, type ExportType } from "../api/attendance-logs";
-import { firstDayOfMonth, lastDayOfMonth, toIsoDate } from "./attendance-time";
+import { clampToToday, firstDayOfMonth, lastDayOfMonth, toIsoDate } from "./attendance-time";
 
 /**
  * Filter/date-mode rules for the attendance-logs screen.
@@ -140,7 +140,14 @@ export function filtersForExport(
   if (filters.name) base.name = filters.name;
 
   if (type === "daily") {
-    const day = filters.date ?? filters.dateFrom ?? filters.dateTo;
+    // Collapsing a range to ONE day: prefer the end, clamped to today.
+    //
+    // Taking `dateFrom` (the naive choice) picks the 1st of the month, which is usually the
+    // least useful day in the window and is often before the data even begins — the export
+    // then arrives full of "Absent" rows with blank times and reads as a broken feature. The
+    // most recent measured day is what someone exporting "today's attendance" actually wants.
+    const rangeEnd = filters.dateTo ? clampToToday(filters.dateTo) : "";
+    const day = filters.date || rangeEnd || filters.dateFrom;
     if (day) base.date = day;
     return base;
   }

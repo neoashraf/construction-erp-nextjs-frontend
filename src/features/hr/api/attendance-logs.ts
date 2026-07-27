@@ -221,11 +221,13 @@ export interface DeviceStatus {
   lastRemoteAddress?: string | null;
 }
 
-export async function getDeviceStatus(): Promise<DeviceStatus> {
-  const raw = await apiClient.get<unknown>("/device/status");
+/**
+ * Coerce a device-status payload. Only an explicit `online: true` (or `status: "online"`)
+ * counts as up — an unrecognised payload reads as offline, which is the safe answer for a
+ * heartbeat. Shared with `getSyncStatus`, which embeds the same object.
+ */
+function toDeviceStatus(raw: unknown): DeviceStatus {
   const body = (raw ?? {}) as Partial<DeviceStatus>;
-  // Only an explicit `online: true` counts as up — an unrecognised payload reads as
-  // offline, which is the safe answer for a heartbeat.
   const online = body.online === true || body.status === "online";
   return {
     status: online ? "online" : "offline",
@@ -239,53 +241,123 @@ export async function getDeviceStatus(): Promise<DeviceStatus> {
   };
 }
 
-// ── Sync ──
-
-export interface SyncSummary {
-  users: { fetched: number; created: number; updated: number; unchanged: number; skipped: number };
-  attendance: { fetched: number; inserted: number; duplicates: number; skipped: number };
-  unnamedUsers: number;
-  durationMs: number;
+export async function getDeviceStatus(): Promise<DeviceStatus> {
+  return toDeviceStatus(await apiClient.get<unknown>("/device/status"));
 }
 
+// ── Sync ──
+
+/**
+ * The result of a manual sync.
+ *
+ * The backend answers one of two shapes depending on how it ran:
+ *  - `mode: "pull"` — it opened a socket to the device and pulled the roster + punch
+ *    history (the normal path when `DEVICE_IP` is configured and no window was given).
+ *  - `mode: "reconcile"` — it re-folded punches ALREADY stored into attendance records.
+ *    Used when an explicit date window is requested, or when no device is configured.
+ *
+ * Both are surfaced through one type so the button does not have to branch. Counters absent
+ * from a given mode are simply zero.
+ */
+export interface SyncSummary {
+  mode: "pull" | "reconcile";
+  /** Pull only — roster outcome. */
+  users: { fetched: number; created: number; updated: number; unchanged: number; skipped: number };
+  /** Pull only — punch storage outcome. `duplicates` proves idempotency on a repeat run. */
+  attendance: { fetched: number; inserted: number; duplicates: number; skipped: number };
+  /** Employees still carrying a placeholder name; they need a manual fix to read well. */
+  unnamedUsers: number;
+  durationMs: number;
+  /** Employee-days folded into attendance records — the number that decides visibility. */
+  reconciled: number;
+  /**
+   * Why days could not be folded, counted by reason (e.g. `NO_FINANCIAL_YEAR`, `NO_PROJECT`).
+   *
+   * Load-bearing for the operator: a sync can store hundreds of punches and still surface
+   * none of them in the reports. Without this the button would report success while the
+   * table stayed empty.
+   */
+  skippedReasons: Record<string, number>;
+  /** Reconcile mode only — the window that was re-folded. */
+  dateFrom?: string;
+  dateTo?: string;
+  /** Reconcile mode only — distinct punch-days found in the window. */
+  days?: number;
+}
+
+/**
+ * Sync context. `configured`/`deviceIp` describe the PULL path; `device`/`lastRecordAt`
+ * describe what has actually arrived, by either path.
+ */
 export interface SyncStatus {
   syncing: boolean;
+  /** True when `DEVICE_IP` is set, i.e. a real pull is possible. */
   configured: boolean;
   deviceIp: string | null;
   devicePort: number | null;
   lastSyncAt: string | null;
   lastSync: SyncSummary | null;
+  device: DeviceStatus;
+  /** When the newest punch was received by the server (ISO-8601), or null if none. */
+  lastRecordAt: string | null;
+  /** The device's own wall-clock stamp on that punch (`YYYY-MM-DD HH:mm:ss`). */
+  lastDeviceTimestamp: string | null;
 }
 
-/** Zeroed sync counters, so a malformed summary reports "Already up to date" not NaN. */
+function count(value: unknown): number {
+  return typeof value === "number" && Number.isFinite(value) ? value : 0;
+}
+
+/** Coerce the sync result; counters default to 0 so the summary line never shows NaN. */
 function toSyncSummary(raw: unknown): SyncSummary {
-  const body = (raw ?? {}) as Partial<SyncSummary>;
+  const body = (raw ?? {}) as Partial<SyncSummary> & { skipped?: unknown };
   const users: Partial<SyncSummary["users"]> = body.users ?? {};
   const attendance: Partial<SyncSummary["attendance"]> = body.attendance ?? {};
-  const n = (v: unknown) => (typeof v === "number" && Number.isFinite(v) ? v : 0);
+
+  // Reconcile mode reports `skipped` as an array of rows rather than a reason map; fold it
+  // into the same shape so the caller never branches on mode.
+  const skippedReasons: Record<string, number> = { ...(body.skippedReasons ?? {}) };
+  if (Array.isArray(body.skipped)) {
+    for (const row of body.skipped as Array<{ reason?: string }>) {
+      const reason = row?.reason ?? "UNKNOWN";
+      skippedReasons[reason] = (skippedReasons[reason] ?? 0) + 1;
+    }
+  }
+
   return {
+    mode: body.mode === "pull" ? "pull" : "reconcile",
     users: {
-      fetched: n(users.fetched),
-      created: n(users.created),
-      updated: n(users.updated),
-      unchanged: n(users.unchanged),
-      skipped: n(users.skipped),
+      fetched: count(users.fetched),
+      created: count(users.created),
+      updated: count(users.updated),
+      unchanged: count(users.unchanged),
+      skipped: count(users.skipped),
     },
     attendance: {
-      fetched: n(attendance.fetched),
-      inserted: n(attendance.inserted),
-      duplicates: n(attendance.duplicates),
-      skipped: n(attendance.skipped),
+      fetched: count(attendance.fetched),
+      inserted: count(attendance.inserted),
+      duplicates: count(attendance.duplicates),
+      skipped: count(attendance.skipped),
     },
-    unnamedUsers: n(body.unnamedUsers),
-    durationMs: n(body.durationMs),
+    unnamedUsers: count(body.unnamedUsers),
+    durationMs: count(body.durationMs),
+    reconciled: count(body.reconciled),
+    skippedReasons,
+    dateFrom: body.dateFrom,
+    dateTo: body.dateTo,
+    days: count(body.days),
   };
 }
 
-/** Pull users + punches from the device. Long-running; the UI disables the button meanwhile. */
+/**
+ * Re-reconcile ingested punches into attendance records.
+ *
+ * The response is FLAT — these routes carry `@NoEnvelope()` on the backend, so there is no
+ * `{ data }` wrapper to unwrap. Requires `hr.attendance:UPDATE` (not READ), since it writes.
+ */
 export async function runSync(): Promise<SyncSummary> {
-  const res = await apiClient.post<{ data?: unknown }>("/sync", {}, csrf());
-  return toSyncSummary(res?.data);
+  const raw = await apiClient.post<unknown>("/sync", {}, csrf());
+  return toSyncSummary(raw);
 }
 
 export async function getSyncStatus(): Promise<SyncStatus> {
@@ -293,13 +365,87 @@ export async function getSyncStatus(): Promise<SyncStatus> {
   const body = (raw ?? {}) as Partial<SyncStatus>;
   return {
     syncing: body.syncing === true,
-    // Assume configured unless the server explicitly says otherwise — this only softens
-    // a tooltip, and defaulting to "not configured" would wrongly imply a broken setup.
-    configured: body.configured !== false,
+    // Treat an unrecognised payload as NOT configured: the tooltip then explains that a
+    // pull is unavailable, which is truthful, rather than promising one that will fail.
+    configured: body.configured === true,
     deviceIp: body.deviceIp ?? null,
     devicePort: body.devicePort ?? null,
     lastSyncAt: body.lastSyncAt ?? null,
     lastSync: body.lastSync ? toSyncSummary(body.lastSync) : null,
+    device: toDeviceStatus(body.device),
+    lastRecordAt: body.lastRecordAt ?? null,
+    lastDeviceTimestamp: body.lastDeviceTimestamp ?? null,
+  };
+}
+
+// ── Import ──
+
+/** One spreadsheet row, still as raw text — the server owns validation and the messages. */
+export interface ImportRow {
+  userId: string;
+  /** `YYYY-MM-DD`. */
+  date: string;
+  /** `HH:mm` or `HH:mm:ss`. */
+  checkIn: string;
+  checkOut: string;
+}
+
+export interface ImportRowError {
+  /** 1-based row number as it appears in Excel (the header is row 1). */
+  row: number;
+  message: string;
+}
+
+/**
+ * The outcome of an import.
+ *
+ * `duplicates` is the load-bearing field for the user's real question — "what happens when
+ * this syncs with the device data I already have?". Punches are keyed on
+ * (employee, timestamp), so anything the device already delivered counts as a duplicate and
+ * is skipped rather than doubled. A re-import therefore reports `inserted: 0` and every
+ * punch as a duplicate, which is exactly the reassurance the operator needs.
+ */
+export interface ImportResult {
+  acceptedRows: number;
+  blankRows: number;
+  punches: number;
+  inserted: number;
+  duplicates: number;
+  reconciled: number;
+  /** Why employee-days could not reach the reports (`NO_FINANCIAL_YEAR`, `NO_PROJECT`, …). */
+  skippedReasons: Record<string, number>;
+  errors: ImportRowError[];
+}
+
+/** Keep only well-formed row errors — a malformed entry would render as "Row undefined". */
+function toRowErrors(raw: unknown): ImportRowError[] {
+  if (!Array.isArray(raw)) return [];
+  return raw.flatMap((entry) => {
+    const e = entry as Partial<ImportRowError> | null;
+    if (!e || typeof e.message !== "string") return [];
+    return [{ row: typeof e.row === "number" ? e.row : 0, message: e.message }];
+  });
+}
+
+/**
+ * Send parsed spreadsheet rows for import.
+ *
+ * The workbook is parsed in the BROWSER and posted as JSON — the server never receives a
+ * binary file. `@NoEnvelope()` on the backend means the response is flat, with no `{ data }`
+ * wrapper to unwrap. Requires `hr.attendance:UPDATE`, since it writes attendance.
+ */
+export async function importAttendanceRows(rows: ImportRow[]): Promise<ImportResult> {
+  const raw = await apiClient.post<unknown>("/attendance/import", { rows }, csrf());
+  const body = (raw ?? {}) as Partial<ImportResult>;
+  return {
+    acceptedRows: count(body.acceptedRows),
+    blankRows: count(body.blankRows),
+    punches: count(body.punches),
+    inserted: count(body.inserted),
+    duplicates: count(body.duplicates),
+    reconciled: count(body.reconciled),
+    skippedReasons: body.skippedReasons ?? {},
+    errors: toRowErrors(body.errors),
   };
 }
 
