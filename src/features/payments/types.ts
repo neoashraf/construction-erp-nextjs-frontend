@@ -84,7 +84,8 @@ export interface Payment {
 export interface PaymentSummary {
   id: string;
   entryNo: string | null;
-  partyId: string;
+  /** Null on an aggregate-liability payment (no party on the settlement control line). */
+  partyId: string | null;
   paymentDate: string;
   paymentMode: PaymentMode;
   paymentAccountId: string;

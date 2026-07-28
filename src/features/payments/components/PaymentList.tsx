@@ -37,6 +37,14 @@ function money(v: string | null | undefined) {
   return formatMoneyOr(v, "—", { fractionDigits: 2 });
 }
 
+// Same rule for the party cell. `partyId` is legitimately null on an aggregate-liability
+// payment (backend PaymentSummaryDto types it `string | null`), so it must never be
+// dereferenced unconditionally — an em-dash beats a client-side exception.
+function partyLabel(partyId: string | null | undefined, parties: PartyMap) {
+  if (!partyId) return "—";
+  return parties.byId.get(partyId) ?? `${partyId.slice(0, 8)} (name unavailable)`;
+}
+
 export function PaymentList({
   rows,
   isLoading,
@@ -80,7 +88,7 @@ export function PaymentList({
           {rows.map((r) => {
             const isDraft = r.status === "DRAFT";
             const href = isDraft ? `/payments/${r.id}` : `/payments/${r.id}/view`;
-            const partyName = parties.byId.get(r.partyId) ?? `${r.partyId.slice(0, 8)} (name unavailable)`;
+            const partyName = partyLabel(r.partyId, parties);
             // Treat an absent remainder as "nothing outstanding" so the cell stays muted
             // rather than styling a NaN as an unallocated balance.
             const unallocatedZero = !r.unallocatedAmount || Number(r.unallocatedAmount) === 0;
@@ -167,7 +175,7 @@ export function PaymentList({
         {rows.map((r) => {
           const isDraft = r.status === "DRAFT";
           const href = isDraft ? `/payments/${r.id}` : `/payments/${r.id}/view`;
-          const partyName = parties.byId.get(r.partyId) ?? `${r.partyId.slice(0, 8)} (name unavailable)`;
+          const partyName = partyLabel(r.partyId, parties);
           return (
             <div
               key={r.id}
