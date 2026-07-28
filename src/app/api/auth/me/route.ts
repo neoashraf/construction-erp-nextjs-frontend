@@ -28,6 +28,8 @@ interface UpstreamSessionView {
     isActive?: boolean;
     lastLoginAt?: string | null;
     mustChangePassword?: boolean;
+    /** Profile-photo CDN URL for the shell avatar; null when none (FR-AUD-038). */
+    avatarUrl?: string | null;
   };
   projectScope?: { scope?: "ALL" | "ASSIGNED"; projectIds?: string[] };
   approvalLimit?: string | null;
@@ -61,6 +63,11 @@ export async function GET(req: NextRequest) {
         ...(view.user?.name !== undefined && { name: view.user.name }),
         ...(view.user?.email !== undefined && { email: view.user.email }),
         ...(view.user?.role !== undefined && { role: view.user.role as Role }),
+        // The shell's sidebar-footer avatar (FR-AUD-038). MUST be merged here: this
+        // projection is the shell's only avatar source, and a photo uploaded on the
+        // account screen reaches the sidebar solely via this read (AvatarManager calls
+        // refreshSession() on success). Dropping it pins the shell to initials forever.
+        ...(view.user?.avatarUrl !== undefined && { avatarUrl: view.user.avatarUrl }),
         ...(view.user?.financialYearId !== undefined && { financialYearId: view.user.financialYearId }),
         ...(view.user?.companyName !== undefined && { companyName: view.user.companyName }),
         ...(view.user?.financialYearLabel !== undefined && { financialYearLabel: view.user.financialYearLabel }),

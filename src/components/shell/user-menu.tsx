@@ -9,6 +9,7 @@ import {
   DropdownMenuContent,
   DropdownMenuItem,
 } from "@/components/ui/dropdown-menu";
+import { Avatar } from "@/components/ui/avatar";
 import { useToast } from "@/components/ui/toast";
 import { apiClient } from "@/lib/api/client";
 import { readCsrfToken } from "@/lib/auth/csrf-client";
@@ -18,18 +19,30 @@ import { cn } from "@/lib/utils";
 /**
  * Sidebar-footer user block + upward menu (App Shell v3 — spec §5/§8/§10; AUD).
  * The profile is docked at the sidebar bottom (NOT the topbar): avatar + name + role
- * open an UPWARD popover — identity header (name · role · email from the session
- * `me` read) then Change password (→ `/change-password`) and Sign out
- * (`POST /api/auth/logout` → login, "Signed out." toast). Role/email are read-only
- * (single role per user). `variant`:
+ * open an UPWARD popover — identity header (avatar · name · role · email from the
+ * session `me` read) then My profile (→ `/profile`), Change password
+ * (→ `/change-password`) and Sign out (`POST /api/auth/logout` → login, "Signed out."
+ * toast). Role/email are read-only (single role per user). `variant`:
  *  - "footer"  — the expanded-sidebar block (navy surface, full identity)
  *  - "rail"    — collapsed 56px rail: avatar only, menu opens as an upward flyout
  *  - "drawer"  — pinned at the mobile drawer bottom (same block as footer)
+ *
+ * The **avatar** is the user's profile photo (`user.avatarUrl`, FR-AUD-038) with an
+ * initials fallback. It comes from the session projection `GET /api/auth/me` — never
+ * from `GET /api/profile`, which is the account screen's own read. Uploading a photo
+ * on My profile calls `refreshSession()`, so this block updates without a re-login.
  */
 export interface UserMenuUser {
   name: string;
   role: Role;
   email: string;
+  /**
+   * Profile photo from the session `me` read (`avatarUrl`, FR-AUD-038). Absent on a
+   * pre-field session snapshot, `null` when the user has no photo — both render the
+   * initials disc. Set/cleared on the My-profile screen, which re-reads the session
+   * so this block updates in place without a re-login.
+   */
+  avatarUrl?: string | null;
 }
 
 export function UserMenu({
@@ -42,14 +55,6 @@ export function UserMenu({
   const router = useRouter();
   const { toast } = useToast();
   const [busy, setBusy] = useState(false);
-
-  const initials = user.name
-    .split(" ")
-    .map((p) => p[0])
-    .filter(Boolean)
-    .slice(0, 2)
-    .join("")
-    .toUpperCase();
 
   async function signOut() {
     setBusy(true);
@@ -64,14 +69,15 @@ export function UserMenu({
     }
   }
 
-  const avatar = (
-    <span
-      className="grid h-8 w-8 shrink-0 place-items-center rounded-full bg-accent-soft text-xs font-bold text-accent-ink"
-      aria-hidden
-    >
-      {initials}
-    </span>
-  );
+  /**
+   * The user's photo when set, else the initials disc (spec §5 footer user block,
+   * §6 no-photo/degraded/broken-image states). No `aria-hidden`: `<Avatar>` labels
+   * itself (photo → descriptive `alt`; initials → `role="img"` + `aria-label`), and
+   * in **rail** mode this disc is the only visible content of the trigger, so hiding
+   * it from the a11y tree would leave the button announced by its own `aria-label`
+   * alone. 32px per spec.
+   */
+  const avatar = <Avatar name={user.name} avatarUrl={user.avatarUrl} size={32} />;
 
   return (
     <DropdownMenu>
@@ -111,11 +117,20 @@ export function UserMenu({
         align={variant === "rail" ? "end" : "start"}
         className="min-w-[220px]"
       >
-        <div className="border-b border-border px-2.5 pb-2 pt-1">
-          <div className="truncate text-[13px] font-semibold text-foreground">{user.name}</div>
-          <div className="text-[11px] text-muted-foreground">{roleLabel(user.role)}</div>
-          <div data-testid="user-menu-email" className="truncate text-[11px] text-muted-foreground">
-            {user.email}
+        {/* Identity header — avatar · name · role · email (spec §5 user-menu row). The
+            40px disc matters most in RAIL mode, where the trigger is a 32px avatar with
+            no name beside it and this flyout is where identity is actually confirmed. */}
+        <div className="flex items-center gap-2.5 border-b border-border px-2.5 pb-2 pt-1">
+          <Avatar name={user.name} avatarUrl={user.avatarUrl} size={40} />
+          <div className="min-w-0">
+            <div className="truncate text-[13px] font-semibold text-foreground">{user.name}</div>
+            <div className="text-[11px] text-muted-foreground">{roleLabel(user.role)}</div>
+            <div
+              data-testid="user-menu-email"
+              className="truncate text-[11px] text-muted-foreground"
+            >
+              {user.email}
+            </div>
           </div>
         </div>
         <DropdownMenuItem

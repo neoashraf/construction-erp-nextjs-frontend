@@ -2410,6 +2410,15 @@ function ipcSummary(i: MockIpc) {
 
 const ACCESS_TTL_MS = 15 * 60 * 1000;
 
+/**
+ * The safe `user` payload for `/auth/login` and `/auth/me` (contract 05).
+ *
+ * `avatarUrl` is read from the FE-52 profile store — the SAME store the avatar
+ * endpoints write — because the shell's sidebar-footer avatar reads it off the
+ * session projection, not `GET /api/profile` (FR-AUD-038). Sourcing it from the
+ * static `USERS` row instead would leave the mock sidebar stuck on initials after
+ * an upload, exactly the real-backend bug this fixes.
+ */
 function safeUser(u: MockUser) {
   return {
     id: u.id,
@@ -2422,6 +2431,7 @@ function safeUser(u: MockUser) {
     financialYearLabel: "FY 2025-26",
     isActive: u.isActive,
     lastLoginAt: null,
+    avatarUrl: mockGetProfile(u.email).avatarUrl,
     assignedProjectIds: u.assignedProjectIds,
   };
 }
