@@ -243,5 +243,9 @@ export interface JournalEntry {
 }
 
 export async function getPaymentJournalEntry(id: string): Promise<JournalEntry> {
-  return apiClient.get<JournalEntry>(`/ledger/entries/${id}`);
+  // Envelope-wrapped like every other read — `{ data, meta }` (ResponseEnvelopeInterceptor
+  // is global; this route carries no @NoEnvelope). Returning the envelope raw leaves
+  // `.lines` undefined and the viewer's `entry.lines.map(...)` throws mid-render.
+  const res = await apiClient.get<{ data: JournalEntry }>(`/ledger/entries/${id}`);
+  return res.data;
 }

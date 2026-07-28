@@ -85,5 +85,8 @@ export async function listJournalEntries(
  * states (spec §6).
  */
 export async function getJournalEntry(id: string): Promise<JournalEntryDetail> {
-  return apiClient.get<JournalEntryDetail>(`${BASE}/${id}`);
+  // `{ data, meta }` envelope, like the list read above — returning it raw leaves the
+  // detail fields (`lines`, totals) undefined and the Entry viewer throws mid-render.
+  const res = await apiClient.get<{ data: JournalEntryDetail }>(`${BASE}/${id}`);
+  return res.data;
 }

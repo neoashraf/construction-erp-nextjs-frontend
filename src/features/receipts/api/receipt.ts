@@ -259,5 +259,7 @@ export interface JournalEntry {
 }
 
 export async function getReceiptJournalEntry(id: string): Promise<JournalEntry> {
-  return apiClient.get<JournalEntry>(`/ledger/entries/${id}`);
+  // `{ data, meta }` envelope — see the note on payments' getPaymentJournalEntry.
+  const res = await apiClient.get<{ data: JournalEntry }>(`/ledger/entries/${id}`);
+  return res.data;
 }
