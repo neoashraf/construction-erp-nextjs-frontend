@@ -45,11 +45,11 @@ function partyLabel(partyId: string | null | undefined, parties: PartyMap) {
   return parties.byId.get(partyId) ?? `${partyId.slice(0, 8)} (name unavailable)`;
 }
 
-/** A payment with no allocations may carry no payee (payment.schema §payee rule). */
-function partyLabel(parties: PartyMap, partyId: string | null) {
-  if (!partyId) return "—";
-  return parties.byId.get(partyId) ?? `${partyId.slice(0, 8)} (name unavailable)`;
-}
+// /** A payment with no allocations may carry no payee (payment.schema §payee rule). */
+// function partyLabel(parties: PartyMap, partyId: string | null) {
+//   if (!partyId) return "—";
+//   return parties.byId.get(partyId) ?? `${partyId.slice(0, 8)} (name unavailable)`;
+// }
 
 export function PaymentList({
   rows,
@@ -94,15 +94,10 @@ export function PaymentList({
           {rows.map((r) => {
             const isDraft = r.status === "DRAFT";
             const href = isDraft ? `/payments/${r.id}` : `/payments/${r.id}/view`;
-<<<<<<< HEAD
-            const partyName = partyLabel(parties, r.partyId);
-            const unallocatedZero = Number(r.unallocatedAmount) === 0;
-=======
             const partyName = partyLabel(r.partyId, parties);
             // Treat an absent remainder as "nothing outstanding" so the cell stays muted
             // rather than styling a NaN as an unallocated balance.
             const unallocatedZero = !r.unallocatedAmount || Number(r.unallocatedAmount) === 0;
->>>>>>> 4e9c255789a83cc5d3dedf145fd66434e72f5633
             return (
               <div
                 key={r.id}
@@ -186,11 +181,7 @@ export function PaymentList({
         {rows.map((r) => {
           const isDraft = r.status === "DRAFT";
           const href = isDraft ? `/payments/${r.id}` : `/payments/${r.id}/view`;
-<<<<<<< HEAD
-          const partyName = partyLabel(parties, r.partyId);
-=======
           const partyName = partyLabel(r.partyId, parties);
->>>>>>> 4e9c255789a83cc5d3dedf145fd66434e72f5633
           return (
             <div
               key={r.id}
