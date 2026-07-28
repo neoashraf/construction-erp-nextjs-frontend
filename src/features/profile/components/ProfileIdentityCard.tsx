@@ -1,3 +1,4 @@
+import { Avatar, deriveInitials } from "@/components/ui/avatar";
 import { Card } from "@/components/ui/card";
 import { roleLabel } from "@/lib/auth/roles";
 import { AvatarManager } from "./AvatarManager";
@@ -34,8 +35,10 @@ export function ProfileIdentityCard({ profile }: { profile: ProfileView }) {
 }
 
 /**
- * Small avatar preview used inside the identity card. Handles both `avatarUrl`
- * (image) and null (initials). Descriptive `alt` per spec §10.
+ * Account-screen avatar preview — the shared `ui/avatar` primitive with this
+ * screen's size, ring and testids. The photo-or-initials logic itself lives in
+ * `@/components/ui/avatar` so the app-shell sidebar-footer user block renders the
+ * same disc from the same one `deriveInitials` (spec §10; FR-AUD-038).
  */
 export function AvatarPreview({
   name,
@@ -46,44 +49,17 @@ export function AvatarPreview({
   avatarUrl: string | null;
   size?: number;
 }) {
-  if (avatarUrl) {
-    return (
-      <span
-        className="relative inline-block overflow-hidden rounded-full border border-border-strong"
-        style={{ width: size, height: size }}
-        data-testid="profile-avatar-image"
-      >
-        {/* Use plain <img> — the mock returns object URLs / data URIs and the
-            Cloudinary URL will be a remote origin not whitelisted for next/image. */}
-        {/* eslint-disable-next-line @next/next/no-img-element */}
-        <img
-          src={avatarUrl}
-          alt={`Profile photo of ${name}`}
-          className="h-full w-full object-cover"
-        />
-      </span>
-    );
-  }
-  const initials = deriveInitials(name);
   return (
-    <span
-      className="grid shrink-0 place-items-center rounded-full bg-accent-soft text-accent-ink"
-      style={{ width: size, height: size, fontSize: size * 0.32 }}
-      role="img"
-      aria-label={`No photo — initials ${initials}`}
-      data-testid="profile-avatar-initials"
-    >
-      <span className="font-bold">{initials}</span>
-    </span>
+    <Avatar
+      name={name}
+      avatarUrl={avatarUrl}
+      size={size}
+      ring
+      testId="profile-avatar-image"
+      initialsTestId="profile-avatar-initials"
+    />
   );
 }
 
-/** Bangla-safe initials: first grapheme of the first two whitespace-split parts. */
-export function deriveInitials(name: string): string {
-  const parts = name.trim().split(/\s+/).filter(Boolean).slice(0, 2);
-  return parts
-    .map((p) => Array.from(p)[0] ?? "")
-    .join("")
-    .toUpperCase();
-}
+export { deriveInitials };
 

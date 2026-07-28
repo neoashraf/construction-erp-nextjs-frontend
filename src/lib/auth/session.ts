@@ -29,6 +29,17 @@ export interface SafeUser {
   role: Role;
   companyId: string;
   financialYearId: string;
+  /**
+   * Profile-photo CDN URL for the app-shell avatar (FR-AUD-038; contract 05 —
+   * `avatarUrl` on both the login response and `GET /api/auth/me`).
+   *
+   * Three-valued on purpose: a **string** renders the photo; **null** means the user
+   * genuinely has no photo; **undefined** means this session snapshot predates the
+   * field (a `ze_session` cookie minted before it shipped). Both falsy cases render
+   * the initials disc, so no forced re-login or cookie migration is needed — the
+   * mount-time `refreshSession()` fills it in.
+   */
+  avatarUrl?: string | null;
   /** Display name of the user's company (shell chip / profile); absent when degraded. */
   companyName?: string | null;
   /** Label of the user's default financial year, e.g. "FY 2025-26"; absent when degraded. */
