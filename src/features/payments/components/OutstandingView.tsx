@@ -16,8 +16,13 @@ import { AppliedPaymentsDrillIn } from "./AppliedPaymentsDrillIn";
 import { useOpenPayables } from "../hooks/useOpenPayables";
 import { type OpenPayable, type PartyOption, type PayableType } from "../types";
 
-const GRID =
-  "minmax(112px,1.2fr) 120px minmax(120px,1.4fr) minmax(100px,1fr) minmax(96px,1fr) minmax(104px,1fr) 92px 128px";
+// 8 tracks: Payable ref · Type · Party · Original · Applied · Outstanding · Date · actions.
+// Proportioned after the design file's `outCols` (Payments.dc.html), scaled down by the
+// 8px grid gap this build uses where the design put the spacing inside each cell — so the
+// row still fits the ~970px content column at 1280 without a horizontal scrollbar.
+// FIXED money tracks are the point: an all-flex grid let "OUTSTANDING ৳" + its sort caret
+// spill out of its column and collide with "DATE".
+const GRID = "128px 112px minmax(120px,1.3fr) 104px 96px 118px 84px 128px";
 const MONEY = "font-mono text-[13px] tabular-nums";
 
 function money(v: string) {
@@ -34,15 +39,27 @@ function money(v: string) {
 export function OutstandingView({
   parties,
   onCount,
+  initialPartyId = "",
+  initialPayableType = "",
+  focusPayableId = "",
 }: {
   parties: PartyOption[];
   onCount?: (n: number | null) => void;
+  /** Deep-link seeds from the route's query string (spec §9). */
+  initialPartyId?: string;
+  initialPayableType?: "" | PayableType;
+  /** Opens this payable's applied-payments drill-in; an unknown id is simply ignored. */
+  focusPayableId?: string;
 }) {
-  const [draftParty, setDraftParty] = useState("");
-  const [draftType, setDraftType] = useState<"" | PayableType>("");
-  const [partyId, setPartyId] = useState("");
-  const [payableType, setPayableType] = useState<"" | PayableType>("");
-  const [openRow, setOpenRow] = useState<{ payableType: PayableType; payableId: string } | null>(null);
+  const [draftParty, setDraftParty] = useState(initialPartyId);
+  const [draftType, setDraftType] = useState<"" | PayableType>(initialPayableType);
+  const [partyId, setPartyId] = useState(initialPartyId);
+  const [payableType, setPayableType] = useState<"" | PayableType>(initialPayableType);
+  const [openRow, setOpenRow] = useState<{ payableType: PayableType; payableId: string } | null>(
+    focusPayableId && initialPayableType
+      ? { payableType: initialPayableType, payableId: focusPayableId }
+      : null,
+  );
 
   const filter = { partyId: partyId || undefined, payableType: payableType || undefined };
   const query = useOpenPayables(filter);
@@ -144,7 +161,7 @@ export function OutstandingView({
       ) : (
         <div className="overflow-hidden rounded-card border border-border bg-surface" data-testid="payment-outstanding-list">
           <div className="overflow-x-auto">
-            <div style={{ minWidth: 900 }}>
+            <div style={{ minWidth: 946 }}>
               <div
                 role="row"
                 className="grid items-center gap-2 border-b border-border-strong bg-surface-2 px-4 py-3"
@@ -270,7 +287,9 @@ function Head({
   return (
     <span
       className={cn(
-        "text-[10.5px] font-semibold uppercase tracking-[0.4px] text-muted-foreground",
+        // `whitespace-nowrap` + `min-w-0` keep a long header inside its own grid track
+        // instead of overlapping the next one when the table is at its minimum width.
+        "min-w-0 whitespace-nowrap text-[10.5px] font-semibold uppercase tracking-[0.4px] text-muted-foreground",
         align === "right" && "text-right",
       )}
     >

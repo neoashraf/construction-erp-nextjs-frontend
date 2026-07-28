@@ -21,6 +21,8 @@ import * as mastersApi from "@/features/payments/api/masters";
 
 jest.mock("next/navigation", () => ({
   useRouter: () => ({ replace: jest.fn(), refresh: jest.fn(), push: jest.fn() }),
+  // FE-63: the screen reads the Outstanding deep link off the query string.
+  useSearchParams: () => new URLSearchParams(),
 }));
 jest.mock("next/link", () => ({
   __esModule: true,

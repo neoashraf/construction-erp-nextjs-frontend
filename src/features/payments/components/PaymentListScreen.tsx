@@ -2,6 +2,7 @@
 
 import { useMemo, useState } from "react";
 import Link from "next/link";
+import { useRouter, useSearchParams } from "next/navigation";
 import { AlertCircle, Plus, Search, WifiOff } from "lucide-react";
 import { Alert } from "@/components/ui/alert";
 import { Button } from "@/components/ui/button";
@@ -13,41 +14,70 @@ import { parseDate } from "@/lib/format";
 import { asApiError } from "@/lib/api/errors";
 import { useOnline } from "@/lib/hooks/use-online";
 import { useAuthenticatedUser } from "@/providers/session-provider";
-import { canReadPayment, canWritePayment } from "../access";
+import { canReadOpenPayables, canReadPayment, canWritePayment } from "../access";
 import { usePaymentList } from "../hooks/usePaymentList";
 import { usePaymentMutations } from "../hooks/usePaymentMutations";
 import { listAccountOptions, listPartyOptions } from "../api/masters";
 import { queryKeys } from "@/lib/query/keys";
 import { EMPTY_PAYMENT_FILTER, isFiltered, type PaymentFilterValues } from "../schemas/payment-filters.schema";
 import { type PaymentListFilter } from "../api/payment";
+import { type PayableType } from "../types";
 import { PaymentList, type PartyMap } from "./PaymentList";
 import { PaymentListFilterBar } from "./PaymentListFilterBar";
 import { PaymentsSegmentedControl, type PaymentsView } from "./PaymentsSegmentedControl";
 import { OutstandingView } from "./OutstandingView";
 import { DeleteDraftDialog } from "./DeleteDraftDialog";
 
+/** Each view's own route — the route selects the view, not local state (spec §3). */
+const ROUTE_FOR: Record<PaymentsView, string> = {
+  PAYMENTS: "/payments",
+  OUTSTANDING: "/payments/open-payables",
+};
+
 /**
- * Payments screen — one page with a segmented control over the Payments list + the
- * Outstanding view (brief §Scope; spec §4/§6/§9/§11). Read/navigate surface; the only
- * write is a hard-delete on a DRAFT row (FR-PAY-020). PM never sees this screen —
- * server re-checks regardless (spec §11). The three PAY briefs share
- * `features/payments/api/payment.ts` + types + badges + this money helper.
+ * Payments screen — ONE screen behind TWO nav entries / two routes (spec §3): `/payments`
+ * opens the Payments list, `/payments/open-payables` opens the Outstanding view. The
+ * segmented control navigates between them, so the sidebar rail and the H1 follow the
+ * selected view and either view can be deep-linked, bookmarked or reloaded (FE-63).
+ * Read/navigate surface; the only write is a hard-delete on a DRAFT row (FR-PAY-020).
+ * PM never sees this screen — server re-checks regardless (spec §11). The three PAY
+ * briefs share `features/payments/api/payment.ts` + types + badges + this money helper.
  */
-export function PaymentListScreen() {
+export function PaymentListScreen({ initialView = "PAYMENTS" }: { initialView?: PaymentsView } = {}) {
   const user = useAuthenticatedUser();
   const online = useOnline();
   const { toast } = useToast();
+  const router = useRouter();
+  const searchParams = useSearchParams();
   const fyLabel = "FY 2025–26";
   const canRead = canReadPayment(user);
   const canDelete = canWritePayment(user);
+  const canReadOutstanding = canReadOpenPayables(user);
 
-  const [view, setView] = useState<PaymentsView>("PAYMENTS");
+  // The route decides the view; state only tracks it so a tab click can render
+  // immediately while the client-side navigation settles.
+  const [view, setView] = useState<PaymentsView>(initialView);
   const [applied, setApplied] = useState<PaymentFilterValues>(EMPTY_PAYMENT_FILTER);
   const [page, setPage] = useState(1);
   const [outstandingCount, setOutstandingCount] = useState<number | null>(null);
   const [deleteTarget, setDeleteTarget] = useState<string | null>(null);
   const [deleting, setDeleting] = useState(false);
   const { remove } = usePaymentMutations();
+
+  // Outstanding deep link (spec §9): `…/open-payables?partyId=&payableType=&payableId=`.
+  // An unresolvable id is never an error — the view just renders unfiltered.
+  const deepLink = {
+    partyId: searchParams?.get("partyId") ?? "",
+    payableType: (searchParams?.get("payableType") ?? "") as "" | PayableType,
+    payableId: searchParams?.get("payableId") ?? "",
+  };
+
+  /** Selecting a tab NAVIGATES — the URL, the sidebar rail and the H1 all follow. */
+  function changeView(next: PaymentsView) {
+    if (next === view) return;
+    setView(next);
+    router.replace(ROUTE_FOR[next]);
+  }
 
   const listQuery = usePaymentList(toApi(applied, page));
   const rows = useMemo(() => listQuery.data?.data ?? [], [listQuery.data]);
@@ -120,11 +150,19 @@ export function PaymentListScreen() {
 
   return (
     <div className="mx-auto max-w-6xl">
-      <div className="mb-1 text-[12px] font-medium text-muted-foreground">Payments</div>
       <div className="mb-3 flex flex-wrap items-center gap-3">
         <div className="flex items-center gap-2.5">
-          <h1 className="text-[23px] font-bold tracking-[-0.02em]" data-testid="payment-list-title">
-            Payments
+          {/*
+            The H1 is the page identity and it changes with the route, so announce it:
+            a tab click swaps the URL under the user, and a screen reader would otherwise
+            report nothing at all (spec §10).
+          */}
+          <h1
+            className="text-[23px] font-bold tracking-[-0.02em]"
+            data-testid="payment-list-title"
+            aria-live="polite"
+          >
+            {view === "PAYMENTS" ? "Payments" : "Open payables"}
           </h1>
           <span
             className="inline-flex items-center rounded-pill bg-muted px-2.5 py-0.5 text-[12px] font-medium text-muted-foreground"
@@ -149,7 +187,11 @@ export function PaymentListScreen() {
         </div>
       </div>
       <div className="mb-4">
-        <PaymentsSegmentedControl value={view} onChange={setView} />
+        <PaymentsSegmentedControl
+          value={view}
+          onChange={changeView}
+          showOutstanding={canReadOutstanding}
+        />
       </div>
 
       {!online && (
@@ -237,7 +279,13 @@ export function PaymentListScreen() {
           )}
         </div>
       ) : (
-        <OutstandingView parties={parties} onCount={setOutstandingCount} />
+        <OutstandingView
+          parties={parties}
+          onCount={setOutstandingCount}
+          initialPartyId={deepLink.partyId}
+          initialPayableType={deepLink.payableType}
+          focusPayableId={deepLink.payableId}
+        />
       )}
 
       <DeleteDraftDialog

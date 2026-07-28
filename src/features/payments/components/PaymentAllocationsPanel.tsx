@@ -65,7 +65,8 @@ export function PaymentAllocationsPanel({ allocations }: { allocations: PaymentA
 }
 
 function outstandingLinkFor(type: PayableType, id: string): string {
-  // Deep-link into the Payments list Outstanding view — the source payable's page
-  // lives in PUR/HR (Tier-2 modules not owned here). Server enforces scope.
-  return `/payments?payableType=${type}&payableId=${id}`;
+  // Deep-link into the Outstanding view's OWN route — the source payable's page lives in
+  // PUR/HR (Tier-2 modules not owned here). Server enforces scope. Pointing at `/payments`
+  // landed on the voucher list, unfiltered, because that route opens the Payments view.
+  return `/payments/open-payables?payableType=${type}&payableId=${id}`;
 }
