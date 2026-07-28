@@ -139,7 +139,6 @@ export function AuditLogScreen({ initialId = null }: { initialId?: string | null
   if (!canRead) {
     return (
       <div className="mx-auto max-w-6xl">
-        <Breadcrumb />
         <h1 className="mb-1 text-[23px] font-bold tracking-[-0.02em]">Audit log</h1>
         <AuditForbiddenView />
       </div>
@@ -149,7 +148,6 @@ export function AuditLogScreen({ initialId = null }: { initialId?: string | null
   if (forbidden) {
     return (
       <div className="mx-auto max-w-6xl">
-        <Breadcrumb />
         <h1 className="mb-1 text-[23px] font-bold tracking-[-0.02em]">Audit log</h1>
         <AuditForbiddenView />
       </div>
@@ -361,14 +359,15 @@ function Pagination({
   );
 }
 
+/**
+ * The list itself is a sidebar destination → no breadcrumb. Only the drill-down to a
+ * single entry gets one, and it starts at the linked parent list (no module crumb).
+ */
 function Breadcrumb({ entryId }: { entryId?: string | null }) {
+  if (!entryId) return null;
   return (
     <UiBreadcrumb
-      items={[
-        { label: "Admin" },
-        { label: "Audit log", href: entryId ? "/audit/log" : undefined },
-        ...(entryId ? [{ label: `entry ${entryId}` }] : []),
-      ]}
+      items={[{ label: "Audit log", href: "/audit/log" }, { label: `entry ${entryId}` }]}
     />
   );
 }

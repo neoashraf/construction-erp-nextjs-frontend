@@ -15,7 +15,6 @@ import {
 import { useToast } from "@/components/ui/toast";
 import { useSession } from "@/providers/session-provider";
 import { hasGrant } from "@/lib/auth/roles";
-import { Breadcrumb } from "@/components/ui/breadcrumb";
 import { cn } from "@/lib/utils";
 import { type Account, type AccountGroup, type AccountType, ACCOUNT_TYPES } from "../types";
 import { useAccountGroups, useAccounts } from "../hooks/useChartOfAccounts";
@@ -120,9 +119,6 @@ export function ChartOfAccountsScreen() {
     <div>
       {/* title + count pill + page actions (design: content-header actions, right-aligned) */}
       <div className="flex flex-wrap items-center gap-3">
-        <Breadcrumb items={[{ label: "Master Data" }, { label: "Chart of accounts" }]} />
-      </div>
-      <div className="mt-0.5 flex flex-wrap items-center gap-3">
         <h1 className="text-[23px] font-bold tracking-[-0.02em]">Chart of accounts</h1>
         <span className="inline-flex h-[23px] items-center whitespace-nowrap rounded-pill bg-muted px-2.5 text-[11.5px] font-semibold text-muted-foreground">
           {countPill}

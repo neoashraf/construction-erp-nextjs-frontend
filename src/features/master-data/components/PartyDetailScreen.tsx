@@ -85,7 +85,6 @@ export function PartyDetailScreen({ id }: { id: string }) {
     <div className="mx-auto max-w-4xl">
       <Breadcrumb
         items={[
-          { label: "Master Data" },
           { label: "Parties", href: LIST_PATH },
           { label: isNew ? "New party" : (party?.name ?? "") },
         ]}

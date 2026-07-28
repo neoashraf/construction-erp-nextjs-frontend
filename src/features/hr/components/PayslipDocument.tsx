@@ -62,8 +62,7 @@ export function PayslipDocument({
       <div className="mx-auto max-w-3xl">
         <Breadcrumb
           items={[
-            { label: "HR" },
-            { label: "Salary sheet", href: "/hr/salary-sheets" },
+            { label: "Salary sheets", href: "/hr/salary-sheets" },
             { label: "Payslip" },
           ]}
         />
@@ -77,8 +76,7 @@ export function PayslipDocument({
       <div className="mx-auto max-w-3xl" data-testid="payslip-doc-loading">
         <Breadcrumb
           items={[
-            { label: "HR" },
-            { label: "Salary sheet", href: "/hr/salary-sheets" },
+            { label: "Salary sheets", href: "/hr/salary-sheets" },
             { label: "Payslip" },
           ]}
         />
@@ -100,8 +98,7 @@ export function PayslipDocument({
       <div className="mx-auto max-w-3xl">
         <Breadcrumb
           items={[
-            { label: "HR" },
-            { label: "Salary sheet", href: "/hr/salary-sheets" },
+            { label: "Salary sheets", href: "/hr/salary-sheets" },
             { label: "Payslip" },
           ]}
         />
@@ -122,8 +119,7 @@ export function PayslipDocument({
       <div className="mx-auto max-w-3xl" data-testid="payslip-doc-guard">
         <Breadcrumb
           items={[
-            { label: "HR" },
-            { label: "Salary sheet", href: "/hr/salary-sheets" },
+            { label: "Salary sheets", href: "/hr/salary-sheets" },
             { label: sheet.periodLabel, href: `/hr/salary-sheets/${sheet.id}` },
             { label: "Payslip" },
           ]}
@@ -142,9 +138,9 @@ export function PayslipDocument({
       <div className="mx-auto max-w-3xl">
         <Breadcrumb
           items={[
-            { label: "HR" },
-            { label: "Salary sheet", href: "/hr/salary-sheets" },
+            { label: "Salary sheets", href: "/hr/salary-sheets" },
             { label: sheet.periodLabel, href: `/hr/salary-sheets/${sheet.id}` },
+            { label: "Payslips", href: `/hr/salary-sheets/${sheet.id}/payslips` },
             { label: "Payslip" },
           ]}
         />
@@ -171,8 +167,7 @@ export function PayslipDocument({
       <div className="print-hide">
         <Breadcrumb
           items={[
-            { label: "HR" },
-            { label: "Salary sheet", href: "/hr/salary-sheets" },
+            { label: "Salary sheets", href: "/hr/salary-sheets" },
             { label: sheet.periodLabel, href: `/hr/salary-sheets/${sheet.id}` },
             { label: "Payslips", href: `/hr/salary-sheets/${sheet.id}/payslips` },
             { label: payslip.name },

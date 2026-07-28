@@ -93,7 +93,8 @@ export function RequisitionCostControlView({
         />
       )}
 
-      <RccReportSwitcher value={tab} onChange={onTabChange} />
+      {/* The `/reports` hub's catalog card already renders the chip row. */}
+      {!embedded && <RccReportSwitcher value={tab} onChange={onTabChange} />}
 
       {!online && (
         <Alert

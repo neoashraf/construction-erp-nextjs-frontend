@@ -142,7 +142,7 @@ export function EmployeeDetail({ employeeId }: { employeeId: string }) {
   if (detail.isLoading) {
     return (
       <div className="mx-auto max-w-5xl" data-testid="employee-detail-loading">
-        <Breadcrumb items={[{ label: "HR" }, { label: "Employees", href: "/hr/employees" }, { label: "Loading…" }]} />
+        <Breadcrumb items={[{ label: "Employees", href: "/hr/employees" }, { label: "Loading…" }]} />
         <div className="mt-4 flex flex-col gap-3">
           <Skeleton className="h-10 w-1/2" />
           <Skeleton className="h-64 w-full" />
@@ -155,7 +155,7 @@ export function EmployeeDetail({ employeeId }: { employeeId: string }) {
   if (detail.isError || !employee) {
     return (
       <div className="mx-auto max-w-3xl" data-testid="employee-detail-error">
-        <Breadcrumb items={[{ label: "HR" }, { label: "Employees", href: "/hr/employees" }, { label: "Not found" }]} />
+        <Breadcrumb items={[{ label: "Employees", href: "/hr/employees" }, { label: "Not found" }]} />
         <Alert tone="destructive" className="mt-4" title="Couldn't load this employee.">
           <div className="flex flex-col items-start gap-2">
             <span>Check your connection and try again.</span>
@@ -178,7 +178,6 @@ export function EmployeeDetail({ employeeId }: { employeeId: string }) {
     <div className="mx-auto max-w-5xl" data-testid="employee-detail">
       <Breadcrumb
         items={[
-          { label: "HR" },
           { label: "Employees", href: "/hr/employees" },
           { label: employee.employeeCode },
         ]}

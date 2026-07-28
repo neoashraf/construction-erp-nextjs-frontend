@@ -82,6 +82,21 @@ export const REPORT_CATEGORY_LABEL: Record<ReportCategory, string> = {
   HR: "HR reports",
 };
 
+/**
+ * Short labels for the catalog's category-tab strip. The tabs sit in one
+ * horizontal row, so `Reports.dc.html` drops the "reports" suffix the full
+ * labels carry ("Project", not "Project reports") — verbatim from the design's
+ * `CAT_SHORT`.
+ */
+export const REPORT_CATEGORY_TAB_LABEL: Record<ReportCategory, string> = {
+  LEDGERS_REGISTERS: "Ledgers & registers",
+  FINANCIAL_STATEMENTS: "Financial statements",
+  PROJECT_IPC: "Project",
+  INVENTORY: "Inventory",
+  REQUISITION_COST_CONTROL: "Cost control",
+  HR: "HR",
+};
+
 export const REPORT_CATEGORY_ORDER: ReportCategory[] = [
   "LEDGERS_REGISTERS",
   "FINANCIAL_STATEMENTS",

@@ -38,6 +38,19 @@ export type SidebarUser = UserMenuUser & { permissions?: SessionPermission[] | n
 export function Sidebar({ user }: { user: SidebarUser }) {
   const pathname = usePathname();
   const { collapsed } = useShellChrome();
+
+  // Publish the sidebar's live width as a CSS variable on :root so viewport-fixed
+  // chrome (the voucher-editor action bars) can offset its left edge past the sidebar
+  // instead of spanning underneath it. 56px rail when collapsed, 230px when expanded;
+  // consumers apply it only at md+ (below md the sidebar is hidden and bars go full-width).
+  useEffect(() => {
+    const root = document.documentElement;
+    root.style.setProperty("--sidebar-w", collapsed ? "56px" : "230px");
+    return () => {
+      root.style.removeProperty("--sidebar-w");
+    };
+  }, [collapsed]);
+
   // FE-21: permission-driven filtering when the projection is present; role fallback otherwise.
   const tree = visibleTreeForRole(user);
   const match = matchNav(pathname);

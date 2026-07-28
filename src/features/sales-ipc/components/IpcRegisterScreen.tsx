@@ -3,7 +3,6 @@
 import { useMemo, useState } from "react";
 import { useRouter, useSearchParams } from "next/navigation";
 import { Eye } from "lucide-react";
-import { Breadcrumb } from "@/components/ui/breadcrumb";
 import { EmptyState } from "@/components/ui/empty-state";
 import { useToast } from "@/components/ui/toast";
 import { useOnline } from "@/lib/hooks/use-online";
@@ -142,13 +141,6 @@ export function IpcRegisterScreen() {
 
   return (
     <div className="mx-auto max-w-[1440px]" data-testid="ipc-register-screen">
-      <Breadcrumb
-        items={[
-          { label: "Sales / IPC Billing" },
-          { label: "Project IPC register", href: "/sales/ipc-register" },
-          ...(project ? [{ label: project.name }] : []),
-        ]}
-      />
       <div className="mb-4 mt-1 flex flex-wrap items-center gap-3">
         <h1 className="text-[23px] font-bold tracking-[-0.02em]" data-testid="ipc-register-title">
           Project IPC register

@@ -99,7 +99,6 @@ export function BillDetailDispatch({ billId }: { billId: string | null }) {
       <div className="mx-auto max-w-6xl">
         <Breadcrumb
           items={[
-            { label: "Purchase" },
             { label: "Purchase bills", href: "/purchase/bills" },
             { label: "Bill" },
           ]}

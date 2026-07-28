@@ -329,7 +329,7 @@ export function PoEditor({ poId }: { poId: string | null }) {
           : "This purchase order could not be loaded.";
     return (
       <div className="mx-auto max-w-6xl">
-        <Breadcrumb items={[{ label: "Purchase" }, { label: "Purchase orders", href: "/purchase/orders" }, { label: "Purchase order" }]} />
+        <Breadcrumb items={[{ label: "Purchase orders", href: "/purchase/orders" }, { label: "Purchase order" }]} />
         <Alert tone="destructive" title={msg} className="mt-4" data-testid="po-detail-error">
           <div className="mt-2 flex gap-2">
             <Button size="sm" variant="outline" onClick={() => router.push("/purchase/orders")}>
@@ -347,7 +347,7 @@ export function PoEditor({ poId }: { poId: string | null }) {
   if (isNew && !canWrite) {
     return (
       <div className="mx-auto max-w-6xl">
-        <Breadcrumb items={[{ label: "Purchase" }, { label: "Purchase orders", href: "/purchase/orders" }, { label: "New" }]} />
+        <Breadcrumb items={[{ label: "Purchase orders", href: "/purchase/orders" }, { label: "New" }]} />
         <Alert
           tone="destructive"
           title="You don't have permission to raise a purchase order."
@@ -376,7 +376,6 @@ export function PoEditor({ poId }: { poId: string | null }) {
     <div className="mx-auto max-w-6xl pb-6">
       <Breadcrumb
         items={[
-          { label: "Purchase" },
           { label: "Purchase orders", href: "/purchase/orders" },
           { label: crumbTail },
         ]}

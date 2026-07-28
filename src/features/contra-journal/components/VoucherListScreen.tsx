@@ -7,7 +7,6 @@ import { Alert } from "@/components/ui/alert";
 import { Button } from "@/components/ui/button";
 import { Card } from "@/components/ui/card";
 import { EmptyState } from "@/components/ui/empty-state";
-import { Breadcrumb } from "@/components/ui/breadcrumb";
 import { parseDate } from "@/lib/format";
 import { cn } from "@/lib/utils";
 import { useOnline } from "@/lib/hooks/use-online";
@@ -61,7 +60,6 @@ export function VoucherListScreen() {
 
   return (
     <div className="mx-auto max-w-6xl">
-      <Breadcrumb items={[{ label: "Contra & Journal" }, { label: "Vouchers" }]} />
       <div className="mb-4 mt-1 flex flex-wrap items-center gap-3">
         <h1 className="text-[23px] font-bold tracking-[-0.02em]" data-testid="voucher-list-title">
           Contra & journal vouchers

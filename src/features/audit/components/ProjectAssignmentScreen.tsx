@@ -243,15 +243,15 @@ export function ProjectAssignmentScreen({ userId }: { userId: string }) {
   );
 }
 
+/**
+ * Drill-down trail: the parent LIST page (linked) → this record. There is no
+ * standalone user-detail route (the detail is a panel on the list), so the user is
+ * folded into the leaf crumb rather than rendered as an unlinked intermediate.
+ */
 function Breadcrumb({ userName }: { userName: string }) {
   return (
     <UiBreadcrumb
-      items={[
-        { label: "Admin", href: "/audit/users" },
-        { label: "Users", href: "/audit/users" },
-        { label: userName },
-        { label: "Projects" },
-      ]}
+      items={[{ label: "Users", href: "/audit/users" }, { label: `${userName} — Projects` }]}
     />
   );
 }

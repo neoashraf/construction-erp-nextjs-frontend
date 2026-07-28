@@ -7,7 +7,6 @@ import { Button } from "@/components/ui/button";
 import { Skeleton } from "@/components/ui/skeleton";
 import { EmptyState } from "@/components/ui/empty-state";
 import { Alert } from "@/components/ui/alert";
-import { Breadcrumb } from "@/components/ui/breadcrumb";
 import { cn } from "@/lib/utils";
 import { useOnline } from "@/lib/hooks/use-online";
 import { useAuthenticatedUser } from "@/providers/session-provider";
@@ -44,9 +43,6 @@ export function ApprovalsWorklistScreen() {
   if (!canReviewRequisitions(user)) {
     return (
       <div className="mx-auto max-w-6xl">
-        <Breadcrumb
-          items={[{ label: "Requisitions", href: "/requisitions" }, { label: "Approvals" }]}
-        />
         <Alert
           tone="destructive"
           className="mt-4"
@@ -61,9 +57,6 @@ export function ApprovalsWorklistScreen() {
 
   return (
     <div className="mx-auto max-w-6xl">
-      <Breadcrumb
-        items={[{ label: "Requisitions", href: "/requisitions" }, { label: "Approvals" }]}
-      />
       <div className="mb-4 mt-1 flex flex-wrap items-center gap-3">
         <h1 className="text-[23px] font-bold tracking-[-0.02em]" data-testid="req-approvals-title">
           Approvals

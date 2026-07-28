@@ -2,7 +2,6 @@
 
 import { Alert } from "@/components/ui/alert";
 import { Badge } from "@/components/ui/badge";
-import { Breadcrumb } from "@/components/ui/breadcrumb";
 import { useSession } from "@/providers/session-provider";
 import { hasGrant } from "@/lib/auth/roles";
 import { useCompany } from "../hooks/useCompany";
@@ -25,8 +24,7 @@ export function CompanySettingsScreen() {
 
   return (
     <div className="mx-auto max-w-5xl">
-      {/* Breadcrumb + title + active-company badge */}
-      <Breadcrumb items={[{ label: "Master Data" }, { label: "Company" }]} />
+      {/* Title + active-company badge */}
       <div className="flex items-center gap-3">
         <h1 className="text-[23px] font-bold tracking-[-0.02em]">Company settings</h1>
         {company && (

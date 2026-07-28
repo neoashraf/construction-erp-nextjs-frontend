@@ -139,9 +139,7 @@ export function ProjectDetailScreen({ id }: { id: string }) {
   if (isNew) {
     return (
       <div className="mx-auto max-w-6xl">
-        <Breadcrumb
-          items={[{ label: "Master Data" }, { label: "Projects", href: LIST_PATH }, { label: "New project" }]}
-        />
+        <Breadcrumb items={[{ label: "Projects", href: LIST_PATH }, { label: "New project" }]} />
         <h1 className="text-[22px] font-bold tracking-[-0.02em]">New project</h1>
         <p className="mt-2 text-[13px] text-muted-foreground">
           Fill in the project details to start posting vouchers against it.
@@ -165,7 +163,6 @@ export function ProjectDetailScreen({ id }: { id: string }) {
     <div className="mx-auto max-w-6xl">
       <Breadcrumb
         items={[
-          { label: "Master Data" },
           { label: "Projects", href: LIST_PATH },
           { label: `${project.projectCode} — ${project.name}` },
         ]}

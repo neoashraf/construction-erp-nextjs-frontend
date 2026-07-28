@@ -338,7 +338,7 @@ export function StockJournalEditor({ id }: { id: string }) {
     const forbidden = err.code === "FORBIDDEN" || err.status === 403;
     return (
       <div className="mx-auto max-w-5xl">
-        <Breadcrumb items={[{ label: "Stock Journal", href: "/inventory/stock-journals" }, { label: "Not available" }]} />
+        <Breadcrumb items={[{ label: "Stock journals", href: "/inventory/stock-journals" }, { label: "Not available" }]} />
         <div className="mt-8" data-testid="sj-editor-error">
           <EmptyState
             icon={AlertTriangle}
@@ -372,7 +372,7 @@ export function StockJournalEditor({ id }: { id: string }) {
     <div className="mx-auto max-w-5xl">
       <Breadcrumb
         items={[
-          { label: "Stock Journal", href: "/inventory/stock-journals" },
+          { label: "Stock journals", href: "/inventory/stock-journals" },
           { label: isNew ? "New" : (journal?.entryNo ?? "Draft") },
         ]}
       />

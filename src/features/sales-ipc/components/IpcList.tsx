@@ -9,7 +9,6 @@ import { Button } from "@/components/ui/button";
 import { Skeleton } from "@/components/ui/skeleton";
 import { EmptyState } from "@/components/ui/empty-state";
 import { Alert } from "@/components/ui/alert";
-import { Breadcrumb } from "@/components/ui/breadcrumb";
 import { DropdownMenu, DropdownMenuTrigger, DropdownMenuContent, DropdownMenuItem } from "@/components/ui/dropdown-menu";
 import { cn } from "@/lib/utils";
 import { formatMoney, toDecimal } from "@/lib/money";
@@ -95,7 +94,6 @@ export function IpcList() {
 
   return (
     <div className="mx-auto max-w-6xl">
-      <Breadcrumb items={[{ label: "Sales / IPC" }, { label: "IPCs" }]} />
       <div className="mb-4 mt-1 flex flex-wrap items-center gap-3">
         <h1 className="text-[23px] font-bold tracking-[-0.02em]" data-testid="ipc-list-title">IPC list</h1>
         {query.data && (
