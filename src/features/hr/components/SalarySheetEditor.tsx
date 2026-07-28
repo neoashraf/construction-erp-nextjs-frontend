@@ -149,7 +149,7 @@ export function SalarySheetEditor({ id }: { id: string }) {
   if (query.isLoading) {
     return (
       <div className="mx-auto max-w-6xl" data-testid="salary-editor-loading">
-        <Breadcrumb items={[{ label: "HR" }, { label: "Salary sheet", href: "/hr/salary-sheets" }, { label: "…" }]} />
+        <Breadcrumb items={[{ label: "Salary sheets", href: "/hr/salary-sheets" }, { label: "…" }]} />
         <Skeleton className="mb-3 h-8 w-64" />
         <Card className="p-4">
           <div className="flex gap-3">
@@ -170,7 +170,7 @@ export function SalarySheetEditor({ id }: { id: string }) {
   if (query.isError || !sheet) {
     return (
       <div className="mx-auto max-w-6xl">
-        <Breadcrumb items={[{ label: "HR" }, { label: "Salary sheet", href: "/hr/salary-sheets" }, { label: id }]} />
+        <Breadcrumb items={[{ label: "Salary sheets", href: "/hr/salary-sheets" }, { label: id }]} />
         <Alert tone="destructive" title="Couldn't load this salary sheet.">
           <div className="mt-2">
             <Button size="sm" onClick={() => query.refetch()} data-testid="salary-editor-retry">
@@ -193,8 +193,7 @@ export function SalarySheetEditor({ id }: { id: string }) {
     <div className="mx-auto max-w-6xl" data-testid="salary-editor">
       <Breadcrumb
         items={[
-          { label: "HR" },
-          { label: "Salary sheet", href: "/hr/salary-sheets" },
+          { label: "Salary sheets", href: "/hr/salary-sheets" },
           { label: sheet.periodLabel },
         ]}
       />

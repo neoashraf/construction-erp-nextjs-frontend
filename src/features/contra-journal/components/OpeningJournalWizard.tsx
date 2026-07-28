@@ -4,7 +4,6 @@ import { useState } from "react";
 import Link from "next/link";
 import { AlertCircle, ArrowRight, Check, Inbox, Loader2, Lock, Plus, WifiOff } from "lucide-react";
 import { Alert } from "@/components/ui/alert";
-import { Breadcrumb } from "@/components/ui/breadcrumb";
 import { Button } from "@/components/ui/button";
 import { Card } from "@/components/ui/card";
 import { EmptyState } from "@/components/ui/empty-state";
@@ -55,7 +54,6 @@ export function OpeningJournalWizard() {
   if (!canWrite) {
     return (
       <div className="mx-auto max-w-4xl">
-        <Breadcrumb items={[{ label: "Contra & Journal" }, { label: "Opening journal" }]} />
         <Card className="mt-6 p-10" data-testid="opening-403">
           <EmptyState
             icon={Lock}
@@ -75,7 +73,6 @@ export function OpeningJournalWizard() {
     }
     return (
       <div className="mx-auto max-w-4xl">
-        <Breadcrumb items={[{ label: "Contra & Journal" }, { label: "Opening journal" }]} />
         <div className="mb-4 mt-1">
           <h1 className="text-[23px] font-bold tracking-[-0.02em]" data-testid="opening-title">
             Opening journal
@@ -130,7 +127,6 @@ export function OpeningJournalWizard() {
 
   return (
     <div className="mx-auto max-w-4xl pb-24" data-testid="opening-wizard">
-      <Breadcrumb items={[{ label: "Contra & Journal" }, { label: "Opening journal" }]} />
       <div className="mb-4 mt-1 flex flex-wrap items-center gap-3">
         <h1 className="text-[23px] font-bold tracking-[-0.02em]" data-testid="opening-title">
           Opening journal
@@ -338,7 +334,6 @@ function StepSegment({ n, label, active, done }: { n: number; label: string; act
 function LoadingShell() {
   return (
     <div className="mx-auto max-w-4xl">
-      <Breadcrumb items={[{ label: "Contra & Journal" }, { label: "Opening journal" }]} />
       <div className="mb-4 mt-1">
         <Skeleton className="h-7 w-56" />
       </div>

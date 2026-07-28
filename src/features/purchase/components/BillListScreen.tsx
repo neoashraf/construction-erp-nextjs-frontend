@@ -8,7 +8,6 @@ import { Button } from "@/components/ui/button";
 import { Skeleton } from "@/components/ui/skeleton";
 import { EmptyState } from "@/components/ui/empty-state";
 import { Alert } from "@/components/ui/alert";
-import { Breadcrumb } from "@/components/ui/breadcrumb";
 import { cn } from "@/lib/utils";
 import { parseDate } from "@/lib/format";
 import { toDecimal } from "@/lib/money";
@@ -115,7 +114,6 @@ export function BillListScreen() {
 
   return (
     <div className="mx-auto max-w-7xl">
-      <Breadcrumb items={[{ label: "Purchase" }, { label: "Purchase bills" }]} />
       <div className="mb-4 mt-1 flex flex-wrap items-center gap-3">
         <h1 className="text-[23px] font-bold tracking-[-0.02em]" data-testid="bill-list-title">
           Purchase bills

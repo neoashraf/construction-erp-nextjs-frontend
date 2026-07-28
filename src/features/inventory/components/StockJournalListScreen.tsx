@@ -8,7 +8,6 @@ import { Button } from "@/components/ui/button";
 import { Skeleton } from "@/components/ui/skeleton";
 import { EmptyState } from "@/components/ui/empty-state";
 import { Alert } from "@/components/ui/alert";
-import { Breadcrumb } from "@/components/ui/breadcrumb";
 import { cn } from "@/lib/utils";
 import { useAuthenticatedUser } from "@/providers/session-provider";
 import { canWriteDraft } from "../access";
@@ -79,7 +78,6 @@ export function StockJournalListScreen() {
 
   return (
     <div className="mx-auto max-w-6xl">
-      <Breadcrumb items={[{ label: "Inventory" }, { label: "Stock Journal" }]} />
       <div className="mb-4 mt-1 flex flex-wrap items-center gap-3">
         <h1 className="text-[23px] font-bold tracking-[-0.02em]" data-testid="sj-list-title">
           Stock Journal

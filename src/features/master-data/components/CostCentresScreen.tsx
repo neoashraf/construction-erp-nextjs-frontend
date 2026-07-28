@@ -11,7 +11,6 @@ import { EmptyState } from "@/components/ui/empty-state";
 import { Alert } from "@/components/ui/alert";
 import { cn } from "@/lib/utils";
 import { useToast } from "@/components/ui/toast";
-import { Breadcrumb } from "@/components/ui/breadcrumb";
 import { useSession } from "@/providers/session-provider";
 import { hasGrant } from "@/lib/auth/roles";
 import { useCostCentres } from "../hooks/useCostCentres";
@@ -63,7 +62,6 @@ export function CostCentresScreen() {
     <div className="mx-auto max-w-4xl">
       <div className="flex items-start justify-between gap-4">
         <div>
-          <Breadcrumb items={[{ label: "Master Data" }, { label: "Cost centres" }]} />
           <h1 className="text-[23px] font-bold tracking-[-0.02em]">Cost centres</h1>
         </div>
         {canManage && (

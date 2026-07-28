@@ -389,7 +389,6 @@ export function BillEditor({ billId, onSaved }: { billId: string | null; onSaved
       <div className="mx-auto max-w-6xl">
         <Breadcrumb
           items={[
-            { label: "Purchase" },
             { label: "Purchase bills", href: "/purchase/bills" },
             { label: "Bill" },
           ]}
@@ -413,7 +412,6 @@ export function BillEditor({ billId, onSaved }: { billId: string | null; onSaved
       <div className="mx-auto max-w-6xl">
         <Breadcrumb
           items={[
-            { label: "Purchase" },
             { label: "Purchase bills", href: "/purchase/bills" },
             { label: "New" },
           ]}
@@ -437,7 +435,6 @@ export function BillEditor({ billId, onSaved }: { billId: string | null; onSaved
     <div className="mx-auto max-w-6xl pb-6">
       <Breadcrumb
         items={[
-          { label: "Purchase" },
           { label: "Purchase bills", href: "/purchase/bills" },
           { label: crumbTail },
         ]}

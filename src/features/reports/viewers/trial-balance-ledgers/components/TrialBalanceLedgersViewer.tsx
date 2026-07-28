@@ -271,7 +271,10 @@ export function TrialBalanceLedgersViewer({
         />
       )}
 
-      <ReportSwitcher value={tab} onChange={onTabChange} />
+      {/* Embedded in the `/reports` hub the catalog card already provides the
+          chip row, so a second one here would duplicate it (design has two rows:
+          category tabs, then chips). Standalone, this IS the chip row. */}
+      {!embedded && <ReportSwitcher value={tab} onChange={onTabChange} />}
 
       {!online && (
         <Alert

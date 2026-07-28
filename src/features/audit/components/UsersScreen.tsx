@@ -10,7 +10,6 @@ import { Alert } from "@/components/ui/alert";
 import { useSession } from "@/providers/session-provider";
 import { hasGrant } from "@/lib/auth/roles";
 import { useToast } from "@/components/ui/toast";
-import { Breadcrumb } from "@/components/ui/breadcrumb";
 import { useUsersList, useUserDetail } from "../hooks/use-users";
 import { UserFilters, type StatusFilter } from "./UserFilters";
 import { UsersTable } from "./UsersTable";
@@ -78,7 +77,6 @@ export function UsersScreen() {
   if (!canRead) {
     return (
       <div className="mx-auto max-w-3xl" data-testid="users-forbidden">
-        <Breadcrumb items={[{ label: "Admin" }, { label: "Users" }]} />
         <Card className="mt-4 p-10">
           <EmptyState
             icon={Lock}
@@ -109,7 +107,6 @@ export function UsersScreen() {
     <div className="mx-auto max-w-6xl">
       <div className="flex flex-wrap items-start justify-between gap-4">
         <div>
-          <Breadcrumb items={[{ label: "Admin" }, { label: "Users" }]} />
           <h1 className="text-[23px] font-bold tracking-[-0.02em]">Users</h1>
         </div>
         {canCreate && (

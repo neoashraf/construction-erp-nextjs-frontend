@@ -2804,9 +2804,31 @@ export async function mockNestjsFetch(req: MockReq): Promise<MockResult> {
           supportsAsOf: true,
         },
         {
-          name: "journal-register",
+          // Machine name is `daybook` per the API contract (§GET /api/reports/daybook)
+          // and the real backend catalog; "Journal register" is only its display title.
+          name: "daybook",
           title: "Journal register",
           description: "Every posted journal entry over the period, oldest first.",
+          category: "LEDGERS_REGISTERS",
+          viewerRoute: "/reports/trial-balance-ledgers",
+          requiredPermission: "reports",
+          parameters: [],
+          supportsDateRange: true,
+        },
+        {
+          name: "account-ledger",
+          title: "Account ledger",
+          description: "Every posting on one account with a running balance.",
+          category: "LEDGERS_REGISTERS",
+          viewerRoute: "/reports/trial-balance-ledgers",
+          requiredPermission: "reports",
+          parameters: [],
+          supportsDateRange: true,
+        },
+        {
+          name: "cash-bank-book",
+          title: "Cash & bank book",
+          description: "Receipts and payments per cash/bank account with a running balance.",
           category: "LEDGERS_REGISTERS",
           viewerRoute: "/reports/trial-balance-ledgers",
           requiredPermission: "reports",

@@ -86,7 +86,7 @@ export function PayslipList({ sheetId }: { sheetId: string }) {
   if (denied) {
     return (
       <div className="mx-auto max-w-6xl">
-        <Breadcrumb items={[{ label: "HR" }, { label: "Salary sheet", href: "/hr/salary-sheets" }, { label: "Payslips" }]} />
+        <Breadcrumb items={[{ label: "Salary sheets", href: "/hr/salary-sheets" }, { label: "Payslips" }]} />
         <Alert tone="destructive" title={PAYSLIP_COPY.forbidden} data-testid="payslip-forbidden" />
       </div>
     );
@@ -95,7 +95,7 @@ export function PayslipList({ sheetId }: { sheetId: string }) {
   if (q.isLoading) {
     return (
       <div className="mx-auto max-w-6xl" data-testid="payslip-list-loading">
-        <Breadcrumb items={[{ label: "HR" }, { label: "Salary sheet", href: "/hr/salary-sheets" }, { label: "Payslips" }]} />
+        <Breadcrumb items={[{ label: "Salary sheets", href: "/hr/salary-sheets" }, { label: "Payslips" }]} />
         <Skeleton className="mb-3 h-8 w-64" />
         <Card className="p-4">
           <div className="flex flex-col gap-2">
@@ -111,7 +111,7 @@ export function PayslipList({ sheetId }: { sheetId: string }) {
   if (q.isError || !q.sheet) {
     return (
       <div className="mx-auto max-w-6xl">
-        <Breadcrumb items={[{ label: "HR" }, { label: "Salary sheet", href: "/hr/salary-sheets" }, { label: "Payslips" }]} />
+        <Breadcrumb items={[{ label: "Salary sheets", href: "/hr/salary-sheets" }, { label: "Payslips" }]} />
         <Alert tone="destructive" title={PAYSLIP_COPY.errorLoad} data-testid="payslip-list-error">
           <div className="mt-2">
             <Button size="sm" onClick={() => q.refetch()} data-testid="payslip-list-retry">
@@ -129,8 +129,7 @@ export function PayslipList({ sheetId }: { sheetId: string }) {
       <div className="mx-auto max-w-6xl" data-testid="payslip-list-guard">
         <Breadcrumb
           items={[
-            { label: "HR" },
-            { label: "Salary sheet", href: "/hr/salary-sheets" },
+            { label: "Salary sheets", href: "/hr/salary-sheets" },
             { label: sheet.periodLabel, href: `/hr/salary-sheets/${sheet.id}` },
             { label: "Payslips" },
           ]}
@@ -147,8 +146,7 @@ export function PayslipList({ sheetId }: { sheetId: string }) {
     <div className="mx-auto max-w-6xl" data-testid="payslip-list">
       <Breadcrumb
         items={[
-          { label: "HR" },
-          { label: "Salary sheet", href: "/hr/salary-sheets" },
+          { label: "Salary sheets", href: "/hr/salary-sheets" },
           { label: sheet.periodLabel, href: `/hr/salary-sheets/${sheet.id}` },
           { label: "Payslips" },
         ]}

@@ -8,7 +8,6 @@ import { Skeleton } from "@/components/ui/skeleton";
 import { EmptyState } from "@/components/ui/empty-state";
 import { cn } from "@/lib/utils";
 import { useToast } from "@/components/ui/toast";
-import { Breadcrumb } from "@/components/ui/breadcrumb";
 import { useSession } from "@/providers/session-provider";
 import { hasGrant } from "@/lib/auth/roles";
 import { useFinancialYears } from "../hooks/useFinancialYears";
@@ -45,10 +44,9 @@ export function FinancialYearsScreen() {
 
   return (
     <div className="mx-auto max-w-6xl">
-      {/* Breadcrumb + title + CTA */}
+      {/* Title + CTA */}
       <div className="flex items-start justify-between gap-4">
         <div>
-          <Breadcrumb items={[{ label: "Master Data" }, { label: "Financial years" }]} />
           <h1 className="text-[23px] font-bold tracking-[-0.02em]">Financial years</h1>
         </div>
         {isAdmin ? (

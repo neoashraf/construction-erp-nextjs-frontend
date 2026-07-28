@@ -7,7 +7,6 @@ import { Button } from "@/components/ui/button";
 import { Skeleton } from "@/components/ui/skeleton";
 import { EmptyState } from "@/components/ui/empty-state";
 import { Alert } from "@/components/ui/alert";
-import { Breadcrumb } from "@/components/ui/breadcrumb";
 import { cn } from "@/lib/utils";
 import { asApiError } from "@/lib/api/errors";
 import { useJournalEntries } from "../hooks/useJournalEntries";
@@ -79,7 +78,6 @@ export function JournalEntriesScreen({ fyLabel = "Active FY" }: { fyLabel?: stri
   if (forbidden) {
     return (
       <div className="mx-auto max-w-6xl" data-testid="entries-forbidden">
-        <Breadcrumb items={[{ label: "Ledger" }, { label: "Journal entries" }]} />
         <h1 className="text-[23px] font-bold tracking-[-0.02em]">Journal entries</h1>
         <Card className="mt-4 p-8">
           <EmptyState
@@ -94,7 +92,6 @@ export function JournalEntriesScreen({ fyLabel = "Active FY" }: { fyLabel?: stri
 
   return (
     <div className="mx-auto max-w-6xl">
-      <Breadcrumb items={[{ label: "Ledger" }, { label: "Journal entries" }]} />
       <h1 className="mb-4 text-[23px] font-bold tracking-[-0.02em]">Journal entries</h1>
 
       {!online && (

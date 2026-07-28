@@ -177,7 +177,6 @@ export function BillViewer({
     <div className="mx-auto max-w-6xl pb-6" data-testid="bill-viewer">
       <Breadcrumb
         items={[
-          { label: "Purchase" },
           { label: "Purchase bills", href: "/purchase/bills" },
           { label: bill.entryNo ?? "Bill" },
         ]}

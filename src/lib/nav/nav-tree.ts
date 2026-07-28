@@ -251,6 +251,9 @@ export const NAV_TREE: readonly NavSectionGroup[] = [
         items: [
           { label: "Employees", route: "/hr/employees", resource: "hr.employees", roles: ["HR_MANAGER"], built: true },
           { label: "Attendance", route: "/hr/attendance", resource: "hr.attendance", roles: ["HR_MANAGER", "SITE_ENGINEER"], built: true },
+          // Holidays drive the working-day denominator behind the attendance figures, so
+          // they ride the same `hr.attendance` resource rather than a separate grant.
+          { label: "Holidays", route: "/hr/holidays", resource: "hr.attendance", roles: ["HR_MANAGER"], built: true },
           { label: "Salary sheets", route: "/hr/salary-sheets", resource: "hr.salary_sheets", roles: ["HR_MANAGER"], built: true },
         ],
       },

@@ -66,7 +66,7 @@ export function IpcViewer({ ipcId }: { ipcId: string }) {
   if (ipcQuery.isLoading) {
     return (
       <div className="mx-auto max-w-6xl">
-        <Breadcrumb items={[{ label: "Sales / IPC Billing" }, { label: "IPC list", href: "/sales/ipcs" }, { label: "IPC" }]} />
+        <Breadcrumb items={[{ label: "IPCs", href: "/sales/ipcs" }, { label: "IPC" }]} />
         <div className="mb-3 mt-1 flex items-center gap-3">
           <Skeleton className="h-7 w-56" />
           <Skeleton className="h-6 w-20 rounded-pill" />
@@ -108,7 +108,7 @@ export function IpcViewer({ ipcId }: { ipcId: string }) {
   // ── 404 ──
   if (notFound) {
     return (
-      <ViewerShell breadcrumb={["Sales / IPC Billing", "IPC list"]}>
+      <ViewerShell breadcrumb={["IPCs", "IPC"]}>
         <Card className="mt-6 p-10" data-testid="ipc-not-found">
           <EmptyState
             icon={Search}
@@ -129,7 +129,7 @@ export function IpcViewer({ ipcId }: { ipcId: string }) {
   // ── 403 ──
   if (forbidden) {
     return (
-      <ViewerShell breadcrumb={["Sales / IPC Billing", "IPC list"]}>
+      <ViewerShell breadcrumb={["IPCs", "IPC"]}>
         <Card className="mt-6 p-10" data-testid="ipc-forbidden">
           <EmptyState
             icon={Lock}
@@ -149,7 +149,7 @@ export function IpcViewer({ ipcId }: { ipcId: string }) {
   // ── Other error ──
   if (otherError) {
     return (
-      <ViewerShell breadcrumb={["Sales / IPC Billing", "IPC list"]}>
+      <ViewerShell breadcrumb={["IPCs", "IPC"]}>
         <Card className="mt-6 p-10" data-testid="ipc-viewer-error">
           <EmptyState
             icon={AlertCircle}
@@ -173,8 +173,7 @@ export function IpcViewer({ ipcId }: { ipcId: string }) {
     <div className="mx-auto max-w-6xl" data-testid="ipc-viewer">
       <Breadcrumb
         items={[
-          { label: "Sales / IPC Billing" },
-          { label: "IPC list", href: "/sales/ipcs" },
+          { label: "IPCs", href: "/sales/ipcs" },
           { label: ipc.entryNo ?? `IPC #${ipc.ipcSeqNo}` },
         ]}
       />
@@ -379,7 +378,7 @@ function ViewerShell({ children, breadcrumb }: { children: React.ReactNode; brea
     <div className="mx-auto max-w-6xl">
       <Breadcrumb
         items={breadcrumb.map((label, i) =>
-          i === breadcrumb.length - 1 ? { label } : { label, href: label.includes("list") ? "/sales/ipcs" : undefined },
+          i === breadcrumb.length - 1 ? { label } : { label, href: "/sales/ipcs" },
         )}
       />
       {children}

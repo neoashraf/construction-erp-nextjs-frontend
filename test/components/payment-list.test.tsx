@@ -271,3 +271,52 @@ describe("PaymentListScreen — role/scope (spec §11)", () => {
     expect(screen.queryByTestId("payment-list")).not.toBeInTheDocument();
   });
 });
+
+describe("PaymentListScreen — resilience to a money field the API omits", () => {
+  it("renders the list instead of crashing when allocated/unallocated are missing", async () => {
+    // Regression: the list endpoint once returned rows without the derived
+    // allocatedAmount/unallocatedAmount. decimal.js threw "Invalid argument: undefined"
+    // mid-render and the whole route died with a client-side exception.
+    const { allocatedAmount: _a, unallocatedAmount: _u, ...partial } = summary({
+      id: "pay-9",
+      status: "POSTED",
+      entryNo: "PAY/2526/0040",
+    });
+    listMock.mockResolvedValue(page([partial as unknown as PaymentSummary]));
+
+    renderScreen();
+
+    // The row renders, and the absent money cells degrade to an em-dash.
+    expect(await screen.findByTestId("payment-list")).toBeInTheDocument();
+    expect(screen.getByTestId("payment-row-link-pay-9")).toHaveTextContent("PAY/2526/0040");
+    expect(screen.getAllByText("—").length).toBeGreaterThan(0);
+  });
+
+  it("renders a row whose partyId is null (payment with no party on the control line)", async () => {
+    // Regression, verbatim production payload from GET /api/payment?page=1&pageSize=25:
+    // the backend types partyId as `string | null` (PaymentSummaryDto) and returns null
+    // for an aggregate-liability payment, but the row read it unconditionally
+    // (`parties.byId.get(r.partyId)` / `r.partyId.slice(0, 8)`) and threw mid-render.
+    const prod = {
+      id: "c3ade7dd-f2ec-49b4-9d0f-1ba7b23c7380",
+      entryNo: "PV/2526/0001",
+      paymentDate: "2026-06-05",
+      paymentMode: "BANK_TRANSFER",
+      partyId: null,
+      paymentAccountId: "d217fc71-ca77-4229-8306-e96deb282a49",
+      paymentAmount: "4258.0645",
+      bankChargesAmount: "0.0000",
+      status: "POSTED",
+    } as unknown as PaymentSummary;
+    listMock.mockResolvedValue(page([prod]));
+
+    renderScreen();
+
+    expect(await screen.findByTestId("payment-list")).toBeInTheDocument();
+    expect(
+      screen.getByTestId("payment-row-link-c3ade7dd-f2ec-49b4-9d0f-1ba7b23c7380"),
+    ).toHaveTextContent("PV/2526/0001");
+    // Party degrades to a readable placeholder rather than taking the page down.
+    expect(screen.getAllByText("—").length).toBeGreaterThan(0);
+  });
+});

@@ -9,7 +9,6 @@ import { EmptyState } from "@/components/ui/empty-state";
 import { Alert } from "@/components/ui/alert";
 import { cn } from "@/lib/utils";
 import { formatDate } from "@/lib/format";
-import { Breadcrumb as UiBreadcrumb } from "@/components/ui/breadcrumb";
 import { asApiError } from "@/lib/api/errors";
 import { useMasterLookups } from "@/lib/masters/lookups";
 import { useAccountLedger } from "../hooks/useAccountLedger";
@@ -104,7 +103,6 @@ export function AccountLedgerScreen({
   if (forbidden) {
     return (
       <div className="mx-auto max-w-6xl" data-testid="ledger-forbidden">
-        <Breadcrumb label={title} />
         <h1 className="text-[23px] font-bold tracking-[-0.02em]">{title}</h1>
         <Card className="mt-4 p-8">
           <EmptyState
@@ -119,7 +117,6 @@ export function AccountLedgerScreen({
 
   return (
     <div className="mx-auto max-w-6xl">
-      <Breadcrumb label={title} />
       <h1 className="mb-1.5 text-[23px] font-bold tracking-[-0.02em]" data-testid="ledger-title">
         {title}
       </h1>
@@ -231,8 +228,4 @@ export function AccountLedgerScreen({
       </Card>
     </div>
   );
-}
-
-function Breadcrumb({ label }: { label: string }) {
-  return <UiBreadcrumb items={[{ label: "Ledger" }, { label }]} />;
 }

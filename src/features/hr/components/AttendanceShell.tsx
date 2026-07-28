@@ -2,7 +2,6 @@
 
 import { useEffect, useMemo, useState } from "react";
 import { useQuery } from "@tanstack/react-query";
-import { Breadcrumb } from "@/components/ui/breadcrumb";
 import { formatDate, parseDate } from "@/lib/format";
 import { useAuthenticatedUser } from "@/providers/session-provider";
 import { AttendanceModeTabs } from "./AttendanceModeTabs";
@@ -20,8 +19,8 @@ import { canCaptureAttendance, canConfirmAttendance } from "../access";
 import { type AttendanceMode } from "../api/attendance";
 
 /**
- * `/hr/attendance` shell (spec §4). Renders the breadcrumb, mode tabs, filter bar, and
- * the panel for the active mode. Default mode = OFFICE; the last-used mode persists to
+ * `/hr/attendance` shell (spec §4). Renders the mode tabs, filter bar, and the panel for
+ * the active mode. Default mode = OFFICE; the last-used mode persists to
  * `localStorage`. Shared masters (projects · cost centres · subcontractor parties) are
  * fetched here once and passed down so the three panels avoid duplicate hits.
  *
@@ -100,7 +99,6 @@ export function AttendanceShell() {
 
   return (
     <div className="mx-auto max-w-6xl" data-testid="attendance-shell">
-      <Breadcrumb items={[{ label: "HR" }, { label: "Attendance" }]} />
       <div className="mt-1 flex items-center gap-3">
         <h1 className="text-[23px] font-bold tracking-[-0.02em]" data-testid="attendance-title">
           Attendance

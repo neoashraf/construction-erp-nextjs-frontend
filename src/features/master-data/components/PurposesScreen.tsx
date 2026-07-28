@@ -11,7 +11,6 @@ import { EmptyState } from "@/components/ui/empty-state";
 import { Alert } from "@/components/ui/alert";
 import { cn } from "@/lib/utils";
 import { useToast } from "@/components/ui/toast";
-import { Breadcrumb } from "@/components/ui/breadcrumb";
 import { useSession } from "@/providers/session-provider";
 import { hasGrant } from "@/lib/auth/roles";
 import { useProjectsList } from "../hooks/useProjects";
@@ -77,18 +76,9 @@ export function PurposesScreen() {
 
   return (
     <div>
-      {/* breadcrumb (with project name) + title + project selector + CTA */}
+      {/* title + project selector + CTA */}
       <div className="flex flex-wrap items-start justify-between gap-4">
         <div className="min-w-0">
-          {/* Shared breadcrumb (›-separated) — same as every other module. The project
-              scope is the last segment when a project is selected. */}
-          <Breadcrumb
-            items={[
-              { label: "Master Data" },
-              { label: "Purposes" },
-              ...(projectName ? [{ label: projectName }] : []),
-            ]}
-          />
           <h1 className="text-[23px] font-bold tracking-[-0.02em]">Purposes</h1>
         </div>
         <div className="flex flex-wrap items-end gap-2.5">
