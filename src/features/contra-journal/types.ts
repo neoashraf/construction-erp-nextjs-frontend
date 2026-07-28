@@ -61,12 +61,17 @@ export interface JournalVoucher extends VoucherHeaderBase {
 /** Header-only summary row for the list surface (contract 14 `GET /api/{contra,journal}` — lines omitted). */
 export interface ContraVoucherSummary extends VoucherHeaderBase {
   voucherType: ContraVoucherType;
-  /** Σ debit across the (omitted) lines — precomputed by the server or client-derived when a full record is present. */
-  totalDebit: string;
+  /**
+   * Σ debit across the (omitted) lines. Optional: the NestJS list endpoints return the
+   * voucher header only and do not aggregate the lines, so this is absent on real rows —
+   * display sites must tolerate it (see VoucherList's `money()`).
+   */
+  totalDebit?: string;
 }
 export interface JournalVoucherSummary extends VoucherHeaderBase {
   voucherType: JournalVoucherType;
-  totalDebit: string;
+  /** Optional for the same reason as ContraVoucherSummary.totalDebit. */
+  totalDebit?: string;
 }
 export type AnyVoucherSummary = ContraVoucherSummary | JournalVoucherSummary;
 
