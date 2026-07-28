@@ -7,6 +7,7 @@ import { hasGrant } from "@/lib/auth/roles";
 import { useCompany } from "../hooks/useCompany";
 import { CompanyIdentityCard } from "./CompanyIdentityCard";
 import { LocalizationCard } from "./LocalizationCard";
+import { AttendanceDevicesCard } from "./AttendanceDevicesCard";
 
 /**
  * Company settings screen (FR-MAS-001/004). One fetch feeds two independent editable
@@ -19,6 +20,10 @@ export function CompanySettingsScreen() {
   // is viewable by anyone who reached it; only editing is gated). Admin always has it.
   // Backend re-checks every write.
   const isAdmin = session ? hasGrant(session, "master_data.company_settings", "UPDATE") : false;
+  // Devices are gated on their OWN resource, not the company-settings grant: registering a
+  // fingerprint device is an attendance act, and the backend re-checks `hr.attendance`. Reusing
+  // `isAdmin` here would show controls that every write then rejects.
+  const canEditDevices = session ? hasGrant(session, "hr.attendance", "UPDATE") : false;
   const query = useCompany();
   const company = query.data;
 
@@ -59,6 +64,7 @@ export function CompanySettingsScreen() {
           onReload={() => query.refetch()}
           canEdit={isAdmin}
         />
+        <AttendanceDevicesCard canEdit={canEditDevices} />
       </div>
     </div>
   );
