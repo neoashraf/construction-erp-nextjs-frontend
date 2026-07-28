@@ -4,7 +4,7 @@ import Link from "next/link";
 import { ListEnd } from "lucide-react";
 import { cn } from "@/lib/utils";
 import { formatDate } from "@/lib/format";
-import { formatMoney } from "@/lib/money";
+import { formatMoneyOr } from "@/lib/money";
 import { Skeleton } from "@/components/ui/skeleton";
 import { VoucherStatusBadge } from "./VoucherStatusBadge";
 import { VoucherTypeBadge } from "./VoucherTypeBadge";
@@ -20,6 +20,13 @@ import { type AnyVoucherSummary } from "../types";
  */
 const GRID = "84px minmax(140px,1.1fr) 100px minmax(160px,2fr) 110px minmax(120px,1fr) 76px";
 const MONEY_CLS = "font-mono text-[13px] tabular-nums text-foreground";
+
+// A money cell must never take the page down. List rows are header-only DTOs — the
+// server omits the lines, so `totalDebit` can be absent — and decimal.js rejects
+// undefined. Render an em-dash instead of throwing mid-render.
+function money(v: string | null | undefined) {
+  return formatMoneyOr(v, "—");
+}
 
 /**
  * Static sort-caret header (design "Vouchers.dc.html" table pattern). The list has no
@@ -160,8 +167,8 @@ export function VoucherList({
                   <VoucherStatusBadge status={r.status} />
                 </span>
                 <span className="text-right" data-testid={`voucher-row-amount-${r.id}`}>
-                  <span className={cn(MONEY_CLS, "font-semibold")} aria-label={`Amount ${r.totalDebit} taka`}>
-                    {formatMoney(r.totalDebit)}
+                  <span className={cn(MONEY_CLS, "font-semibold")} aria-label={`Amount ${money(r.totalDebit)}`}>
+                    {money(r.totalDebit)}
                   </span>
                 </span>
                 <span className="flex items-center justify-end gap-1">
@@ -215,7 +222,7 @@ export function VoucherList({
               <div className="bn mt-1.5 text-[13px] text-foreground [overflow-wrap:anywhere]">{r.narration ?? "—"}</div>
               <div className="mt-1.5 flex items-center justify-between">
                 <span className="text-[12px] text-muted-foreground">{formatDate(r.voucherDate)}</span>
-                <span className={cn(MONEY_CLS, "font-semibold")}>{formatMoney(r.totalDebit)}</span>
+                <span className={cn(MONEY_CLS, "font-semibold")}>{money(r.totalDebit)}</span>
               </div>
             </Link>
           );

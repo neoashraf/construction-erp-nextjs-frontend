@@ -245,3 +245,35 @@ describe("VoucherListScreen — role/scope (spec §11)", () => {
     // The screen wraps under canWrite; PM's 403 above already asserts absence.
   });
 });
+
+describe("VoucherListScreen — resilience to a money field the API omits", () => {
+  it("renders the list instead of crashing when totalDebit is absent", async () => {
+    // Regression: the real NestJS list endpoints (contraHeaderDto / journalHeaderDto in
+    // contra-journal.query-service.ts) return the voucher HEADER only — they emit no
+    // totalDebit, because the lines are omitted from list rows. The mock BFF fabricates
+    // one, so dev + these tests passed while production threw
+    // "[DecimalError] Invalid argument: undefined" out of formatMoney mid-render and
+    // took the whole /contra-journal/vouchers route down.
+    const headerOnly = [
+      {
+        ...BASE,
+        id: "ctr-9",
+        voucherType: "CONTRA" as const,
+        voucherDate: "2026-06-05",
+        status: "POSTED" as const,
+        entryNo: "CTR/2526/0001",
+        journalEntryId: "je-ctr-9",
+        narration: "Cash deposited to City Bank A/C",
+      },
+    ] as unknown as AnyVoucherSummary[];
+    contraMock.mockResolvedValue(page(headerOnly));
+    journalMock.mockResolvedValue(page([]));
+
+    renderWith();
+
+    expect(await screen.findByTestId("voucher-list")).toBeInTheDocument();
+    expect(screen.getByTestId("voucher-row-link-ctr-9")).toHaveTextContent("CTR/2526/0001");
+    // The absent amount degrades to an em-dash rather than throwing.
+    expect(within(screen.getByTestId("voucher-row-amount-ctr-9")).getByText("—")).toBeInTheDocument();
+  });
+});
