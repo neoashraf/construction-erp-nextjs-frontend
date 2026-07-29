@@ -46,11 +46,20 @@ export interface SalarySheetLine {
   employeeName: string;
   designation: string | null;
   pfApplicable: boolean;
+  /** `MONTHLY` | `DAILY` — drives the FR-HR-013a day columns' `—` rendering for daily wages. */
+  wageType?: "MONTHLY" | "DAILY" | null;
   projectId: string | null;
   costCentreId: string | null; // always the Labour cost centre
   purposeId: string | null;
-  paidDays: string; // Decimal(18,3)
-  grossAmount: string; // Decimal(18,4) — read-only
+  // ── FR-HR-013a day/penalty figures — stored on the line at generate, served verbatim,
+  //    never recomputed client-side. All read-only.
+  standardDays: string; // Decimal(18,4) — the paid baseline (calendar days, clipped)
+  unpaidDays: string; // Decimal(18,4) — deducted working days, incl. days with no record
+  paidDays: string; // standard − unpaid (MONTHLY) · attended days (DAILY)
+  lateCount: number;
+  latePenaltyDays: string; // Decimal(18,4) — floor(lateCount ÷ latesPerDeductedDay)
+  latePenaltyAmount: string; // Decimal(18,4) — what those days cost; already inside gross
+  grossAmount: string; // Decimal(18,4) — read-only, already NET of the late penalty
   allowances: string; // editable in DRAFT
   tdsAmount: string;
   tdsRate: string | null; // percent (0..100)
@@ -61,9 +70,42 @@ export interface SalarySheetLine {
   version: number;
 }
 
-/** Full sheet with its lines (used by the editor page). */
+/**
+ * The FR-HR-013a pre-post warnings, computed at generate and PERSISTED on the sheet.
+ * All four keys are always present on the wire (contract-pinned); `toSalaryWarnings`
+ * normalises anyway so a malformed payload degrades to "nothing to warn about" visibly
+ * rather than crashing the editor.
+ */
+export interface SalarySheetWarnings {
+  /** Working days with ZERO attendance rows company-wide (`YYYY-MM-DD`) — the outage signature. */
+  daysWithNoRecords: string[];
+  /** Employees dropped from the sheet, with the reason (e.g. `NO_PROJECT`). */
+  skippedEmployees: { employeeId: string; reason: string }[];
+  /** Per-employee unpaid-day count — includes zero rows; only `> 0` entries warn. */
+  employeeAbsences: { employeeId: string; unpaidDays: number }[];
+  /** True when no weekly holidays are configured — every calendar day counts as working. */
+  noWeeklyHolidaysConfigured: boolean;
+}
+
+export function toSalaryWarnings(raw: unknown): SalarySheetWarnings {
+  const w = (raw ?? {}) as Partial<SalarySheetWarnings>;
+  return {
+    daysWithNoRecords: Array.isArray(w.daysWithNoRecords) ? w.daysWithNoRecords : [],
+    skippedEmployees: Array.isArray(w.skippedEmployees) ? w.skippedEmployees : [],
+    employeeAbsences: Array.isArray(w.employeeAbsences) ? w.employeeAbsences : [],
+    noWeeklyHolidaysConfigured: w.noWeeklyHolidaysConfigured === true,
+  };
+}
+
+/**
+ * Full sheet with its lines (used by the editor page). `warnings` is a DETAIL-read field —
+ * served by `GET …/sheets/:id`, deliberately absent from the list response — and is the
+ * stored generate-time snapshot, so the poster sees the gaps that belong to the figures
+ * being posted (the generator is frequently not the poster).
+ */
 export interface SalarySheet extends SalarySheetSummary {
   lines: SalarySheetLine[];
+  warnings?: SalarySheetWarnings | null;
 }
 
 export interface SalarySheetListFilter {
@@ -126,15 +168,15 @@ export interface GenerateSheetResult {
   id: string;
   status: "DRAFT";
   periodLabel: string;
+  /** The FR-HR-013a pre-post warnings the `201` carries (also persisted on the sheet). */
+  warnings: SalarySheetWarnings;
 }
 
 export async function generateSalarySheet(input: GenerateSheetInput): Promise<GenerateSheetResult> {
-  const res = await apiClient.post<{ data: GenerateSheetResult }>(
-    `${BASE}/generate`,
-    input,
-    csrf(),
-  );
-  return res.data;
+  const res = await apiClient.post<{
+    data: Omit<GenerateSheetResult, "warnings"> & { warnings?: unknown };
+  }>(`${BASE}/generate`, input, csrf());
+  return { ...res.data, warnings: toSalaryWarnings(res.data.warnings) };
 }
 
 // ── Per-line edit ──
@@ -272,6 +314,31 @@ export async function getSheetPayslips(sheetId: string, employeeId?: string): Pr
     `${BASE}/${encodeURIComponent(sheetId)}/payslips${q}`,
   );
   return res.data;
+}
+
+// ── Attendance settings (read-only here — the editor is Company settings) ──
+export interface AttendanceSettings {
+  /** `HH:MM` late cut-off, e.g. `09:30`. */
+  lateAfter: string;
+  /** N late days cost one day's pay (FR-HR-008c/-013a). Interpolated into copy, never hard-coded. */
+  latesPerDeductedDay: number;
+}
+
+/**
+ * `GET /api/settings/attendance` (whole-body envelope exception, like `/holidays/*`).
+ * The salary screen only READS this — the tooltip that explains the Late column must name
+ * the company's actual divisor, not an assumed `3`.
+ */
+export async function getAttendanceSettings(): Promise<AttendanceSettings> {
+  const raw = await apiClient.get<unknown>("/settings/attendance");
+  const body = (raw ?? {}) as { lateAfter?: unknown; latesPerDeductedDay?: unknown };
+  return {
+    lateAfter: typeof body.lateAfter === "string" ? body.lateAfter : "09:30",
+    latesPerDeductedDay:
+      typeof body.latesPerDeductedDay === "number" && body.latesPerDeductedDay >= 1
+        ? body.latesPerDeductedDay
+        : 3,
+  };
 }
 
 // ── Financial-year options (HR-local — do not import features/master-data) ──
