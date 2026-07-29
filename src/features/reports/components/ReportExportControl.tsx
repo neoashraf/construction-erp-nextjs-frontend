@@ -22,6 +22,14 @@ export interface ReportExportControlProps {
   params: ReportParams;
   /** Disable when the run itself is disabled (e.g. offline). */
   disabled?: boolean;
+  /**
+   * FE-66 (additive, opt-in — every existing caller is unchanged): a per-report
+   * note stating exactly what the file will contain, e.g.
+   * `"The file matches what's on screen — Daily detail, 01/06/2026–30/06/2026."`
+   * Needed where one report can be exported at more than one grain, so a user
+   * cannot mistake a Summary file for a Daily one (FR-RPT-029; spec §9).
+   */
+  scopeNote?: string;
 }
 
 const FORMAT_LABEL: Record<ReportFormat, string> = {
@@ -30,7 +38,12 @@ const FORMAT_LABEL: Record<ReportFormat, string> = {
   pdf: "PDF",
 };
 
-export function ReportExportControl({ reportName, params, disabled }: ReportExportControlProps) {
+export function ReportExportControl({
+  reportName,
+  params,
+  disabled,
+  scopeNote,
+}: ReportExportControlProps) {
   const { toast } = useToast();
   const [format, setFormat] = useState<ReportFormat>("json");
   const [errorMsg, setErrorMsg] = useState<string | null>(null);
@@ -50,7 +63,8 @@ export function ReportExportControl({ reportName, params, disabled }: ReportExpo
   }
 
   return (
-    <div className="flex flex-wrap items-center gap-2" data-testid="report-export-control">
+    <div className="flex flex-col items-end gap-1.5" data-testid="report-export-control">
+      <div className="flex flex-wrap items-center gap-2">
       <div
         role="radiogroup"
         aria-label="Export format"
@@ -112,6 +126,16 @@ export function ReportExportControl({ reportName, params, disabled }: ReportExpo
         <span className="text-[11px] text-destructive" role="alert" data-testid="export-error">
           {errorMsg}
         </span>
+      )}
+      </div>
+
+      {scopeNote && (
+        <p
+          className="text-right text-[11.5px] text-muted-foreground"
+          data-testid="report-export-scope-note"
+        >
+          {scopeNote}
+        </p>
       )}
     </div>
   );

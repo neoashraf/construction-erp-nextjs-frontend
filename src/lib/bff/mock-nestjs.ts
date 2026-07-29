@@ -3603,24 +3603,32 @@ export async function mockNestjsFetch(req: MockReq): Promise<MockResult> {
     if (!month) {
       return { status: 400, body: envelope("VALIDATION_ERROR", "month is required (YYYY-MM)") };
     }
-    if (qs.get("employeeId") === "emp-empty") {
+    // A month with nothing captured is a valid EMPTY result, not an error (SRS
+    // edge case 4). The seeded attendance history is June 2026, so any other
+    // month exercises the empty state — which is what makes it reachable in dev.
+    if (qs.get("employeeId") === "emp-empty" || month !== "2026-06") {
       return {
         status: 200,
         body: success({
           reportName: "attendance-summary",
           parameters: { month },
           rows: [],
-          meta: { page: 1, pageSize: 25, total: 0, generatedAt: new Date().toISOString(), totals: { present: 0, paidLeave: 0, unpaidLeave: 0, absent: 0, headCount: 0 } },
+          // No rows and no totals — the band renders nothing rather than a row of
+          // zeros that reads like a computed result (FE-66 server-totals rule).
+          meta: { page: 1, pageSize: 25, total: 0, generatedAt: new Date().toISOString() },
         }),
       };
     }
+    // `attendancePercentage` is the SERVER's figure (attended ÷ working days,
+    // holidays excluded), served with the row. The FE renders it verbatim and
+    // never divides — see FE-66 `AttendancePercentCell`.
     const rows = [
-      { projectId: "proj-a", projectName: "Bridge-04 — Buriganga", employeeId: "emp-1", employeeName: "Ashraf Uddin", partyId: null, partyName: null, costCentreId: "cc-lab", costCentreCode: "CC-02", costCentreName: "শ্রমিক মজুরি — Site Labour", present: 22, paidLeave: 1, unpaidLeave: 0, absent: 3, headCount: 1, mode: "OFFICE" },
-      { projectId: "proj-a", projectName: "Bridge-04 — Buriganga", employeeId: "emp-2", employeeName: "Rahim Ali", partyId: null, partyName: null, costCentreId: "cc-lab", costCentreCode: "CC-02", costCentreName: "শ্রমিক মজুরি — Site Labour", present: 24, paidLeave: 2, unpaidLeave: 0, absent: 0, headCount: 1, mode: "OFFICE", employeeInactive: true },
-      { projectId: "proj-a", projectName: "Bridge-04 — Buriganga", employeeId: null, employeeName: null, partyId: "sub-1", partyName: "Star Subcontractors", costCentreId: "cc-sub", costCentreCode: "CC-04", costCentreName: "Subcontractor Works", present: 40, paidLeave: 0, unpaidLeave: 0, absent: 5, headCount: 8, mode: "SUBCONTRACTOR" },
-      { projectId: "proj-b", projectName: "Tower-A — Gulshan", employeeId: null, employeeName: null, partyId: null, partyName: null, costCentreId: "cc-lab", costCentreCode: "CC-02", costCentreName: "শ্রমিক মজুরি — Site Labour", present: 380, paidLeave: 0, unpaidLeave: 0, absent: 20, headCount: 15, mode: "DAILY_LABOUR" },
+      { projectId: "proj-a", projectName: "Bridge-04 — Buriganga", employeeId: "emp-1", employeeName: "Ashraf Uddin", partyId: null, partyName: null, costCentreId: "cc-lab", costCentreCode: "CC-02", costCentreName: "শ্রমিক মজুরি — Site Labour", present: 22, paidLeave: 1, unpaidLeave: 0, absent: 3, headCount: 1, mode: "OFFICE", attendancePercentage: 88.5 },
+      { projectId: "proj-a", projectName: "Bridge-04 — Buriganga", employeeId: "emp-2", employeeName: "Rahim Ali", partyId: null, partyName: null, costCentreId: "cc-lab", costCentreCode: "CC-02", costCentreName: "শ্রমিক মজুরি — Site Labour", present: 24, paidLeave: 2, unpaidLeave: 0, absent: 0, headCount: 1, mode: "OFFICE", employeeInactive: true, attendancePercentage: 100 },
+      { projectId: "proj-a", projectName: "Bridge-04 — Buriganga", employeeId: null, employeeName: null, partyId: "sub-1", partyName: "Star Subcontractors", costCentreId: "cc-sub", costCentreCode: "CC-04", costCentreName: "Subcontractor Works", present: 40, paidLeave: 0, unpaidLeave: 0, absent: 5, headCount: 8, mode: "SUBCONTRACTOR", attendancePercentage: 88.9 },
+      { projectId: "proj-b", projectName: "Tower-A — Gulshan", employeeId: null, employeeName: null, partyId: null, partyName: null, costCentreId: "cc-lab", costCentreCode: "CC-02", costCentreName: "শ্রমিক মজুরি — Site Labour", present: 380, paidLeave: 0, unpaidLeave: 0, absent: 20, headCount: 15, mode: "DAILY_LABOUR", attendancePercentage: 95 },
       // Partial: unresolved employee name
-      { projectId: "proj-b", projectName: "Tower-A — Gulshan", employeeId: "emp-gone", employeeName: null, partyId: null, partyName: null, costCentreId: "cc-lab", costCentreCode: "CC-02", costCentreName: "শ্রমিক মজুরি — Site Labour", present: 15, paidLeave: 0, unpaidLeave: 2, absent: 1, headCount: 1, mode: "OFFICE" },
+      { projectId: "proj-b", projectName: "Tower-A — Gulshan", employeeId: "emp-gone", employeeName: null, partyId: null, partyName: null, costCentreId: "cc-lab", costCentreCode: "CC-02", costCentreName: "শ্রমিক মজুরি — Site Labour", present: 15, paidLeave: 0, unpaidLeave: 2, absent: 1, headCount: 1, mode: "OFFICE", attendancePercentage: 83.3 },
     ];
     return {
       status: 200,
@@ -3631,7 +3639,9 @@ export async function mockNestjsFetch(req: MockReq): Promise<MockResult> {
         meta: {
           page: 1, pageSize: rows.length, total: rows.length,
           generatedAt: new Date().toISOString(),
-          totals: { present: 481, paidLeave: 3, unpaidLeave: 2, absent: 29, headCount: 26 },
+          // Server-side over the WHOLE filtered set — deliberately NOT the sum of
+          // the rows above, so a page-sum fallback would be visibly wrong.
+          totals: { present: 481, paidLeave: 3, unpaidLeave: 2, absent: 29, headCount: 26, attendancePercentage: 93.1 },
         },
       }),
     };
@@ -3695,25 +3705,38 @@ export async function mockNestjsFetch(req: MockReq): Promise<MockResult> {
       }),
     };
   }
-  // Every other /reports/<name> — return an empty well-formed result until the
-  // viewer brief for that report lands.
+  /*
+   * Every other /reports/<name> — return an empty well-formed result until the
+   * viewer brief for that report lands.
+   *
+   * EXCEPT HR's own `daily` / `range` / `summary`. Those four routes share the
+   * `/api/reports` prefix but are declared by HR's `AttendanceReportController`
+   * (contract 12 § "Attendance reports"), are answered further down from the real
+   * OFFICE rows, and carry the **whole-body envelope exception** — so wrapping
+   * them in `{ data: { rows: [] } }` here would hand the attendance report an
+   * empty result that looks successful. That is exactly the silent-empty failure
+   * the FE-66 visual gate caught.
+   */
+  const HR_ATTENDANCE_REPORTS = ["daily", "range", "summary"];
   if (req.path.startsWith("/reports/") && req.method === "GET") {
     const name = req.path.slice("/reports/".length).split("?")[0]!;
-    return {
-      status: 200,
-      body: success({
-        reportName: name,
-        parameters: {},
-        rows: [],
-        meta: {
-          page: 1,
-          pageSize: 25,
-          total: 0,
-          generatedAt: new Date().toISOString(),
-          totals: {},
-        },
-      }),
-    };
+    if (!HR_ATTENDANCE_REPORTS.includes(name.replace(/\/export$/, ""))) {
+      return {
+        status: 200,
+        body: success({
+          reportName: name,
+          parameters: {},
+          rows: [],
+          meta: {
+            page: 1,
+            pageSize: 25,
+            total: 0,
+            generatedAt: new Date().toISOString(),
+            totals: {},
+          },
+        }),
+      };
+    }
   }
 
   // ── FE-61 fe-dashboard — /api/dashboard (full tile set) + /tiles/{key} ──
@@ -6725,7 +6748,59 @@ export async function mockNestjsFetch(req: MockReq): Promise<MockResult> {
         version: 1,
       },
     ];
-    ga.__ZE_MOCK_ATT__ = { rows: seed, seq: 100, dlaSeq: 42 };
+
+    /*
+     * FE-66 — a month of OFFICE history so `/reports/{daily,range,summary}` have
+     * something to report. Without it the attendance report renders an empty
+     * result in dev even though the screen works, which reads as a broken build.
+     *
+     * Deliberately mixed, because the levels must be seen handling each shape:
+     * worked days with times, a LATE day (check-in past the 09:30 threshold), and
+     * **timeless PAID_LEAVE / ABSENT days** — a status with no punches, which is
+     * exactly the day payroll deducts against and the row the report must render
+     * with blank time cells rather than drop.
+     */
+    const officeHistory: MockAttendance[] = [];
+    for (const [empIdx, employeeId] of ["emp-1", "emp-2", "emp-3"].entries()) {
+      for (let day = 1; day <= 26; day += 1) {
+        const date = `2026-06-${String(day).padStart(2, "0")}`;
+        const weekday = new Date(`${date}T00:00:00Z`).getUTCDay();
+        if (weekday === 5) continue; // Friday — the weekly holiday, not an absence.
+        const slot = (day + empIdx) % 11;
+        const leave = slot === 3 ? "PAID_LEAVE" : slot === 7 ? "UNPAID_LEAVE" : null;
+        const absent = slot === 9;
+        officeHistory.push({
+          id: `att-hist-${employeeId}-${day}`,
+          mode: "OFFICE",
+          attendanceDate: date,
+          projectId: empIdx === 2 ? "proj-b" : "proj-a",
+          costCentreId: "cc-lab",
+          purposeId: null,
+          employeeId,
+          // A leave or absent day carries NO times — the second branch of FR-HR-004.
+          checkIn: leave || absent ? null : slot === 5 ? "09:47" : "09:02",
+          checkOut: leave || absent ? null : "18:04",
+          dayStatus: leave ?? (absent ? "ABSENT" : "PRESENT"),
+          overtimeHours: null,
+          partyId: null,
+          headCount: null,
+          labourCategory: null,
+          dailyRate: null,
+          source: slot % 3 === 0 ? "EXCEL_IMPORT" : slot % 3 === 1 ? "DEVICE_PUSH" : "MANUAL",
+          isConfirmed: false,
+          accrualEntryId: null,
+          entryNo: null,
+          accruedAmount: null,
+          postedAt: null,
+          postedBy: null,
+          reversalEntryNo: null,
+          reversalEntryId: null,
+          version: 1,
+        });
+      }
+    }
+
+    ga.__ZE_MOCK_ATT__ = { rows: [...seed, ...officeHistory], seq: 100, dlaSeq: 42 };
   }
   const ATT = ga.__ZE_MOCK_ATT__;
 
@@ -7036,15 +7111,41 @@ export async function mockNestjsFetch(req: MockReq): Promise<MockResult> {
       const lateCount = statuses.filter((s) => s === "Late").length;
       const presentCount = onTimeCount + lateCount;
       const absentCount = statuses.filter((s) => s === "Absent").length;
-      const workingDays = presentCount + absentCount;
+      // Paid/unpaid leave are their own buckets — neither sits inside `absentCount`,
+      // because payroll PAYS a paid-leave day (contract 12 § Attendance reports).
+      const paidLeaveCount = statuses.filter((s) => s === "Paid leave").length;
+      const unpaidLeaveCount = statuses.filter((s) => s === "Unpaid leave").length;
+      // A working day is a calendar day that is neither a weekly nor a government
+      // holiday, so the denominator EXCLUDES holidays and a full month reads 100%.
+      const workingDays = presentCount + absentCount + paidLeaveCount + unpaidLeaveCount;
+      const attended = presentCount + paidLeaveCount;
       return {
         workingDays,
         onTimeCount,
         lateCount,
         presentCount,
         absentCount,
+        paidLeaveCount,
+        unpaidLeaveCount,
         holidayCount: 0,
-        attendancePercentage: workingDays > 0 ? Math.round((presentCount / workingDays) * 1000) / 10 : 0,
+        attendancePercentage:
+          workingDays > 0 ? Math.round((attended / workingDays) * 1000) / 10 : 0,
+      };
+    };
+
+    // Resolve the display identity once — a report renders a person, not a code.
+    const hrEmployees =
+      (globalThis as unknown as { __ZE_MOCK_HR__?: { employees: MockEmployee[] } }).__ZE_MOCK_HR__
+        ?.employees ?? [];
+    const identityFor = (userId: string, rows: MockAttendance[]) => {
+      const emp = hrEmployees.find((e) => e.id === userId || e.employeeCode === userId);
+      const projectId = rows[0]?.projectId ?? null;
+      return {
+        name: emp?.name ?? null,
+        designation: emp?.designation ?? null,
+        projectName: MOCK_PROJECTS.find((p) => p.id === projectId)?.name ?? null,
+        costCentreName:
+          MOCK_COST_CENTRES.find((c) => c.id === rows[0]?.costCentreId)?.name ?? null,
       };
     };
 
@@ -7062,8 +7163,7 @@ export async function mockNestjsFetch(req: MockReq): Promise<MockResult> {
             return {
               id: r.id,
               userId,
-              name: userId,
-              designation: null,
+              ...identityFor(userId, rows),
               attendanceDate: r.attendanceDate,
               status: statusFor(r),
               checkInAt: r.checkIn ? `${r.attendanceDate} ${r.checkIn}:00` : null,
@@ -7071,6 +7171,12 @@ export async function mockNestjsFetch(req: MockReq): Promise<MockResult> {
               checkInTime: r.checkIn ?? "",
               checkOutTime: r.checkOut ?? "",
               punchCount: [r.checkIn, r.checkOut].filter(Boolean).length,
+              punches: [r.checkIn, r.checkOut].filter(Boolean).map((t) => ({
+                time: `${t}:00`,
+                sourceType: r.source,
+                projectId: r.projectId,
+                projectName: MOCK_PROJECTS.find((p) => p.id === r.projectId)?.name ?? null,
+              })),
             };
           }),
           pagination,
@@ -7082,8 +7188,7 @@ export async function mockNestjsFetch(req: MockReq): Promise<MockResult> {
     const perEmployee = slice.map(([userId, rows]) => ({
       id: rows[0]!.id,
       userId,
-      name: userId,
-      designation: null,
+      ...identityFor(userId, rows),
       ...countsFor(rows),
       records: rows.map((r) => ({
         id: r.id,

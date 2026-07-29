@@ -6,8 +6,16 @@ import { useAuthenticatedUser } from "@/providers/session-provider";
 import { runReport } from "../../api/reports";
 import { type ReportParams, type ReportResult } from "../../types";
 import {
+  runAttendanceDaily,
+  runAttendanceRange,
+  type AttendanceLevelResult,
+} from "../api/attendance-levels";
+import {
   REPORT_NAME,
+  type AttendanceDailyRow,
+  type AttendanceLevel,
   type AttendanceMode,
+  type AttendanceRangeRow,
   type AttendanceSummaryRow,
   type AttendanceTotals,
   type EmployeePaymentRow,
@@ -51,6 +59,10 @@ function toAttendanceRow(raw: Raw): AttendanceSummaryRow {
     unpaidLeave: asNum(raw.unpaidLeave),
     absent: asNum(raw.absent),
     headCount: asNum(raw.headCount ?? raw.headCountTotal),
+    // Rendered verbatim where served, `null` where not — the column then does not
+    // render at all. The FE performs no division anywhere (FR-RPT-004).
+    attendancePercentage:
+      typeof raw.attendancePercentage === "number" ? raw.attendancePercentage : null,
     mode:
       (raw.mode as AttendanceMode | undefined) ??
       (partyId ? "SUBCONTRACTOR" : employeeId ? "OFFICE" : "DAILY_LABOUR"),
@@ -94,36 +106,37 @@ function toPaymentRow(raw: Raw): EmployeePaymentRow {
   };
 }
 
+/**
+ * FE-66 — **totals are the server's or they do not exist.**
+ *
+ * FE-60 fell back to `rows.reduce(...)` over the RETURNED PAGE whenever the
+ * server omitted `meta.totals`. That is invisible on a one-page monthly summary
+ * and silently wrong the moment the result paginates: a Daily-level July over 42
+ * employees is ~1,240 employee-days across 50 pages, and summing page one
+ * produces a confidently incorrect totals strip. Both fallbacks are deleted.
+ * When the server sends no `totals`, the band renders nothing — a missing number
+ * is recoverable, a wrong one is not (FR-RPT-004; contract 12 § "Totals vs
+ * pagination": `totals` is always computed over the whole filtered set while
+ * only `data` is sliced).
+ */
 function normalizeHrResult(tab: HrReportTab, r: ReportResult<AnyRow>): AnyHrResult {
   const rawRows = (r.rows ?? []) as unknown as Raw[];
   const meta = r.meta as AnyHrResult["meta"];
   if (tab === "ATTENDANCE_SUMMARY") {
-    const rows = rawRows.map(toAttendanceRow);
-    const totals =
-      (meta.totals as Partial<AttendanceTotals> | undefined) ??
-      rows.reduce<AttendanceTotals>(
-        (a, x) => ({
-          present: a.present + x.present,
-          paidLeave: a.paidLeave + x.paidLeave,
-          unpaidLeave: a.unpaidLeave + x.unpaidLeave,
-          absent: a.absent + x.absent,
-          headCount: a.headCount + x.headCount,
-        }),
-        { present: 0, paidLeave: 0, unpaidLeave: 0, absent: 0, headCount: 0 },
-      );
-    return { ...r, rows, meta: { ...meta, totals } } as AttendanceResult;
+    return {
+      ...r,
+      rows: rawRows.map(toAttendanceRow),
+      meta: { ...meta, totals: meta.totals as Partial<AttendanceTotals> | undefined },
+    } as AttendanceResult;
   }
   if (tab === "SALARY_REGISTER") {
     return { ...r, rows: rawRows.map(toSalaryRow) } as SalaryRegisterResult;
   }
-  const rows = rawRows.map(toPaymentRow);
-  const totals =
-    (meta.totals as Partial<EmployeePaymentTotals> | undefined) ??
-    {
-      paidCount: rows.length,
-      totalPaid: rows.reduce((a, x) => a + Number(x.paidAmount), 0).toFixed(4),
-    };
-  return { ...r, rows, meta: { ...meta, totals } } as EmployeePaymentResult;
+  return {
+    ...r,
+    rows: rawRows.map(toPaymentRow),
+    meta: { ...meta, totals: meta.totals as Partial<EmployeePaymentTotals> | undefined },
+  } as EmployeePaymentResult;
 }
 
 export interface AttendanceResult extends ReportResult<AttendanceSummaryRow> {
@@ -154,6 +167,41 @@ export function useHrReport(tab: HrReportTab, params: ReportParams | null, enabl
   });
 }
 
+/**
+ * One result type for both grains — the viewer narrows the row union by level,
+ * which keeps a single query (and so a single cache entry) per level change.
+ */
+export type AttendanceLevelRows = AttendanceLevelResult<AttendanceDailyRow | AttendanceRangeRow>;
+
+/**
+ * FE-66 — the Daily / Range levels of the attendance report.
+ *
+ * A level change **re-runs the query at the new grain** (spec §9); it never
+ * re-filters a cached result client-side, so the totals on screen are always the
+ * server's for the grain being shown. The level is part of the query key for
+ * exactly that reason. Summary keeps going through `useHrReport` above, since it
+ * is RPT's registered `attendance-summary` report.
+ */
+export function useAttendanceLevelReport(
+  level: AttendanceLevel,
+  params: ReportParams | null,
+  enabled: boolean,
+) {
+  const user = useAuthenticatedUser();
+  return useQuery<AttendanceLevelRows>({
+    queryKey: queryKeys.detail(
+      "reports",
+      "hr-attendance",
+      `${user.companyId}:${user.financialYearId}:${level}:${JSON.stringify(params ?? {})}`,
+    ),
+    queryFn: (): Promise<AttendanceLevelRows> =>
+      level === "DAILY" ? runAttendanceDaily(params!) : runAttendanceRange(params!),
+    enabled: !!params && enabled && level !== "SUMMARY",
+    retry: false,
+    staleTime: 0,
+  });
+}
+
 export function errorTitleFor(tab: HrReportTab): string {
   switch (tab) {
     case "ATTENDANCE_SUMMARY": return "Couldn't load the attendance summary.";
@@ -161,9 +209,17 @@ export function errorTitleFor(tab: HrReportTab): string {
     case "PAYMENT_HISTORY": return "Couldn't load employee payment history.";
   }
 }
-export function emptyLabelFor(tab: HrReportTab): string {
+/**
+ * Per-level empty copy (spec §8). FE-60 returned the *month* string for every
+ * attendance grain; Daily and Range read an arbitrary period, for which "this
+ * month" is simply untrue.
+ */
+export function emptyLabelFor(tab: HrReportTab, level?: AttendanceLevel): string {
   switch (tab) {
-    case "ATTENDANCE_SUMMARY": return "No attendance recorded for this month.";
+    case "ATTENDANCE_SUMMARY":
+      return level && level !== "SUMMARY"
+        ? "No attendance recorded for this period."
+        : "No attendance recorded for this month.";
     case "SALARY_REGISTER": return "No salary data for this period.";
     case "PAYMENT_HISTORY": return "No results for these filters.";
   }

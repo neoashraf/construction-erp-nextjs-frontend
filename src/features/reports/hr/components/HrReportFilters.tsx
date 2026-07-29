@@ -5,7 +5,7 @@ import { Label } from "@/components/ui/label";
 import { cn } from "@/lib/utils";
 import { useEmployeeOptions, useSalaryRunOptions } from "../../hooks/useMastersOptions";
 import { type ReportParams } from "../../types";
-import { type HrReportTab } from "../types";
+import { type AttendanceLevel, type HrReportTab } from "../types";
 
 /**
  * FE-60 report-specific filters (spec §7):
@@ -17,16 +17,28 @@ import { type HrReportTab } from "../types";
  */
 export function HrReportFilters({
   tab,
+  level = "SUMMARY",
   value,
   onChange,
   monthError,
   runXorError,
+  dateError,
+  inline = false,
 }: {
   tab: HrReportTab;
+  /** FE-66 — the attendance detail level whose parameter set is shown. */
+  level?: AttendanceLevel;
   value: ReportParams;
   onChange: (next: ReportParams) => void;
   monthError?: string | null;
   runXorError?: string | null;
+  dateError?: string | null;
+  /**
+   * FE-66 — render as bare flex items for the shared panel's leading slot, so the
+   * attendance parameters sit on the panel's ONE horizontal filter row (the
+   * design's frame 1) instead of in a second card below it.
+   */
+  inline?: boolean;
 }) {
   const month = (value.extras?.month as string | undefined) ?? "";
   const employeeId = (value.extras?.employeeId as string | undefined) ?? "";
@@ -40,31 +52,103 @@ export function HrReportFilters({
     });
   }
 
+  // Inline: bare flex items that join the shared panel's own filter row.
+  // Standalone: the bordered card the other two reports keep.
+  const fieldRow = inline
+    ? "contents"
+    : "grid gap-4 sm:grid-cols-2 lg:grid-cols-3";
+  const fieldCell = inline ? "min-w-[170px] flex-1" : "";
+
   return (
-    <div className="rounded-card border border-border bg-background p-4" data-testid="hr-filters">
+    <div
+      className={
+        inline ? "contents" : "rounded-card border border-border bg-background p-4"
+      }
+      data-testid="hr-filters"
+    >
       {tab === "ATTENDANCE_SUMMARY" && (
-        <div className="grid gap-4 sm:grid-cols-2 lg:grid-cols-3">
-          <div>
-            <Label htmlFor="hr-month">Month</Label>
-            <Input
-              id="hr-month"
-              type="month"
-              value={month}
-              onChange={(e) => setExtra("month", e.target.value || null)}
-              invalid={!!monthError}
-              data-testid="hr-filter-month"
-            />
-            {monthError && (
-              <p className="mt-1 text-[12px] text-destructive" role="alert" data-testid="hr-month-error">
-                {monthError}
+        <>
+          {/*
+            FE-66 — the parameter set follows the DETAIL LEVEL (spec §7):
+              • Summary → Month (required) · Project · Employee · Subcontractor party
+              • Daily / Range → Date from · Date to · Project · (Cost centre at Range)
+            The period and the level move together (spec §9), so the fields a
+            level cannot use are not merely disabled — they are not shown.
+          */}
+          {level === "SUMMARY" ? (
+            <div className={fieldRow}>
+              <div className={fieldCell}>
+                <Label htmlFor="hr-month">Month</Label>
+                <Input
+                  id="hr-month"
+                  type="month"
+                  value={month}
+                  onChange={(e) => setExtra("month", e.target.value || null)}
+                  invalid={!!monthError}
+                  data-testid="hr-filter-month"
+                />
+                {monthError && (
+                  <p className="mt-1 text-[12px] text-destructive" role="alert" data-testid="hr-month-error">
+                    {monthError}
+                  </p>
+                )}
+              </div>
+              <EmployeeSelect className={fieldCell} value={employeeId} onChange={(v) => setExtra("employeeId", v)} />
+            </div>
+          ) : (
+            <div className={fieldRow}>
+              <div className={fieldCell}>
+                <Label htmlFor="hr-date-from">Date from</Label>
+                <Input
+                  id="hr-date-from"
+                  type="date"
+                  value={value.dateFrom ?? ""}
+                  onChange={(e) => onChange({ ...value, dateFrom: e.target.value || null })}
+                  invalid={!!dateError}
+                  data-testid="hr-filter-date-from"
+                />
+              </div>
+              <div className={fieldCell}>
+                <Label htmlFor="hr-date-to">Date to</Label>
+                <Input
+                  id="hr-date-to"
+                  type="date"
+                  value={value.dateTo ?? ""}
+                  onChange={(e) => onChange({ ...value, dateTo: e.target.value || null })}
+                  invalid={!!dateError}
+                  data-testid="hr-filter-date-to"
+                />
+              </div>
+              <EmployeeSelect className={fieldCell} value={employeeId} onChange={(v) => setExtra("employeeId", v)} />
+              {dateError && (
+                <p
+                  className={cn(
+                    "text-[12px] text-destructive",
+                    inline ? "w-full" : "sm:col-span-2 lg:col-span-3",
+                  )}
+                  role="alert"
+                  data-testid="hr-range-date-error"
+                >
+                  {dateError}
+                </p>
+              )}
+              {/*
+                The server clamps the window to today: days that have not happened
+                cannot have been worked, and counting them would invent an absence
+                for every employee (contract 12 § Attendance reports).
+              */}
+              <p
+                className={cn(
+                  "text-[11.5px] text-muted-foreground",
+                  inline ? "w-full" : "sm:col-span-2 lg:col-span-3",
+                )}
+                data-testid="hr-range-clamped-note"
+              >
+                {"This report stops at today — future dates aren't counted as absences."}
               </p>
-            )}
-          </div>
-          <EmployeeSelect
-            value={employeeId}
-            onChange={(v) => setExtra("employeeId", v)}
-          />
-        </div>
+            </div>
+          )}
+        </>
       )}
 
       {tab === "SALARY_REGISTER" && (
@@ -156,13 +240,15 @@ export function HrReportFilters({
 function EmployeeSelect({
   value,
   onChange,
+  className,
 }: {
   value: string;
   onChange: (v: string | null) => void;
+  className?: string;
 }) {
   const employees = useEmployeeOptions().data ?? [];
   return (
-    <div>
+    <div className={className}>
       <Label htmlFor="hr-employee">Employee</Label>
       <select
         id="hr-employee"

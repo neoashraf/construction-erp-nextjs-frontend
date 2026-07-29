@@ -9,6 +9,16 @@ const createJestConfig = nextJest({
 const config: Config = {
   testEnvironment: "jest-environment-jsdom",
   setupFilesAfterEnv: ["<rootDir>/jest.setup.ts"],
+  /**
+   * Jest's 5s default is a poor fit for this suite: the heaviest component tests
+   * drive a whole multi-step voucher flow (`ipc-editor` saves a draft, opens a
+   * confirm dialog, then posts) through RTL + `user-event`, and each of those
+   * steps is several React commits. Under parallel workers those suites are
+   * competing for CPU, so a run that passes comfortably `--runInBand` can trip
+   * the default purely on scheduling latency — a flake that says nothing about
+   * the code. 20s is still far below any real hang.
+   */
+  testTimeout: 20_000,
   moduleNameMapper: {
     "^@/(.*)$": "<rootDir>/src/$1",
   },
