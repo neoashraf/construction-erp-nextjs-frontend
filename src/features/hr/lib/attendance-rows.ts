@@ -1,6 +1,8 @@
 import {
   type AttendanceDayRecord,
+  type DailyReportRow,
   type LogEntry,
+  type RangeReportRow,
   type SummaryReportRow,
 } from "../api/attendance-logs";
 
@@ -34,6 +36,12 @@ export interface EmployeeRow {
   status: string;
   checkIn: string | null;
   checkOut: string | null;
+  /**
+   * The day's RESOLVED location, used as the fallback for a punch that states none of its own
+   * (a device punch always does — a machine states no place). Optional: absent on aggregate
+   * rows, where there is no single day to resolve.
+   */
+  dayLocation?: string | null;
   /** Per-day detail for the drawer; always empty for a summary row. */
   records: AttendanceDayRecord[];
 }
@@ -102,6 +110,75 @@ export function mapLogEntry(entry: LogEntry): EmployeeRow {
 }
 
 /**
+ * Map a `GET /reports/range` row — the office-staff review's per-employee row.
+ *
+ * Unlike `mapLogEntry`, every count arrives INLINE on the row (the contract puts them there,
+ * not nested under `totals`), and `records[]` is GAP-FREE: every date in the window, holidays
+ * and absences included, which is what lets the drawer render a real calendar without the
+ * client inventing the missing days.
+ */
+export function mapRangeReportRow(row: RangeReportRow): EmployeeRow {
+  const records = Array.isArray(row.records) ? row.records : [];
+  return {
+    key: row.id || row.userId,
+    userId: row.userId,
+    name: row.name,
+    designation: row.designation,
+    workingDays: toCount(row.workingDays),
+    presentCount: toCount(row.presentCount),
+    lateCount: toCount(row.lateCount),
+    absentCount: toCount(row.absentCount),
+    holidayCount: toCount(row.holidayCount),
+    attendancePercent: Math.round(toCount(row.attendancePercentage)),
+    // A range row aggregates many days, so there is no single day status to show; the table
+    // renders aggregate columns in this view and never reads `status`.
+    status: "",
+    checkIn: null,
+    checkOut: null,
+    records,
+  };
+}
+
+/**
+ * Map a `GET /reports/daily` row — one employee on ONE date.
+ *
+ * The row is folded into a single-entry `records[]` so the drawer, which is written against
+ * the day-record shape, works identically whichever report supplied the row. `punchCount: 0`
+ * with a leave status is the FR-HR-004 second-branch day and is expected, not an error.
+ */
+export function mapDailyReportRow(row: DailyReportRow): EmployeeRow {
+  const present = row.status === "Absent" ? 0 : 1;
+  return {
+    key: row.id || row.userId,
+    userId: row.userId,
+    name: row.name,
+    designation: row.designation,
+    workingDays: 1,
+    presentCount: present,
+    lateCount: row.status === "Late" ? 1 : 0,
+    absentCount: present ? 0 : 1,
+    holidayCount: row.status === "Holiday" ? 1 : 0,
+    attendancePercent: present ? 100 : 0,
+    status: row.status,
+    checkIn: row.checkInAt ?? null,
+    checkOut: row.checkOutAt ?? null,
+    records: [
+      {
+        id: row.id || `${row.userId}-${row.attendanceDate}`,
+        attendanceDate: row.attendanceDate,
+        deviceTimestamp: null,
+        occurredAt: null,
+        receivedAt: null,
+        checkInAt: row.checkInAt ?? null,
+        checkOutAt: row.checkOutAt ?? null,
+        status: row.status,
+        punchCount: toCount(row.punchCount),
+      },
+    ],
+  };
+}
+
+/**
  * Map a `/reports/summary` row. Summary rows are pre-aggregated and carry no per-day
  * detail, so `records` is empty and the drawer is suppressed for them. Status is a coarse
  * derivation — there is no single day to report on.
@@ -124,6 +201,65 @@ export function mapSummaryRow(row: SummaryReportRow): EmployeeRow {
     checkOut: null,
     records: [],
   };
+}
+
+/**
+ * Source → badge: FOUR canonical values, THREE labels (spec §5; API `sourceType` table).
+ *
+ * `DEVICE_PUSH` (real-time punch) and `DEVICE_SYNC` (pulled by "Sync device") are both a
+ * machine reporting, so both read **Machine** — the distinction is how we asked, not how the
+ * attendance was captured, and it is not a distinction an operator can act on.
+ *
+ * Anything unlisted degrades to **Machine**, never a blank cell: push-path normalisation has
+ * not fully landed, and an unrecognised source must fall back to the truthful general case
+ * rather than to an empty cell that reads as missing data.
+ *
+ * The value is always READABLE TEXT — never colour alone (WCAG 2.1 AA; spec §10).
+ */
+export type SourceBadge = "Machine" | "Import" | "Manual";
+
+export function sourceBadgeLabel(source: string | null | undefined): SourceBadge {
+  switch (source) {
+    case "EXCEL_IMPORT":
+      return "Import";
+    case "MANUAL":
+      return "Manual";
+    default:
+      return "Machine";
+  }
+}
+
+/** Badge tone per source label. Tone is decoration — `sourceBadgeLabel` carries the meaning. */
+export function sourceBadgeTone(source: string | null | undefined): "info" | "accent" | "neutral" {
+  switch (sourceBadgeLabel(source)) {
+    case "Import":
+      return "accent";
+    case "Manual":
+      return "neutral";
+    default:
+      return "info";
+  }
+}
+
+/**
+ * The distinct sources that fed a day, in a stable order, one tag per contributing path.
+ *
+ * A day fed by more than one path is the at-a-glance signal that a MERGE happened — the
+ * office-punch-at-09:00 plus site-entry-at-14:00 case. Deduped by LABEL, not by raw value, so
+ * a day carrying both `DEVICE_PUSH` and `DEVICE_SYNC` shows one "Machine" tag rather than two
+ * identical ones.
+ */
+export function contributingSources(
+  punches: Array<{ sourceType?: string | null }> | undefined,
+  fallback?: string | null,
+): SourceBadge[] {
+  const labels = new Set<SourceBadge>();
+  for (const punch of punches ?? []) {
+    if (punch?.sourceType) labels.add(sourceBadgeLabel(punch.sourceType));
+  }
+  if (labels.size === 0) return [sourceBadgeLabel(fallback)];
+  const order: SourceBadge[] = ["Machine", "Import", "Manual"];
+  return order.filter((label) => labels.has(label));
 }
 
 /** Fallbacks so a nameless device record still renders something meaningful. */
@@ -162,7 +298,19 @@ export function hueFor(userId: string): number {
   return (hash * 137) % 360;
 }
 
-/** Badge tone for a device status string. Anything unrecognised reads as Absent. */
+/**
+ * Badge tone for a status string. Anything unrecognised reads as Absent.
+ *
+ * The vocabulary is SIX values since 29/07/2026 (BE #46): `Present` · `Late` · `Absent` ·
+ * `Holiday` · `Paid leave` · `Unpaid leave`. The reports now read `attendance_record` rather
+ * than the punch log, so a timeless leave day arrives as its own status instead of being
+ * inferred `Absent` from missing punches — which is what let the report and the payslip
+ * disagree about a month.
+ *
+ * Paid leave is `info`, not `destructive`: payroll PAYS it, so colouring it like an absence
+ * would contradict the salary sheet on the same figure. Unpaid leave is `warning` — deducted,
+ * but declared rather than unexplained.
+ */
 export type AttendanceTone = "success" | "warning" | "info" | "destructive";
 
 export function statusTone(status: string | null | undefined): AttendanceTone {
@@ -172,7 +320,10 @@ export function statusTone(status: string | null | undefined): AttendanceTone {
     case "late":
       return "warning";
     case "holiday":
+    case "paid leave":
       return "info";
+    case "unpaid leave":
+      return "warning";
     default:
       return "destructive";
   }

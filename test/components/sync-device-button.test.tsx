@@ -1,8 +1,14 @@
 /**
  * Sync button layout: a long sync result must never widen the header row.
+ *
  * Regression — the outcome used to render as a flex sibling of the button, so a message like
  * "Nothing reached the reports — 143 day(s) blocked (…)" stretched the row and pushed the
  * header buttons out of place.
+ *
+ * The mocked run below is `reconciled: 0` with a non-empty `skippedReasons`, which FE-64 routes
+ * to the caller's persistent `role="alert"` (FR-HR-008a) INSTEAD of a toast — a toast
+ * disappears, and a run that reached no report needs an action, not a notice. Either way the
+ * outcome text stays out of the button row, which is what this file exists to protect.
  */
 import React from "react";
 import { render, screen, waitFor } from "@testing-library/react";
@@ -33,13 +39,13 @@ jest.mock("@/features/hr/hooks/useAttendanceLogs", () => {
   };
 });
 
-function renderBtn() {
+function renderBtn(onComplete?: (summary: unknown) => void) {
   const qc = new QueryClient({ defaultOptions: { queries: { retry: false } } });
   return render(
     <QueryClientProvider client={qc}>
       <ToastProvider>
         <div data-testid="header" style={{ display: "flex" }}>
-          <SyncDeviceButton />
+          <SyncDeviceButton onComplete={onComplete} />
         </div>
       </ToastProvider>
     </QueryClientProvider>,
@@ -47,20 +53,37 @@ function renderBtn() {
 }
 
 describe("SyncDeviceButton layout", () => {
-  it("keeps the result OUT of the button row — it goes to a toast", async () => {
+  it("keeps the result OUT of the button row", async () => {
     const user = userEvent.setup();
-    renderBtn();
+    const onComplete = jest.fn();
+    renderBtn(onComplete);
 
     const row = screen.getByTestId("sync-device").parentElement!;
     const before = row.textContent;
 
     await user.click(screen.getByTestId("sync-device"));
+    await waitFor(() => expect(onComplete).toHaveBeenCalled());
 
-    // The long outcome appears as a toast, not inside the row.
-    await waitFor(() =>
-      expect(screen.getByText(/Nothing reached the reports/)).toBeInTheDocument(),
-    );
+    // Whatever channel the outcome takes, it never renders as a flex sibling of the button.
     expect(row.textContent).toBe(before);
-    expect(row).not.toHaveTextContent(/blocked/);
+    expect(row).not.toHaveTextContent(/blocked|Nothing reached the reports/);
+  });
+
+  it("hands the run to the caller and suppresses the toast when nothing reconciled", async () => {
+    const user = userEvent.setup();
+    const onComplete = jest.fn();
+    renderBtn(onComplete);
+
+    await user.click(screen.getByTestId("sync-device"));
+
+    // FR-HR-008a: the caller raises a persistent `role="alert"` from this summary. A success
+    // toast here would present a run that reached NO report as a success — the failure whose
+    // symptom (people paid as absent) only surfaces weeks later, in payroll.
+    await waitFor(() =>
+      expect(onComplete).toHaveBeenCalledWith(
+        expect.objectContaining({ reconciled: 0, skippedReasons: { NO_FINANCIAL_YEAR: 143 } }),
+      ),
+    );
+    expect(screen.queryByText(/Nothing reached the reports/)).not.toBeInTheDocument();
   });
 });

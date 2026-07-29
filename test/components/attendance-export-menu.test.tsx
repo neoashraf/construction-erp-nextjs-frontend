@@ -1,9 +1,14 @@
 /**
- * Export menu + year-picker rendering.
+ * `ExportMenu` — now mounted by **`/reports/hr`**, not by `/hr/attendance` (FE-64).
  *
- * Covers two UI defects: the export items rendered as a run-together block because the
+ * The component is kept, not deleted: producing a file is a reporting concern
+ * (FR-RPT-026/-029/-031), so the menu moved rather than went away. Its own defects were real
+ * bugs and stay covered here — the export items rendered as a run-together block because the
  * shared `DropdownMenuItem` is a fixed-height single-line row, and both year pickers were
- * capped to a narrow hardcoded window that made a year like 2028 unreachable.
+ * capped to a narrow window that made a year like 2028 unreachable.
+ *
+ * The assertion that `/hr/attendance` renders NO export control, and DOES render the pointer
+ * to this report, lives with that screen in `attendance.test.tsx`.
  */
 import React from "react";
 import { render, screen, waitFor, within } from "@testing-library/react";

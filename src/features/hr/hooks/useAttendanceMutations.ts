@@ -1,11 +1,9 @@
 import { useMutation, useQueryClient } from "@tanstack/react-query";
 import {
-  importOfficeBiometric,
   saveDailyLabourAttendance,
   saveOfficeAttendance,
   saveSubcontractorAttendance,
   updateDailyLabour,
-  type BiometricFeedRow,
   type DailyLabourRowInput,
   type DailyLabourUpdateInput,
   type OfficeAttendanceRow,
@@ -30,12 +28,8 @@ export function useAttendanceMutations() {
     retry: false,
   });
 
-  const importOffice = useMutation({
-    mutationFn: ({ projectId, feed }: { projectId: string; feed: BiometricFeedRow[] }) =>
-      importOfficeBiometric(projectId, feed),
-    onSuccess: invalidate,
-    retry: false,
-  });
+  // `importOffice` is gone with `POST /attendance/office/import` (FE-64). Spreadsheet import
+  // is `useImportAttendance` in `./useAttendanceLogs` — one path, through the punch pipeline.
 
   const saveSubcontractor = useMutation({
     mutationFn: (rows: SubcontractorRow[]) => saveSubcontractorAttendance(rows),
@@ -56,5 +50,5 @@ export function useAttendanceMutations() {
     retry: false,
   });
 
-  return { saveOffice, importOffice, saveSubcontractor, saveDailyLabour, patchDailyLabour };
+  return { saveOffice, saveSubcontractor, saveDailyLabour, patchDailyLabour };
 }

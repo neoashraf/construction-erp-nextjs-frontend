@@ -8,6 +8,7 @@ import { useToast } from "@/components/ui/toast";
 import { ApiError } from "@/lib/api/errors";
 import { type ImportResult, type ImportRow } from "../api/attendance-logs";
 import { describeImportResult, useImportAttendance } from "../hooks/useAttendanceLogs";
+import { SkipReasonAlert } from "./SkipReasonAlert";
 import { AttendanceImportError, downloadAttendanceTemplate, parseAttendanceWorkbook } from "../lib/attendance-export";
 
 /**
@@ -88,8 +89,12 @@ export function AttendanceImportDrawer({ open, onClose }: { open: boolean; onClo
       onSuccess: (res) => {
         setResult(res);
         setStep("result");
+        // FR-HR-008a: when nothing reconciled, the persistent `role="alert"` in the result step
+        // replaces the toast rather than accompanying it — a toast disappears, and this run
+        // needs an action, not a notice.
         const blocked = res.reconciled === 0 && Object.keys(res.skippedReasons).length > 0;
-        toast(describeImportResult(res), res.acceptedRows === 0 || blocked ? "error" : "success");
+        if (blocked) return;
+        toast(describeImportResult(res), res.acceptedRows === 0 ? "error" : "success");
       },
       onError: (error) => {
         toast(error instanceof ApiError ? error.message : "Import failed", "error");
@@ -115,27 +120,68 @@ export function AttendanceImportDrawer({ open, onClose }: { open: boolean; onClo
         <SheetBody>
           {step === "choose" ? (
             <div className="flex flex-col gap-4">
+              {/*
+                Import is a desk workflow (spec §4). Manual entry, head-count capture and Confirm
+                stay fully functional at ≥360 — only this panel degrades, and it says so rather
+                than presenting a file picker that a phone will handle badly.
+              */}
+              <p
+                className="rounded-token border border-border bg-muted/40 px-3 py-2 text-[11.5px] leading-relaxed text-muted-foreground sm:hidden"
+                data-testid="import-mobile-note"
+              >
+                Best done on a larger screen.
+              </p>
+
               <p className="text-[13px] leading-relaxed text-muted-foreground">
                 Upload a spreadsheet of check-in / check-out times. Imported days merge with the
                 data already on the device — a punch that is already recorded is skipped, never
                 duplicated, so it is safe to re-upload the same file.
               </p>
 
+              {/*
+                The file's contract is stated AT the control, above the drop zone — not in a help
+                page. Someone assembling a sheet from a branch office's written log needs the
+                shape while they are looking at the upload button, not after the file is
+                rejected. Deliberately redundant with the template: a person checking a file
+                they already have should not have to download one to find out (spec §5/§8).
+              */}
               <div className="rounded-card border border-border bg-muted/40 p-3">
                 <div className="flex items-start gap-2.5">
                   <FileSpreadsheet className="mt-0.5 h-4 w-4 flex-none text-muted-foreground" aria-hidden />
-                  <div className="flex flex-col gap-1">
-                    <p className="text-[12.5px] font-semibold text-foreground">Required columns</p>
-                    <p className="text-[11.5px] leading-relaxed text-muted-foreground">
+                  <div className="flex flex-col gap-1.5">
+                    <p className="text-[12.5px] font-semibold text-foreground">Expected columns</p>
+                    <p className="text-[11.5px] leading-relaxed text-muted-foreground" data-testid="import-columns">
                       <strong className="font-semibold text-foreground">Employee ID</strong> ·{" "}
-                      <strong className="font-semibold text-foreground">Date</strong> (YYYY-MM-DD) ·{" "}
+                      <strong className="font-semibold text-foreground">Date</strong> ·{" "}
                       <strong className="font-semibold text-foreground">Check In</strong> ·{" "}
-                      <strong className="font-semibold text-foreground">Check Out</strong> (HH:mm)
+                      <strong className="font-semibold text-foreground">Check Out</strong> ·{" "}
+                      <strong className="font-semibold text-foreground">Location</strong> (optional)
                     </p>
-                    <p className="text-[11.5px] leading-relaxed text-muted-foreground">
-                      Present / Late is worked out from the times against your late-arrival
-                      setting, so the sheet does not carry a status column.
-                    </p>
+                    <ul className="flex flex-col gap-1 text-[11.5px] leading-relaxed text-muted-foreground">
+                      {/* The importer does not distinguish a day's sheet from a month's. */}
+                      <li data-testid="import-period-note">
+                        One file can cover a single day or a whole month — each row carries its
+                        own date.
+                      </li>
+                      {/* Structural, not a UI guard: the punch unique index rejects the dupe. */}
+                      <li data-testid="import-idempotency-note">
+                        Re-importing the same file changes nothing.
+                      </li>
+                      <li data-testid="import-location-note">
+                        Leave Location blank and the row is costed to the device&apos;s default
+                        location.
+                      </li>
+                      {/*
+                        A timeless row is rejected BY RULE, not by a parse failure: a punch is a
+                        time, so a row with none asserts nothing. Stated here so the rejection
+                        reads as the rule it is — and so the one thing an import cannot express
+                        (a leave day) is named at the control (spec §13).
+                      */}
+                      <li data-testid="import-no-times-note">
+                        A date with no check-in or check-out can&apos;t be imported — record leave
+                        in the roster grid.
+                      </li>
+                    </ul>
                   </div>
                 </div>
                 <Button
@@ -143,6 +189,7 @@ export function AttendanceImportDrawer({ open, onClose }: { open: boolean; onClo
                   size="sm"
                   className="mt-2"
                   onClick={() => void downloadAttendanceTemplate()}
+                  data-testid="download-template"
                 >
                   <Download className="h-4 w-4" aria-hidden />
                   Download template
@@ -200,10 +247,11 @@ export function AttendanceImportDrawer({ open, onClose }: { open: boolean; onClo
                 <table className="w-full border-collapse text-[12.5px]">
                   <thead>
                     <tr className="border-b border-border bg-muted/50 text-left">
-                      <th className="px-3 py-2 font-semibold">Employee ID</th>
-                      <th className="px-3 py-2 font-semibold">Date</th>
-                      <th className="px-3 py-2 font-semibold">Check In</th>
-                      <th className="px-3 py-2 font-semibold">Check Out</th>
+                      <th scope="col" className="px-3 py-2 font-semibold">Employee ID</th>
+                      <th scope="col" className="px-3 py-2 font-semibold">Date</th>
+                      <th scope="col" className="px-3 py-2 font-semibold">Check In</th>
+                      <th scope="col" className="px-3 py-2 font-semibold">Check Out</th>
+                      <th scope="col" className="px-3 py-2 font-semibold">Location</th>
                     </tr>
                   </thead>
                   <tbody>
@@ -213,6 +261,12 @@ export function AttendanceImportDrawer({ open, onClose }: { open: boolean; onClo
                         <td className="px-3 py-1.5">{row.date || "—"}</td>
                         <td className="px-3 py-1.5">{row.checkIn || "—"}</td>
                         <td className="px-3 py-1.5">{row.checkOut || "—"}</td>
+                        {/*
+                          A blank cell is not a defect — the row falls through to the device
+                          default, then the employee's. Shown so a mis-mapped Location column is
+                          visible BEFORE upload, which is the whole point of the preview.
+                        */}
+                        <td className="px-3 py-1.5 [overflow-wrap:anywhere]">{row.location || "—"}</td>
                       </tr>
                     ))}
                   </tbody>
@@ -254,15 +308,37 @@ export function AttendanceImportDrawer({ open, onClose }: { open: boolean; onClo
                 </p>
               ) : null}
 
+              {/*
+                FR-HR-008a — a run that stored punches but folded no day is never a success.
+                Persistent and focus-taking, rendered INSTEAD of the success toast (suppressed
+                in `handleImport`). A partial run shows both the counts and the reasons.
+              */}
+              <SkipReasonAlert
+                reconciled={result.reconciled}
+                skippedReasons={result.skippedReasons}
+                testId="import-skip-alert"
+              />
+
               {result.errors.length > 0 ? (
                 <div className="flex flex-col gap-1.5">
                   <p className="text-[12.5px] font-semibold text-foreground">
-                    {result.errors.length} row(s) skipped
+                    {result.errors.length} rows couldn&apos;t be imported
+                  </p>
+                  <p className="text-[11.5px] leading-relaxed text-muted-foreground">
+                    Everything else was imported. Fix these rows and upload again — re-importing
+                    what already landed changes nothing.
                   </p>
                   <ul className="flex flex-col gap-1">
                     {result.errors.slice(0, MAX_LISTED_ERRORS).map((error, i) => (
-                      <li key={i} className="text-[11.5px] leading-relaxed text-muted-foreground">
-                        <span className="font-semibold text-foreground">Row {error.row}:</span>{" "}
+                      /*
+                        The message is SERVER-SUPPLIED and never re-worded here: the sheet row
+                        number and the offending value are the whole point ("Unknown location
+                        'Site B4' — no project matches that code or name"). Re-phrasing it
+                        client-side would lose the one detail that lets someone find the cell.
+                      */
+                      <li key={i} className="text-[11.5px] leading-relaxed text-muted-foreground" data-testid="import-row-error">
+                        <span className="font-semibold text-foreground">Row {error.row}</span>
+                        {" · "}
                         {error.message}
                       </li>
                     ))}

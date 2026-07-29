@@ -25,7 +25,13 @@ function renderedIcon(file: string): string | undefined {
   return /<(File(?:Up|Down)|Upload|Download) className/.exec(source(file))?.[1];
 }
 
-const SHELL = "src/features/hr/components/AttendanceLogsShell.tsx";
+/**
+ * Import now lives in the Office-staff tab header (FE-64) — the same button, one component up.
+ * `AttendanceLogsShell` was deleted when the logs view folded into that tab; Export moved off
+ * this screen entirely to `/reports/hr`, but `ExportMenu` itself is kept and still owns the
+ * opposite arrow, so the pair is still asserted against each other.
+ */
+const SHELL = "src/features/hr/components/OfficeStaffPanel.tsx";
 const EXPORT_MENU = "src/features/hr/components/ExportMenu.tsx";
 
 describe("attendance toolbar icons", () => {

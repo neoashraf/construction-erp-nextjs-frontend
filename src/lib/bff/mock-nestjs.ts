@@ -6515,7 +6515,8 @@ export async function mockNestjsFetch(req: MockReq): Promise<MockResult> {
     headCount: number | null;
     labourCategory: string | null;
     dailyRate: string | null;
-    source: "MANUAL" | "BIOMETRIC_IMPORT";
+    /** The canonical four ingestion paths (SRS §8; API `sourceType`) — `BIOMETRIC_IMPORT` is retired. */
+    source: "DEVICE_PUSH" | "DEVICE_SYNC" | "EXCEL_IMPORT" | "MANUAL";
     isConfirmed: boolean;
     accrualEntryId: string | null;
     entryNo: string | null;
@@ -6575,7 +6576,7 @@ export async function mockNestjsFetch(req: MockReq): Promise<MockResult> {
         headCount: null,
         labourCategory: null,
         dailyRate: null,
-        source: "BIOMETRIC_IMPORT",
+        source: "DEVICE_PUSH",
         isConfirmed: false,
         accrualEntryId: null,
         entryNo: null,
@@ -6820,62 +6821,346 @@ export async function mockNestjsFetch(req: MockReq): Promise<MockResult> {
     return { status: 201, body: success({ ids }) };
   }
 
-  // POST /attendance/office/import — biometric feed reconciled to one OFFICE row/employee/day.
-  // Mirrors the real backend: a top-level projectId (applied to every row), an employeeCode-keyed
-  // deviceFeed, direct insert of non-conflicting rows, and info-only conflicts.
-  if (pathname === "/attendance/office/import" && req.method === "POST") {
-    const b = body as { projectId?: unknown; deviceFeed?: unknown; rows?: unknown };
-    const projectId = String(b.projectId ?? "");
-    if (!projectId) {
-      return { status: 400, body: envelope("VALIDATION_ERROR", "projectId must be a UUID") };
+  // `POST /attendance/office/import` was answered here until FE-64. It is REMOVED from the
+  // real backend (#45), so the mock must not answer it either — a mock that outlives its
+  // endpoint hides a live 404 behind a green dev run, which is exactly how the retired path
+  // survived in the UI long enough to ship. Spreadsheet import is `POST /attendance/import`.
+
+  /*
+   * POST /attendance/import — the single spreadsheet-import endpoint.
+   *
+   * Models the behaviour the merge design turns on: punches dedupe on
+   * (employee, date, time), and a day already captured MERGES (check-in = first punch,
+   * check-out = last) rather than being rejected as a duplicate or doubled. Re-importing the
+   * same file is therefore a no-op that reports `duplicates`, not a conflict list.
+   *
+   * `@NoEnvelope()` on the backend — the body IS the response, and per-row problems ride
+   * `errors[]` on the 200 rather than failing the file.
+   */
+  if (pathname === "/attendance/import" && req.method === "POST") {
+    const b = body as { rows?: unknown };
+    if (!Array.isArray(b.rows) || b.rows.length === 0) {
+      return { status: 400, body: { error: "rows must not be empty" } };
     }
-    const feed = Array.isArray(b.deviceFeed) ? b.deviceFeed : Array.isArray(b.rows) ? b.rows : [];
-    const conflicts: Array<Record<string, unknown>> = [];
-    let reconciled = 0;
-    for (const raw of feed as Array<Record<string, unknown>>) {
-      const employeeCode = String(raw.employeeCode ?? raw.employeeId ?? "");
-      const attendanceDate = String(raw.attendanceDate ?? "");
+    const rows = b.rows as Array<Record<string, unknown>>;
+    const errors: Array<{ row: number; message: string }> = [];
+    let acceptedRows = 0;
+    let blankRows = 0;
+    let punches = 0;
+    let inserted = 0;
+    let duplicates = 0;
+    const touchedDays = new Set<string>();
+
+    rows.forEach((raw, index) => {
+      // Row 1 is the header in the user's sheet, so a data row at index 0 is sheet row 2.
+      const sheetRow = index + 2;
+      const userId = String(raw.userId ?? "").trim();
+      const date = String(raw.date ?? "").trim();
+      const checkIn = String(raw.checkIn ?? "").trim();
+      const checkOut = String(raw.checkOut ?? "").trim();
+      const location = String(raw.location ?? "").trim();
+
+      if (!userId && !date && !checkIn && !checkOut) {
+        blankRows += 1;
+        return;
+      }
+      if (!userId) {
+        errors.push({ row: sheetRow, message: "Employee ID is required" });
+        return;
+      }
+      if (!/^\d{4}-\d{2}-\d{2}$/.test(date)) {
+        errors.push({ row: sheetRow, message: `Invalid date '${date}'` });
+        return;
+      }
+      // A punch is a TIME, so a timeless row asserts nothing — and absence is already the
+      // absence of punches. An import therefore cannot express a leave day (contract §import).
+      if (!checkIn && !checkOut) {
+        errors.push({
+          row: sheetRow,
+          message: "A date with no check-in or check-out can't be imported",
+        });
+        return;
+      }
+      if (checkIn && checkOut && checkOut < checkIn) {
+        errors.push({
+          row: sheetRow,
+          message: `Check-out ${checkOut} is before check-in ${checkIn}`,
+        });
+        return;
+      }
+      // Resolves by code first, then name — case-insensitive and trimmed, since a human typed
+      // it. An unresolvable value is a PER-ROW rejection, never a failed file.
+      let projectId = "";
+      if (location) {
+        const match = MOCK_PROJECTS.find(
+          (p) =>
+            p.projectCode?.toLowerCase() === location.toLowerCase() ||
+            p.name?.toLowerCase() === location.toLowerCase(),
+        );
+        if (!match) {
+          errors.push({
+            row: sheetRow,
+            message: `Unknown location '${location}' — no project matches that code or name`,
+          });
+          return;
+        }
+        projectId = match.id;
+      }
+
+      acceptedRows += 1;
+      const times = [checkIn, checkOut].filter(Boolean);
+      punches += times.length;
+
       const existing = ATT.rows.find(
-        (r) =>
-          r.mode === "OFFICE" && r.employeeId === employeeCode && r.attendanceDate === attendanceDate,
+        (r) => r.mode === "OFFICE" && r.employeeId === userId && r.attendanceDate === date,
       );
       if (existing) {
-        conflicts.push({ employeeId: employeeCode, attendanceDate, reason: "ALREADY_RECORDED" });
-        continue;
+        // The MERGE: earliest punch in, latest out. The day is never doubled, and a punch
+        // already stored counts as a duplicate rather than being written twice.
+        const priorIn = existing.checkIn ?? "";
+        const priorOut = existing.checkOut ?? "";
+        for (const t of times) {
+          if (t === priorIn || t === priorOut) duplicates += 1;
+          else inserted += 1;
+        }
+        if (checkIn && (!priorIn || checkIn < priorIn)) existing.checkIn = checkIn;
+        if (checkOut && (!priorOut || checkOut > priorOut)) existing.checkOut = checkOut;
+        if (projectId) existing.projectId = projectId;
+        existing.source = "EXCEL_IMPORT";
+      } else {
+        inserted += times.length;
+        ATT.rows.push({
+          id: `att-off-${(ATT.seq += 1)}`,
+          mode: "OFFICE",
+          attendanceDate: date,
+          projectId: projectId || MOCK_PROJECTS[0]?.id || "",
+          costCentreId: null,
+          purposeId: null,
+          employeeId: userId,
+          checkIn: checkIn || null,
+          checkOut: checkOut || null,
+          dayStatus: "PRESENT",
+          overtimeHours: "0",
+          partyId: null,
+          headCount: null,
+          labourCategory: null,
+          dailyRate: null,
+          source: "EXCEL_IMPORT",
+          isConfirmed: false,
+          accrualEntryId: null,
+          entryNo: null,
+          accruedAmount: null,
+          postedAt: null,
+          postedBy: null,
+          reversalEntryNo: null,
+          reversalEntryId: null,
+          version: 1,
+        });
       }
-      ATT.rows.push({
-        id: `att-off-${(ATT.seq += 1)}`,
-        mode: "OFFICE",
-        attendanceDate,
-        projectId,
-        costCentreId: null,
-        purposeId: null,
-        employeeId: employeeCode,
-        checkIn: (raw.checkIn as string) ?? null,
-        checkOut: (raw.checkOut as string) ?? null,
-        dayStatus: (raw.dayStatus as string) ?? "PRESENT",
-        overtimeHours: (raw.overtimeHours as string) ?? "0",
-        partyId: null,
-        headCount: null,
-        labourCategory: null,
-        dailyRate: null,
-        source: "BIOMETRIC_IMPORT",
-        isConfirmed: false,
-        accrualEntryId: null,
-        entryNo: null,
-        accruedAmount: null,
-        postedAt: null,
-        postedBy: null,
-        reversalEntryNo: null,
-        reversalEntryId: null,
-        version: 1,
-      });
-      reconciled += 1;
-    }
+      touchedDays.add(`${userId}|${date}`);
+    });
+
+    // Flat body — these routes carry `@NoEnvelope()`, so there is no `{ data }` wrapper.
     return {
       status: 200,
-      body: success({ imported: feed.length, reconciled, conflicts }),
+      body: {
+        acceptedRows,
+        blankRows,
+        punches,
+        inserted,
+        duplicates,
+        reconciled: touchedDays.size,
+        skippedReasons: {},
+        errors,
+      },
     };
+  }
+
+  /*
+   * The attendance READ surfaces, all built from the same OFFICE rows so they can never
+   * disagree with what a capture or an import just wrote.
+   *
+   * `/reports/{daily,range,summary}` read the DAY rows (`attendance_record`), so a timeless
+   * `PAID_LEAVE`/`ABSENT` day is representable — that is the whole point of the 29/07 repoint.
+   * `/logs` reads PUNCHES, so a status-only day has no row there at all, and it carries the
+   * `punches[]` provenance the day-detail drawer renders. All are `@NoEnvelope()` and page on
+   * `limit`, not `pageSize`.
+   */
+  if (pathname?.startsWith("/reports/") || pathname === "/logs") {
+    const officeRows = ATT.rows.filter((r) => r.mode === "OFFICE");
+    const userIdFilter = params.get("userId")?.trim() ?? "";
+    const nameFilter = params.get("name")?.trim().toLowerCase() ?? "";
+    const date = params.get("date") ?? "";
+    const dateFrom = params.get("dateFrom") ?? "";
+    const dateTo = params.get("dateTo") ?? "";
+    const page = Number(params.get("page") ?? 1) || 1;
+    const limit = Number(params.get("limit") ?? 20) || 20;
+
+    const inWindow = (d: string) =>
+      date ? d === date : (!dateFrom || d >= dateFrom) && (!dateTo || d <= dateTo);
+
+    let scoped = officeRows.filter((r) => inWindow(r.attendanceDate));
+    if (userIdFilter) scoped = scoped.filter((r) => r.employeeId === userIdFilter);
+    if (nameFilter) scoped = scoped.filter((r) => (r.employeeId ?? "").toLowerCase().includes(nameFilter));
+
+    // Present vs Late is DERIVED from the check-in against the configured threshold — a stored
+    // PRESENT never asserts lateness, because only the comparison can.
+    const lateAfter = "09:30";
+    const statusFor = (r: MockAttendance): string => {
+      if (r.dayStatus === "PAID_LEAVE") return "Paid leave";
+      if (r.dayStatus === "UNPAID_LEAVE") return "Unpaid leave";
+      if (r.dayStatus === "ABSENT" || !r.checkIn) return "Absent";
+      return r.checkIn > lateAfter ? "Late" : "Present";
+    };
+
+    const byEmployee = new Map<string, MockAttendance[]>();
+    for (const r of scoped) {
+      const key = r.employeeId ?? "—";
+      byEmployee.set(key, [...(byEmployee.get(key) ?? []), r]);
+    }
+
+    const employees = [...byEmployee.entries()].sort(([a], [b]) => a.localeCompare(b));
+    const slice = employees.slice((page - 1) * limit, page * limit);
+    const pagination = {
+      page,
+      limit,
+      total: employees.length,
+      totalPages: Math.max(1, Math.ceil(employees.length / limit)),
+    };
+    // Always emitted, so a client never has to distinguish "no problems" from "not reported".
+    const unreconciled = { days: 0, reasons: {}, sample: [] };
+
+    const countsFor = (rows: MockAttendance[]) => {
+      const statuses = rows.map(statusFor);
+      const onTimeCount = statuses.filter((s) => s === "Present").length;
+      const lateCount = statuses.filter((s) => s === "Late").length;
+      const presentCount = onTimeCount + lateCount;
+      const absentCount = statuses.filter((s) => s === "Absent").length;
+      const workingDays = presentCount + absentCount;
+      return {
+        workingDays,
+        onTimeCount,
+        lateCount,
+        presentCount,
+        absentCount,
+        holidayCount: 0,
+        attendancePercentage: workingDays > 0 ? Math.round((presentCount / workingDays) * 1000) / 10 : 0,
+      };
+    };
+
+    if (pathname === "/reports/daily") {
+      return {
+        status: 200,
+        body: {
+          date,
+          isHoliday: false,
+          holiday: null,
+          lateAfter,
+          totals: { ...countsFor(scoped), totalEmployees: employees.length },
+          data: slice.map(([userId, rows]) => {
+            const r = rows[0]!;
+            return {
+              id: r.id,
+              userId,
+              name: userId,
+              designation: null,
+              attendanceDate: r.attendanceDate,
+              status: statusFor(r),
+              checkInAt: r.checkIn ? `${r.attendanceDate} ${r.checkIn}:00` : null,
+              checkOutAt: r.checkOut ? `${r.attendanceDate} ${r.checkOut}:00` : null,
+              checkInTime: r.checkIn ?? "",
+              checkOutTime: r.checkOut ?? "",
+              punchCount: [r.checkIn, r.checkOut].filter(Boolean).length,
+            };
+          }),
+          pagination,
+          unreconciled,
+        },
+      };
+    }
+
+    const perEmployee = slice.map(([userId, rows]) => ({
+      id: rows[0]!.id,
+      userId,
+      name: userId,
+      designation: null,
+      ...countsFor(rows),
+      records: rows.map((r) => ({
+        id: r.id,
+        attendanceDate: r.attendanceDate,
+        status: statusFor(r),
+        holidayName: null,
+        holidayType: null,
+        deviceTimestamp: null,
+        occurredAt: null,
+        receivedAt: null,
+        checkInAt: r.checkIn ? `${r.attendanceDate} ${r.checkIn}:00` : null,
+        checkOutAt: r.checkOut ? `${r.attendanceDate} ${r.checkOut}:00` : null,
+        checkInTime: r.checkIn ?? "",
+        checkOutTime: r.checkOut ?? "",
+        punchCount: [r.checkIn, r.checkOut].filter(Boolean).length,
+        // The provenance the drawer renders. A device punch states no location (a machine
+        // knows no place); a MANUAL/import punch carries the project the row resolved to.
+        punches: [r.checkIn, r.checkOut].filter(Boolean).map((t) => ({
+          time: `${t}:00`,
+          sourceType: r.source,
+          projectId: r.source === "MANUAL" || r.source === "EXCEL_IMPORT" ? r.projectId : null,
+          projectName:
+            r.source === "MANUAL" || r.source === "EXCEL_IMPORT"
+              ? (MOCK_PROJECTS.find((p) => p.id === r.projectId)?.name ?? null)
+              : null,
+        })),
+      })),
+    }));
+
+    const shared = {
+      dateFrom,
+      dateTo,
+      label: dateFrom && dateTo ? `${dateFrom} - ${dateTo}` : "",
+      totalDays: 0,
+      totalWorkingDays: 0,
+      lateAfter,
+      totals: { ...countsFor(scoped), totalEmployees: employees.length },
+      pagination,
+      unreconciled,
+    };
+
+    if (pathname === "/reports/summary") {
+      // `range` minus each row's `records` array.
+      return {
+        status: 200,
+        body: {
+          ...shared,
+          data: perEmployee.map((row) => {
+            const rest = { ...row } as Partial<typeof row>;
+            delete rest.records;
+            return rest;
+          }),
+        },
+      };
+    }
+    if (pathname === "/reports/range") {
+      return { status: 200, body: { ...shared, data: perEmployee } };
+    }
+    if (pathname === "/logs") {
+      // Punch-derived: a day with no punches has no row here AT ALL. That is by design — it is
+      // exactly why the review reads the report surface instead.
+      return {
+        status: 200,
+        body: {
+          data: perEmployee.map((row) => ({
+            ...row,
+            attendanceRecords: row.records.filter((rec) => rec.punchCount > 0),
+            deviceTimestamp: null,
+            occurredAt: null,
+            receivedAt: null,
+            status: null,
+            sourceType: null,
+          })),
+          pagination,
+        },
+      };
+    }
   }
 
   // POST /attendance/subcontractor — bulk save

@@ -22,19 +22,40 @@ export const DAY_STATUS_LABEL: Record<DayStatus, string> = {
   ABSENT: "Absent",
 };
 
+/**
+ * The report status vocabulary, lower-cased for display inside a sentence.
+ *
+ * The reports return title-case exact strings (`Paid leave`, `Unpaid leave`, `Absent`, …),
+ * which read wrong mid-sentence: "recorded as Paid leave without times". Used by the drawer's
+ * no-punches line (spec §8).
+ */
+export function statusDisplayLabel(status: string | null | undefined): string {
+  const raw = (status ?? "").trim();
+  if (!raw) return "absent";
+  return raw.toLowerCase();
+}
+
 // Time HH:mm (24-hour) — optional check-in/out.
 const TIME_RE = /^([01]\d|2[0-3]):[0-5]\d$/;
 
 export const officeRowSchema = z
   .object({
-    employeeId: z.string().min(1, "Choose an employee."),
-    projectId: z.string().min(1, "Choose a project."),
+    employeeId: z.string().min(1, "Select an employee."),
+    /**
+     * The row's **Location** (spec §7). Required: the picker always sends an explicit value,
+     * which is what makes manual entry rank 1 of the project-resolution order — the operator
+     * stated where the work happened, so nothing may override it.
+     */
+    projectId: z.string().min(1, "Select a location."),
     dayStatus: z.enum(["PRESENT", "PAID_LEAVE", "UNPAID_LEAVE", "ABSENT"]),
     checkIn: z.string().regex(TIME_RE, "Enter a time as HH:mm.").optional().or(z.literal("")),
     checkOut: z.string().regex(TIME_RE, "Enter a time as HH:mm.").optional().or(z.literal("")),
     overtimeHours: z
       .string()
-      .refine((v) => v === "" || /^\d*\.?\d*$/.test(v), "Enter a positive number.")
+      .refine(
+        (v) => v === "" || (/^\d*\.?\d*$/.test(v) && Number(v) >= 0),
+        "Overtime hours can't be negative.",
+      )
       .optional()
       .or(z.literal("")),
   })
