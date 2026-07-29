@@ -23,9 +23,17 @@ import { BulkComponentPanel } from "./BulkComponentPanel";
 import { PostPreviewPanel } from "./PostPreviewPanel";
 import { PostConfirmDialog } from "./PostConfirmDialog";
 import { ReverseSalaryDialog } from "./ReverseSalaryDialog";
+import { AttendanceGapAlert } from "./AttendanceGapAlert";
+import { NoWeeklyHolidaysWarning } from "./NoWeeklyHolidaysWarning";
+import { useAttendanceSettings } from "../hooks/useAttendanceSettings";
 import { listPurposeOptions } from "../api/masters";
-import { type SalaryLineUpdateInput, type BulkComponentInput } from "../api/salary";
-import { mapSalaryError } from "../schemas/salary.schema";
+import { listEmployees } from "../api/employees";
+import {
+  toSalaryWarnings,
+  type SalaryLineUpdateInput,
+  type BulkComponentInput,
+} from "../api/salary";
+import { GAP_ALERT_COPY, hasAttendanceGaps, mapSalaryError } from "../schemas/salary.schema";
 
 /**
  * The sheet editor / viewer (spec §3/§4/§6). DRAFT: fully editable — per-line PATCH, bulk
@@ -54,6 +62,9 @@ export function SalarySheetEditor({ id }: { id: string }) {
   const [lineErrors, setLineErrors] = useState<Record<string, string>>({});
   const [bulkError, setBulkError] = useState<string | null>(null);
   const [previewConfirmed, setPreviewConfirmed] = useState(false);
+  // FR-HR-013a acknowledgement — per-session, resets on reload, NEVER transmitted (the
+  // contract is explicit that warnings gate the client's post affordance only).
+  const [gapAcknowledged, setGapAcknowledged] = useState(false);
   const [postDialogOpen, setPostDialogOpen] = useState(false);
   const [postError, setPostError] = useState<string | null>(null);
   const [reverseDialogOpen, setReverseDialogOpen] = useState(false);
@@ -87,6 +98,47 @@ export function SalarySheetEditor({ id }: { id: string }) {
   const purposeLookup = useCallback(
     (pid: string | null | undefined) => (pid ? purposesQ.data?.get(pid) ?? pid : ""),
     [purposesQ.data],
+  );
+
+  // The stored FR-HR-013a warnings — rendered from THIS fetch, not the generate response,
+  // so the alert reaches whoever opens the draft (the poster is often not the generator).
+  const warnings = useMemo(
+    () => (sheet?.warnings != null ? toSalaryWarnings(sheet.warnings) : null),
+    [sheet?.warnings],
+  );
+  const showGapAlert = (sheet?.status ?? "DRAFT") === "DRAFT" && hasAttendanceGaps(warnings);
+  const showNoWeeklyBanner =
+    (sheet?.status ?? "DRAFT") === "DRAFT" && warnings?.noWeeklyHolidaysConfigured === true;
+
+  // Company divisor for the Late column tooltip (FR-HR-008c) — copy only, never arithmetic.
+  const settingsQ = useAttendanceSettings();
+
+  // Names for the alert lists: sheet lines first; skipped employees have NO line, so fetch
+  // the employee master only when the alert needs a name the lines can't supply.
+  const lineNameById = useMemo(() => {
+    const map = new Map<string, string>();
+    for (const l of sheet?.lines ?? []) map.set(l.employeeId, l.employeeName);
+    return map;
+  }, [sheet?.lines]);
+  const needsEmployeeFetch =
+    showGapAlert &&
+    (warnings?.skippedEmployees.some((s) => !lineNameById.has(s.employeeId)) ||
+      warnings?.employeeAbsences.some((a) => a.unpaidDays > 0 && !lineNameById.has(a.employeeId)));
+  const employeesQ = useQuery({
+    queryKey: ["hr", "employees", "gap-alert-names"],
+    queryFn: () => listEmployees({ page: 1, pageSize: 200 }),
+    enabled: !!needsEmployeeFetch,
+    staleTime: 5 * 60 * 1000,
+    retry: 1,
+  });
+  const resolveEmployee = useCallback(
+    (employeeId: string): string => {
+      const fromLines = lineNameById.get(employeeId);
+      if (fromLines) return fromLines;
+      const fromMaster = employeesQ.data?.data.find((e) => e.id === employeeId);
+      return fromMaster?.name ?? employeeId;
+    },
+    [lineNameById, employeesQ.data],
   );
 
   const handlePatchLine = useCallback(
@@ -187,7 +239,16 @@ export function SalarySheetEditor({ id }: { id: string }) {
   const lockedForPost = isPosting || isReversing;
 
   const missingDim = sheet.lines.some((l) => !l.projectId || !l.costCentreId || !l.purposeId);
-  const canPressPost = status === "DRAFT" && canPost && previewConfirmed && !missingDim && !lockedForPost;
+  // The FR-HR-013a gate ANDs into the existing balanced-preview gate — it never replaces it.
+  const gapGateSatisfied = !showGapAlert || gapAcknowledged;
+  const canPressPost =
+    status === "DRAFT" && canPost && previewConfirmed && gapGateSatisfied && !missingDim && !lockedForPost;
+  const postDisabledReason =
+    showGapAlert && !gapAcknowledged
+      ? GAP_ALERT_COPY.disabledPostTooltip
+      : !previewConfirmed
+        ? "Review the balanced preview first"
+        : undefined;
 
   return (
     <div className="mx-auto max-w-6xl" data-testid="salary-editor">
@@ -273,18 +334,27 @@ export function SalarySheetEditor({ id }: { id: string }) {
           </Button>
         )}
         {sheet.status === "DRAFT" && canPost && (
-          <Button
-            size="md"
-            onClick={() => {
-              setPostError(null);
-              setPostDialogOpen(true);
-            }}
-            disabled={!canPressPost}
-            data-testid="post-open"
-            title={!previewConfirmed ? "Review the balanced preview first" : undefined}
-          >
-            Post
-          </Button>
+          <>
+            <Button
+              size="md"
+              onClick={() => {
+                setPostError(null);
+                setPostDialogOpen(true);
+              }}
+              disabled={!canPressPost}
+              aria-disabled={!canPressPost || undefined}
+              aria-describedby={postDisabledReason ? "post-disabled-reason" : undefined}
+              data-testid="post-open"
+              title={postDisabledReason}
+            >
+              Post
+            </Button>
+            {postDisabledReason ? (
+              <span id="post-disabled-reason" className="sr-only">
+                {postDisabledReason}
+              </span>
+            ) : null}
+          </>
         )}
       </div>
 
@@ -300,6 +370,20 @@ export function SalarySheetEditor({ id }: { id: string }) {
           className="mt-2.5"
           title="You can view this draft, but editing is limited to HR Manager or Admin."
           data-testid="salary-noedit-note"
+        />
+      )}
+
+      {/* FR-HR-013a — rendered ABOVE the lines, weekly-holidays banner FIRST: it
+          invalidates every figure the gap block reports. */}
+      {showNoWeeklyBanner && <NoWeeklyHolidaysWarning />}
+      {showGapAlert && warnings && (
+        <AttendanceGapAlert
+          warnings={warnings}
+          acknowledged={gapAcknowledged}
+          onAcknowledgedChange={setGapAcknowledged}
+          resolveEmployee={resolveEmployee}
+          attendanceHref="/hr/attendance"
+          readOnly={!canPost || lockedForPost}
         />
       )}
 
@@ -331,6 +415,7 @@ export function SalarySheetEditor({ id }: { id: string }) {
             onPatch={handlePatchLine}
             lineErrors={lineErrors}
             purposeLookup={purposeLookup}
+            latesPerDeductedDay={settingsQ.data?.latesPerDeductedDay}
           />
         )}
 

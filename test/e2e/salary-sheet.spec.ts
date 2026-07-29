@@ -34,6 +34,12 @@ test("Salary sheet: enter DRAFT → edit line → Post → posted + View payslip
   // Totals footer stays live-updated.
   await expect(page.getByTestId("salary-totals")).toBeVisible();
 
+  // FR-HR-013a: the seeded DRAFT carries pre-post warnings — the gap alert renders from
+  // the STORED sheet and Post stays disabled until it is acknowledged.
+  await expect(page.getByTestId("attendance-gap-alert")).toBeVisible();
+  await expect(page.getByTestId("post-open")).toBeDisabled();
+  await page.getByTestId("gap-acknowledge").check();
+
   // Balanced-preview gate: check "Preview confirmed" before Post is enabled.
   await page.getByTestId("preview-confirmed").check();
   await page.getByTestId("post-open").click();

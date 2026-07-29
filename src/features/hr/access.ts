@@ -47,6 +47,24 @@ export function canRevealBank(user: Viewer): boolean {
  */
 export const HR_ATTENDANCE_RESOURCE = "hr.attendance";
 
+/**
+ * Holidays configuration (FR-HR-008d): weekly off-days + the government calendar. Writes
+ * ride `hr.attendance` UPDATE (weekly save, delete) and CREATE (add, both imports); a
+ * viewer with neither sees `/hr/holidays` read-only. Fallback roles are HR Manager +
+ * Admin — the screen is company-wide, so the Site Engineer's project-scoped attendance
+ * grant deliberately does not carry through (spec §11).
+ */
+export function canManageHolidays(user: Viewer): boolean {
+  if (user.role === "ADMIN") return true;
+  if (user.permissions) {
+    return (
+      hasGrant(user as never, HR_ATTENDANCE_RESOURCE, "UPDATE") ||
+      hasGrant(user as never, HR_ATTENDANCE_RESOURCE, "CREATE")
+    );
+  }
+  return roleMatches(["HR_MANAGER"], user.role);
+}
+
 export function canCaptureAttendance(user: Viewer): boolean {
   if (user.role === "ADMIN") return true;
   if (user.permissions) return hasGrant(user as never, HR_ATTENDANCE_RESOURCE, "CREATE");

@@ -23,7 +23,7 @@ import { SalaryRunsFilterBar, EMPTY_SALARY_FILTER, type SalaryRunsFilter } from 
 import { GenerateSheetDialog } from "./GenerateSheetDialog";
 import { useProjectOptions } from "../hooks/useProjectOptions";
 import { listFinancialYearOptions, type GenerateSheetInput, type SalarySheetSummary } from "../api/salary";
-import { mapSalaryError } from "../schemas/salary.schema";
+import { hasAnySalaryWarning, mapSalaryError } from "../schemas/salary.schema";
 
 /**
  * Runs list (`/hr/salary-sheets`). Header + filter bar + table of runs. HR Manager +
@@ -69,7 +69,13 @@ export function SalaryRunsList() {
     try {
       const res = await generate.mutateAsync(input);
       setDialogOpen(false);
-      toast(`Draft salary sheet created for ${input.periodLabel}.`, "success");
+      // A sheet generated WITH warnings is a partial outcome, not a success — "created" is
+      // the wrong headline for a run that would underpay people. The editor's role="alert"
+      // gap block (rendered from the stored warnings, focused on appearance) replaces the
+      // toast (spec §6/§9; FR-HR-013a).
+      if (!hasAnySalaryWarning(res.warnings)) {
+        toast(`Draft salary sheet created for ${input.periodLabel}.`, "success");
+      }
       router.push(`/hr/salary-sheets/${res.id}`);
     } catch (e) {
       if (e instanceof ApiError) {

@@ -13,10 +13,18 @@ import { formatDate } from "@/lib/format";
 import { useAuthenticatedUser } from "@/providers/session-provider";
 import { roleMatches } from "@/lib/auth/roles";
 import { usePayslips } from "../hooks/usePayslips";
+import { useAttendanceSettings } from "../hooks/useAttendanceSettings";
 import { PayslipPrintActions } from "./PayslipPrintActions";
+import { LatePenaltyLine } from "./LatePenaltyLine";
 import { ReversedRunBanner } from "./ReversedRunBanner";
 import { NotPostedGuard } from "./NotPostedGuard";
-import { PAYSLIP_COPY, PAYSLIP_LABELS } from "../schemas/payslip.schema";
+import {
+  PAYSLIP_COPY,
+  PAYSLIP_LABELS,
+  hasLatePenalty,
+  paidDaysSubLine,
+  payRuleFootnote,
+} from "../schemas/payslip.schema";
 import type { Payslip } from "../api/salary";
 
 /**
@@ -39,6 +47,9 @@ export function PayslipDocument({
   const user = useAuthenticatedUser();
   const denied = roleMatches(["SITE_ENGINEER", "STORE_KEEPER", "PROJECT_MANAGER"], user.role);
   const q = usePayslips(sheetId);
+  // Company divisor for the penalty helper + the pay-rule footnote (FR-HR-008c). Copy
+  // only — every FIGURE on the document comes from the stored posted line.
+  const settingsQ = useAttendanceSettings();
   const searchParams = useSearchParams();
   const autoPrint = searchParams.get("print") === "1";
   const hasPrinted = useRef(false);
@@ -155,7 +166,11 @@ export function PayslipDocument({
     );
   }
 
+  // FR-HR-013a: gross is ALREADY net of the late penalty — the penalty line is
+  // explanatory, never arithmetic, so this stays `gross + allowances` untouched.
   const totalEarnings = toDecimal(payslip.grossAmount).plus(payslip.allowances).toString();
+  const showPenalty = hasLatePenalty(payslip);
+  const daysSubLine = paidDaysSubLine(payslip);
   const totalDeductions = toDecimal(payslip.deductions.tds)
     .plus(payslip.deductions.pf)
     .plus(payslip.deductions.advanceRecovery)
@@ -240,10 +255,25 @@ export function PayslipDocument({
               <p className="text-[10.5px] font-semibold uppercase tracking-[0.4px] text-faint">
                 {PAYSLIP_LABELS.paidDaysLabel}
               </p>
-              {/* Exact spec §8 microcopy — "Paid days: {paidDays}" as one combined string. */}
-              <p className="mt-0.5 font-mono text-[13px] font-semibold tabular-nums text-foreground" data-testid="payslip-paid-days">
+              {/* Exact spec §8 microcopy — "Paid days: {paidDays}" as one combined string.
+                  Renders the STORED value, never reduced by latePenaltyDays: the penalty
+                  reduced gross, it did not un-work a day (FR-HR-013a). */}
+              <p
+                className="mt-0.5 font-mono text-[13px] font-semibold tabular-nums text-foreground"
+                data-testid="payslip-paid-days"
+                aria-describedby={daysSubLine ? "payslip-paid-days-subline" : undefined}
+              >
                 {PAYSLIP_LABELS.paidDaysLabel}: {payslip.paidDays}
               </p>
+              {daysSubLine ? (
+                <p
+                  id="payslip-paid-days-subline"
+                  className="mt-0.5 text-[11px] text-muted-foreground"
+                  data-testid="payslip-paid-days-subline"
+                >
+                  {daysSubLine}
+                </p>
+              ) : null}
             </div>
           </div>
         </div>
@@ -257,6 +287,16 @@ export function PayslipDocument({
             totalLabel="Total earnings"
             total={totalEarnings}
             testId="payslip-earnings"
+            leading={
+              showPenalty ? (
+                <LatePenaltyLine
+                  lateCount={payslip.lateCount ?? 0}
+                  latePenaltyDays={payslip.latePenaltyDays ?? "0"}
+                  latePenaltyAmount={payslip.latePenaltyAmount ?? "0"}
+                  latesPerDeductedDay={settingsQ.data?.latesPerDeductedDay}
+                />
+              ) : null
+            }
             rows={[
               { label: PAYSLIP_LABELS.grossSalary, value: payslip.grossAmount, testId: "gross" },
               { label: PAYSLIP_LABELS.allowances, value: payslip.allowances, testId: "allowances" },
@@ -314,8 +354,18 @@ export function PayslipDocument({
           </span>
         </div>
 
-        {/* Footer note */}
-        <div className="flex flex-wrap items-center justify-between gap-3 border-t border-dashed border-border-strong px-6 py-3">
+        {/* Footer — the always-present pay-rule footnote sits ABOVE the system-generated
+            line. It interpolates the CURRENT divisor (known, accepted reprint defect). */}
+        <div className="border-t border-dashed border-border-strong px-6 py-3">
+          {settingsQ.data ? (
+            <p
+              className="mb-1.5 text-[10.5px] leading-relaxed text-muted-foreground"
+              data-testid="payslip-payrule-footnote"
+            >
+              {payRuleFootnote(settingsQ.data.latesPerDeductedDay)}
+            </p>
+          ) : null}
+          <div className="flex flex-wrap items-center justify-between gap-3">
           <p className="max-w-[52ch] text-[10.5px] leading-relaxed text-faint">
             System-generated from the posted {payslip.periodLabel} salary sheet. Figures reflect the
             salary lines captured at posting and match the general ledger to the same precision.
@@ -325,6 +375,7 @@ export function PayslipDocument({
               Posted {formatDate(sheet.postedAt)}
             </p>
           )}
+          </div>
         </div>
       </Card>
 
@@ -359,6 +410,7 @@ function PayslipBlock({
   totalLabel,
   totalClassName,
   testId,
+  leading,
 }: {
   title: string;
   titleClassName?: string;
@@ -367,6 +419,9 @@ function PayslipBlock({
   totalLabel: string;
   totalClassName?: string;
   testId: string;
+  /** Rendered INSIDE the block, before the first row — the FR-HR-013a penalty line sits
+   *  here, immediately above "Gross salary", in reading and print order alike. */
+  leading?: React.ReactNode;
 }) {
   return (
     <div className="px-6 py-4" data-testid={testId}>
@@ -376,6 +431,7 @@ function PayslipBlock({
         {title}
       </h2>
       <dl className="flex flex-col">
+        {leading}
         {rows.map((r) => (
           <div
             key={r.testId}
