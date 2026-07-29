@@ -261,7 +261,13 @@ function RailSection({ group, activeRoute }: { group: NavSectionGroup; activeRou
           <Link
             href={group.items[0]!.route}
             data-testid={`nav-rail-${group.icon}`}
-            aria-label={group.section}
+            /* The DESTINATION's label, not the section's. A one-item section skips the
+               flyout, so this link is the only place its item name can be announced — and
+               the two differ exactly when §3.1 would have KEPT the header. Otherwise a
+               Site Engineer's rail reads "MATERIALS"/"PEOPLE" instead of
+               "Requisitions"/"Attendance", with no flyout to recover them. Rail is the
+               default at tablet ≥768 (§4), so this is the common case, not an edge one. */
+            aria-label={group.items[0]!.label}
             aria-current={isActiveSection ? "page" : undefined}
             className={iconBtnClass}
           >

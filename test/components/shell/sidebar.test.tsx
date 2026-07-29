@@ -177,4 +177,18 @@ describe("Sidebar — rail mode (collapsed, spec §4/§9/§10)", () => {
     const materialsNav = screen.getByRole("navigation", { name: "MATERIALS" });
     expect(within(materialsNav).getByTestId("nav-rail-materials")).toBeInTheDocument();
   });
+
+  // A one-item section renders as a direct link with NO flyout, so the rail link is the only
+  // place its destination can be announced. It must say the item's name, not the section's —
+  // they differ exactly when spec §3.1 would have kept the header.
+  it("a one-item section's rail link announces the DESTINATION, not the section label", () => {
+    // Site Engineer sees MATERIALS → Requisitions and PEOPLE → Attendance, both one-item.
+    renderSidebarAs("SITE_ENGINEER");
+
+    expect(screen.getByRole("link", { name: "Requisitions" })).toBeInTheDocument();
+    expect(screen.getByRole("link", { name: "Attendance" })).toBeInTheDocument();
+    // The section strings must NOT be what the links announce.
+    expect(screen.queryByRole("link", { name: "MATERIALS" })).toBeNull();
+    expect(screen.queryByRole("link", { name: "PEOPLE" })).toBeNull();
+  });
 });
