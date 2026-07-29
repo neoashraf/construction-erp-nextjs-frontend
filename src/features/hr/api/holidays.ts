@@ -45,10 +45,16 @@ export async function getWeeklyOffDays(): Promise<WeeklyOffDays> {
 
 export async function saveWeeklyOffDays(weekdays: number[]): Promise<WeeklyOffDays> {
   const raw = await apiClient.put<unknown>("/holidays/weekly", { weekdays }, csrf());
-  // Echo back what we sent if the server's response isn't usable, so the panel's
-  // saved-state baseline still matches what the user just committed.
-  const confirmed = toWeekdays(raw);
-  return { weekdays: confirmed.length > 0 ? confirmed : weekdays };
+  // The endpoint normalises rather than rejects and returns the normalised list — the
+  // panel re-seeds from THIS, never from what was sent, so a value the server dropped is
+  // visible as a toggle that did not stay on. A response whose `weekdays` IS an array is
+  // usable even when empty: a legitimate clear-all (`[]`) must not be mistaken for an
+  // unusable payload and silently replaced by the sent list.
+  const body = raw as { weekdays?: unknown } | null;
+  if (body && Array.isArray(body.weekdays)) return { weekdays: toWeekdays(raw) };
+  // Unusable payload (e.g. the dev mock's generic echo) — fall back to what was sent so
+  // the saved-state baseline still matches what the user just committed.
+  return { weekdays: [...weekdays].filter((d) => d >= 0 && d <= 6).sort((a, b) => a - b) };
 }
 
 export interface GovernmentHoliday {
