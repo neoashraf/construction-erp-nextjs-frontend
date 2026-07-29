@@ -58,6 +58,14 @@ describe("summarizeHolidays", () => {
     expect(summary.workingDays).toBe(365 - 3 - 52);
   });
 
+  it("returns null — rendered as '—' — when the weekly count is unknown or zero", () => {
+    // Unknown (query unresolved/failed): a defaulted zero would silently render ~104
+    // extra working days as fact. Zero configured: the standing warning state; the card
+    // must not show a 7-day-week "estimate" beside four exact figures.
+    expect(summarizeHolidays([holiday()], null).workingDays).toBeNull();
+    expect(summarizeHolidays([holiday()], 0).workingDays).toBeNull();
+  });
+
   it("clamps at zero rather than reporting negative working days", () => {
     // 365 − 0 − (7 × 52) = 1, so a 7-day off-week alone stays positive…
     expect(summarizeHolidays([], 7).workingDays).toBe(1);

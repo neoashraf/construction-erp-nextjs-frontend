@@ -45,6 +45,18 @@ export function holidayTypeOf(holiday: Pick<GovernmentHoliday, "source" | "name"
   return "National";
 }
 
+/**
+ * Provenance label for a holiday row — the one thing on the row that says what the next
+ * year-end feed sync will do to it (a `manual` row is never overwritten by an import).
+ * Rendered as readable text, never colour alone.
+ */
+export function holidaySourceLabel(source: string | null | undefined): "From feed" | "Entered by hand" {
+  return (source ?? "").toLowerCase().includes("import") ? "From feed" : "Entered by hand";
+}
+
+/** Tooltip carried by "Entered by hand" — the standing proof of the manual-row protection. */
+export const MANUAL_SOURCE_TOOLTIP = "The year-end import leaves this row alone.";
+
 /** Weekday name for a `YYYY-MM-DD` string, e.g. "Friday". */
 export function weekdayName(isoDate: string): string {
   const date = parseDateOnly(isoDate);
@@ -92,8 +104,15 @@ export function holidayDaysByMonth(holidays: GovernmentHoliday[]): Record<number
 export interface HolidaySummary {
   total: number;
   byType: Record<HolidayType, number>;
-  /** Rough working-day estimate: 365 − dated holidays − (weekly off-days × 52). */
-  workingDays: number;
+  /**
+   * Rough working-day estimate: 365 − dated holidays − (weekly off-days × 52), or `null`
+   * when the card has no number it can stand behind: the weekly-off-days count is unknown
+   * (query unresolved or failed — a defaulted zero would silently render ~104 extra
+   * working days as fact), or zero off-days are configured (the standing warning state;
+   * the comp's zero-off-days frame reads "—", and a 7-day-week "estimate" beside four
+   * exact figures would be read as exact).
+   */
+  workingDays: number | null;
 }
 
 /**
@@ -103,14 +122,17 @@ export interface HolidaySummary {
  */
 export function summarizeHolidays(
   holidays: GovernmentHoliday[],
-  weeklyOffCount: number,
+  weeklyOffCount: number | null,
 ): HolidaySummary {
   const byType: Record<HolidayType, number> = { National: 0, Religious: 0, Special: 0 };
   for (const holiday of holidays) byType[holidayTypeOf(holiday)] += 1;
   return {
     total: holidays.length,
     byType,
-    workingDays: Math.max(0, 365 - holidays.length - weeklyOffCount * 52),
+    workingDays:
+      weeklyOffCount == null || weeklyOffCount === 0
+        ? null
+        : Math.max(0, 365 - holidays.length - weeklyOffCount * 52),
   };
 }
 

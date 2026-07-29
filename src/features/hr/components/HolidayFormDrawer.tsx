@@ -1,10 +1,10 @@
 "use client";
 
-import { useEffect, useState } from "react";
+import { useEffect, useMemo, useState } from "react";
+import { Alert } from "@/components/ui/alert";
 import { Button } from "@/components/ui/button";
 import { Input } from "@/components/ui/input";
 import { Label } from "@/components/ui/label";
-import { Select } from "@/components/ui/select";
 import { Sheet, SheetBody, SheetContent, SheetFooter, SheetHeader } from "@/components/ui/sheet";
 import { Textarea } from "@/components/ui/textarea";
 import { useToast } from "@/components/ui/toast";
@@ -12,18 +12,28 @@ import { ApiError } from "@/lib/api/errors";
 import { IsoDateField } from "./IsoDateField";
 import { type GovernmentHoliday } from "../api/holidays";
 import { useSaveHoliday } from "../hooks/useHolidays";
-import { HOLIDAY_TYPES, holidayTypeOf, type HolidayType } from "../lib/holiday-types";
+import { formatDayLabel } from "../lib/attendance-time";
+import { weekdayName } from "../lib/holiday-types";
 
 /**
- * Add / edit a holiday.
+ * Add / edit a holiday (FR-HR-008d).
  *
- * The backend upserts by date, so a save onto an existing date is an update rather than a
- * duplicate. That case is detected *before* the call purely to choose the right wording —
- * telling the user "saved" when they actually overwrote an existing holiday hides the fact
- * that something was replaced.
+ * The backend upserts by date, so a save onto an existing date is an OVERWRITE — the
+ * collision is detected from the loaded year and stated in the drawer BEFORE the call
+ * (including the one-way door: replacing an `import` row converts it to `manual`,
+ * permanently exempting the date from future feed syncs), not only in the toast wording.
  *
- * Closing is blocked while a save is in flight (including backdrop clicks), so the drawer
- * can't disappear midway and leave the outcome unreported.
+ * There is deliberately NO Type control: no stored category exists on `GovernmentHoliday`
+ * (SRS §16 records the two options for the client), and a select whose value is silently
+ * discarded on save must not ship on a payroll-critical screen. The read-side Type column
+ * stays as a client-side derivation.
+ *
+ * The date field's inline error is "Enter a valid date." — the server's own string names
+ * the YYYY-MM-DD wire format the user has never seen, and is the spec's one deliberate
+ * exception to rendering server validation strings verbatim.
+ *
+ * Closing is blocked while a save is in flight (backdrop + Esc), so the drawer can't
+ * disappear midway and leave the outcome unreported.
  */
 export function HolidayFormDrawer({
   open,
@@ -45,35 +55,64 @@ export function HolidayFormDrawer({
 
   const [name, setName] = useState("");
   const [date, setDate] = useState("");
-  const [type, setType] = useState<HolidayType>("National");
-  const [description, setDescription] = useState("");
+  const [localName, setLocalName] = useState("");
+  const [nameError, setNameError] = useState<string | null>(null);
+  const [dateError, setDateError] = useState<string | null>(null);
 
   // Re-seed the fields whenever the drawer opens or switches target.
   useEffect(() => {
     if (!open) return;
     setName(existing?.name ?? "");
     setDate(existing?.date ?? "");
-    setType(existing ? holidayTypeOf(existing) : "National");
-    setDescription(existing?.localName ?? "");
+    setLocalName(existing?.localName ?? "");
+    setNameError(null);
+    setDateError(null);
   }, [open, existing]);
 
-  const canSubmit = name.trim().length > 0 && date.length > 0 && !save.isPending;
+  // An entry on this date already exists (and isn't the one being edited) → overwrite.
+  // Surfaced BEFORE the call — telling a user "saved" when they just replaced an existing
+  // entry hides the fact that something was destroyed.
+  const collision = useMemo(
+    () => (date ? holidays.find((h) => h.date === date && h.id !== existing?.id) ?? null : null),
+    [date, holidays, existing],
+  );
+  const collisionFromFeed = collision
+    ? (collision.source ?? "").toLowerCase().includes("import")
+    : false;
 
   function handleSubmit() {
-    if (!canSubmit) return;
-    // An entry on this date already exists (and isn't the one being edited) → overwrite.
-    const collision = holidays.find((h) => h.date === date && h.id !== existing?.id);
+    if (save.isPending) return;
+    const trimmed = name.trim();
+    const nameMissing = trimmed.length === 0;
+    const dateMissing = date.length === 0;
+    setNameError(nameMissing ? "Holiday name is required." : null);
+    setDateError(dateMissing ? "Enter a valid date." : null);
+    if (nameMissing || dateMissing) return;
+
     const isUpdate = Boolean(existing) || Boolean(collision);
 
     save.mutate(
-      { date, name: name.trim(), localName: description.trim() || null },
+      { date, name: trimmed, localName: localName.trim() || null },
       {
         onSuccess: () => {
-          toast(isUpdate ? "Holiday updated" : "Holiday saved", "success");
+          toast(isUpdate ? "Holiday updated." : "Holiday saved.", "success");
           onClose();
         },
         onError: (error) => {
-          toast(error instanceof ApiError ? error.message : "Could not save holiday", "error");
+          if (error instanceof ApiError && error.isValidation) {
+            // Map the two known validation strings back onto their fields. The date
+            // message is rewritten — the wire-format string describes the wire, not the
+            // user's mistake (they have only ever seen DD/MM/YYYY).
+            if (/YYYY-MM-DD/i.test(error.message)) {
+              setDateError("Enter a valid date.");
+              return;
+            }
+            if (/name is required/i.test(error.message)) {
+              setNameError("Holiday name is required.");
+              return;
+            }
+          }
+          toast(error instanceof ApiError ? error.message : "Couldn't save holiday.", "error");
         },
       },
     );
@@ -105,56 +144,86 @@ export function HolidayFormDrawer({
         <SheetBody>
           <div className="flex flex-col gap-4">
             <div className="flex flex-col gap-1.5">
-              <Label htmlFor="holiday-name">Holiday name</Label>
+              <Label htmlFor="holiday-name">
+                Holiday name <span className="text-destructive" aria-hidden>*</span>
+              </Label>
               <Input
                 id="holiday-name"
                 value={name}
-                onChange={(e) => setName(e.target.value)}
+                invalid={Boolean(nameError)}
+                aria-describedby={nameError ? "holiday-name-error" : undefined}
+                onChange={(e) => {
+                  setName(e.target.value);
+                  if (nameError) setNameError(null);
+                }}
                 placeholder="e.g. Independence Day"
                 disabled={save.isPending}
               />
+              {nameError ? (
+                <p id="holiday-name-error" className="text-[11.5px] text-destructive-ink">
+                  {nameError}
+                </p>
+              ) : null}
             </div>
 
             <div className="flex flex-col gap-1.5">
-              <Label htmlFor="holiday-date">Date</Label>
-              <IsoDateField
-                id="holiday-date"
-                value={date}
-                onChange={setDate}
-                disabled={save.isPending}
-              />
+              <Label htmlFor="holiday-date">
+                Date <span className="text-destructive" aria-hidden>*</span>
+              </Label>
+              <div className="relative">
+                <IsoDateField
+                  id="holiday-date"
+                  value={date}
+                  invalid={Boolean(dateError)}
+                  onChange={(next) => {
+                    setDate(next);
+                    if (dateError) setDateError(null);
+                  }}
+                  disabled={save.isPending}
+                  className="pr-24"
+                />
+                {date ? (
+                  <span
+                    className="pointer-events-none absolute right-10 top-1/2 -translate-y-1/2 text-[12px] text-muted-foreground"
+                    aria-hidden
+                  >
+                    {weekdayName(date)}
+                  </span>
+                ) : null}
+              </div>
+              {dateError ? (
+                <p id="holiday-date-error" className="text-[11.5px] text-destructive-ink">
+                  {dateError}
+                </p>
+              ) : null}
             </div>
 
             <div className="flex flex-col gap-1.5">
-              <Label htmlFor="holiday-type">Type</Label>
-              <Select
-                id="holiday-type"
-                value={type}
-                disabled={save.isPending}
-                onChange={(e) => setType(e.target.value as HolidayType)}
-              >
-                {HOLIDAY_TYPES.map((t) => (
-                  <option key={t} value={t}>
-                    {t}
-                  </option>
-                ))}
-              </Select>
-              <p className="text-[11.5px] text-muted-foreground">
-                Type is derived from the holiday source when it comes from the government feed.
-              </p>
-            </div>
-
-            <div className="flex flex-col gap-1.5">
-              <Label htmlFor="holiday-description">Local name / description</Label>
+              <Label htmlFor="holiday-local-name">Local name (Bangla)</Label>
               <Textarea
-                id="holiday-description"
+                id="holiday-local-name"
                 rows={3}
-                value={description}
-                onChange={(e) => setDescription(e.target.value)}
+                value={localName}
+                onChange={(e) => setLocalName(e.target.value)}
                 placeholder="Optional — e.g. স্বাধীনতা দিবস"
                 disabled={save.isPending}
               />
+              <p className="text-[11.5px] text-muted-foreground">
+                Shown beneath the English name everywhere the calendar is read.
+              </p>
             </div>
+
+            {collision ? (
+              <Alert tone="warning" data-testid="overwrite-notice">
+                <p className="font-semibold text-warning-ink">
+                  {formatDayLabel(collision.date)} already has a holiday — &quot;{collision.name}&quot;.
+                  Saving replaces it.
+                </p>
+                {collisionFromFeed ? (
+                  <p>It will also become a hand-entered holiday, so future imports will leave it alone.</p>
+                ) : null}
+              </Alert>
+            ) : null}
           </div>
         </SheetBody>
 
@@ -162,7 +231,7 @@ export function HolidayFormDrawer({
           <Button variant="outline" size="sm" onClick={onClose} disabled={save.isPending}>
             Cancel
           </Button>
-          <Button size="sm" onClick={handleSubmit} disabled={!canSubmit}>
+          <Button size="sm" onClick={handleSubmit} disabled={save.isPending}>
             {save.isPending ? "Saving…" : "Save holiday"}
           </Button>
         </SheetFooter>

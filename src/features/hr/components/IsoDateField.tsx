@@ -16,6 +16,7 @@ export function IsoDateField({
   value,
   onChange,
   disabled,
+  invalid,
   className,
 }: {
   id?: string;
@@ -23,6 +24,7 @@ export function IsoDateField({
   value: string;
   onChange: (isoDate: string) => void;
   disabled?: boolean;
+  invalid?: boolean;
   className?: string;
 }) {
   const display = (() => {
@@ -55,6 +57,7 @@ export function IsoDateField({
       value={display}
       onChange={handleChange}
       disabled={disabled}
+      invalid={invalid}
       className={className}
     />
   );

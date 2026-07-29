@@ -1,4 +1,5 @@
 import { useMutation, useQuery, useQueryClient } from "@tanstack/react-query";
+import { ApiError } from "@/lib/api/errors";
 import {
   createGovernmentHoliday,
   deleteGovernmentHoliday,
@@ -91,8 +92,19 @@ export function useDeleteHoliday(year: number) {
   const queryClient = useQueryClient();
   const invalidateAttendance = useInvalidateCalendar();
   return useMutation({
-    mutationFn: (id: string) => deleteGovernmentHoliday(id),
-    onSuccess: (_void, id) => {
+    // A 404 means another admin already deleted the row — the user's intent was achieved,
+    // just not by them. Treated as an informational outcome, not an error: the row still
+    // leaves the list, only the toast wording differs.
+    mutationFn: async (id: string): Promise<{ alreadyDeleted: boolean }> => {
+      try {
+        await deleteGovernmentHoliday(id);
+        return { alreadyDeleted: false };
+      } catch (error) {
+        if (error instanceof ApiError && error.status === 404) return { alreadyDeleted: true };
+        throw error;
+      }
+    },
+    onSuccess: (_result, id) => {
       queryClient.setQueryData<GovernmentHoliday[]>(holidayKeys.government(year), (prev) =>
         (prev ?? []).filter((h) => h.id !== id),
       );
