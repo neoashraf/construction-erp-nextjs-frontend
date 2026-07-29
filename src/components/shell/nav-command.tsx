@@ -23,7 +23,7 @@ export function NavCommand({ viewer }: { viewer: NavViewer }) {
     const nav = navDestinationsForRole(viewer).map((d) => ({
       key: `nav:${d.route}`,
       label: d.label,
-      hint: d.moduleLabel,
+      hint: d.section,
       route: d.route,
     }));
     const create = quickCreateForRole(viewer).map((t) => ({

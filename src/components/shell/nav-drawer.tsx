@@ -1,18 +1,17 @@
 "use client";
 
-import { useEffect, useState } from "react";
+import { useEffect } from "react";
 import Link from "next/link";
 import { usePathname } from "next/navigation";
 import * as DialogPrimitive from "@radix-ui/react-dialog";
-import { ChevronDown, X } from "lucide-react";
+import { X } from "lucide-react";
 import {
   visibleTreeForRole,
   matchNav,
-  isDirectLink,
-  directLinkRoute,
+  suppressesHeader,
   CHIP_CLASS,
-  type NavModule,
-  type NavSubItem,
+  type NavSectionGroup,
+  type NavItem,
 } from "@/lib/nav/nav-tree";
 import { NAV_ICON } from "./nav-icons";
 import { BrandLogo } from "./brand-logo";
@@ -22,15 +21,15 @@ import { UserMenu, type UserMenuUser } from "./user-menu";
 import { cn } from "@/lib/utils";
 
 /**
- * Mobile navigation drawer (screen spec §4 responsive · §9/§10). At <768 the sidebar
- * is replaced by a topbar hamburger opening this full-height left **drawer** (Radix
- * Dialog — focus-trap, Esc, scroll-lock, focus restored on close) with the same
- * role-filtered tree and sections as headers. It follows the same **accordion**
- * disclosure as the desktop sidebar (§3.1/§9): one module open at a time, the active
- * route's module auto-expanded on open, single-item modules as direct links (no
- * chevron). The user block is pinned at the drawer bottom (same upward profile menu —
- * v3). Tapping a built sub-item navigates + closes; unbuilt items render
- * de-emphasised + non-navigating.
+ * Mobile navigation drawer (nav IA redesign; screen spec §3.1/§4 responsive · §9/§10).
+ * At <768 the sidebar is replaced by a topbar hamburger opening this full-height left
+ * **drawer** (Radix Dialog — focus-trap, Esc, scroll-lock, focus restored on close)
+ * with the SAME flat, role-filtered tree as the desktop sidebar: sections as headers,
+ * screen rows listed flat beneath — nothing pre-expanded because nothing collapses.
+ * A section resolving to a single label-matching item renders as a bare row
+ * (`suppressesHeader`), and the governance sections sit below a single divider. The
+ * user block is pinned at the drawer bottom (same upward profile menu). Tapping a
+ * built item navigates + closes; unbuilt items render de-emphasised + non-navigating.
  */
 export function NavDrawer({ user }: { user: UserMenuUser & { permissions?: import("@/lib/auth/session").SessionPermission[] | null } }) {
   const pathname = usePathname();
@@ -38,21 +37,15 @@ export function NavDrawer({ user }: { user: UserMenuUser & { permissions?: impor
   // FE-21: permission-driven filtering when the projection is present; role fallback otherwise.
   const tree = visibleTreeForRole(user);
   const match = matchNav(pathname);
-  const activeModuleId = match?.module.id ?? null;
-  const activeItemRoute = match?.item.route ?? null;
-
-  // Accordion: which module is expanded. Seed with the active route's module and
-  // keep it expanded across navigations (never auto-collapse it) — same as desktop.
-  const [openId, setOpenId] = useState<string | null>(activeModuleId);
-  useEffect(() => {
-    if (activeModuleId) setOpenId(activeModuleId);
-  }, [activeModuleId]);
+  const activeRoute = match?.item.route ?? null;
 
   // Close the drawer whenever the route changes (a nav tap navigated).
   useEffect(() => {
     setDrawerOpen(false);
     // eslint-disable-next-line react-hooks/exhaustive-deps
   }, [pathname]);
+
+  let dividerRendered = false;
 
   return (
     <DialogPrimitive.Root open={drawerOpen} onOpenChange={setDrawerOpen}>
@@ -82,39 +75,32 @@ export function NavDrawer({ user }: { user: UserMenuUser & { permissions?: impor
             Primary navigation
           </DialogPrimitive.Description>
 
-          <nav aria-label="Primary" className="flex-1 overflow-y-auto px-2 pb-4">
+          <div className="flex-1 overflow-y-auto px-2 pb-4">
             {tree.length === 0 ? (
-              <p className="px-3 py-2 text-[13px] text-sidebar-muted">No modules available for your role.</p>
+              <p className="px-3 py-2 text-[13px] text-sidebar-muted">No screens available for your role.</p>
             ) : (
-              tree.map((group) => (
-                <div key={group.section} className="mb-2">
-                  <div className="px-3 pb-1 pt-4 text-[10px] font-semibold uppercase tracking-wide text-sidebar-muted">
-                    {group.section}
-                  </div>
-                  {group.modules.map((module) =>
-                    isDirectLink(module) ? (
-                      <DrawerDirectLink
-                        key={module.id}
-                        module={module}
-                        active={module.id === activeModuleId}
-                      />
+              tree.map((group) => {
+                const showDivider = !!group.belowDivider && !dividerRendered;
+                if (showDivider) dividerRendered = true;
+                return (
+                  <div key={group.section}>
+                    {showDivider && (
+                      <hr role="separator" className="mx-2 my-2 border-t border-sidebar-border" />
+                    )}
+                    {suppressesHeader(group) ? (
+                      <div className="mb-2">
+                        <DrawerItem item={group.items[0]!} active={group.items[0]!.route === activeRoute} />
+                      </div>
                     ) : (
-                      <DrawerModule
-                        key={module.id}
-                        module={module}
-                        open={openId === module.id}
-                        onToggle={() => setOpenId((prev) => (prev === module.id ? null : module.id))}
-                        activeItemRoute={activeItemRoute}
-                        hasActiveChild={module.id === activeModuleId}
-                      />
-                    ),
-                  )}
-                </div>
-              ))
+                      <DrawerSection group={group} activeRoute={activeRoute} />
+                    )}
+                  </div>
+                );
+              })
             )}
-          </nav>
+          </div>
 
-          {/* user block pinned at the drawer bottom (spec §4/§5 — v3) */}
+          {/* user block pinned at the drawer bottom */}
           <div data-testid="drawer-footer" className="shrink-0 border-t border-sidebar-border px-2 py-2">
             <UserMenu user={user} variant="drawer" />
           </div>
@@ -124,11 +110,11 @@ export function NavDrawer({ user }: { user: UserMenuUser & { permissions?: impor
   );
 }
 
-function ModuleChip({ module }: { module: NavModule }) {
-  const Icon = NAV_ICON[module.icon];
+function SectionChip({ group }: { group: NavSectionGroup }) {
+  const Icon = NAV_ICON[group.icon];
   return (
     <span
-      className={cn("grid h-[22px] w-[22px] shrink-0 place-items-center rounded-md", CHIP_CLASS[module.chip])}
+      className={cn("grid h-[22px] w-[22px] shrink-0 place-items-center rounded-md", CHIP_CLASS[group.chip])}
       aria-hidden
     >
       <Icon className="h-3.5 w-3.5" />
@@ -136,80 +122,30 @@ function ModuleChip({ module }: { module: NavModule }) {
   );
 }
 
-/** A single-screen module: a plain link (no chevron), same as the desktop sidebar. */
-function DrawerDirectLink({ module, active }: { module: NavModule; active: boolean }) {
-  const route = directLinkRoute(module);
+/** A headed section: heading + its flat item rows (no disclosure — nothing collapses). */
+function DrawerSection({ group, activeRoute }: { group: NavSectionGroup; activeRoute: string | null }) {
+  const headingId = `drawer-section-${group.icon}`;
   return (
-    <Link
-      href={route}
-      aria-current={active ? "page" : undefined}
-      className={cn(
-        "relative my-0.5 flex items-center gap-2.5 rounded-token px-2.5 py-2 text-[13px] transition-colors",
-        active
-          ? "bg-sidebar-active font-semibold text-sidebar-active-foreground"
-          : "text-sidebar-foreground hover:bg-sidebar-hover",
-      )}
-    >
-      {active && <span className="absolute inset-y-1.5 left-0 w-[3px] rounded-r bg-accent" aria-hidden />}
-      <ModuleChip module={module} />
-      {module.label}
-    </Link>
-  );
-}
-
-/** A multi-screen module: a disclosure button (accordion) controlling its sub-items. */
-function DrawerModule({
-  module,
-  open,
-  onToggle,
-  activeItemRoute,
-  hasActiveChild,
-}: {
-  module: NavModule;
-  open: boolean;
-  onToggle: () => void;
-  activeItemRoute: string | null;
-  hasActiveChild: boolean;
-}) {
-  const listId = `drawer-sub-${module.id}`;
-  return (
-    <div className="mb-1">
-      <button
-        type="button"
-        aria-expanded={open}
-        aria-controls={listId}
-        onClick={onToggle}
-        className={cn(
-          "my-0.5 flex w-full items-center gap-2.5 rounded-token px-2.5 py-2 text-left text-[12px] font-semibold uppercase tracking-wide transition-colors",
-          hasActiveChild
-            ? "text-sidebar-active-foreground"
-            : "text-sidebar-muted hover:bg-sidebar-hover",
-        )}
+    <nav aria-labelledby={headingId} className="mb-2">
+      <div
+        id={headingId}
+        className="flex items-center gap-2.5 px-3 pb-1 pt-4 text-[10px] font-semibold uppercase tracking-wide text-sidebar-muted"
       >
-        <ModuleChip module={module} />
-        <span className="flex-1 truncate">{module.label}</span>
-        <ChevronDown
-          className={cn("h-3.5 w-3.5 shrink-0 text-sidebar-muted transition-transform", open && "rotate-180")}
-          aria-hidden
-        />
-      </button>
-      {open && (
-        <ul id={listId} className="ml-[26px] flex flex-col border-l border-sidebar-border pl-1.5">
-          {module.items.map((item) => (
-            <li key={item.route}>
-              <DrawerSubItem item={item} active={item.route === activeItemRoute} />
-            </li>
-          ))}
-        </ul>
-      )}
-    </div>
+        <SectionChip group={group} />
+        <span>{group.section}</span>
+      </div>
+      {group.items.map((item) => (
+        <DrawerItem key={item.route} item={item} active={item.route === activeRoute} />
+      ))}
+    </nav>
   );
 }
 
-function DrawerSubItem({ item, active }: { item: NavSubItem; active: boolean }) {
+function DrawerItem({ item, active }: { item: NavItem; active: boolean }) {
   if (!item.built) {
     return (
       <span
+        data-testid={`nav-item-${item.route}`}
         aria-disabled="true"
         title="Coming soon"
         className="my-0.5 flex items-center gap-2 rounded-token px-2.5 py-2 text-[13px] text-sidebar-muted/70"
@@ -224,6 +160,7 @@ function DrawerSubItem({ item, active }: { item: NavSubItem; active: boolean }) 
   return (
     <Link
       href={item.route}
+      data-testid={`nav-item-${item.route}`}
       aria-current={active ? "page" : undefined}
       className={cn(
         "relative my-0.5 flex items-center gap-2 rounded-token px-2.5 py-2 text-[13px] transition-colors",

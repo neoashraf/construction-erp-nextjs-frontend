@@ -1,149 +1,95 @@
 /**
- * FE-SHELL nav model (screen spec §3.2 / §11). Pure role-filtering, quick-create and
- * bell gating, unbuilt retention, and route matching — the data contract the sidebar,
- * drawer, quick-create menu, bell, and Ctrl+K palette all render from.
+ * FE-SHELL nav model (screen spec §3.1/§3.2/§11; nav IA redesign spec §4/§8). Flat
+ * section → item model: role-filtering, header suppression, the governance divider,
+ * and route matching — the data contract the sidebar, drawer, quick-create menu,
+ * bell, and Ctrl+K palette all render from. There is no module level any more.
  */
 import {
-  NAV_TREE,
-  visibleTreeForRole,
-  hasAnyNav,
-  navDestinationsForRole,
-  quickCreateForRole,
-  showsAlertsBell,
-  costControlBuilt,
-  matchNav,
-  isDirectLink,
+  NAV_SECTIONS, NAV_TREE, visibleTreeForRole, suppressesHeader, matchNav,
+  type NavSectionGroup,
 } from "@/lib/nav/nav-tree";
-import { type Role } from "@/lib/auth/roles";
+import { type SessionPermission } from "@/lib/auth/session";
 
-function sectionsFor(role: Role): string[] {
-  return visibleTreeForRole(role).map((g) => g.section);
-}
-function moduleIdsFor(role: Role): string[] {
-  return visibleTreeForRole(role).flatMap((g) => g.modules.map((m) => m.id));
-}
+const grant = (resource: string): SessionPermission =>
+  ({ resource, action: "READ", projectScope: "ASSIGNED", valueLimit: null });
 
-describe("nav tree — role-filtered visibility (spec §11)", () => {
-  it("Admin sees every section and all 16 modules", () => {
-    expect(sectionsFor("ADMIN")).toEqual([
-      "OVERVIEW",
-      "TRANSACTIONS",
-      "PEOPLE",
-      "LEDGER & REPORTS",
-      "ADMINISTRATION",
+const rowsOf = (groups: NavSectionGroup[]) => groups.flatMap((g) => g.items);
+
+describe("nav model is flat (nav IA redesign)", () => {
+  it("declares the eleven sections in order", () => {
+    expect(NAV_SECTIONS).toEqual([
+      "HOME", "PROJECTS", "PARTIES", "MATERIALS", "PURCHASES & PAYMENTS",
+      "BILLING & RECEIPTS", "PEOPLE", "ACCOUNTS", "REPORTS & ANALYSIS",
+      "USERS & ACCESS", "AUDIT LOG",
     ]);
-    expect(moduleIdsFor("ADMIN")).toHaveLength(16);
   });
 
-  it("Site Engineer sees only Dashboard · Requisitions · Attendance (HR)", () => {
-    const ids = moduleIdsFor("SITE_ENGINEER");
-    expect(ids).toContain("dashboard");
-    expect(ids).toContain("requisitions");
-    expect(ids).toContain("hr"); // Attendance lives under HR & Payroll
-    expect(ids).not.toContain("ledger");
-    expect(ids).not.toContain("master-data");
-    // HR module is shown but only the Attendance sub-item is reachable.
-    const hr = visibleTreeForRole("SITE_ENGINEER")
-      .flatMap((g) => g.modules)
-      .find((m) => m.id === "hr");
-    expect(hr?.items.map((i) => i.label)).toEqual(["Attendance"]);
+  it("renders 37 rows for Admin and no section exceeds 7", () => {
+    const tree = visibleTreeForRole({ role: "ADMIN" });
+    expect(rowsOf(tree)).toHaveLength(37);
+    for (const g of tree) expect(g.items.length).toBeLessThanOrEqual(7);
   });
 
-  it("HR Manager sees PEOPLE + Reports, not TRANSACTIONS/ADMINISTRATION", () => {
-    const sections = sectionsFor("HR_MANAGER");
-    expect(sections).toContain("PEOPLE");
-    expect(sections).toContain("LEDGER & REPORTS"); // Reports (HR set)
-    expect(sections).not.toContain("TRANSACTIONS");
-    expect(sections).not.toContain("ADMINISTRATION");
+  it("has no my-work row (deferred, spec 6.1)", () => {
+    expect(rowsOf(visibleTreeForRole({ role: "ADMIN" })).map((i) => i.route))
+      .not.toContain("/my-work");
   });
 
-  it("Project Manager sees Ledger→Account ledger but NOT Journal entries or Profitability", () => {
-    const modules = visibleTreeForRole("PROJECT_MANAGER").flatMap((g) => g.modules);
-    const ledger = modules.find((m) => m.id === "ledger");
-    expect(ledger?.items.map((i) => i.label)).toEqual(["Account ledger"]);
-    const cc = modules.find((m) => m.id === "cost-control");
-    expect(cc?.items.map((i) => i.label)).toEqual(["Budget vs actual", "Over-budget alerts"]);
-    expect(cc?.items.map((i) => i.label)).not.toContain("Profitability");
+  it("keeps the three Settings screens out of the sidebar", () => {
+    const routes = rowsOf(visibleTreeForRole({ role: "ADMIN" })).map((i) => i.route);
+    expect(routes).not.toContain("/numbering");
+    expect(routes).not.toContain("/master-data/company-settings");
+    expect(routes).not.toContain("/master-data/financial-years");
   });
 
-  it("a module renders only if ≥1 sub-item is reachable; a section only if ≥1 module", () => {
-    // Store Keeper: no PEOPLE, no LEDGER&REPORTS ledger; has Purchases(GRN)+Inventory+Requisitions
-    const ids = moduleIdsFor("STORE_KEEPER");
-    expect(ids).toContain("purchases");
-    expect(ids).toContain("inventory");
-    expect(ids).not.toContain("ledger");
-    expect(sectionsFor("STORE_KEEPER")).not.toContain("PEOPLE");
+  it("suppresses the header only when a lone item's label matches the section", () => {
+    const admin = visibleTreeForRole({ role: "ADMIN" });
+    expect(suppressesHeader(admin.find((g) => g.section === "PARTIES")!)).toBe(true);
+    expect(suppressesHeader(admin.find((g) => g.section === "AUDIT LOG")!)).toBe(true);
+    expect(suppressesHeader(admin.find((g) => g.section === "HOME")!)).toBe(false);
   });
 
-  it("every role has at least the Dashboard (no empty nav in Phase 1)", () => {
-    const roles: Role[] = ["ADMIN", "ACCOUNTS_TEAM", "PROJECT_MANAGER", "SITE_ENGINEER", "STORE_KEEPER", "HR_MANAGER"];
-    for (const r of roles) {
-      expect(hasAnyNav(r)).toBe(true);
-      expect(moduleIdsFor(r)).toContain("dashboard");
-    }
+  it("marks governance sections as below the divider", () => {
+    const below = NAV_TREE.filter((g) => g.belowDivider).map((g) => g.section);
+    expect(below).toEqual(["USERS & ACCESS", "AUDIT LOG"]);
+  });
+
+  it("matchNav resolves a route to its section and item, with no module", () => {
+    const m = matchNav("/inventory/stock-ledger");
+    expect(m?.section).toBe("MATERIALS");
+    expect(m?.item.label).toBe("Stock ledger");
+    expect(m).not.toHaveProperty("module");
   });
 });
 
-describe("nav tree — item retention + direct links", () => {
-  it("keeps Tier-2/3 items in the tree (filtered by role, not by built)", () => {
-    // Every Tier-2/3 nav item is now navigable (its route lands on a Coming-soon
-    // placeholder page), so the sidebar links to a real page, never a dead link.
-    const sales = visibleTreeForRole("ADMIN")
-      .flatMap((g) => g.modules)
-      .find((m) => m.id === "sales");
-    expect(sales?.items.length).toBeGreaterThan(0);
-    expect(sales?.items.every((i) => i.built === true)).toBe(true);
+describe("per-role trees match nav-tree-by-role.md 2", () => {
+  it("Store Keeper: 2 sections, 6 rows, whole job under MATERIALS", () => {
+    const viewer = { role: "STORE_KEEPER" as const, permissions: [
+      "dashboard", "purchase.grn", "inventory.stock_journals",
+      "inventory.stock_ledger", "requisitions.list", "requisitions.issues",
+    ].map(grant) };
+    const tree = visibleTreeForRole(viewer);
+    expect(tree.map((g) => g.section)).toEqual(["HOME", "MATERIALS"]);
+    expect(rowsOf(tree)).toHaveLength(6);
   });
 
-  it("single-screen modules are direct links; multi-screen are not", () => {
-    const all = NAV_TREE.flatMap((g) => g.modules);
-    expect(isDirectLink(all.find((m) => m.id === "dashboard")!)).toBe(true);
-    expect(isDirectLink(all.find((m) => m.id === "numbering")!)).toBe(true);
-    expect(isDirectLink(all.find((m) => m.id === "ledger")!)).toBe(false);
-    expect(isDirectLink(all.find((m) => m.id === "master-data")!)).toBe(false);
-  });
-});
-
-describe("quick-create + alerts-bell gating (spec §5/§11)", () => {
-  it("quick-create lists only built && role-permitted targets (Requisition is built as of FE-29)", () => {
-    // The Requisition entry form (FE-29) is the first built quick-create target.
-    const admin = quickCreateForRole("ADMIN");
-    expect(admin.map((t) => t.route)).toContain("/requisitions/new");
-    const se = quickCreateForRole("SITE_ENGINEER");
-    expect(se.map((t) => t.route)).toContain("/requisitions/new");
-    // Every listed target is built + role-permitted.
-    expect(admin.every((t) => t.built)).toBe(true);
+  it("Site Engineer no longer sees Holidays (hr.holidays is separate now)", () => {
+    const viewer = { role: "SITE_ENGINEER" as const, permissions: [
+      "dashboard", "requisitions.list", "hr.attendance",
+    ].map(grant) };
+    const labels = rowsOf(visibleTreeForRole(viewer)).map((i) => i.label);
+    expect(labels).toContain("Attendance");
+    expect(labels).not.toContain("Holidays");
+    expect(labels).toHaveLength(3);
   });
 
-  it("alerts bell (FE-53 rebind: the NTF surface) shows for every authenticated role", () => {
-    expect(showsAlertsBell("ADMIN")).toBe(true);
-    expect(showsAlertsBell("ACCOUNTS_TEAM")).toBe(true);
-    expect(showsAlertsBell("PROJECT_MANAGER")).toBe(true);
-    expect(showsAlertsBell("SITE_ENGINEER")).toBe(true);
-    expect(showsAlertsBell("STORE_KEEPER")).toBe(true);
-    expect(showsAlertsBell("HR_MANAGER")).toBe(true);
-  });
-
-  it("cost-control is data-backed (FE-25 alerts screen shipped) → bell fires the live count fetch", () => {
-    // The Over-budget alerts screen + its `GET /api/cost-control/alerts` endpoint now exist,
-    // so the bell's fetch gate is on (it still degrades to a plain bell on error).
-    expect(costControlBuilt()).toBe(true);
-  });
-});
-
-describe("Ctrl+K destinations + route matching", () => {
-  it("nav destinations are built + role-permitted (every nav route is now navigable)", () => {
-    const dests = navDestinationsForRole("ADMIN");
-    const routes = dests.map((d) => d.route);
-    expect(routes).toContain("/ledger/journal-entries");
-    expect(routes).toContain("/numbering");
-    expect(routes).toContain("/sales/ipcs"); // now navigable (Coming-soon placeholder)
-  });
-
-  it("matchNav picks the deepest matching sub-item (detail route → its list item)", () => {
-    expect(matchNav("/ledger/journal-entries")?.item.label).toBe("Journal entries");
-    expect(matchNav("/master-data/items/abc-123")?.item.label).toBe("Items");
-    expect(matchNav("/numbering")?.module.label).toBe("Numbering");
-    expect(matchNav("/nope")).toBeNull();
+  it("HR Manager sees Reports under REPORTS & ANALYSIS, never a ledger section", () => {
+    const viewer = { role: "HR_MANAGER" as const, permissions: [
+      "dashboard", "hr.employees", "hr.attendance", "hr.holidays",
+      "hr.salary_sheets", "reports",
+    ].map(grant) };
+    const tree = visibleTreeForRole(viewer);
+    expect(tree.map((g) => g.section)).toEqual(["HOME", "PEOPLE", "REPORTS & ANALYSIS"]);
+    expect(rowsOf(tree)).toHaveLength(6);
   });
 });

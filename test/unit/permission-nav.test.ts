@@ -24,8 +24,7 @@ function grant(resource: string, action: SessionPermission["action"] = "READ"): 
 
 const routesOf = (viewer: NavViewer | Parameters<typeof visibleTreeForRole>[0]) =>
   visibleTreeForRole(viewer)
-    .flatMap((g) => g.modules)
-    .flatMap((m) => m.items)
+    .flatMap((g) => g.items)
     .map((i) => i.route);
 
 describe("hasGrant / roleMatches (lib/auth/roles)", () => {
@@ -93,10 +92,8 @@ describe("visibleTreeForRole — permission-driven (FR-AUD-032)", () => {
 
   it("every nav item carries a resource code (catalogue-tagged)", () => {
     for (const group of NAV_TREE) {
-      for (const mod of group.modules) {
-        for (const item of mod.items) {
-          expect(item.resource).toBeTruthy();
-        }
+      for (const item of group.items) {
+        expect(item.resource).toBeTruthy();
       }
     }
   });
@@ -131,8 +128,7 @@ describe("quick-create + alerts bell + palette (spec §11)", () => {
   });
 
   it("canReachItem: grant present → reachable even when the role list would deny", () => {
-    const item = NAV_TREE.flatMap((g) => g.modules)
-      .flatMap((m) => m.items)
+    const item = NAV_TREE.flatMap((g) => g.items)
       .find((i) => i.resource === "audit.audit_log")!;
     expect(canReachItem(item, { role: "STORE_KEEPER", permissions: [grant("audit.audit_log")] })).toBe(true);
     expect(canReachItem(item, { role: "STORE_KEEPER", permissions: [] })).toBe(false);

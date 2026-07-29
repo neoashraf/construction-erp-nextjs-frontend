@@ -1,18 +1,21 @@
 /**
- * The App Shell v2 navigation model — the single source of truth for the two-level,
- * role-filtered sidebar/drawer/rail-flyout and the "+ New" quick-create menu
- * (screen spec docs/design/screens/00-app-shell/app-shell.md §3.2/§8/§11).
+ * The App Shell nav model — the single source of truth for the FLAT, role-filtered
+ * sidebar/drawer/rail-flyout and the "+ New" quick-create menu (screen spec
+ * docs/design/screens/00-app-shell/app-shell.md §3.1/§3.2/§3.3/§4/§5/§8/§10/§11 and
+ * the navigation IA redesign spec it implements).
+ *
+ * Nav IA redesign (29/07/2026): the model is now TWO levels — section → screen.
+ * The former module level (`NavModule`/`NavSubItem`, an accordion in between) is
+ * gone; every visible screen is its own row, one click from the sidebar. 11
+ * sections, 37 rendered rows for Admin (the full tree).
  *
  * This is the NAV (UI) model. It is deliberately separate from `lib/auth/roles.ts`,
  * which stays the source of truth for the *server route guards* on the built Tier-1
  * segments (`requireModuleAccess("ledger")` etc.). Nav visibility here is
  * defence-in-depth UI only — the backend + the module guards re-check every route.
  *
- * Each sub-item carries a `built` flag: `true` for the 20 shipped Tier-1 screens +
- * Dashboard, `false` for Tier-2/3 screens not yet built. An unbuilt item still
- * renders (so the tree shape is complete + reviewable) but is de-emphasised and
- * non-navigating with a "Coming soon" affordance — never a dead link (§3.2 note).
- * Flipping one `built` flag activates a screen when its per-screen brief ships.
+ * Every item carries a `built` flag: `true` for shipped screens, `false` renders a
+ * de-emphasised, non-navigating "Coming soon" row — never a dead link.
  */
 
 import { hasGrant, roleMatches, type ActionCode, type Role } from "@/lib/auth/roles";
@@ -21,7 +24,7 @@ import { type SessionPermission } from "@/lib/auth/session";
 export type { Role };
 
 /**
- * FE-21 (FR-AUD-031/032/033): nav visibility is PERMISSION-DRIVEN. Each sub-item
+ * FE-21 (FR-AUD-031/032/033): nav visibility is PERMISSION-DRIVEN. Each item
  * carries its Resource-Catalogue `resource` code (nav-tree-admin.md) and renders
  * iff the session's effective permission set holds `resource:READ`. The per-item
  * `roles` list remains ONLY as the fallback when the projection is unavailable
@@ -39,18 +42,24 @@ function asViewer(v: ViewerLike): NavViewer {
   return typeof v === "string" ? { role: v } : v;
 }
 
-/** The five fixed section labels, in order (spec §8). */
+/** The eleven fixed section labels, in order (nav IA redesign spec §4, app-shell §8). */
 export const NAV_SECTIONS = [
-  "OVERVIEW",
-  "TRANSACTIONS",
+  "HOME",
+  "PROJECTS",
+  "PARTIES",
+  "MATERIALS",
+  "PURCHASES & PAYMENTS",
+  "BILLING & RECEIPTS",
   "PEOPLE",
-  "LEDGER & REPORTS",
-  "ADMINISTRATION",
+  "ACCOUNTS",
+  "REPORTS & ANALYSIS",
+  "USERS & ACCESS",
+  "AUDIT LOG",
 ] as const;
 
 export type NavSection = (typeof NAV_SECTIONS)[number];
 
-/** The 22px icon-chip tint (wayfinding only — hue carries no status meaning; §3.2). */
+/** The 22px icon-chip tint (wayfinding only — hue carries no status meaning). */
 export type ChipTint = "lime" | "green" | "blue" | "teal" | "violet" | "amber" | "red";
 
 /** Tailwind token classes for each chip tint (design-system tokens, never raw hex). */
@@ -64,10 +73,24 @@ export const CHIP_CLASS: Record<ChipTint, string> = {
   red: "bg-destructive-soft text-destructive-ink",
 };
 
-export interface NavSubItem {
-  /** Exact sub-item label (spec §3.2/§8). */
+/** Icon keys — one per section, resolved to a lucide component in nav-icons.tsx. */
+export type NavIconKey =
+  | "home"
+  | "projects"
+  | "parties"
+  | "materials"
+  | "purchases-payments"
+  | "billing-receipts"
+  | "people"
+  | "accounts"
+  | "reports"
+  | "users-access"
+  | "audit-log";
+
+export interface NavItem {
+  /** Exact screen label (spec §3.2/§8). */
   label: string;
-  /** Route stem the sub-item navigates to. */
+  /** Route stem the item navigates to. */
   route: string;
   /** Resource-Catalogue code — visibility is `resource:READ` (FR-AUD-032/035). */
   resource: string;
@@ -77,42 +100,23 @@ export interface NavSubItem {
   built: boolean;
 }
 
-export interface NavModule {
-  /** Stable id (module key for wayfinding/testids). */
-  id: string;
-  /** Module label (spec §8). */
-  label: string;
-  /** Icon-chip tint (spec §3.2). */
-  chip: ChipTint;
-  /** Lucide icon name key (resolved to a component in the sidebar). */
-  icon: NavIconKey;
-  /** Sub-items; a single-item module renders as a direct link (no disclosure). */
-  items: readonly NavSubItem[];
-}
-
 export interface NavSectionGroup {
   section: NavSection;
-  modules: readonly NavModule[];
+  icon: NavIconKey;
+  chip: ChipTint;
+  /** Governance sections rendered after the divider (spec §3.1/§9.3). */
+  belowDivider?: boolean;
+  items: readonly NavItem[];
 }
 
-/** Icon keys — resolved to lucide components at the render boundary (sidebar/drawer). */
-export type NavIconKey =
-  | "dashboard"
-  | "sales"
-  | "receipts"
-  | "purchases"
-  | "payments"
-  | "contra-journal"
-  | "inventory"
-  | "requisitions"
-  | "hr"
-  | "ledger"
-  | "cost-control"
-  | "reports"
-  | "master-data"
-  | "numbering"
-  | "periods"
-  | "audit";
+/**
+ * A lone item whose label restates its section renders without the header
+ * (`PROJECTS → Projects`). When the labels differ the header carries
+ * information and is kept (`HOME → Dashboard`). Spec §3.1/§9.2.
+ */
+export function suppressesHeader(group: NavSectionGroup): boolean {
+  return group.items.length === 1 && group.items[0]!.label.toUpperCase() === group.section;
+}
 
 const ALL: readonly Role[] = [
   "ADMIN",
@@ -124,293 +128,391 @@ const ALL: readonly Role[] = [
 ];
 
 /**
- * The complete nav tree — all 16 modules under the five sections (spec §3.2).
- * Routes continue the built Tier-1 segments; Tier-2/3 stems mirror the module docs
- * and ship `built:false` until their per-screen brief flips the flag.
+ * The complete nav tree — 11 sections, 37 rendered rows for Admin (nav-tree-admin.md,
+ * ported verbatim). Routes and resource codes are unchanged from the pre-rewrite
+ * Tier-1/two-level tree; only the shape (section → item, no module) and Holidays'
+ * resource code (`hr.attendance` → `hr.holidays`, prerequisite brief
+ * `aud-holidays-resource`) changed. `roles` are carried across from the prior
+ * `NAV_TREE` per item (the admin JSON deliberately omits them).
  */
 export const NAV_TREE: readonly NavSectionGroup[] = [
   {
-    section: "OVERVIEW",
-    modules: [
+    section: "HOME",
+    icon: "home",
+    chip: "lime",
+    items: [{ label: "Dashboard", route: "/dashboard", resource: "dashboard", roles: ALL, built: true }],
+  },
+  {
+    section: "PROJECTS",
+    icon: "projects",
+    chip: "blue",
+    items: [
       {
-        id: "dashboard",
-        label: "Dashboard",
-        chip: "lime",
-        icon: "dashboard",
-        items: [{ label: "Dashboard", route: "/dashboard", resource: "dashboard", roles: ALL, built: true }],
+        label: "Projects",
+        route: "/master-data/projects",
+        resource: "master_data.projects",
+        roles: ["ADMIN", "PROJECT_MANAGER"],
+        built: true,
+      },
+      {
+        label: "Cost centres",
+        route: "/master-data/cost-centres",
+        resource: "master_data.cost_centres",
+        roles: ["ADMIN"],
+        built: true,
+      },
+      {
+        label: "Purposes",
+        route: "/master-data/purposes",
+        resource: "master_data.purposes",
+        roles: ["ADMIN"],
+        built: true,
       },
     ],
   },
   {
-    section: "TRANSACTIONS",
-    modules: [
+    section: "PARTIES",
+    icon: "parties",
+    chip: "teal",
+    items: [
       {
-        id: "sales",
-        label: "Sales / IPC",
-        chip: "lime",
-        icon: "sales",
-        items: [
-          { label: "IPCs", route: "/sales/ipcs", resource: "sales.ipcs", roles: ["ACCOUNTS_TEAM", "ADMIN", "PROJECT_MANAGER"], built: true },
-          {
-            label: "IPC register & retention",
-            route: "/sales/ipc-register", resource: "sales.ipc_register",
-            roles: ["ACCOUNTS_TEAM", "ADMIN", "PROJECT_MANAGER"],
-            built: true,
-          },
-        ],
+        label: "Parties",
+        route: "/master-data/parties",
+        resource: "master_data.parties",
+        roles: ["ADMIN", "ACCOUNTS_TEAM"],
+        built: true,
       },
+    ],
+  },
+  {
+    section: "MATERIALS",
+    icon: "materials",
+    chip: "amber",
+    items: [
       {
-        id: "receipts",
-        label: "Receipts",
-        chip: "green",
-        icon: "receipts",
-        items: [{ label: "Receipts", route: "/receipts", resource: "receipts", roles: ["ACCOUNTS_TEAM", "ADMIN"], built: true }],
-      },
-      {
-        id: "purchases",
-        label: "Purchases",
-        chip: "blue",
-        icon: "purchases",
-        items: [
-          { label: "Purchase orders", route: "/purchase/orders", resource: "purchase.orders", roles: ["ACCOUNTS_TEAM", "ADMIN"], built: true },
-          { label: "Purchase bills", route: "/purchase/bills", resource: "purchase.bills", roles: ["ACCOUNTS_TEAM", "ADMIN"], built: true },
-          {
-            label: "GRN & matching",
-            route: "/purchase/grn", resource: "purchase.grn",
-            roles: ["STORE_KEEPER", "ACCOUNTS_TEAM", "ADMIN"],
-            built: true,
-          },
-        ],
-      },
-      {
-        id: "payments",
-        label: "Payments",
-        chip: "teal",
-        icon: "payments",
-        items: [
-          { label: "Payments", route: "/payments", resource: "payments.list", roles: ["ACCOUNTS_TEAM", "ADMIN"], built: true },
-          { label: "Open payables", route: "/payments/open-payables", resource: "payments.open_payables", roles: ["ACCOUNTS_TEAM", "ADMIN"], built: true },
-        ],
-      },
-      {
-        id: "contra-journal",
-        label: "Contra & Journal",
-        chip: "violet",
-        icon: "contra-journal",
-        items: [
-          { label: "Vouchers", route: "/contra-journal/vouchers", resource: "contra_journal.vouchers", roles: ["ACCOUNTS_TEAM", "ADMIN"], built: true },
-          { label: "Opening balances", route: "/contra-journal/opening", resource: "contra_journal.opening", roles: ["ADMIN", "ACCOUNTS_TEAM"], built: true },
-        ],
-      },
-      {
-        id: "inventory",
-        label: "Inventory",
-        chip: "amber",
-        icon: "inventory",
-        items: [
-          {
-            label: "Stock journals",
-            route: "/inventory/stock-journals", resource: "inventory.stock_journals",
-            roles: ["STORE_KEEPER", "ACCOUNTS_TEAM", "ADMIN"],
-            built: true,
-          },
-          {
-            label: "Stock ledger",
-            route: "/inventory/stock-ledger", resource: "inventory.stock_ledger",
-            roles: ["STORE_KEEPER", "ACCOUNTS_TEAM", "ADMIN", "PROJECT_MANAGER"],
-            built: true,
-          },
-        ],
-      },
-      {
-        id: "requisitions",
         label: "Requisitions",
-        chip: "blue",
-        icon: "requisitions",
-        items: [
-          {
-            label: "Requisitions",
-            route: "/requisitions", resource: "requisitions.list",
-            roles: ["PROJECT_MANAGER", "SITE_ENGINEER", "ACCOUNTS_TEAM", "STORE_KEEPER"],
-            built: true,
-          },
-          { label: "Approvals", route: "/requisitions/approvals", resource: "requisitions.approvals", roles: ["PROJECT_MANAGER", "ACCOUNTS_TEAM"], built: true },
-          { label: "Issues", route: "/requisitions/issues", resource: "requisitions.issues", roles: ["STORE_KEEPER"], built: true },
-        ],
+        route: "/requisitions",
+        resource: "requisitions.list",
+        roles: ["PROJECT_MANAGER", "SITE_ENGINEER", "ACCOUNTS_TEAM", "STORE_KEEPER"],
+        built: true,
+      },
+      {
+        label: "Approvals",
+        route: "/requisitions/approvals",
+        resource: "requisitions.approvals",
+        roles: ["PROJECT_MANAGER", "ACCOUNTS_TEAM"],
+        built: true,
+      },
+      {
+        label: "Issues",
+        route: "/requisitions/issues",
+        resource: "requisitions.issues",
+        roles: ["STORE_KEEPER"],
+        built: true,
+      },
+      {
+        label: "GRN & matching",
+        route: "/purchase/grn",
+        resource: "purchase.grn",
+        roles: ["STORE_KEEPER", "ACCOUNTS_TEAM", "ADMIN"],
+        built: true,
+      },
+      {
+        label: "Stock journals",
+        route: "/inventory/stock-journals",
+        resource: "inventory.stock_journals",
+        roles: ["STORE_KEEPER", "ACCOUNTS_TEAM", "ADMIN"],
+        built: true,
+      },
+      {
+        label: "Stock ledger",
+        route: "/inventory/stock-ledger",
+        resource: "inventory.stock_ledger",
+        roles: ["STORE_KEEPER", "ACCOUNTS_TEAM", "ADMIN", "PROJECT_MANAGER"],
+        built: true,
+      },
+      {
+        label: "Items",
+        route: "/master-data/items",
+        resource: "master_data.items",
+        roles: ["ADMIN", "STORE_KEEPER", "ACCOUNTS_TEAM"],
+        built: true,
+      },
+    ],
+  },
+  {
+    section: "PURCHASES & PAYMENTS",
+    icon: "purchases-payments",
+    chip: "violet",
+    items: [
+      {
+        label: "Purchase orders",
+        route: "/purchase/orders",
+        resource: "purchase.orders",
+        roles: ["ACCOUNTS_TEAM", "ADMIN"],
+        built: true,
+      },
+      {
+        label: "Purchase bills",
+        route: "/purchase/bills",
+        resource: "purchase.bills",
+        roles: ["ACCOUNTS_TEAM", "ADMIN"],
+        built: true,
+      },
+      {
+        label: "Payments",
+        route: "/payments",
+        resource: "payments.list",
+        roles: ["ACCOUNTS_TEAM", "ADMIN"],
+        built: true,
+      },
+      {
+        label: "Open payables",
+        route: "/payments/open-payables",
+        resource: "payments.open_payables",
+        roles: ["ACCOUNTS_TEAM", "ADMIN"],
+        built: true,
+      },
+    ],
+  },
+  {
+    section: "BILLING & RECEIPTS",
+    icon: "billing-receipts",
+    chip: "green",
+    items: [
+      {
+        label: "IPCs",
+        route: "/sales/ipcs",
+        resource: "sales.ipcs",
+        roles: ["ACCOUNTS_TEAM", "ADMIN", "PROJECT_MANAGER"],
+        built: true,
+      },
+      {
+        label: "IPC register & retention",
+        route: "/sales/ipc-register",
+        resource: "sales.ipc_register",
+        roles: ["ACCOUNTS_TEAM", "ADMIN", "PROJECT_MANAGER"],
+        built: true,
+      },
+      {
+        label: "Receipts",
+        route: "/receipts",
+        resource: "receipts",
+        roles: ["ACCOUNTS_TEAM", "ADMIN"],
+        built: true,
       },
     ],
   },
   {
     section: "PEOPLE",
-    modules: [
+    icon: "people",
+    chip: "teal",
+    items: [
       {
-        id: "hr",
-        label: "HR & Payroll",
-        chip: "teal",
-        icon: "hr",
-        items: [
-          { label: "Employees", route: "/hr/employees", resource: "hr.employees", roles: ["HR_MANAGER"], built: true },
-          { label: "Attendance", route: "/hr/attendance", resource: "hr.attendance", roles: ["HR_MANAGER", "SITE_ENGINEER"], built: true },
-          // Holidays drive the working-day denominator behind the attendance figures, so
-          // they ride the same `hr.attendance` resource rather than a separate grant.
-          { label: "Holidays", route: "/hr/holidays", resource: "hr.attendance", roles: ["HR_MANAGER"], built: true },
-          { label: "Salary sheets", route: "/hr/salary-sheets", resource: "hr.salary_sheets", roles: ["HR_MANAGER"], built: true },
-        ],
+        label: "Employees",
+        route: "/hr/employees",
+        resource: "hr.employees",
+        roles: ["HR_MANAGER"],
+        built: true,
+      },
+      {
+        label: "Attendance",
+        route: "/hr/attendance",
+        resource: "hr.attendance",
+        roles: ["HR_MANAGER", "SITE_ENGINEER"],
+        built: true,
+      },
+      // Holidays now carries its own resource code — split out of `hr.attendance` to
+      // close a permission leak (a Site Engineer's `hr.attendance:READ`, needed for
+      // their own attendance, used to also surface the HR Manager's holiday
+      // calendar). Prerequisite brief: aud-holidays-resource. `roles` unchanged.
+      {
+        label: "Holidays",
+        route: "/hr/holidays",
+        resource: "hr.holidays",
+        roles: ["HR_MANAGER"],
+        built: true,
+      },
+      {
+        label: "Salary sheets",
+        route: "/hr/salary-sheets",
+        resource: "hr.salary_sheets",
+        roles: ["HR_MANAGER"],
+        built: true,
       },
     ],
   },
   {
-    section: "LEDGER & REPORTS",
-    modules: [
+    section: "ACCOUNTS",
+    icon: "accounts",
+    chip: "violet",
+    items: [
       {
-        id: "ledger",
-        label: "Ledger",
-        chip: "violet",
-        icon: "ledger",
-        items: [
-          { label: "Journal entries", route: "/ledger/journal-entries", resource: "ledger.journal_entries", roles: ["ACCOUNTS_TEAM", "ADMIN"], built: true },
-          {
-            label: "Account ledger",
-            route: "/ledger/account-ledger", resource: "ledger.account_ledger",
-            roles: ["ACCOUNTS_TEAM", "ADMIN", "PROJECT_MANAGER"],
-            built: true,
-          },
-          { label: "Trial balance", route: "/ledger/trial-balance", resource: "ledger.trial_balance", roles: ["ACCOUNTS_TEAM", "ADMIN"], built: true },
-        ],
+        label: "Journal & contra vouchers",
+        route: "/contra-journal/vouchers",
+        resource: "contra_journal.vouchers",
+        roles: ["ACCOUNTS_TEAM", "ADMIN"],
+        built: true,
       },
       {
-        id: "cost-control",
-        label: "Cost control",
-        chip: "red",
-        icon: "cost-control",
-        items: [
-          {
-            label: "Budget vs actual",
-            route: "/cost-control/budget-vs-actual", resource: "cost_control.budget_vs_actual",
-            roles: ["ACCOUNTS_TEAM", "ADMIN", "PROJECT_MANAGER"],
-            built: true,
-          },
-          {
-            label: "Over-budget alerts",
-            route: "/cost-control/alerts", resource: "cost_control.alerts",
-            roles: ["ACCOUNTS_TEAM", "ADMIN", "PROJECT_MANAGER"],
-            built: true,
-          },
-          { label: "Profitability", route: "/cost-control/profitability", resource: "cost_control.profitability", roles: ["ACCOUNTS_TEAM", "ADMIN"], built: true },
-        ],
+        label: "Opening balances",
+        route: "/contra-journal/opening",
+        resource: "contra_journal.opening",
+        roles: ["ADMIN", "ACCOUNTS_TEAM"],
+        built: true,
       },
       {
-        id: "reports",
-        label: "Reports",
-        chip: "amber",
-        icon: "reports",
-        items: [
-          {
-            label: "Reports",
-            route: "/reports", resource: "reports",
-            roles: ["ACCOUNTS_TEAM", "ADMIN", "PROJECT_MANAGER", "HR_MANAGER"],
-            built: true,
-          },
-        ],
-      },
-    ],
-  },
-  {
-    section: "ADMINISTRATION",
-    modules: [
-      {
-        id: "master-data",
-        label: "Master data",
-        chip: "blue",
-        icon: "master-data",
-        items: [
-          { label: "Company settings", route: "/master-data/company-settings", resource: "master_data.company_settings", roles: ["ADMIN"], built: true },
-          { label: "Financial years", route: "/master-data/financial-years", resource: "master_data.financial_years", roles: ["ADMIN"], built: true },
-          { label: "Projects", route: "/master-data/projects", resource: "master_data.projects", roles: ["ADMIN", "PROJECT_MANAGER"], built: true },
-          { label: "Cost centres", route: "/master-data/cost-centres", resource: "master_data.cost_centres", roles: ["ADMIN"], built: true },
-          { label: "Purposes", route: "/master-data/purposes", resource: "master_data.purposes", roles: ["ADMIN"], built: true },
-          { label: "Chart of accounts", route: "/master-data/chart-of-accounts", resource: "master_data.chart_of_accounts", roles: ["ADMIN", "ACCOUNTS_TEAM"], built: true },
-          { label: "Parties", route: "/master-data/parties", resource: "master_data.parties", roles: ["ADMIN", "ACCOUNTS_TEAM"], built: true },
-          { label: "Items", route: "/master-data/items", resource: "master_data.items", roles: ["ADMIN", "STORE_KEEPER", "ACCOUNTS_TEAM"], built: true },
-        ],
+        label: "Journal entries",
+        route: "/ledger/journal-entries",
+        resource: "ledger.journal_entries",
+        roles: ["ACCOUNTS_TEAM", "ADMIN"],
+        built: true,
       },
       {
-        id: "numbering",
-        label: "Numbering",
-        chip: "amber",
-        icon: "numbering",
-        items: [{ label: "Numbering", route: "/numbering", resource: "numbering", roles: ["ADMIN"], built: true }],
+        label: "Account ledger",
+        route: "/ledger/account-ledger",
+        resource: "ledger.account_ledger",
+        roles: ["ACCOUNTS_TEAM", "ADMIN", "PROJECT_MANAGER"],
+        built: true,
       },
       {
-        id: "periods",
+        label: "Trial balance",
+        route: "/ledger/trial-balance",
+        resource: "ledger.trial_balance",
+        roles: ["ACCOUNTS_TEAM", "ADMIN"],
+        built: true,
+      },
+      {
+        label: "Chart of accounts",
+        route: "/master-data/chart-of-accounts",
+        resource: "master_data.chart_of_accounts",
+        roles: ["ADMIN", "ACCOUNTS_TEAM"],
+        built: true,
+      },
+      {
         label: "Periods",
-        chip: "green",
-        icon: "periods",
-        items: [{ label: "Periods", route: "/period", resource: "periods", roles: ["ADMIN", "ACCOUNTS_TEAM"], built: true }],
-      },
-      {
-        id: "audit",
-        label: "Audit & access",
-        chip: "teal",
-        icon: "audit",
-        items: [
-          { label: "Users", route: "/audit/users", resource: "audit.users", roles: ["ADMIN"], built: true },
-          { label: "Roles & permissions", route: "/audit/roles", resource: "audit.roles", roles: ["ADMIN"], built: true },
-          { label: "Audit log", route: "/audit/log", resource: "audit.audit_log", roles: ["ADMIN"], built: true },
-        ],
+        route: "/period",
+        resource: "periods",
+        roles: ["ADMIN", "ACCOUNTS_TEAM"],
+        built: true,
       },
     ],
+  },
+  {
+    section: "REPORTS & ANALYSIS",
+    icon: "reports",
+    chip: "amber",
+    items: [
+      {
+        label: "Budget vs actual",
+        route: "/cost-control/budget-vs-actual",
+        resource: "cost_control.budget_vs_actual",
+        roles: ["ACCOUNTS_TEAM", "ADMIN", "PROJECT_MANAGER"],
+        built: true,
+      },
+      {
+        label: "Over-budget alerts",
+        route: "/cost-control/alerts",
+        resource: "cost_control.alerts",
+        roles: ["ACCOUNTS_TEAM", "ADMIN", "PROJECT_MANAGER"],
+        built: true,
+      },
+      {
+        label: "Profitability",
+        route: "/cost-control/profitability",
+        resource: "cost_control.profitability",
+        roles: ["ACCOUNTS_TEAM", "ADMIN"],
+        built: true,
+      },
+      {
+        label: "Reports",
+        route: "/reports",
+        resource: "reports",
+        roles: ["ACCOUNTS_TEAM", "ADMIN", "PROJECT_MANAGER", "HR_MANAGER"],
+        built: true,
+      },
+    ],
+  },
+  {
+    section: "USERS & ACCESS",
+    icon: "users-access",
+    chip: "blue",
+    belowDivider: true,
+    items: [
+      { label: "Users", route: "/audit/users", resource: "audit.users", roles: ["ADMIN"], built: true },
+      {
+        label: "Roles & permissions",
+        route: "/audit/roles",
+        resource: "audit.roles",
+        roles: ["ADMIN"],
+        built: true,
+      },
+    ],
+  },
+  {
+    section: "AUDIT LOG",
+    icon: "audit-log",
+    chip: "red",
+    belowDivider: true,
+    items: [{ label: "Audit log", route: "/audit/log", resource: "audit.audit_log", roles: ["ADMIN"], built: true }],
   },
 ];
 
 /**
- * A sub-item is reachable when the viewer's effective permission set holds the
+ * An item is reachable when the viewer's effective permission set holds the
  * item's `resource:READ` grant (FR-AUD-032). Admin is the platform superuser and
  * sees everything (spec §11 "Admin | Everything"). When the projection is absent
  * (degraded `/me`), fall back to the item's static `roles` list.
  */
-export function canReachItem(item: NavSubItem, viewerLike: ViewerLike): boolean {
+export function canReachItem(item: NavItem, viewerLike: ViewerLike): boolean {
   const viewer = asViewer(viewerLike);
   if (viewer.permissions) return hasGrant(viewer, item.resource, "READ");
   return viewer.role === "ADMIN" || roleMatches(item.roles, viewer.role);
 }
 
-/** A module is visible when the viewer can reach ≥ 1 of its sub-items (spec §3.1). */
-function visibleModule(module: NavModule, viewer: NavViewer): NavModule | null {
-  const items = module.items.filter((it) => canReachItem(it, viewer));
-  return items.length > 0 ? { ...module, items } : null;
-}
-
 /**
- * The permission-filtered tree: sections with ≥ 1 visible module, each module
- * carrying only the sub-items the viewer can reach (spec §3.1/§11). Unbuilt items
- * are RETAINED (they render de-emphasised) — filtering is by grant, not `built`.
+ * The permission-filtered tree: sections with ≥ 1 visible item, each carrying only
+ * the items the viewer can reach (spec §3.1/§11). Unbuilt items are RETAINED (they
+ * render de-emphasised) — filtering is by grant, not `built`.
  */
 export function visibleTreeForRole(viewerLike: ViewerLike): NavSectionGroup[] {
   const viewer = asViewer(viewerLike);
   const groups: NavSectionGroup[] = [];
   for (const group of NAV_TREE) {
-    const modules = group.modules
-      .map((m) => visibleModule(m, viewer))
-      .filter((m): m is NavModule => m !== null);
-    if (modules.length > 0) groups.push({ section: group.section, modules });
+    const items = group.items.filter((it) => canReachItem(it, viewer));
+    if (items.length > 0) groups.push({ ...group, items });
   }
   return groups;
 }
 
-/** True when the viewer has at least one visible module anywhere (spec §6 empty-nav). */
+/** True when the viewer has at least one visible item anywhere (spec §6 empty-nav). */
 export function hasAnyNav(viewerLike: ViewerLike): boolean {
   return visibleTreeForRole(viewerLike).length > 0;
 }
 
-/** A module is a single-screen direct link (no disclosure chevron) when it has 1 item. */
-export function isDirectLink(module: NavModule): boolean {
-  return module.items.length === 1;
+/**
+ * Find the deepest nav item matching a pathname (longest-route-prefix wins), plus
+ * its owning section. Drives active-state + the default breadcrumb trail. There is
+ * no module level any more — `NavMatch` carries only `section` and `item`.
+ */
+export interface NavMatch {
+  section: NavSection;
+  item: NavItem;
 }
 
-/** The route a direct-link module points at (its sole sub-item). */
-export function directLinkRoute(module: NavModule): string {
-  return module.items[0]!.route;
+export function matchNav(pathname: string): NavMatch | null {
+  let best: NavMatch | null = null;
+  let bestLen = -1;
+  for (const group of NAV_TREE) {
+    for (const item of group.items) {
+      const isMatch = pathname === item.route || pathname.startsWith(`${item.route}/`);
+      if (isMatch && item.route.length > bestLen) {
+        best = { section: group.section, item };
+        bestLen = item.route.length;
+      }
+    }
+  }
+  return best;
 }
 
 /**
@@ -418,7 +520,7 @@ export function directLinkRoute(module: NavModule): string {
  * spec §5/§14-1). Built + role-permitted only — unbuilt items aren't navigable.
  */
 export interface NavDestination {
-  moduleLabel: string;
+  section: NavSection;
   label: string;
   route: string;
 }
@@ -426,10 +528,8 @@ export interface NavDestination {
 export function navDestinationsForRole(viewerLike: ViewerLike): NavDestination[] {
   const out: NavDestination[] = [];
   for (const group of visibleTreeForRole(viewerLike)) {
-    for (const mod of group.modules) {
-      for (const item of mod.items) {
-        if (item.built) out.push({ moduleLabel: mod.label, label: item.label, route: item.route });
-      }
+    for (const item of group.items) {
+      if (item.built) out.push({ section: group.section, label: item.label, route: item.route });
     }
   }
   return out;
@@ -438,9 +538,7 @@ export function navDestinationsForRole(viewerLike: ViewerLike): NavDestination[]
 /**
  * "+ New" quick-create targets (spec §5 list), each pure navigation to an editor's
  * create route. Only `built && role-permitted` targets render; the whole menu is
- * hidden if the role has none (spec §5/§11). All are `built:false` in Phase-1 v2
- * (the voucher editors ship later) — the menu is wired + role-filtered, and each
- * target activates when its editor brief flips `built:true`.
+ * hidden if the role has none (spec §5/§11).
  */
 export interface QuickCreateTarget {
   label: string;
@@ -500,31 +598,4 @@ export function showsAlertsBell(viewerLike: ViewerLike): boolean {
  */
 export function costControlBuilt(): boolean {
   return true;
-}
-
-/**
- * Find the deepest nav sub-item matching a pathname (longest-route-prefix wins), plus
- * its owning module + section. Drives active-state + the default breadcrumb trail.
- */
-export interface NavMatch {
-  section: NavSection;
-  module: NavModule;
-  item: NavSubItem;
-}
-
-export function matchNav(pathname: string): NavMatch | null {
-  let best: NavMatch | null = null;
-  let bestLen = -1;
-  for (const group of NAV_TREE) {
-    for (const mod of group.modules) {
-      for (const item of mod.items) {
-        const isMatch = pathname === item.route || pathname.startsWith(`${item.route}/`);
-        if (isMatch && item.route.length > bestLen) {
-          best = { section: group.section, module: mod, item };
-          bestLen = item.route.length;
-        }
-      }
-    }
-  }
-  return best;
 }

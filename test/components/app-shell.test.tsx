@@ -104,21 +104,21 @@ describe("AppShell v2 — frame + landmarks (spec §4/§10)", () => {
 });
 
 describe("AppShell v2 — role-filtered nav in the frame (spec §11)", () => {
-  it("Admin sees the Ledger + Audit modules", () => {
+  it("Admin sees the Account ledger + Users screens (ACCOUNTS + USERS & ACCESS sections)", () => {
     renderShell(baseUser);
-    expect(screen.getByTestId("nav-module-ledger")).toBeInTheDocument();
-    expect(screen.getByTestId("nav-module-audit")).toBeInTheDocument();
+    expect(screen.getByTestId("nav-item-/ledger/account-ledger")).toBeInTheDocument();
+    expect(screen.getByTestId("nav-item-/audit/users")).toBeInTheDocument();
   });
 
-  it("a PM does not see Audit & access, but does see Ledger", () => {
+  it("a PM does not see Users & access, but does see Account ledger", () => {
     renderShell({ ...baseUser, role: "PROJECT_MANAGER", assignedProjectIds: ["p1"] }, "/ledger/account-ledger");
-    expect(screen.queryByTestId("nav-module-audit")).not.toBeInTheDocument();
-    expect(screen.getByTestId("nav-module-ledger")).toBeInTheDocument();
+    expect(screen.queryByTestId("nav-item-/audit/users")).not.toBeInTheDocument();
+    expect(screen.getByTestId("nav-item-/ledger/account-ledger")).toBeInTheDocument();
   });
 
   it("every role has Dashboard (no empty-nav in Phase 1) — Site Engineer included", () => {
     renderShell({ ...baseUser, role: "SITE_ENGINEER" });
-    expect(screen.getByTestId("nav-module-dashboard")).toBeInTheDocument();
+    expect(screen.getByTestId("nav-item-/dashboard")).toBeInTheDocument();
     expect(screen.queryByTestId("sidebar-empty")).not.toBeInTheDocument();
   });
 });

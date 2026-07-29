@@ -3,15 +3,13 @@
 import { useEffect, useRef, useState } from "react";
 import Link from "next/link";
 import { usePathname } from "next/navigation";
-import { ChevronDown } from "lucide-react";
 import {
   visibleTreeForRole,
   matchNav,
-  isDirectLink,
-  directLinkRoute,
+  suppressesHeader,
   CHIP_CLASS,
-  type NavModule,
-  type NavSubItem,
+  type NavSectionGroup,
+  type NavItem,
 } from "@/lib/nav/nav-tree";
 import { NAV_ICON } from "./nav-icons";
 import { BrandLogo } from "./brand-logo";
@@ -26,14 +24,16 @@ import { cn } from "@/lib/utils";
 export type SidebarUser = UserMenuUser & { permissions?: SessionPermission[] | null };
 
 /**
- * App Shell v3 sidebar navbar (screen spec §3.1/§5/§9/§10). Two levels: section
- * labels → module rows (accordion disclosure) → indented sub-item links; single-item
- * modules are direct links (no chevron). One module open at a time (accordion); the
- * active route's module auto-expands on load and never auto-collapses. User-toggled
- * collapse narrows to a 56px icon rail with hover/click flyouts. Role-filtered
- * (defence-in-depth UI — guards + backend re-check). The FOOTER pins the working
- * context line (`FY … · BDT (৳)`) and the user/profile block (upward menu) — the
- * profile lives here, not the topbar (v3). `aside[aria-label="Primary"]`.
+ * App Shell sidebar navbar (nav IA redesign; screen spec §3.1/§3.2/§5/§9/§10). ONE
+ * level: section → screen. Every visible screen is its own row, one click away —
+ * there is no module level and nothing discloses/collapses. A section that
+ * resolves to a single item whose label restates the section renders as a bare row
+ * with no header (`suppressesHeader`). The governance sections (`USERS & ACCESS`,
+ * `AUDIT LOG`) render below a single `role="separator"` divider. User-toggled
+ * collapse narrows to a 56px icon rail with hover/click flyouts (one per section).
+ * Role-filtered (defence-in-depth UI — guards + backend re-check). The FOOTER pins
+ * the working context line (`FY … · BDT (৳)`) and the user/profile block (upward
+ * menu). `aside[aria-label="Primary"]`.
  */
 export function Sidebar({ user }: { user: SidebarUser }) {
   const pathname = usePathname();
@@ -54,14 +54,9 @@ export function Sidebar({ user }: { user: SidebarUser }) {
   // FE-21: permission-driven filtering when the projection is present; role fallback otherwise.
   const tree = visibleTreeForRole(user);
   const match = matchNav(pathname);
-  const activeModuleId = match?.module.id ?? null;
+  const activeRoute = match?.item.route ?? null;
 
-  // Accordion: which module is expanded. Seed with the active route's module.
-  const [openId, setOpenId] = useState<string | null>(activeModuleId);
-  // Keep the active module expanded across client navigations (never auto-collapse it).
-  useEffect(() => {
-    if (activeModuleId) setOpenId(activeModuleId);
-  }, [activeModuleId]);
+  let dividerRendered = false;
 
   return (
     <aside
@@ -85,52 +80,38 @@ export function Sidebar({ user }: { user: SidebarUser }) {
       {/* nav tree — the only scrolling region; min-h-0 lets it shrink below its
           content height so overflow engages and the pinned footer isn't clipped.
           scrollbar-thin keeps the gutter subtle (thumb only on hover) so a nav that
-          barely overflows doesn't show a heavy always-on scrollbar. */}
-      <nav className="scrollbar-thin min-h-0 flex-1 overflow-y-auto px-2 pb-3">
+          barely overflows doesn't show a heavy always-on scrollbar. A plain <div>,
+          not a <nav> — each visible section is its OWN navigation landmark below. */}
+      <div data-testid="sidebar-nav" className="scrollbar-thin min-h-0 flex-1 overflow-y-auto px-2 pb-3">
         {tree.length === 0 ? (
           <p className="px-3 py-2 text-[13px] text-sidebar-muted" data-testid="sidebar-empty">
-            No modules available for your role.
+            No screens available for your role.
           </p>
         ) : (
-          tree.map((group) => (
-            <div key={group.section} className="mb-1">
-              {!collapsed && (
-                <div className="px-3 pb-1.5 pt-4 text-[10px] font-semibold uppercase tracking-wide text-sidebar-muted">
-                  {group.section}
-                </div>
-              )}
-              {collapsed && <div className="mx-2 my-2 border-t border-sidebar-border" aria-hidden />}
-              {group.modules.map((module) =>
-                collapsed ? (
-                  <RailModule
-                    key={module.id}
-                    module={module}
-                    activePath={pathname}
-                    isActiveModule={module.id === activeModuleId}
-                  />
-                ) : isDirectLink(module) ? (
-                  <DirectLinkRow
-                    key={module.id}
-                    module={module}
-                    active={module.id === activeModuleId}
-                  />
+          tree.map((group) => {
+            const showDivider = !!group.belowDivider && !dividerRendered;
+            if (showDivider) dividerRendered = true;
+            return (
+              <div key={group.section}>
+                {showDivider && (
+                  <hr role="separator" className="mx-2 my-2 border-t border-sidebar-border" />
+                )}
+                {collapsed ? (
+                  <RailSection group={group} activeRoute={activeRoute} />
+                ) : suppressesHeader(group) ? (
+                  <div className="mb-1">
+                    <ItemRow item={group.items[0]!} active={group.items[0]!.route === activeRoute} />
+                  </div>
                 ) : (
-                  <AccordionModule
-                    key={module.id}
-                    module={module}
-                    open={openId === module.id}
-                    onToggle={() => setOpenId((prev) => (prev === module.id ? null : module.id))}
-                    activePath={pathname}
-                    hasActiveChild={module.id === activeModuleId}
-                  />
-                ),
-              )}
-            </div>
-          ))
+                  <SectionNav group={group} activeRoute={activeRoute} />
+                )}
+              </div>
+            );
+          })
         )}
-      </nav>
+      </div>
 
-      {/* footer — pinned below the scrolling tree: context line + user block (v3) */}
+      {/* footer — pinned below the scrolling tree: context line + user block */}
       <SidebarFooter user={user} collapsed={collapsed} />
     </aside>
   );
@@ -153,116 +134,31 @@ function SidebarFooter({ user, collapsed }: { user: UserMenuUser; collapsed: boo
   );
 }
 
-function ModuleChip({ module, className }: { module: NavModule; className?: string }) {
-  const Icon = NAV_ICON[module.icon];
-  return (
-    <span
-      className={cn(
-        "grid h-[22px] w-[22px] shrink-0 place-items-center rounded-md",
-        CHIP_CLASS[module.chip],
-        className,
-      )}
-      aria-hidden
-    >
-      <Icon className="h-3.5 w-3.5" />
-    </span>
-  );
-}
-
-/** A single-screen module: a plain link that takes the active rail itself. */
-function DirectLinkRow({ module, active }: { module: NavModule; active: boolean }) {
-  const route = directLinkRoute(module);
-  return (
-    <Link
-      href={route}
-      data-testid={`nav-module-${module.id}`}
-      aria-current={active ? "page" : undefined}
-      className={cn(
-        "relative my-0.5 flex items-center gap-2.5 rounded-token px-2.5 py-2 text-[13px] transition-colors",
-        active
-          ? "bg-sidebar-active font-semibold text-sidebar-active-foreground"
-          : "text-sidebar-foreground hover:bg-sidebar-hover",
-      )}
-    >
-      {active && <span className="absolute inset-y-1.5 left-0 w-[3px] rounded-r bg-accent" aria-hidden />}
-      <ModuleChip module={module} />
-      {module.label}
-    </Link>
-  );
-}
-
-/** A multi-screen module: a disclosure button controlling its sub-item list. */
-function AccordionModule({
-  module,
-  open,
-  onToggle,
-  activePath,
-  hasActiveChild,
-}: {
-  module: NavModule;
-  open: boolean;
-  onToggle: () => void;
-  activePath: string;
-  hasActiveChild: boolean;
-}) {
-  const listId = `nav-sub-${module.id}`;
-  return (
-    <div>
-      <button
-        type="button"
-        data-testid={`nav-module-${module.id}`}
-        aria-expanded={open}
-        aria-controls={listId}
-        onClick={onToggle}
-        className={cn(
-          "my-0.5 flex w-full items-center gap-2.5 rounded-token px-2.5 py-2 text-left text-[13px] transition-colors",
-          hasActiveChild
-            ? "font-semibold text-sidebar-active-foreground"
-            : "text-sidebar-foreground hover:bg-sidebar-hover",
-        )}
-      >
-        <ModuleChip module={module} />
-        <span className="flex-1 truncate">{module.label}</span>
-        <ChevronDown
-          className={cn("h-3.5 w-3.5 shrink-0 text-sidebar-muted transition-transform", open && "rotate-180")}
-          aria-hidden
-        />
-      </button>
-      {open && (
-        <ul id={listId} className="mb-1 ml-[26px] flex flex-col border-l border-sidebar-border pl-1.5">
-          {module.items.map((item) => (
-            <li key={item.route}>
-              <SubItemLink item={item} activePath={activePath} siblings={module.items} />
-            </li>
-          ))}
-        </ul>
-      )}
-    </div>
-  );
-}
-
 /**
- * Whether a sub-item is the active route: exact match, or a nested detail route
- * (e.g. `/requisitions/<id>`) — but not a sibling sub-item's own route (e.g.
- * `/requisitions/approvals` belongs to "Approvals", not "Requisitions"). Ties are
- * broken by picking the longest matching route among the module's siblings.
+ * A headed section: `nav[aria-labelledby]` naming the landmark after the section
+ * label (spec §10), an `h2` heading, then its item rows. Rendered whenever the
+ * section holds more than one item, or its one item's label doesn't restate the
+ * section (`suppressesHeader` false).
  */
-function isItemActive(item: NavSubItem, pathname: string, siblings: readonly NavSubItem[]): boolean {
-  if (pathname === item.route) return true;
-  if (!pathname.startsWith(`${item.route}/`)) return false;
-  const closerSibling = siblings.some(
-    (other) =>
-      other.route !== item.route &&
-      other.route.length > item.route.length &&
-      (pathname === other.route || pathname.startsWith(`${other.route}/`)),
+function SectionNav({ group, activeRoute }: { group: NavSectionGroup; activeRoute: string | null }) {
+  const headingId = `nav-section-${group.icon}`;
+  return (
+    <nav aria-labelledby={headingId} className="mb-1">
+      <h2
+        id={headingId}
+        className="px-3 pb-1.5 pt-4 text-[10px] font-semibold uppercase tracking-wide text-sidebar-muted"
+      >
+        {group.section}
+      </h2>
+      {group.items.map((item) => (
+        <ItemRow key={item.route} item={item} active={item.route === activeRoute} />
+      ))}
+    </nav>
   );
-  return !closerSibling;
 }
 
-/** A sub-item link (or a de-emphasised, non-navigating "Coming soon" for unbuilt). */
-function SubItemLink({ item, activePath, siblings }: { item: NavSubItem; activePath: string; siblings: readonly NavSubItem[] }) {
-  const active = isItemActive(item, activePath, siblings);
-
+/** A single screen row (or a de-emphasised, non-navigating "Coming soon" for unbuilt). */
+function ItemRow({ item, active }: { item: NavItem; active: boolean }) {
   if (!item.built) {
     return (
       <span
@@ -299,24 +195,35 @@ function SubItemLink({ item, activePath, siblings }: { item: NavSubItem; activeP
   );
 }
 
+function SectionChip({ group, className }: { group: NavSectionGroup; className?: string }) {
+  const Icon = NAV_ICON[group.icon];
+  return (
+    <span
+      className={cn(
+        "grid h-[22px] w-[22px] shrink-0 place-items-center rounded-md",
+        CHIP_CLASS[group.chip],
+        className,
+      )}
+      aria-hidden
+    >
+      <Icon className="h-3.5 w-3.5" />
+    </span>
+  );
+}
+
 /**
- * Collapsed-rail module icon + hover/click flyout (spec §4/§9). Hover (desktop) or
- * click (touch/keyboard) opens a flyout with the module title + sub-items; Esc or
- * focus-out closes; the active module icon keeps the lime rail.
+ * Collapsed-rail section icon + hover/click flyout (spec §4/§9). A single-item
+ * section is a direct link (no flyout, mirroring `suppressesHeader`'s bare row);
+ * a multi-item section opens a flyout with the section title + its item rows.
+ * Hover (desktop) or click (touch/keyboard) opens it; Esc or focus-out closes; the
+ * active section's icon keeps the lime rail.
  */
-function RailModule({
-  module,
-  activePath,
-  isActiveModule,
-}: {
-  module: NavModule;
-  activePath: string;
-  isActiveModule: boolean;
-}) {
+function RailSection({ group, activeRoute }: { group: NavSectionGroup; activeRoute: string | null }) {
   const [open, setOpen] = useState(false);
   const wrapRef = useRef<HTMLDivElement>(null);
-  const Icon = NAV_ICON[module.icon];
-  const direct = isDirectLink(module);
+  const Icon = NAV_ICON[group.icon];
+  const direct = group.items.length === 1;
+  const isActiveSection = group.items.some((i) => i.route === activeRoute);
 
   // Close on focus leaving the wrapper (blur out) and on Esc.
   useEffect(() => {
@@ -330,7 +237,7 @@ function RailModule({
 
   const iconBtnClass = cn(
     "relative grid h-10 w-10 place-items-center rounded-token transition-colors",
-    isActiveModule ? "bg-sidebar-active text-sidebar-active-foreground" : "text-sidebar-foreground hover:bg-sidebar-hover",
+    isActiveSection ? "bg-sidebar-active text-sidebar-active-foreground" : "text-sidebar-foreground hover:bg-sidebar-hover",
   );
 
   return (
@@ -345,46 +252,46 @@ function RailModule({
     >
       {direct ? (
         <Link
-          href={directLinkRoute(module)}
-          data-testid={`nav-rail-${module.id}`}
-          aria-label={module.label}
-          aria-current={isActiveModule ? "page" : undefined}
+          href={group.items[0]!.route}
+          data-testid={`nav-rail-${group.icon}`}
+          aria-label={group.section}
+          aria-current={isActiveSection ? "page" : undefined}
           className={iconBtnClass}
         >
-          {isActiveModule && <span className="absolute inset-y-1.5 left-0 w-[3px] rounded-r bg-accent" aria-hidden />}
-          <ModuleChip module={module} />
+          {isActiveSection && <span className="absolute inset-y-1.5 left-0 w-[3px] rounded-r bg-accent" aria-hidden />}
+          <SectionChip group={group} />
         </Link>
       ) : (
         <button
           type="button"
-          data-testid={`nav-rail-${module.id}`}
-          aria-label={module.label}
+          data-testid={`nav-rail-${group.icon}`}
+          aria-label={group.section}
           aria-haspopup="menu"
           aria-expanded={open}
           onClick={() => setOpen((v) => !v)}
           className={iconBtnClass}
         >
-          {isActiveModule && <span className="absolute inset-y-1.5 left-0 w-[3px] rounded-r bg-accent" aria-hidden />}
-          <ModuleChip module={module} />
+          {isActiveSection && <span className="absolute inset-y-1.5 left-0 w-[3px] rounded-r bg-accent" aria-hidden />}
+          <SectionChip group={group} />
         </button>
       )}
 
       {open && !direct && (
         <div
           role="menu"
-          data-testid={`nav-flyout-${module.id}`}
+          data-testid={`nav-flyout-${group.icon}`}
           className="absolute left-full top-0 z-50 ml-1 w-56 rounded-lg border border-sidebar-border bg-sidebar p-2 shadow-lg"
         >
           <div className="flex items-center gap-2 px-1.5 pb-2 pt-1">
             <Icon className="h-3.5 w-3.5 text-sidebar-muted" aria-hidden />
             <span className="text-[11px] font-semibold uppercase tracking-wide text-sidebar-muted">
-              {module.label}
+              {group.section}
             </span>
           </div>
           <ul className="flex flex-col">
-            {module.items.map((item) => (
+            {group.items.map((item) => (
               <li key={item.route}>
-                <SubItemLink item={item} activePath={activePath} siblings={module.items} />
+                <ItemRow item={item} active={item.route === activeRoute} />
               </li>
             ))}
           </ul>
