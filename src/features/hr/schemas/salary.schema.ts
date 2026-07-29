@@ -141,3 +141,67 @@ export const SALARY_STATUS_LABEL: Record<"DRAFT" | "POSTED" | "REVERSED", string
   POSTED: "Posted",
   REVERSED: "Reversed",
 };
+
+// ── FR-HR-013a — Days group + attendance-gap warning microcopy (spec §8, exact strings) ──
+
+import type { SalarySheetWarnings } from "../api/salary";
+
+export const DAYS_GROUP_HELPER = "Paid = standard − unpaid. Weekly and government holidays are paid.";
+
+/** The Late column's tooltip — `N` is the company's `latesPerDeductedDay`, never a literal 3. */
+export function lateColumnHelper(latesPerDeductedDay: number): string {
+  return `Every ${latesPerDeductedDay} late days cost one day's pay. The penalty reduces gross — it isn't a separate deduction.`;
+}
+
+/** `{lateCount} → {penaltyDays}d`, `—` at zero lates (spec §8). */
+export function formatLateCell(lateCount: number, latePenaltyDays: string): string {
+  if (!lateCount) return "—";
+  const days = Number(latePenaltyDays);
+  return `${lateCount} → ${Number.isFinite(days) ? Math.trunc(days) : 0}d`;
+}
+
+export const GAP_ALERT_COPY = {
+  heading: "Check attendance before posting this run.",
+  sub: "Under the current pay rule, a working day with no attendance record is treated as unpaid. Anything missing here becomes a deduction.",
+  zeroRecordHeading: (n: number) => `No attendance was recorded for anyone on ${n} working day(s):`,
+  zeroRecordTrailing:
+    "That usually means a device outage or a branch entry log that was never submitted — not that the office was empty.",
+  unpaidHeading: "Unpaid days by employee",
+  unpaidRow: (name: string, unpaidDays: number) => `${name} — ${unpaidDays} unpaid day(s)`,
+  unpaidTrailing: "An outlier here is worth a second look before you post.",
+  skippedHeading: (n: number) => `${n} employee(s) aren't on this sheet:`,
+  skippedTrailing: "They won't be paid on this run until they have a project.",
+  acknowledgement: "I've checked these days and they're genuinely unpaid.",
+  disabledPostTooltip: "Review the attendance gaps above before posting.",
+  crossLink: "Open attendance for this period",
+} as const;
+
+export const NO_WEEKLY_HOLIDAYS_COPY = {
+  title: "No weekly off-days are configured — every calendar day is being counted as a working day.",
+  body: "Everyone is being docked for their weekly day off, so the unpaid-day figures and the gap list below are all inflated. Set the weekly off-days on the Holidays screen, then regenerate this sheet.",
+} as const;
+
+/** `NO_PROJECT` etc. rendered in plain language — the raw code never reaches the screen. */
+export function skippedReasonLabel(reason: string): string {
+  if (reason === "NO_PROJECT") return "no project set";
+  return reason.toLowerCase().replace(/_/g, " ");
+}
+
+/**
+ * True when the gap ALERT must render and gate Post. `employeeAbsences` includes zero rows
+ * for every employee on a clean sheet, so emptiness is judged on `unpaidDays > 0` — the
+ * clean case must stay clean or the warning becomes wallpaper (spec §6).
+ */
+export function hasAttendanceGaps(warnings: SalarySheetWarnings | null | undefined): boolean {
+  if (!warnings) return false;
+  return (
+    warnings.daysWithNoRecords.length > 0 ||
+    warnings.skippedEmployees.length > 0 ||
+    warnings.employeeAbsences.some((a) => a.unpaidDays > 0)
+  );
+}
+
+/** Anything to render at all — the gap block and/or the weekly-holidays banner. */
+export function hasAnySalaryWarning(warnings: SalarySheetWarnings | null | undefined): boolean {
+  return !!warnings && (hasAttendanceGaps(warnings) || warnings.noWeeklyHolidaysConfigured);
+}

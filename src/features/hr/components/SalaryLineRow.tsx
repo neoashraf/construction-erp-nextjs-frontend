@@ -6,6 +6,22 @@ import { Input } from "@/components/ui/input";
 import { cn } from "@/lib/utils";
 import { formatMoney } from "@/lib/money";
 import { type SalarySheetLine, type SalaryLineUpdateInput } from "../api/salary";
+import { formatLateCell, lateColumnHelper } from "../schemas/salary.schema";
+
+/** `"30.0000"` → `"30"` — day figures render as plain counts, not 4-dp decimals. */
+export function formatDays(value: string): string {
+  const n = Number(value);
+  return Number.isFinite(n) ? String(n) : value;
+}
+
+/**
+ * A `DAILY`-wage line's Standard/Unpaid/Late read as inapplicable (`—`), never zero —
+ * the holiday baseline and the late penalty are `MONTHLY`-only (FR-HR-013a; spec §13).
+ * `wageType` comes from the line when served; absent → MONTHLY (the common case).
+ */
+export function isDailyLine(line: Pick<SalarySheetLine, "wageType">): boolean {
+  return line.wageType === "DAILY";
+}
 
 /** Lime dimension chip (Salary Sheet.dc.html lines grid — Project/Cost-centre tags). */
 function DimensionChip({ children }: { children: React.ReactNode }) {
@@ -31,6 +47,7 @@ export function SalaryLineRow({
   costCentreLabel,
   purposeLabel,
   rowError,
+  latesPerDeductedDay,
 }: {
   line: SalarySheetLine;
   readOnly: boolean;
@@ -40,8 +57,21 @@ export function SalaryLineRow({
   costCentreLabel: string;
   purposeLabel: string;
   rowError?: string;
+  latesPerDeductedDay?: number;
 }) {
   const missingDim = !line.projectId || !line.costCentreId || !line.purposeId;
+  const daily = isDailyLine(line);
+  const unpaid = Number(line.unpaidDays);
+  const penaltyDays = Number(line.latePenaltyDays);
+  const penaltyAmount = Number(line.latePenaltyAmount);
+  // The penalty amount lives in the per-line tooltip beside Late, NOT as a grid column —
+  // a column would imply a post-gross deduction that does not exist (spec §5).
+  const lateTitle = [
+    latesPerDeductedDay != null ? lateColumnHelper(latesPerDeductedDay) : null,
+    penaltyAmount > 0 ? `Penalty: ৳ ${formatMoney(line.latePenaltyAmount, { withSymbol: false })}` : null,
+  ]
+    .filter(Boolean)
+    .join(" ");
   // Purpose is intentionally not a visible column (Salary Sheet.dc.html shows Employee →
   // Project → Cost centre → Paid days, no Purpose track) — the value still gates Post via
   // `missingDim` and the "Missing dimension" pill below.
@@ -60,6 +90,14 @@ export function SalaryLineRow({
           {line.employeeName}
         </Link>
         <div className="font-mono text-[10.5px] text-faint">{line.employeeCode}</div>
+        {daily && (
+          <span
+            className="mt-0.5 inline-block rounded-pill bg-muted px-1.5 py-px text-[9.5px] font-semibold uppercase tracking-[0.4px] text-muted-foreground"
+            data-testid={`line-daily-pill-${line.id}`}
+          >
+            Daily wage
+          </span>
+        )}
       </td>
       <td className="px-2.5 py-2.5 align-middle">
         <DimensionChip>{projectLabel}</DimensionChip>
@@ -67,7 +105,45 @@ export function SalaryLineRow({
       <td className="px-2.5 py-2.5 align-middle">
         <DimensionChip>{costCentreLabel}</DimensionChip>
       </td>
-      <td className="px-2 py-2.5 align-middle text-right font-mono tabular-nums text-[12.5px] text-muted-foreground">{line.paidDays}</td>
+      {/* Days group — Standard · Unpaid · Paid · Late (FR-HR-013a). DAILY reads "—". */}
+      <td
+        className="px-2 py-2.5 align-middle text-right font-mono tabular-nums text-[12.5px] text-muted-foreground"
+        data-testid={`line-standard-${line.id}`}
+      >
+        {daily ? "—" : formatDays(line.standardDays)}
+      </td>
+      <td className="px-2 py-2.5 align-middle text-right" data-testid={`line-unpaid-${line.id}`}>
+        {daily ? (
+          <span className="font-mono text-[12.5px] tabular-nums text-muted-foreground">—</span>
+        ) : unpaid > 0 ? (
+          // Emphasised, not muted — the one number a data gap inflates. The header text +
+          // sr suffix carry the cue; colour is never the only signal (spec §5/§10).
+          <span className="inline-flex h-5 min-w-5 items-center justify-center rounded-token bg-destructive px-1.5 font-mono text-[11.5px] font-bold tabular-nums text-destructive-foreground">
+            {formatDays(line.unpaidDays)}
+            <span className="sr-only"> unpaid days</span>
+          </span>
+        ) : (
+          <span className="font-mono text-[12.5px] tabular-nums text-muted-foreground">
+            {formatDays(line.unpaidDays)}
+          </span>
+        )}
+      </td>
+      <td
+        className="px-2 py-2.5 align-middle text-right font-mono tabular-nums text-[12.5px] font-bold text-foreground"
+        data-testid={`line-paid-${line.id}`}
+      >
+        {formatDays(line.paidDays)}
+      </td>
+      <td
+        className={cn(
+          "whitespace-nowrap px-2 py-2.5 align-middle text-right font-mono tabular-nums text-[12.5px]",
+          !daily && penaltyDays > 0 ? "font-semibold text-destructive-ink" : "text-muted-foreground",
+        )}
+        title={lateTitle || undefined}
+        data-testid={`line-late-${line.id}`}
+      >
+        {daily ? "—" : formatLateCell(line.lateCount, line.latePenaltyDays)}
+      </td>
       <td className="px-2.5 py-2.5 align-middle text-right font-mono tabular-nums text-[12.5px] text-foreground" data-testid={`line-gross-${line.id}`}>
         {formatMoney(line.grossAmount, { withSymbol: false })}
       </td>

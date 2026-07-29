@@ -127,6 +127,10 @@ export function GenerateSheetDialog({
         <DialogDescription>
           This calculates gross pay from attendance, wage type, and overtime for every active employee.
           Inactive employees are excluded automatically.
+          <span className="mt-1.5 block" data-testid="gen-payrule-helper">
+            Monthly staff are paid the full month; weekly and government holidays are paid days.
+            Absences, unpaid leave, and working days with no attendance record are deducted.
+          </span>
         </DialogDescription>
 
         <div className="mt-4 grid grid-cols-2 gap-3">

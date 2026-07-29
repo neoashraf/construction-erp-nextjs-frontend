@@ -7548,6 +7548,21 @@ export async function mockNestjsFetch(req: MockReq): Promise<MockResult> {
     }
   }
 
+  // GET /settings/attendance — whole-body (no envelope), like the report routes. Read by
+  // the salary sheet for the Late column's `latesPerDeductedDay` copy (FR-HR-008c/-013a).
+  if (pathname === "/settings/attendance" && req.method === "GET") {
+    return {
+      status: 200,
+      body: {
+        lateAfterHour: 9,
+        lateAfterMinute: 30,
+        lateAfter: "09:30",
+        latesPerDeductedDay: 3,
+        updatedAt: null,
+      },
+    };
+  }
+
   // ── HR Salary (fe-salary-sheet, FE-37) ──
   // Server-computed DRAFT sheets from the seeded HR.employees (ACTIVE only). Second
   // Generate for the same period returns 409 DUPLICATE_DRAFT_SHEET. PATCH lines/components
@@ -7561,10 +7576,17 @@ export async function mockNestjsFetch(req: MockReq): Promise<MockResult> {
     employeeName: string;
     designation: string | null;
     pfApplicable: boolean;
+    wageType: "MONTHLY" | "DAILY";
     projectId: string | null;
     costCentreId: string | null;
     purposeId: string | null;
+    // FR-HR-013a day/penalty figures — stored on the line, served verbatim (#47).
+    standardDays: string;
+    unpaidDays: string;
     paidDays: string;
+    lateCount: number;
+    latePenaltyDays: string;
+    latePenaltyAmount: string;
     grossAmount: string;
     allowances: string;
     tdsAmount: string;
@@ -7574,6 +7596,12 @@ export async function mockNestjsFetch(req: MockReq): Promise<MockResult> {
     otherDeductions: string;
     netAmount: string;
     version: number;
+  }
+  interface MockSalaryWarnings {
+    daysWithNoRecords: string[];
+    skippedEmployees: { employeeId: string; reason: string }[];
+    employeeAbsences: { employeeId: string; unpaidDays: number }[];
+    noWeeklyHolidaysConfigured: boolean;
   }
   interface MockSalarySheet {
     id: string;
@@ -7594,6 +7622,8 @@ export async function mockNestjsFetch(req: MockReq): Promise<MockResult> {
     version: number;
     lines: MockSalaryLine[];
     projectId: string | null;
+    /** FR-HR-013a generate-time warnings — persisted on the sheet, served on detail reads. */
+    prePostWarnings: MockSalaryWarnings | null;
   }
   const gs = globalThis as unknown as {
     __ZE_MOCK_SAL__?: { sheets: MockSalarySheet[]; seq: number; noSeq: number };
@@ -7639,6 +7669,17 @@ export async function mockNestjsFetch(req: MockReq): Promise<MockResult> {
       postedBy: null,
       version: 1,
       projectId: null,
+      // The seeded DRAFT carries FR-HR-013a warnings so the pre-post gap alert and its
+      // acknowledgement gate are exercisable in dev/e2e without a device outage.
+      prePostWarnings: {
+        daysWithNoRecords: ["2026-07-07", "2026-07-08"],
+        skippedEmployees: [{ employeeId: "emp-9", reason: "NO_PROJECT" }],
+        employeeAbsences: [
+          { employeeId: "emp-1", unpaidDays: 2 },
+          { employeeId: "emp-2", unpaidDays: 0 },
+        ],
+        noWeeklyHolidaysConfigured: false,
+      },
       lines: [
         {
           id: "sl-draft-1",
@@ -7647,10 +7688,16 @@ export async function mockNestjsFetch(req: MockReq): Promise<MockResult> {
           employeeName: "মোঃ রফিকুল ইসলাম",
           designation: "Site Accountant",
           pfApplicable: true,
+          wageType: "MONTHLY",
           projectId: "proj-a",
           costCentreId: "cc-lab",
           purposeId: "pp-1",
-          paidDays: "30.000",
+          standardDays: "31.0000",
+          unpaidDays: "2.0000",
+          paidDays: "29.0000",
+          lateCount: 7,
+          latePenaltyDays: "2.0000",
+          latePenaltyAmount: "2903.2258",
           grossAmount: "45000.0000",
           allowances: "0",
           tdsAmount: "0",
@@ -7668,15 +7715,48 @@ export async function mockNestjsFetch(req: MockReq): Promise<MockResult> {
           employeeName: "Farzana Akter",
           designation: "Site Engineer",
           pfApplicable: true,
+          wageType: "MONTHLY",
           projectId: "proj-a",
           costCentreId: "cc-lab",
           purposeId: "pp-1",
-          paidDays: "30.000",
+          standardDays: "31.0000",
+          unpaidDays: "0.0000",
+          paidDays: "31.0000",
+          lateCount: 2,
+          latePenaltyDays: "0.0000",
+          latePenaltyAmount: "0.0000",
           grossAmount: "60000.0000",
           allowances: "0",
           tdsAmount: "0",
           tdsRate: null,
           pfAmount: "3000.0000",
+          advanceRecovery: "0",
+          otherDeductions: "0",
+          netAmount: "0",
+          version: 1,
+        },
+        {
+          id: "sl-draft-3",
+          employeeId: "emp-3",
+          employeeCode: "EMP-003",
+          employeeName: "রুবেল মিয়া",
+          designation: "Mason",
+          pfApplicable: false,
+          wageType: "DAILY",
+          projectId: "proj-a",
+          costCentreId: "cc-lab",
+          purposeId: "pp-1",
+          standardDays: "0.0000",
+          unpaidDays: "0.0000",
+          paidDays: "22.0000",
+          lateCount: 0,
+          latePenaltyDays: "0.0000",
+          latePenaltyAmount: "0.0000",
+          grossAmount: "19800.0000",
+          allowances: "0",
+          tdsAmount: "0",
+          tdsRate: null,
+          pfAmount: "0",
           advanceRecovery: "0",
           otherDeductions: "0",
           netAmount: "0",
@@ -7697,6 +7777,7 @@ export async function mockNestjsFetch(req: MockReq): Promise<MockResult> {
       postedAt: "2026-07-05T10:00:00Z",
       postedBy: user.id,
       version: 2,
+      prePostWarnings: null,
       lines: seededDraft.lines.map((l) => ({ ...l, id: `sl-p-${l.employeeId}`, version: 1 })),
     };
     recomputeSheet(seededPosted);
@@ -7711,6 +7792,7 @@ export async function mockNestjsFetch(req: MockReq): Promise<MockResult> {
       entryNo: "SAL/2526/0002",
       reversalEntryId: "je-sal-r0",
       reversalEntryNo: "SAL/2526/0003",
+      prePostWarnings: null,
       lines: seededDraft.lines.map((l) => ({ ...l, id: `sl-r-${l.employeeId}`, version: 1 })),
     };
     recomputeSheet(seededReversed);
@@ -7740,7 +7822,8 @@ export async function mockNestjsFetch(req: MockReq): Promise<MockResult> {
       postedBy: s.postedBy,
       version: s.version,
     };
-    return includeLines ? { ...base, lines: s.lines } : base;
+    // `warnings` is a DETAIL-read field — the list projection stays without it (contract).
+    return includeLines ? { ...base, lines: s.lines, warnings: s.prePostWarnings } : base;
   }
   function isSalaryPeriodClosed(end: string): boolean {
     return end <= "2025-03-31";
@@ -7807,6 +7890,14 @@ export async function mockNestjsFetch(req: MockReq): Promise<MockResult> {
       postedBy: null,
       version: 1,
       projectId: b.projectId ?? null,
+      // A freshly generated mock sheet is CLEAN — the seeded draft carries the gap
+      // warnings, so both branches of the FR-HR-013a gate stay exercisable.
+      prePostWarnings: {
+        daysWithNoRecords: [],
+        skippedEmployees: [],
+        employeeAbsences: activeEmps.map((e) => ({ employeeId: e.id, unpaidDays: 0 })),
+        noWeeklyHolidaysConfigured: false,
+      },
       lines: activeEmps.map((e, i) => ({
         id: `sl-${SAL.seq}-${i}`,
         employeeId: e.id,
@@ -7814,10 +7905,16 @@ export async function mockNestjsFetch(req: MockReq): Promise<MockResult> {
         employeeName: e.name,
         designation: e.designation,
         pfApplicable: e.pfApplicable,
+        wageType: (e as { wageType?: "MONTHLY" | "DAILY" }).wageType ?? "MONTHLY",
         projectId: e.defaultProjectId,
         costCentreId: "cc-lab",
         purposeId: "pp-1",
-        paidDays: "30.000",
+        standardDays: "30.0000",
+        unpaidDays: "0.0000",
+        paidDays: "30.0000",
+        lateCount: 0,
+        latePenaltyDays: "0.0000",
+        latePenaltyAmount: "0.0000",
         grossAmount: String(e.wageAmount),
         allowances: "0",
         tdsAmount: "0",
@@ -7837,6 +7934,7 @@ export async function mockNestjsFetch(req: MockReq): Promise<MockResult> {
         id: newSheet.id,
         status: newSheet.status,
         periodLabel: newSheet.periodLabel,
+        warnings: newSheet.prePostWarnings,
       }),
     };
   }

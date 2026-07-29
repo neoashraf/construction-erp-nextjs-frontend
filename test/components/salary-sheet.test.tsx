@@ -20,6 +20,7 @@ import { SalaryRunsList } from "@/features/hr/components/SalaryRunsList";
 import { SalarySheetEditor } from "@/features/hr/components/SalarySheetEditor";
 import * as salApi from "@/features/hr/api/salary";
 import * as masters from "@/features/hr/api/masters";
+import * as employeesApi from "@/features/hr/api/employees";
 import type { SalarySheet, SalarySheetSummary } from "@/features/hr/api/salary";
 
 jest.mock("next/navigation", () => ({
@@ -35,6 +36,7 @@ jest.mock("next/link", () => ({
 }));
 jest.mock("@/features/hr/api/salary");
 jest.mock("@/features/hr/api/masters");
+jest.mock("@/features/hr/api/employees");
 jest.mock("@/lib/masters/lookups", () => ({
   useMasterLookups: () => ({
     accountLabel: (id?: string | null) => id ?? "",
@@ -57,6 +59,9 @@ const listFyMock = salApi.listFinancialYearOptions as jest.Mock;
 
 const listProjectsMock = masters.listProjectOptions as jest.Mock;
 const listPurposesMock = masters.listPurposeOptions as jest.Mock;
+const getSettingsMock = salApi.getAttendanceSettings as jest.Mock;
+const toWarningsMock = salApi.toSalaryWarnings as jest.Mock;
+const listEmployeesMock = employeesApi.listEmployees as jest.Mock;
 
 function user(role: Role): SafeUser {
   return { id: "u1", email: "x@ze.test", name: "X", role, companyId: "c1", financialYearId: "fy-1", isActive: true };
@@ -101,18 +106,22 @@ function sheet(over: Partial<SalarySheet> = {}): SalarySheet {
     lines: [
       {
         id: "sl-1", employeeId: "emp-1", employeeCode: "EMP-001", employeeName: "মোঃ রফিকুল ইসলাম",
-        designation: "Site Accountant", pfApplicable: true,
+        designation: "Site Accountant", pfApplicable: true, wageType: "MONTHLY",
         projectId: "proj-a", costCentreId: "cc-lab", purposeId: "pp-1",
-        paidDays: "30.000", grossAmount: "45000.0000",
+        standardDays: "30.0000", unpaidDays: "0.0000", paidDays: "30.000",
+        lateCount: 0, latePenaltyDays: "0.0000", latePenaltyAmount: "0.0000",
+        grossAmount: "45000.0000",
         allowances: "0.0000", tdsAmount: "0.0000", tdsRate: null,
         pfAmount: "2250.0000", advanceRecovery: "0.0000", otherDeductions: "0.0000",
         netAmount: "42750.0000", version: 1,
       },
       {
         id: "sl-2", employeeId: "emp-2", employeeCode: "EMP-002", employeeName: "Farzana Akter",
-        designation: "Site Engineer", pfApplicable: true,
+        designation: "Site Engineer", pfApplicable: true, wageType: "MONTHLY",
         projectId: "proj-a", costCentreId: "cc-lab", purposeId: "pp-1",
-        paidDays: "30.000", grossAmount: "60000.0000",
+        standardDays: "30.0000", unpaidDays: "2.0000", paidDays: "28.000",
+        lateCount: 7, latePenaltyDays: "2.0000", latePenaltyAmount: "4000.0000",
+        grossAmount: "60000.0000",
         allowances: "0.0000", tdsAmount: "0.0000", tdsRate: null,
         pfAmount: "3000.0000", advanceRecovery: "0.0000", otherDeductions: "0.0000",
         netAmount: "57000.0000", version: 1,
@@ -129,7 +138,32 @@ beforeEach(() => {
   listProjectsMock.mockResolvedValue([{ id: "proj-a", name: "Bridge-04" }]);
   listPurposesMock.mockResolvedValue([{ id: "pp-1", name: "Casting" }]);
   listSheetsMock.mockResolvedValue({ data: [], page: 1, pageSize: 50, total: 0 });
+  getSettingsMock.mockResolvedValue({ lateAfter: "09:30", latesPerDeductedDay: 3 });
+  listEmployeesMock.mockResolvedValue({
+    data: [{ id: "emp-9", name: "Shafiqul Alam" }],
+    page: 1,
+    pageSize: 200,
+    total: 1,
+  });
+  // The editor normalises stored warnings through this — use the real implementation.
+  toWarningsMock.mockImplementation(
+    (raw: unknown) => jest.requireActual("@/features/hr/api/salary").toSalaryWarnings(raw),
+  );
 });
+
+/** A non-empty FR-HR-013a warnings object — two gap days, one outlier, one skipped. */
+function gapWarnings(over: Partial<salApi.SalarySheetWarnings> = {}): salApi.SalarySheetWarnings {
+  return {
+    daysWithNoRecords: ["2026-06-04", "2026-06-05"],
+    skippedEmployees: [{ employeeId: "emp-9", reason: "NO_PROJECT" }],
+    employeeAbsences: [
+      { employeeId: "emp-1", unpaidDays: 0 },
+      { employeeId: "emp-2", unpaidDays: 2 },
+    ],
+    noWeeklyHolidaysConfigured: false,
+    ...over,
+  };
+}
 
 // ── Runs list ──
 describe("SalaryRunsList — landing & empties", () => {
@@ -503,6 +537,225 @@ describe("Role gating + degrade", () => {
     await screen.findByTestId("salary-editor");
     expect(screen.getByTestId("salary-lines-mobile")).toBeInTheDocument();
     expect(screen.getByTestId("salary-line-card-sl-1")).toBeInTheDocument();
+  });
+});
+
+// ── FE-67 — FR-HR-013a Days group + mandatory pre-post attendance-gap warning ──
+
+describe("FR-HR-013a Days column group", () => {
+  it("renders Standard · Unpaid · Paid · Late under one 'Days' colgroup header", async () => {
+    getSheetMock.mockResolvedValue(sheet());
+    renderWith(<SalarySheetEditor id="sal-1" />);
+    await screen.findByTestId("salary-editor");
+
+    const group = screen.getByTestId("days-group-header");
+    expect(group).toHaveAttribute("scope", "colgroup");
+    expect(group).toHaveAttribute("colspan", "4");
+    expect(within(group).getByText(/Paid = standard − unpaid\. Weekly and government holidays are paid\./)).toBeInTheDocument();
+    // Scope to the desktop grid — the tablet table also renders headers in jsdom.
+    const desktopTable = within(group.closest("table") as HTMLElement);
+    for (const h of ["Standard", "Unpaid", "Paid", "Late"]) {
+      expect(desktopTable.getByRole("columnheader", { name: new RegExp(`^${h}$`) })).toBeInTheDocument();
+    }
+  });
+
+  it("formats the Late cell as '{count} → {days}d', '—' at zero, with the company divisor in the tooltip", async () => {
+    getSheetMock.mockResolvedValue(sheet());
+    renderWith(<SalarySheetEditor id="sal-1" />);
+    await screen.findByTestId("salary-editor");
+
+    expect(screen.getByTestId("line-late-sl-1")).toHaveTextContent("—"); // lateCount 0
+    expect(screen.getByTestId("line-late-sl-2")).toHaveTextContent("7 → 2d");
+    await waitFor(() =>
+      expect(screen.getByTestId("late-column-header")).toHaveAttribute(
+        "title",
+        "Every 3 late days cost one day's pay. The penalty reduces gross — it isn't a separate deduction.",
+      ),
+    );
+    // latePenaltyAmount lives in the per-line tooltip, never as a grid column.
+    expect(screen.getByTestId("line-late-sl-2").getAttribute("title")).toContain("Penalty:");
+    expect(screen.queryByRole("columnheader", { name: /Penalty/ })).not.toBeInTheDocument();
+  });
+
+  it("renders a DAILY line's Standard/Unpaid/Late as '—' (inapplicable, never zero) with the Daily wage pill", async () => {
+    const s = sheet();
+    s.lines[0] = {
+      ...s.lines[0]!,
+      wageType: "DAILY",
+      standardDays: "0.0000",
+      unpaidDays: "0.0000",
+      paidDays: "22.0000",
+      lateCount: 0,
+      latePenaltyDays: "0.0000",
+      latePenaltyAmount: "0.0000",
+    };
+    getSheetMock.mockResolvedValue(s);
+    renderWith(<SalarySheetEditor id="sal-1" />);
+    await screen.findByTestId("salary-editor");
+
+    expect(screen.getByTestId("line-standard-sl-1")).toHaveTextContent("—");
+    expect(screen.getByTestId("line-unpaid-sl-1")).toHaveTextContent("—");
+    expect(screen.getByTestId("line-late-sl-1")).toHaveTextContent("—");
+    expect(screen.getByTestId("line-paid-sl-1")).toHaveTextContent("22");
+    expect(screen.getByTestId("line-daily-pill-sl-1")).toHaveTextContent(/daily wage/i);
+  });
+
+  it("emphasises a non-zero Unpaid cell with a text cue, not colour alone", async () => {
+    getSheetMock.mockResolvedValue(sheet());
+    renderWith(<SalarySheetEditor id="sal-1" />);
+    await screen.findByTestId("salary-editor");
+
+    // sl-2 has unpaidDays 2 — emphasised, with the sr-only "unpaid days" text cue.
+    expect(within(screen.getByTestId("line-unpaid-sl-2")).getByText("unpaid days")).toBeInTheDocument();
+  });
+});
+
+describe("FR-HR-013a pre-post attendance-gap warning", () => {
+  it("renders all three sections with the exact spec §8 copy, from the STORED sheet (no generate in play)", async () => {
+    getSheetMock.mockResolvedValue(sheet({ warnings: gapWarnings() }));
+    renderWith(<SalarySheetEditor id="sal-1" />);
+    await screen.findByTestId("attendance-gap-alert");
+
+    const alert = screen.getByTestId("attendance-gap-alert");
+    expect(alert).toHaveAttribute("role", "alert");
+    expect(within(alert).getByText("Check attendance before posting this run.")).toBeInTheDocument();
+    expect(
+      within(alert).getByText(/a working day with no attendance record is treated as unpaid/),
+    ).toBeInTheDocument();
+
+    // (a) zero-record days, DD/MM/YYYY.
+    expect(within(alert).getByText("No attendance was recorded for anyone on 2 working day(s):")).toBeInTheDocument();
+    expect(within(alert).getByText("04/06/2026")).toBeInTheDocument();
+    expect(within(alert).getByText("05/06/2026")).toBeInTheDocument();
+    expect(within(alert).getByText(/device outage or a branch entry log that was never submitted/)).toBeInTheDocument();
+
+    // (b) unpaid days by employee — only > 0 rows, worst first, names from the lines.
+    expect(within(alert).getByText("Unpaid days by employee")).toBeInTheDocument();
+    expect(within(alert).getByText("Farzana Akter")).toBeInTheDocument();
+    expect(within(alert).getByText(/An outlier here is worth a second look/)).toBeInTheDocument();
+
+    // (c) skipped employees in plain language — never the raw NO_PROJECT code.
+    expect(within(alert).getByText("1 employee(s) aren't on this sheet:")).toBeInTheDocument();
+    await within(alert).findByText("Shafiqul Alam");
+    expect(within(alert).getByText(/— no project set/)).toBeInTheDocument();
+    expect(within(alert).queryByText(/NO_PROJECT/)).not.toBeInTheDocument();
+    expect(within(alert).getByText(/They won't be paid on this run until they have a project\./)).toBeInTheDocument();
+
+    // The cross-link sends the fixer upstream.
+    expect(within(alert).getByTestId("gap-attendance-link")).toHaveAttribute("href", "/hr/attendance");
+  });
+
+  it("keeps Post disabled until acknowledged, and enables it after (ANDed with the preview gate)", async () => {
+    getSheetMock.mockResolvedValue(sheet({ warnings: gapWarnings() }));
+    renderWith(<SalarySheetEditor id="sal-1" />);
+    await screen.findByTestId("attendance-gap-alert");
+
+    // Preview confirmed but gaps unacknowledged → still disabled, with the reason.
+    await userEvent.click(screen.getByTestId("preview-confirmed"));
+    const post = screen.getByTestId("post-open");
+    expect(post).toBeDisabled();
+    expect(post).toHaveAttribute("title", "Review the attendance gaps above before posting.");
+    expect(post).toHaveAttribute("aria-describedby", "post-disabled-reason");
+
+    await userEvent.click(screen.getByTestId("gap-acknowledge"));
+    expect(screen.getByTestId("post-open")).toBeEnabled();
+
+    // The acknowledgement is never transmitted — Post sends only { version }.
+    postMock.mockResolvedValue({
+      salarySheetId: "sal-1", salaryEntryId: "je-1", entryNo: "SAL/2526/0009",
+      status: "POSTED", postedAt: "2026-07-29T10:00:00Z", postedBy: "u1", version: 2,
+    });
+    await userEvent.click(screen.getByTestId("post-open"));
+    await userEvent.click(within(screen.getByTestId("post-confirm-dialog")).getByTestId("post-confirm"));
+    await waitFor(() => expect(postMock).toHaveBeenCalledWith("sal-1", { version: 1 }));
+  });
+
+  it("acknowledgement alone is not enough — the balanced-preview gate is retained", async () => {
+    getSheetMock.mockResolvedValue(sheet({ warnings: gapWarnings() }));
+    renderWith(<SalarySheetEditor id="sal-1" />);
+    await screen.findByTestId("attendance-gap-alert");
+
+    await userEvent.click(screen.getByTestId("gap-acknowledge"));
+    expect(screen.getByTestId("post-open")).toBeDisabled();
+  });
+
+  it("clean case stays clean — empty warnings render no alert and Post is immediately gated only by the preview", async () => {
+    getSheetMock.mockResolvedValue(
+      sheet({
+        warnings: {
+          daysWithNoRecords: [],
+          skippedEmployees: [],
+          employeeAbsences: [{ employeeId: "emp-1", unpaidDays: 0 }],
+          noWeeklyHolidaysConfigured: false,
+        },
+      }),
+    );
+    renderWith(<SalarySheetEditor id="sal-1" />);
+    await screen.findByTestId("salary-editor");
+
+    expect(screen.queryByTestId("attendance-gap-alert")).not.toBeInTheDocument();
+    expect(screen.queryByTestId("no-weekly-holidays-warning")).not.toBeInTheDocument();
+    await userEvent.click(screen.getByTestId("preview-confirmed"));
+    expect(screen.getByTestId("post-open")).toBeEnabled();
+  });
+
+  it("renders the noWeeklyHolidaysConfigured banner ABOVE the gap block, and independently of the collections", async () => {
+    // Flag true with EMPTY collections → banner alone, no gap block, Post not gap-gated.
+    getSheetMock.mockResolvedValue(
+      sheet({
+        warnings: {
+          daysWithNoRecords: [],
+          skippedEmployees: [],
+          employeeAbsences: [],
+          noWeeklyHolidaysConfigured: true,
+        },
+      }),
+    );
+    const { unmount } = renderWith(<SalarySheetEditor id="sal-1" />);
+    await screen.findByTestId("no-weekly-holidays-warning");
+    expect(screen.queryByTestId("attendance-gap-alert")).not.toBeInTheDocument();
+    unmount();
+
+    // Flag true WITH collections → banner renders before (above) the gap block.
+    getSheetMock.mockResolvedValue(
+      sheet({ warnings: gapWarnings({ noWeeklyHolidaysConfigured: true }) }),
+    );
+    renderWith(<SalarySheetEditor id="sal-1" />);
+    const banner = await screen.findByTestId("no-weekly-holidays-warning");
+    const alert = await screen.findByTestId("attendance-gap-alert");
+    expect(banner.compareDocumentPosition(alert) & Node.DOCUMENT_POSITION_FOLLOWING).toBeTruthy();
+  });
+
+  it("suppresses the generate success toast when the 201 carries non-empty warnings", async () => {
+    listSheetsMock.mockResolvedValue({ data: [summary()], page: 1, pageSize: 50, total: 1 });
+    generateMock.mockResolvedValue({
+      id: "sal-new",
+      status: "DRAFT",
+      periodLabel: "2026-07",
+      warnings: gapWarnings(),
+    });
+    renderWith(<SalaryRunsList />);
+    await screen.findByTestId("salary-runs-title");
+
+    await userEvent.click(screen.getByTestId("salary-generate"));
+    await screen.findByTestId("generate-sheet-dialog");
+    await userEvent.selectOptions(screen.getByTestId("gen-project"), "proj-a");
+    await waitFor(() => expect(screen.getByTestId("gen-purpose")).toBeEnabled());
+    await userEvent.selectOptions(screen.getByTestId("gen-purpose"), "pp-1");
+    await userEvent.click(screen.getByTestId("gen-submit"));
+
+    await waitFor(() => expect(generateMock).toHaveBeenCalled());
+    expect(screen.queryByText(/Draft salary sheet created/)).not.toBeInTheDocument();
+  });
+
+  it("states the corrected pay rule in the Generate dialog's helper", async () => {
+    renderWith(<SalaryRunsList />);
+    await screen.findByTestId("salary-runs-title");
+    await userEvent.click(screen.getByTestId("salary-generate"));
+    await screen.findByTestId("generate-sheet-dialog");
+    expect(screen.getByTestId("gen-payrule-helper")).toHaveTextContent(
+      "Monthly staff are paid the full month; weekly and government holidays are paid days. Absences, unpaid leave, and working days with no attendance record are deducted.",
+    );
   });
 });
 
