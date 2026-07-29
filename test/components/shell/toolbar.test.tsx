@@ -7,7 +7,7 @@
  * page's content header).
  */
 import React from "react";
-import { render, screen, waitFor, within } from "@testing-library/react";
+import { render, screen, cleanup, waitFor, within } from "@testing-library/react";
 import userEvent from "@testing-library/user-event";
 import { QueryClient, QueryClientProvider } from "@tanstack/react-query";
 import { CompanyFyProvider } from "@/providers/company-fy-provider";
@@ -16,9 +16,11 @@ import { CompanyFySwitcher } from "@/components/shell/company-fy-switcher";
 import { AlertsBell } from "@/components/shell/alerts-bell";
 import { UserMenu } from "@/components/shell/user-menu";
 import { NavCommand } from "@/components/shell/nav-command";
+import { Topbar } from "@/components/shell/topbar";
+import { ShellChromeProvider } from "@/components/shell/shell-chrome-context";
 import * as shellData from "@/lib/shell/shell-data";
 import { SessionProvider } from "@/providers/session-provider";
-import { type SafeUser } from "@/lib/auth/session";
+import { type SafeUser, type SessionPermission } from "@/lib/auth/session";
 import { type Role } from "@/lib/auth/roles";
 
 const pushMock = jest.fn();
@@ -51,6 +53,37 @@ function Providers({ children, client }: { children: React.ReactNode; client?: Q
         <ToastProvider>{children}</ToastProvider>
       </CompanyFyProvider>
     </QueryClientProvider>
+  );
+}
+
+/** Renders the real `Topbar` as a given viewer (role + effective grant set) —
+ *  the same providers the rest of this suite uses, plus the chrome context
+ *  `Topbar` itself needs for the collapse toggle. */
+function renderTopbarAs({
+  role,
+  permissions,
+}: {
+  role: Role | string;
+  permissions: SessionPermission[];
+}) {
+  const user: SafeUser = {
+    id: "u1",
+    email: "x@ze.test",
+    name: "X",
+    role: role as Role,
+    companyId: "c1",
+    financialYearId: "fy-2025",
+    isActive: true,
+    permissions,
+  };
+  return render(
+    <Providers>
+      <SessionProvider user={user}>
+        <ShellChromeProvider>
+          <Topbar viewer={{ role: role as Role, permissions }} />
+        </ShellChromeProvider>
+      </SessionProvider>
+    </Providers>,
   );
 }
 
@@ -241,5 +274,20 @@ describe("Ctrl+K nav palette (spec §5/§9/§14-1)", () => {
     // /sales/ipcs is now navigable (routes to its Coming-soon page) → the palette
     // lists it rather than showing "No matches."
     expect(await screen.findByTestId("nav-command-item-/sales/ipcs")).toBeInTheDocument();
+  });
+});
+
+describe("Settings gear (nav IA redesign §7; settings.md §1/§5)", () => {
+  it("shows the Settings gear only for viewers holding a settings resource", () => {
+    renderTopbarAs({ role: "ADMIN", permissions: [
+      { resource: "numbering", action: "READ", projectScope: "ALL", valueLimit: null },
+    ]});
+    expect(screen.getByRole("link", { name: "Settings" })).toBeVisible();
+
+    cleanup();
+    renderTopbarAs({ role: "STORE_KEEPER", permissions: [
+      { resource: "inventory.stock_ledger", action: "READ", projectScope: "ASSIGNED", valueLimit: null },
+    ]});
+    expect(screen.queryByRole("link", { name: "Settings" })).toBeNull();
   });
 });

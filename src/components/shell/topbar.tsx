@@ -1,7 +1,8 @@
 "use client";
 
-import { PanelLeft, Menu } from "lucide-react";
-import { type NavViewer } from "@/lib/nav/nav-tree";
+import { PanelLeft, Menu, Settings } from "lucide-react";
+import Link from "next/link";
+import { showsSettingsGear, type NavViewer } from "@/lib/nav/nav-tree";
 import { useShellChrome } from "./shell-chrome-context";
 import { CompanyFySwitcher } from "./company-fy-switcher";
 import { NavCommand } from "./nav-command";
@@ -11,10 +12,13 @@ import { AlertsBell } from "./alerts-bell";
  * App Shell v3 toolbar (screen spec §3.3/§4/§5) — GLOBAL context + utilities ONLY.
  * Left group: collapse toggle (36×36 bordered icon box, panel-left glyph — never a
  * hamburger at ≥768) · 1px divider · company·FY switcher chip. Right group: go-to
- * search icon-box (opens the search takeover) · alerts bell icon-box. Nothing
+ * search icon-box (opens the search takeover) · alerts bell icon-box · the
+ * **Settings gear** icon-box (nav IA redesign §7; settings.md §1/§5), rendered iff
+ * the viewer holds `READ` on ≥1 of the three Settings-surface resources — hidden
+ * entirely otherwise (five of the six built-in roles never see it). Nothing
  * page-specific lives here: no "+ New" (creates are in each page's content header),
  * no breadcrumb (detail-only, in the content header), no user block (docked in the
- * sidebar footer). The three utility icons are identical 36×36 bordered boxes.
+ * sidebar footer). The topbar utility icons are identical 36×36 bordered boxes.
  * `<header>` landmark.
  */
 
@@ -59,10 +63,20 @@ export function Topbar({ viewer }: { viewer: NavViewer }) {
         <CompanyFySwitcher />
       </div>
 
-      {/* right group — search + bell icon boxes (identical trio with the toggle) */}
+      {/* right group — search · bell · Settings gear (identical 36×36 boxes) */}
       <div className="ml-auto flex items-center gap-2">
         <NavCommand viewer={viewer} />
         <AlertsBell viewer={viewer} />
+        {showsSettingsGear(viewer) && (
+          <Link
+            href="/settings"
+            aria-label="Settings"
+            title="Settings"
+            className={TOPBAR_ICON_BOX}
+          >
+            <Settings className="h-[17px] w-[17px]" aria-hidden />
+          </Link>
+        )}
       </div>
     </header>
   );

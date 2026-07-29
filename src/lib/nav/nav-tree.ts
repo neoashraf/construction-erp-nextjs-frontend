@@ -615,3 +615,37 @@ export function showsAlertsBell(viewerLike: ViewerLike): boolean {
 export function costControlBuilt(): boolean {
   return true;
 }
+
+/**
+ * The Settings surface's own left-nav item — Company settings, Financial years,
+ * Numbering (nav IA redesign §7; screen spec 00-app-shell/settings.md §5). These
+ * three left the sidebar in the redesign and now live behind the topbar gear; the
+ * routes themselves are UNCHANGED (settings.md §3 "Related screens" — no `/settings/*`
+ * destination is ever created for them).
+ */
+export interface SettingsNavItem {
+  label: string;
+  route: string;
+  /** Resource-Catalogue code — item visibility is `resource:READ`, same mechanism
+   *  as every other nav row (settings.md §5, FR-AUD-035). */
+  resource: string;
+}
+
+export const SETTINGS_NAV_ITEMS: readonly SettingsNavItem[] = [
+  { label: "Company settings", route: "/master-data/company-settings", resource: "master_data.company_settings" },
+  { label: "Financial years", route: "/master-data/financial-years", resource: "master_data.financial_years" },
+  { label: "Numbering", route: "/numbering", resource: "numbering" },
+];
+
+/**
+ * True when the viewer holds `READ` on at least one of the three Settings-surface
+ * resources (settings.md §1 "Entry points") — gates BOTH the topbar gear
+ * (topbar.tsx) and the `/settings` server guard, so the two can never disagree.
+ * `hasGrant`'s own superuser branch admits Admin; there is no legacy role-map
+ * fallback for these resources (they're new — only Admin holds them under the
+ * seeded defaults, settings.md §11), unlike the module-level nav rows above.
+ */
+export function showsSettingsGear(viewerLike: ViewerLike): boolean {
+  const viewer = asViewer(viewerLike);
+  return SETTINGS_NAV_ITEMS.some((item) => hasGrant(viewer, item.resource, "READ"));
+}

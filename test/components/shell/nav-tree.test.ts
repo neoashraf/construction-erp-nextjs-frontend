@@ -6,6 +6,7 @@
  */
 import {
   NAV_SECTIONS, NAV_TREE, visibleTreeForRole, suppressesHeader, matchNav,
+  SETTINGS_NAV_ITEMS, showsSettingsGear,
   type NavSectionGroup,
 } from "@/lib/nav/nav-tree";
 import { type SessionPermission } from "@/lib/auth/session";
@@ -195,5 +196,35 @@ describe("per-role trees match nav-tree-by-role.md 2", () => {
     const tree = visibleTreeForRole(viewer);
     expect(tree.map((g) => g.section)).toEqual(["HOME", "PEOPLE", "REPORTS & ANALYSIS"]);
     expect(rowsOf(tree)).toHaveLength(6);
+  });
+});
+
+describe("Settings gear gating (nav IA redesign §7; settings.md §1/§5)", () => {
+  it("names exactly the three off-sidebar destinations, routes unchanged", () => {
+    expect(SETTINGS_NAV_ITEMS).toEqual([
+      { label: "Company settings", route: "/master-data/company-settings", resource: "master_data.company_settings" },
+      { label: "Financial years", route: "/master-data/financial-years", resource: "master_data.financial_years" },
+      { label: "Numbering", route: "/numbering", resource: "numbering" },
+    ]);
+  });
+
+  it("Admin passes via hasGrant's superuser branch, even with an empty grant set", () => {
+    expect(showsSettingsGear({ role: "ADMIN", permissions: [] })).toBe(true);
+  });
+
+  it("a viewer holding READ on exactly one of the three still shows the gear (Partial, §6)", () => {
+    const viewer = { role: "HR_MANAGER" as const, permissions: [grant("master_data.financial_years")] };
+    expect(showsSettingsGear(viewer)).toBe(true);
+  });
+
+  it("a viewer holding none of the three never shows the gear (five of six built-in roles)", () => {
+    const viewer = { role: "STORE_KEEPER" as const, permissions: [
+      "inventory.stock_ledger", "requisitions.list",
+    ].map(grant) };
+    expect(showsSettingsGear(viewer)).toBe(false);
+  });
+
+  it("a degraded session (no permissions projection) never shows the gear for a non-Admin", () => {
+    expect(showsSettingsGear({ role: "ACCOUNTS_MANAGER" })).toBe(false);
   });
 });
