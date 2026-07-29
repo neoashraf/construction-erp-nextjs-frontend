@@ -32,15 +32,23 @@ test("Payslip: open posted run's payslips → open one employee → Print invoke
   await expect(page.getByTestId("payslip-list")).toBeVisible();
   await expect(page.getByTestId("payslip-list-title")).toContainText("Payslips —");
 
-  // Open one employee's single-document view.
-  const firstView = page.getByTestId(/^payslip-view-/).first();
-  await firstView.click();
+  // FR-HR-013a: the seeded run's EMP-001 carries 7 lates → 2 penalty days — the list's
+  // Late column predicts the question before the document answers it.
+  await expect(page.getByTestId("payslip-late-emp-1")).toContainText("7 → 2d");
+
+  // Open the penalised employee's single-document view.
+  await page.getByTestId("payslip-view-emp-1").click();
 
   // Single-payslip document renders with the earnings + deductions blocks + net row.
   await expect(page.getByTestId("payslip-doc")).toBeVisible();
   await expect(page.getByTestId("payslip-earnings")).toBeVisible();
   await expect(page.getByTestId("payslip-deductions")).toBeVisible();
   await expect(page.getByTestId("payslip-net-row")).toBeVisible();
+
+  // The late-penalty line sits inside Earnings, labelled with cause → rule → cost,
+  // BEFORE Print is invoked (FR-HR-013a; the document must explain the docked pay).
+  await expect(page.getByTestId("payslip-late-penalty")).toBeVisible();
+  await expect(page.getByTestId("payslip-late-penalty")).toContainText("Late penalty (7 lates → 2 days)");
 
   // Invoke Print.
   await page.getByTestId("payslip-print").click();

@@ -16,11 +16,18 @@ import { formatMoney, toDecimal } from "@/lib/money";
 import { useAuthenticatedUser } from "@/providers/session-provider";
 import { roleMatches } from "@/lib/auth/roles";
 import { usePayslips } from "../hooks/usePayslips";
+import { useAttendanceSettings } from "../hooks/useAttendanceSettings";
 import { PayslipSearch } from "./PayslipSearch";
 import { PayslipPrintActions } from "./PayslipPrintActions";
 import { ReversedRunBanner } from "./ReversedRunBanner";
 import { NotPostedGuard } from "./NotPostedGuard";
-import { PAYSLIP_COPY } from "../schemas/payslip.schema";
+import {
+  PAYSLIP_COPY,
+  hasLatePenalty,
+  listLateCell,
+  listLateRuleNote,
+  paidDaysSubLine,
+} from "../schemas/payslip.schema";
 import { SalaryStatusBadge } from "./SalaryStatusBadge";
 import type { Payslip } from "../api/salary";
 
@@ -58,6 +65,8 @@ export function PayslipList({ sheetId }: { sheetId: string }) {
   const denied = roleMatches(["SITE_ENGINEER", "STORE_KEEPER", "PROJECT_MANAGER"], user.role);
 
   const q = usePayslips(sheetId);
+  // Company divisor for the FR-HR-013a rule note — copy only, never arithmetic.
+  const settingsQ = useAttendanceSettings();
   const [search, setSearch] = useState("");
   const [sort, setSort] = useState<{ key: SortKey; dir: "asc" | "desc" }>({
     key: "employeeCode",
@@ -178,6 +187,16 @@ export function PayslipList({ sheetId }: { sheetId: string }) {
       </div>
 
       {isReversed && <ReversedRunBanner sheetId={sheet.id} />}
+
+      {/* FR-HR-013a — the Late column's rule, stated where the question will be asked. */}
+      {payslips.length > 0 && settingsQ.data ? (
+        <p
+          className="mb-3 text-[12px] text-muted-foreground print-hide"
+          data-testid="payslip-late-rule-note"
+        >
+          {listLateRuleNote(settingsQ.data.latesPerDeductedDay)}
+        </p>
+      ) : null}
 
       {payslips.length > 0 && (
         <Card className="mb-4 flex flex-wrap items-center gap-6 p-4 print-hide" data-testid="payslip-run-context">
@@ -304,6 +323,7 @@ function PayslipTable({
 }) {
   const router = useRouter();
   const netTotal = rows.reduce((acc, p) => acc.plus(p.netAmount), toDecimal("0"));
+  const penaltyCount = rows.filter((p) => hasLatePenalty(p)).length;
 
   function printRow(employeeId: string) {
     router.push(`/hr/salary-sheets/${sheetId}/payslips/${employeeId}?print=1`);
@@ -318,6 +338,7 @@ function PayslipTable({
             <SortHeader sortKey="name" label="Name" active={sort.key === "name"} dir={sort.dir} onSort={onSort} />
             <th className="hidden px-3 py-2 md:table-cell">Designation</th>
             <SortHeader sortKey="paidDays" label="Paid days" align="right" active={sort.key === "paidDays"} dir={sort.dir} onSort={onSort} />
+            <th className="px-3 py-2 text-right">Late</th>
             <SortHeader sortKey="grossAmount" label="Gross" align="right" active={sort.key === "grossAmount"} dir={sort.dir} onSort={onSort} />
             <SortHeader sortKey="netAmount" label="Net" align="right" active={sort.key === "netAmount"} dir={sort.dir} onSort={onSort} />
             <th className="px-3 py-2 text-right">Actions</th>
@@ -335,7 +356,29 @@ function PayslipTable({
               <td className="hidden px-3 py-2 text-muted-foreground md:table-cell">
                 {p.designation ?? ""}
               </td>
-              <td className="px-3 py-2 text-right tabular-nums">{p.paidDays}</td>
+              <td className="px-3 py-2 text-right tabular-nums" data-testid={`payslip-paid-days-${p.employeeId}`}>
+                {p.paidDays}
+                {(() => {
+                  const sub = paidDaysSubLine(p);
+                  // "29 / of 31" — the baseline stays visible where the count was reduced.
+                  return sub ? (
+                    <span className="block text-[11px] font-normal text-faint">
+                      of {String(Number(p.standardDays))}
+                    </span>
+                  ) : null;
+                })()}
+              </td>
+              <td className="px-3 py-2 text-right" data-testid={`payslip-late-${p.employeeId}`}>
+                {hasLatePenalty(p) ? (
+                  <span className="inline-flex items-center rounded-pill bg-destructive-soft px-2 py-0.5 font-mono text-[11.5px] font-semibold tabular-nums text-destructive-ink">
+                    {listLateCell(p)}
+                  </span>
+                ) : (
+                  <span className="font-mono text-[12px] tabular-nums text-muted-foreground">
+                    {listLateCell(p)}
+                  </span>
+                )}
+              </td>
               <td className="px-3 py-2 text-right tabular-nums">
                 {formatMoney(p.grossAmount, { fractionDigits: 2 })}
               </td>
@@ -369,9 +412,10 @@ function PayslipTable({
         </tbody>
       </table>
       <div className="flex items-center justify-between gap-3 px-3 py-3 text-[12.5px] text-muted-foreground">
-        <span>
+        <span data-testid="payslip-footer-count">
           Showing <span className="font-semibold text-foreground">{shownCount}</span> of{" "}
-          <span className="font-semibold text-foreground">{totalCount}</span> payslips
+          <span className="font-semibold text-foreground">{totalCount}</span> payslips ·{" "}
+          <span className="font-semibold text-foreground">{penaltyCount}</span> carry a late penalty
         </span>
         <span>
           Net payable{" "}

@@ -125,10 +125,28 @@ const twoPayslips: Payslip[] = [
   }),
 ];
 
+const getSettingsMock = salApi.getAttendanceSettings as jest.Mock;
+
 beforeEach(() => {
   jest.clearAllMocks();
   searchParamsGet.mockImplementation(() => null);
+  getSettingsMock.mockResolvedValue({ lateAfter: "09:30", latesPerDeductedDay: 3 });
 });
+
+/** A payslip carrying the FR-HR-013a fields with a real penalty (7 lates, N = 3 → 2 days). */
+function penalisedPayslip(over: Partial<Payslip> = {}): Payslip {
+  return payslip({
+    wageType: "MONTHLY",
+    standardDays: "31.0000",
+    unpaidDays: "0.0000",
+    paidDays: "31.000",
+    lateCount: 7,
+    latePenaltyDays: "2.0000",
+    latePenaltyAmount: "4516.1290",
+    grossAmount: "65483.8710",
+    ...over,
+  });
+}
 
 // ── List ──
 describe("PayslipList — list view", () => {
@@ -371,6 +389,155 @@ describe("PayslipDocument — single-payslip document", () => {
     // Net-pay row + code/name still rendered → readable per the mobile frame.
     expect(screen.getByTestId("payslip-net-row")).toBeInTheDocument();
     expect(screen.getByTestId("payslip-emp-code")).toBeInTheDocument();
+  });
+});
+
+// ── FE-68 — FR-HR-013a late-penalty line + full-month paid days ──
+
+describe("FR-HR-013a — the late-penalty line on the document", () => {
+  it("renders the penalty in Earnings, immediately above Gross salary, with the exact label and signed amount", async () => {
+    getSheetMock.mockResolvedValue(postedSheet());
+    getPayslipsMock.mockResolvedValue([penalisedPayslip()]);
+    renderWith(<PayslipDocument sheetId="sal-1" employeeId="emp-1" />);
+    await screen.findByTestId("payslip-paper");
+
+    const earnings = screen.getByTestId("payslip-earnings");
+    const penalty = within(earnings).getByTestId("payslip-late-penalty");
+    expect(penalty).toHaveTextContent("Late penalty (7 lates → 2 days)");
+    expect(within(penalty).getByLabelText(/Late penalty, minus ৳4,516\.1290/)).toBeInTheDocument();
+    // Immediately ABOVE Gross salary — the same order it prints in.
+    const gross = within(earnings).getByTestId("payslip-earnings-gross");
+    expect(penalty.compareDocumentPosition(gross) & Node.DOCUMENT_POSITION_FOLLOWING).toBeTruthy();
+    // The red helper sub-line interpolates the company divisor.
+    await within(penalty).findByText("Every 3 lates cost one day of pay — taken off gross, not from paid days.");
+  });
+
+  it("is explanatory, not arithmetic — not in Deductions, not in any subtotal", async () => {
+    getSheetMock.mockResolvedValue(postedSheet());
+    getPayslipsMock.mockResolvedValue([penalisedPayslip({ allowances: "4000.0000" })]);
+    renderWith(<PayslipDocument sheetId="sal-1" employeeId="emp-1" />);
+    await screen.findByTestId("payslip-paper");
+
+    expect(within(screen.getByTestId("payslip-deductions")).queryByText(/Late penalty/)).not.toBeInTheDocument();
+    // Total earnings = gross + allowances — gross is ALREADY net of the penalty.
+    expect(screen.getByTestId("payslip-earnings-total")).toHaveTextContent("69,483.87");
+    // Total deductions untouched by the penalty amount.
+    expect(screen.getByTestId("payslip-deductions-total")).toHaveTextContent("2,250.00");
+  });
+
+  it("is absent at zero AND when lateCount is below the divisor — never a ৳0 placeholder", async () => {
+    getSheetMock.mockResolvedValue(postedSheet());
+    // 2 lates, N = 3 → penaltyDays 0: the lates were seen, but nothing was deducted.
+    getPayslipsMock.mockResolvedValue([
+      penalisedPayslip({ lateCount: 2, latePenaltyDays: "0.0000", latePenaltyAmount: "0.0000" }),
+    ]);
+    renderWith(<PayslipDocument sheetId="sal-1" employeeId="emp-1" />);
+    await screen.findByTestId("payslip-paper");
+    expect(screen.queryByTestId("payslip-late-penalty")).not.toBeInTheDocument();
+  });
+
+  it("renders a pre-FR-HR-013a line (no stored penalty fields) cleanly, without zeros", async () => {
+    getSheetMock.mockResolvedValue(postedSheet());
+    getPayslipsMock.mockResolvedValue([payslip()]); // legacy shape — no day/penalty fields at all
+    renderWith(<PayslipDocument sheetId="sal-1" employeeId="emp-1" />);
+    await screen.findByTestId("payslip-paper");
+
+    expect(screen.queryByTestId("payslip-late-penalty")).not.toBeInTheDocument();
+    expect(screen.queryByTestId("payslip-paid-days-subline")).not.toBeInTheDocument();
+    expect(screen.getByTestId("payslip-net-value")).toBeInTheDocument();
+  });
+
+  it("keeps Paid days at the stored full-month value, with the sub-line only when unpaidDays > 0", async () => {
+    getSheetMock.mockResolvedValue(postedSheet());
+    getPayslipsMock.mockResolvedValue([
+      penalisedPayslip({ paidDays: "29.000", unpaidDays: "2.0000" }),
+    ]);
+    renderWith(<PayslipDocument sheetId="sal-1" employeeId="emp-1" />);
+    await screen.findByTestId("payslip-paper");
+
+    // Stored value, never reduced by latePenaltyDays.
+    expect(screen.getByTestId("payslip-paid-days")).toHaveTextContent("Paid days: 29.000");
+    const sub = screen.getByTestId("payslip-paid-days-subline");
+    expect(sub).toHaveTextContent("29 of 31 — 2 unpaid");
+    expect(screen.getByTestId("payslip-paid-days")).toHaveAttribute(
+      "aria-describedby",
+      "payslip-paid-days-subline",
+    );
+  });
+
+  it("interpolates the company's latesPerDeductedDay into the pay-rule footnote", async () => {
+    getSettingsMock.mockResolvedValue({ lateAfter: "09:30", latesPerDeductedDay: 4 });
+    getSheetMock.mockResolvedValue(postedSheet());
+    getPayslipsMock.mockResolvedValue([penalisedPayslip()]);
+    renderWith(<PayslipDocument sheetId="sal-1" employeeId="emp-1" />);
+    await screen.findByTestId("payslip-paper");
+
+    const note = await screen.findByTestId("payslip-payrule-footnote");
+    expect(note).toHaveTextContent(
+      "Monthly pay covers the full month, including weekly and government holidays. Absences, unpaid leave, and days with no attendance record are deducted; every 4 late days cost one day's pay.",
+    );
+  });
+
+  it("still has no write affordance anywhere on a penalised document", async () => {
+    getSheetMock.mockResolvedValue(postedSheet());
+    getPayslipsMock.mockResolvedValue([penalisedPayslip()]);
+    renderWith(<PayslipDocument sheetId="sal-1" employeeId="emp-1" />);
+    await screen.findByTestId("payslip-paper");
+
+    for (const label of [/save/i, /post/i, /reverse/i, /edit/i, /delete/i]) {
+      expect(screen.queryByRole("button", { name: label })).not.toBeInTheDocument();
+    }
+  });
+});
+
+describe("FR-HR-013a — the list's Late column", () => {
+  it("formats the Late cell, renders '—' at zero, counts penalties in the footer, and notes the rule", async () => {
+    getSheetMock.mockResolvedValue(postedSheet());
+    getPayslipsMock.mockResolvedValue([
+      penalisedPayslip(),
+      payslip({
+        employeeId: "emp-2",
+        employeeCode: "EMP-002",
+        name: "Farzana Akter",
+        wageType: "DAILY",
+        standardDays: "0.0000",
+        unpaidDays: "0.0000",
+        lateCount: 0,
+        latePenaltyDays: "0.0000",
+        latePenaltyAmount: "0.0000",
+      }),
+    ]);
+    renderWith(<PayslipList sheetId="sal-1" />);
+    await screen.findByTestId("payslip-list");
+
+    expect(screen.getByRole("columnheader", { name: "Late" })).toBeInTheDocument();
+    expect(screen.getByTestId("payslip-late-emp-1")).toHaveTextContent("7 → 2d");
+    expect(screen.getByTestId("payslip-late-emp-2")).toHaveTextContent("—");
+    expect(screen.getByTestId("payslip-footer-count")).toHaveTextContent(
+      "Showing 2 of 2 payslips · 1 carry a late penalty",
+    );
+    const note = await screen.findByTestId("payslip-late-rule-note");
+    expect(note).toHaveTextContent("Every 3 late days cost one day of pay.");
+  });
+
+  it("shows the grey 'of {standardDays}' sub-line only where the employee has unpaid days", async () => {
+    getSheetMock.mockResolvedValue(postedSheet());
+    getPayslipsMock.mockResolvedValue([
+      penalisedPayslip({ paidDays: "29.000", unpaidDays: "2.0000" }),
+      penalisedPayslip({
+        employeeId: "emp-2",
+        employeeCode: "EMP-002",
+        name: "Farzana Akter",
+        lateCount: 0,
+        latePenaltyDays: "0.0000",
+        latePenaltyAmount: "0.0000",
+      }),
+    ]);
+    renderWith(<PayslipList sheetId="sal-1" />);
+    await screen.findByTestId("payslip-list");
+
+    expect(screen.getByTestId("payslip-paid-days-emp-1")).toHaveTextContent("of 31");
+    expect(screen.getByTestId("payslip-paid-days-emp-2")).not.toHaveTextContent("of 31");
   });
 });
 
