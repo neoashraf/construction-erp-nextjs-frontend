@@ -18,7 +18,21 @@ function csrf() {
 
 export type AttendanceMode = "OFFICE" | "DAILY_LABOUR" | "SUBCONTRACTOR";
 export type DayStatus = "PRESENT" | "PAID_LEAVE" | "UNPAID_LEAVE" | "ABSENT";
-export type AttendanceSource = "MANUAL" | "BIOMETRIC_IMPORT";
+/**
+ * How a record reached us — the canonical FOUR values (SRS §8; API contract `sourceType`),
+ * one per ingestion path. Rendered as THREE labels (Machine / Import / Manual) by
+ * `sourceBadgeLabel`; an unlisted value degrades to Machine rather than a blank cell.
+ *
+ * *Where* the work happened is `projectId`'s job — there is deliberately no `MANUAL_OFFICE` /
+ * `MANUAL_SITE` split, because encoding the place a second time inside the source would let
+ * the two disagree with no way to say which is right.
+ */
+export type AttendanceSource =
+  | "DEVICE_PUSH"
+  | "DEVICE_SYNC"
+  | "EXCEL_IMPORT"
+  | "MANUAL"
+  | (string & {});
 
 /** The unified `AttendanceRecord` shape (see contract 12). Fields vary by mode. */
 export interface AttendanceRecord {
@@ -121,48 +135,19 @@ export async function saveOfficeAttendance(rows: OfficeAttendanceRow[]): Promise
   return res.data;
 }
 
-/**
- * A biometric device-feed row (backend `BiometricAttendanceRow`). Note this is NOT the same
- * as `OfficeAttendanceRow`: the feed keys the employee by their human `employeeCode` (e.g. the
- * device/machine id printed on the sheet, not a UUID) and carries NO per-row projectId — the
- * project is supplied once, at the top level of the import, from the roster's selected project.
+/*
+ * `POST /attendance/office/import` (`importOfficeBiometric`) lived here until FE-64.
+ *
+ * It is REMOVED from the backend (attendance Phase A, 07/2026): it was a SECOND writer of
+ * `attendance_record` whose conflict model — `conflicts[]` plus a "Keep manual / Keep imported"
+ * choice — contradicted the merge model every other ingestion path uses. Spreadsheet import is
+ * now `POST /attendance/import` (see `../api/attendance-logs`), which runs the shared
+ * `insertPunches` → `reconcileDays` pipeline, so an imported day and a device-recorded day are
+ * indistinguishable and a re-import is a no-op instead of a conflict list.
+ *
+ * `conflicts[]`'s job is split between `skippedReasons` (per-day: why nothing was folded) and
+ * `errors[]` (per-row, carrying the sheet row number). There is nothing left to resolve by hand.
  */
-export interface BiometricFeedRow {
-  employeeCode: string;
-  attendanceDate: string; // YYYY-MM-DD
-  checkIn?: string | null; // HH:mm
-  checkOut?: string | null; // HH:mm
-  dayStatus?: DayStatus | null;
-  overtimeHours?: string | null;
-}
-/** A row the import could not place. `reason` is a server code (see `mapAttendanceError`). */
-export interface BiometricConflict {
-  employeeId: string; // resolved id, or the raw employeeCode when the code was unknown
-  attendanceDate: string;
-  reason: string;
-}
-export interface BiometricImportResult {
-  imported: number; // rows read from the feed
-  reconciled: number; // rows actually inserted (non-conflicting)
-  conflicts: BiometricConflict[];
-}
-/**
- * Import an office biometric feed for a single project. The backend resolves each
- * `employeeCode`, applies `projectId` to every row, defaults status to PRESENT, and inserts
- * the non-conflicting rows directly (append-only; never doubles a day). `projectId` is
- * required and must be a real project UUID.
- */
-export async function importOfficeBiometric(
-  projectId: string,
-  feed: BiometricFeedRow[],
-): Promise<BiometricImportResult> {
-  const res = await apiClient.post<{ data: BiometricImportResult }>(
-    `${BASE}/office/import`,
-    { projectId, deviceFeed: feed },
-    csrf(),
-  );
-  return res.data;
-}
 
 // ── Subcontractor ──
 export interface SubcontractorRow {

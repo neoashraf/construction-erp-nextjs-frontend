@@ -5,6 +5,7 @@ import { Button } from "@/components/ui/button";
 import { useToast } from "@/components/ui/toast";
 import { ApiError } from "@/lib/api/errors";
 import { describeSyncSummary, useRunSync, useSyncStatus } from "../hooks/useAttendanceLogs";
+import { type SyncSummary } from "../api/attendance-logs";
 import { formatRelativeTime } from "../lib/attendance-time";
 
 /**
@@ -23,16 +24,26 @@ import { formatRelativeTime } from "../lib/attendance-time";
  * The status read is informational: when it fails the tooltip degrades but the button still
  * works, because a broken *status* endpoint must not block the action that fixes stale data.
  */
-export function SyncDeviceButton() {
+export function SyncDeviceButton({
+  onComplete,
+}: {
+  /**
+   * Receives the run summary so the caller can raise the persistent FR-HR-008a warning.
+   * A toast cannot carry that: it disappears, and the run it describes needs an action.
+   */
+  onComplete?: (summary: SyncSummary) => void;
+} = {}) {
   const { toast } = useToast();
   const statusQuery = useSyncStatus();
 
   const sync = useRunSync((summary) => {
-    const outcome = describeSyncSummary(summary);
+    onComplete?.(summary);
     // A sync that stored punches but reconciled none is NOT a success — the reports stay
-    // empty, so it is surfaced in the error tone to match what the user will actually see.
+    // empty. FR-HR-008a requires a persistent `role="alert"` INSTEAD OF the success toast,
+    // so the toast is suppressed here and `onComplete` renders the warning.
     const blocked = summary.reconciled === 0 && Object.keys(summary.skippedReasons).length > 0;
-    toast(outcome, blocked ? "error" : "success");
+    if (blocked) return;
+    toast(describeSyncSummary(summary), "success");
   });
 
   const status = statusQuery.data;

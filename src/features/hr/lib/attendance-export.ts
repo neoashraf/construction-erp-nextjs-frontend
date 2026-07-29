@@ -158,6 +158,15 @@ const USER_ID_HEADERS = ["userid", "employeeid", "employeecode", "id", "pin", "e
 const ATT_DATE_HEADERS = ["date", "attendancedate", "day"];
 const CHECK_IN_HEADERS = ["checkin", "intime", "in", "entry", "arrival"];
 const CHECK_OUT_HEADERS = ["checkout", "outtime", "out", "exit", "departure"];
+/**
+ * Location aliases. OPTIONAL — a sheet without the column parses exactly as before, which is
+ * what keeps every existing file and every raw machine dump working untouched.
+ *
+ * "site" and "project" are accepted alongside "location" because that is what a site clerk
+ * actually writes at the top of a hand-kept entry log; the server resolves whatever string
+ * arrives against the project master by code first, then name.
+ */
+const LOCATION_HEADERS = ["location", "site", "project", "projectcode", "worklocation", "place"];
 
 export class AttendanceImportError extends Error {
   constructor(message: string) {
@@ -167,7 +176,7 @@ export class AttendanceImportError extends Error {
 }
 
 const EXPECTED_ATTENDANCE_COLUMNS =
-  'Expected columns: "Employee ID", "Date", "Check In", "Check Out".';
+  'Expected columns: "Employee ID", "Date", "Check In", "Check Out", and optionally "Location".';
 
 function pad2(n: number): string {
   return String(n).padStart(2, "0");
@@ -274,17 +283,26 @@ export async function parseAttendanceWorkbook(file: File): Promise<ImportRow[]> 
     const dateCell = pick(entry, ATT_DATE_HEADERS);
     const checkIn = pick(entry, CHECK_IN_HEADERS);
     const checkOut = pick(entry, CHECK_OUT_HEADERS);
+    const locationCell = pick(entry, LOCATION_HEADERS);
 
     // A date cell has the same three forms as the holiday import (Date / serial / text), and
     // `normalizeDateCell` already handles all three.
     const date = (await normalizeDateCell(dateCell)) ?? String(dateCell ?? "").trim();
 
-    rows.push({
+    // Trimmed but otherwise untouched — the SERVER resolves it against the project master by
+    // code then name. Matching it here would put a second, divergent resolver in the browser.
+    // A blank cell omits the field entirely rather than sending "", so the row falls through
+    // the device-default → employee-default chain exactly as a sheet with no column does.
+    const location = locationCell == null ? "" : String(locationCell).trim();
+
+    const row: ImportRow = {
       userId: userId == null ? "" : String(userId).trim(),
       date,
       checkIn: normalizeTimeCell(checkIn),
       checkOut: normalizeTimeCell(checkOut),
-    });
+    };
+    if (location) row.location = location;
+    rows.push(row);
   }
 
   return rows;
@@ -297,18 +315,29 @@ export async function parseAttendanceWorkbook(file: File): Promise<ImportRow[]> 
  * through the parser above unambiguously and, more importantly, so a user reading the
  * template sees the exact format the import expects rather than whatever their locale
  * renders a time cell as.
+ *
+ * **The header row here and the parser's accepted columns must change together.** A template
+ * whose own columns the parser rejects is the first thing a new branch-office user meets, and
+ * it reads as "the import is broken" at the exact moment they are deciding whether to trust
+ * it. `test/unit/attendance-template-roundtrip.test.ts` asserts the round-trip; treat a
+ * failure there as a contract change, not a test to fix.
+ *
+ * The sample rows deliberately span **two dates and two employees**, with one site code, one
+ * office code and one BLANK Location — so the file itself teaches the three things a reader
+ * would otherwise have to be told: a sheet may cover any span, each row carries its own date,
+ * and Location is optional.
  */
 export async function downloadAttendanceTemplate(): Promise<void> {
   const XLSX = await import("xlsx");
   const sheet = XLSX.utils.aoa_to_sheet([
-    ["Employee ID", "Date", "Check In", "Check Out"],
-    ["1001", "2026-07-01", "09:05", "18:10"],
-    ["1002", "2026-07-01", "08:58", "18:02"],
-    ["1001", "2026-07-02", "09:45", "18:15"],
+    ["Employee ID", "Date", "Check In", "Check Out", "Location"],
+    ["1001", "2026-07-01", "09:05", "18:10", "HO"],
+    ["1002", "2026-07-01", "08:58", "18:02", "BRIDGE-04"],
+    ["1001", "2026-07-02", "09:45", "18:15", ""],
   ]);
   // Widen the columns — the default is narrow enough to show "#####" for the dates, which
   // reads as a broken template.
-  sheet["!cols"] = [{ wch: 14 }, { wch: 14 }, { wch: 12 }, { wch: 12 }];
+  sheet["!cols"] = [{ wch: 14 }, { wch: 14 }, { wch: 12 }, { wch: 12 }, { wch: 18 }];
   const workbook = XLSX.utils.book_new();
   XLSX.utils.book_append_sheet(workbook, sheet, "Attendance");
   const out = XLSX.write(workbook, { bookType: "xlsx", type: "array" });

@@ -1,15 +1,17 @@
 import { requireModuleAccess } from "@/lib/auth/guard-module-page";
-import { AttendanceLogsShell } from "@/features/hr/components/AttendanceLogsShell";
+import { AttendanceShell } from "@/features/hr/components/AttendanceShell";
 
 /**
- * `/hr/attendance` — biometric attendance logs.
+ * `/hr/attendance` — the three-mode attendance screen (FR-HR-004…-012, -018).
  *
- * Reporting over the device feed: filterable per-day and aggregate views, a per-employee
- * detail drawer, device sync, and Excel export. Nothing on this screen posts to the ledger.
+ * Office staff · Daily labour · Subcontractor on one shell. **Daily labour is the only mode
+ * that touches the ledger** — its per-row Confirm posts a Dr Labour Cost / Cr Labour Payable
+ * accrual through `PostingService`, and corrections are reverse-and-repost.
  *
- * The ledger-posting capture screen (three-mode office / daily-labour / subcontractor, with
- * the daily-labour accrual Confirm/Reverse) still lives in `AttendanceShell` and its
- * sibling components — it is retained, not deleted, pending its own route.
+ * Inside Office staff the period control selects the view: a single date renders the editable
+ * roster; a range or month renders the read-only logs & summary. That review view used to be a
+ * separate shell mounted here (`AttendanceLogsShell`), which left the three-mode capture screen
+ * — including the ledger-posting Confirm — unreachable from the sidebar. FE-64 merged the two.
  *
  * The module guard redirects roles without HR access to /403; the backend re-checks every
  * call regardless.
@@ -18,7 +20,7 @@ export default async function HrAttendancePage() {
   await requireModuleAccess("hr");
   return (
     <div className="mx-auto max-w-6xl">
-      <AttendanceLogsShell />
+      <AttendanceShell />
     </div>
   );
 }

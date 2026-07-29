@@ -7,7 +7,7 @@ import { useAuthenticatedUser } from "@/providers/session-provider";
 import { AttendanceModeTabs } from "./AttendanceModeTabs";
 import { AttendanceFilterBar, type AttendanceFilter } from "./AttendanceFilterBar";
 import { DailyLabourGrid } from "./DailyLabourGrid";
-import { OfficeRosterGrid } from "./OfficeRosterGrid";
+import { OfficeStaffPanel } from "./OfficeStaffPanel";
 import { SubcontractorGrid } from "./SubcontractorGrid";
 import { useProjectOptions } from "../hooks/useProjectOptions";
 import {
@@ -123,14 +123,27 @@ export function AttendanceShell() {
         </p>
       )}
 
-      <AttendanceFilterBar
-        filter={filter}
-        onChange={setFilter}
-        projects={projects}
-        costCentres={costCentres}
-      />
+      {/*
+        Office staff owns its OWN period/filter surface (`AttendanceLogFilterBar`, inside
+        `OfficeStaffPanel`), because there the period control also selects the view — single
+        date = the editable roster, range/month = the read-only logs & summary. Daily labour and
+        Subcontractor keep the shared bar, where the period is only a filter. Rendering both
+        would put two period controls on one screen disagreeing about what they mean.
+      */}
+      {mode !== "OFFICE" && (
+        <AttendanceFilterBar
+          filter={filter}
+          onChange={setFilter}
+          projects={projects}
+          costCentres={costCentres}
+        />
+      )}
 
-      {mode === "OFFICE" && <OfficeRosterGrid date={isoDate} projectId={filter.projectId} />}
+      {mode === "OFFICE" && (
+        <div id="att-panel-OFFICE" role="tabpanel" aria-labelledby="att-tab-OFFICE" className="mt-3">
+          <OfficeStaffPanel projects={projects} projectId={filter.projectId} />
+        </div>
+      )}
       {mode === "DAILY_LABOUR" && (
         <DailyLabourGrid
           date={isoDate}

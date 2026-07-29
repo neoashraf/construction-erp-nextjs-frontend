@@ -2,7 +2,9 @@ import { keepPreviousData, useMutation, useQuery, useQueryClient } from "@tansta
 import { queryKeys } from "@/lib/query/keys";
 import { useAuthenticatedUser } from "@/providers/session-provider";
 import {
+  getDailyReport,
   getDeviceStatus,
+  getRangeReport,
   getSummaryReport,
   getSyncStatus,
   importAttendanceRows,
@@ -28,17 +30,71 @@ import {
 /** Poll interval for the device heartbeat. */
 const DEVICE_POLL_MS = 10_000;
 
+/**
+ * Every cached view a sync or an import can change.
+ *
+ * Import and sync write to the same `checkin_log` → `attendance_record` rail, so they can move
+ * the punch list, the roster, and all three report grains at once. Listed in one place because
+ * the failure mode of forgetting one is silent: the screen shows pre-run numbers and the run
+ * reads as a no-op.
+ */
+const INGESTION_TOUCHED_KEYS = [
+  "attendance-logs",
+  "attendance-summary",
+  "attendance-daily",
+  "attendance-range",
+  "attendance-punches",
+  "attendance", // the roster grid's own list (useAttendance)
+  "attendance-sync-status",
+] as const;
+
 function useScope() {
   const user = useAuthenticatedUser();
   return { companyId: user.companyId, financialYearId: user.financialYearId };
 }
 
-/** Paged `/logs` rows. Disabled while summary mode is active. */
+/**
+ * Paged `/logs` rows — the PUNCH surface.
+ *
+ * From FE-64 this backs **the day-detail punch breakdown and nothing else**. The office-staff
+ * review reads `useDailyReport` / `useRangeReport` instead, because `/logs` reads `checkin_log`
+ * and a `PAID_LEAVE` or `ABSENT` day has no punches at all — so it is invisible here while
+ * still being a real day payroll counts. Reading the report surface makes the screen show the
+ * same rows the salary sheet reads: one answer to "was this person off on the 6th?", not two.
+ */
 export function useAttendanceLogs(query: AttendanceLogQuery, enabled = true) {
   const scope = useScope();
   return useQuery({
     queryKey: queryKeys.list("hr", "attendance-logs", scope, query as unknown as Record<string, unknown>),
     queryFn: () => listAttendanceLogs(query),
+    placeholderData: keepPreviousData,
+    enabled,
+  });
+}
+
+/** `GET /reports/daily` — one row per employee for a single date. The single-day grain. */
+export function useDailyReport(query: AttendanceLogQuery, enabled = true) {
+  const scope = useScope();
+  return useQuery({
+    queryKey: queryKeys.list("hr", "attendance-daily", scope, query as unknown as Record<string, unknown>),
+    queryFn: () => getDailyReport(query),
+    placeholderData: keepPreviousData,
+    enabled,
+  });
+}
+
+/**
+ * `GET /reports/range` — the gap-free calendar over a window.
+ *
+ * Reads `attendance_record`, so every date in the window is emitted, absences and holidays
+ * included, and a timeless leave day renders as `Paid leave` rather than being inferred
+ * `Absent` from missing punches (resolved 29/07/2026, BE #46).
+ */
+export function useRangeReport(query: AttendanceLogQuery, enabled = true) {
+  const scope = useScope();
+  return useQuery({
+    queryKey: queryKeys.list("hr", "attendance-range", scope, query as unknown as Record<string, unknown>),
+    queryFn: () => getRangeReport(query),
     placeholderData: keepPreviousData,
     enabled,
   });
@@ -52,6 +108,27 @@ export function useAttendanceSummary(query: AttendanceLogQuery, enabled = true) 
     queryFn: () => getSummaryReport(query),
     placeholderData: keepPreviousData,
     enabled,
+  });
+}
+
+/**
+ * The punch breakdown behind ONE employee's open detail drawer.
+ *
+ * Deliberately its own query rather than a field on the review read: the day rows come from
+ * `/reports/*` (which can represent a timeless day) and only the punch list comes from `/logs`
+ * (which cannot). Fetched per-employee and only while a drawer is open, so a month across the
+ * whole roster never pulls every punch it contains.
+ *
+ * An empty result is a legitimate answer — a status-only day has no punches — so this never
+ * retries into an "error" the drawer would have to explain.
+ */
+export function usePunchBreakdown(query: AttendanceLogQuery, enabled = true) {
+  const scope = useScope();
+  return useQuery({
+    queryKey: queryKeys.list("hr", "attendance-punches", scope, query as unknown as Record<string, unknown>),
+    queryFn: () => listAttendanceLogs(query),
+    enabled,
+    staleTime: 30_000,
   });
 }
 
@@ -94,9 +171,12 @@ export function useRunSync(onSuccess?: (summary: SyncSummary) => void) {
   return useMutation({
     mutationFn: runSync,
     onSuccess: (summary) => {
-      queryClient.invalidateQueries({ queryKey: ["hr", "attendance-logs"] });
-      queryClient.invalidateQueries({ queryKey: ["hr", "attendance-summary"] });
-      queryClient.invalidateQueries({ queryKey: ["hr", "attendance-sync-status"] });
+      // Every view the write can change — the review reads moved to the report surface, so
+      // invalidating only logs+summary would leave the roster and the calendar showing
+      // pre-sync counts until the next filter change, which reads as "the import did nothing".
+      for (const key of INGESTION_TOUCHED_KEYS) {
+        queryClient.invalidateQueries({ queryKey: ["hr", key] });
+      }
       onSuccess?.(summary);
     },
   });
@@ -114,9 +194,12 @@ export function useImportAttendance(onSuccess?: (result: ImportResult) => void) 
   return useMutation({
     mutationFn: importAttendanceRows,
     onSuccess: (result) => {
-      queryClient.invalidateQueries({ queryKey: ["hr", "attendance-logs"] });
-      queryClient.invalidateQueries({ queryKey: ["hr", "attendance-summary"] });
-      queryClient.invalidateQueries({ queryKey: ["hr", "attendance-sync-status"] });
+      // Every view the write can change — the review reads moved to the report surface, so
+      // invalidating only logs+summary would leave the roster and the calendar showing
+      // pre-sync counts until the next filter change, which reads as "the import did nothing".
+      for (const key of INGESTION_TOUCHED_KEYS) {
+        queryClient.invalidateQueries({ queryKey: ["hr", key] });
+      }
       onSuccess?.(result);
     },
   });

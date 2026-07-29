@@ -22,6 +22,32 @@ function csrf() {
   return { csrfToken: readCsrfToken() };
 }
 
+/**
+ * The four canonical ingestion paths a punch can arrive by (API contract 12 § `sourceType`).
+ * `DEVICE_PUSH` is a NORMALISED value — ingestion maps the device's wire formats (`ATTLOG` /
+ * `TAB` / `CSV`) onto it — so the UI never sees a serialisation detail. Anything unlisted
+ * degrades to "Machine" rather than a blank cell (see `sourceBadgeLabel`).
+ */
+export type PunchSourceType = "DEVICE_PUSH" | "DEVICE_SYNC" | "EXCEL_IMPORT" | "MANUAL";
+
+/**
+ * One punch that folded into a day — the read-only provenance beneath the day row.
+ *
+ * `projectId`/`projectName` are the location stated on the PUNCH ITSELF (rank 1 of the
+ * resolution order), which is not always the day's resolved project: a `MANUAL` punch always
+ * carries one (the Location picker is required), an `EXCEL_IMPORT` punch carries one when the
+ * sheet row supplied a resolvable `location`, and a device punch always carries `null` because
+ * a machine states no location. A `null` therefore means "fall back to the day's resolved
+ * location", which the drawer renders — it never means the punch is broken.
+ */
+export interface AttendancePunch {
+  /** `HH:mm:ss` — the punch time. */
+  time: string;
+  sourceType: PunchSourceType | (string & {});
+  projectId: string | null;
+  projectName: string | null;
+}
+
 /** One day's punch detail for an employee, as returned inside a log row. */
 export interface AttendanceDayRecord {
   id: string;
@@ -35,8 +61,27 @@ export interface AttendanceDayRecord {
   receivedAt: string | null;
   checkInAt?: string | null;
   checkOutAt?: string | null;
-  status?: "Present" | "Absent" | "Late" | "Holiday" | (string & {});
+  /**
+   * Six values since 29/07/2026 (API contract 12 § Attendance reports): `Present` · `Late` ·
+   * `Absent` · `Holiday` · `Paid leave` · `Unpaid leave`. The last three are DECLARED from
+   * `attendance_record.day_status`; the first two are DERIVED from the check-in against the
+   * configured late threshold.
+   */
+  status?:
+    | "Present"
+    | "Absent"
+    | "Late"
+    | "Holiday"
+    | "Paid leave"
+    | "Unpaid leave"
+    | (string & {});
   punchCount?: number;
+  /**
+   * Every punch that folded into this day, in time order — provenance, not a conflict list.
+   * Empty (or absent) on a day that carries a status and no times, which is a legitimate
+   * FR-HR-004 second-branch day, NOT a load failure.
+   */
+  punches?: AttendancePunch[];
 }
 
 /** A row from `GET /logs` — either a single-day punch or a range aggregate. */
@@ -93,6 +138,70 @@ export interface SummaryReportRow extends ReportCounts {
   designation: string | null;
 }
 
+/**
+ * The skipped-day guard carried by all three reports (FR-HR-008a), always present.
+ *
+ * Counts employee-days in the window that have punches but NO reconciled day row. Those days
+ * still render `Absent` in `data` — this is what tells the reader not to trust that. A client
+ * must surface a non-empty `unreconciled` as prominently as it does `skippedReasons`, because
+ * the alternative is a report that reads complete while people who worked show as absent, and
+ * are then paid as absent under FR-HR-013a.
+ */
+export interface UnreconciledGuard {
+  days: number;
+  reasons: Record<string, number>;
+  sample: Array<{ userId: string; attendanceDate: string; reason: string }>;
+}
+
+/** One employee's row in `GET /reports/daily` — a single date, no nested records. */
+export interface DailyReportRow {
+  id: string;
+  userId: string;
+  name: string | null;
+  designation: string | null;
+  attendanceDate: string;
+  status: string;
+  checkInAt: string | null;
+  checkOutAt: string | null;
+  checkInTime: string;
+  checkOutTime: string;
+  punchCount: number;
+}
+
+export interface DailyReport {
+  date: string;
+  isHoliday: boolean;
+  holiday: { name: string; type: string } | null;
+  lateAfter: string;
+  totals: ReportCounts & { totalEmployees: number };
+  data: DailyReportRow[];
+  pagination: LogsPagination;
+  unreconciled: UnreconciledGuard;
+}
+
+/** One employee's row in `GET /reports/range` — carries its own totals INLINE plus `records[]`. */
+export interface RangeReportRow extends ReportCounts {
+  id: string;
+  userId: string;
+  name: string | null;
+  designation: string | null;
+  /** Every date in the window — absences and holidays included (the gap-free calendar). */
+  records: AttendanceDayRecord[];
+}
+
+export interface RangeReport {
+  dateFrom: string;
+  dateTo: string;
+  label: string;
+  totalDays: number;
+  totalWorkingDays: number;
+  lateAfter: string;
+  totals: ReportCounts & { totalEmployees: number };
+  data: RangeReportRow[];
+  pagination: LogsPagination;
+  unreconciled: UnreconciledGuard;
+}
+
 export interface SummaryReport {
   dateFrom: string;
   dateTo: string;
@@ -103,6 +212,7 @@ export interface SummaryReport {
   totals: ReportCounts & { totalEmployees: number };
   data: SummaryReportRow[];
   pagination: LogsPagination;
+  unreconciled: UnreconciledGuard;
 }
 
 /**
@@ -162,6 +272,15 @@ function toLogsResponse(raw: unknown, q: AttendanceLogQuery): LogsResponse {
   };
 }
 
+/**
+ * `GET /logs` — the punch surface, and from FE-64 the source of the day-detail punch
+ * breakdown and NOTHING ELSE.
+ *
+ * It reads `checkin_log`, so a day carrying a status and no times has no row here at all —
+ * by design, not a defect. The office-staff review reads `GET /reports/{daily,range}` instead,
+ * which read `attendance_record` and therefore CAN represent a timeless leave day. Pages on
+ * `limit`, not `pageSize` (envelope exception, contract §preamble).
+ */
 export async function listAttendanceLogs(q: AttendanceLogQuery): Promise<LogsResponse> {
   const p = filterParams(q);
   p.set("page", String(q.page ?? 1));
@@ -181,6 +300,28 @@ const EMPTY_COUNTS: ReportCounts = {
   attendancePercentage: 0,
 };
 
+/**
+ * Coerce the guard. Always returns an object, so a client never has to distinguish "no
+ * problems" from "this version doesn't tell me" — the server contracts it the same way.
+ */
+function toUnreconciled(raw: unknown): UnreconciledGuard {
+  const body = (raw ?? {}) as Partial<UnreconciledGuard>;
+  return {
+    days: count(body.days),
+    reasons: body.reasons && typeof body.reasons === "object" ? body.reasons : {},
+    sample: Array.isArray(body.sample) ? body.sample : [],
+  };
+}
+
+function toPagination(raw: LogsPagination | undefined, q: AttendanceLogQuery, fallbackTotal: number, defaultLimit: number): LogsPagination {
+  return {
+    page: raw?.page ?? q.page ?? 1,
+    limit: raw?.limit ?? q.limit ?? defaultLimit,
+    total: raw?.total ?? fallbackTotal,
+    totalPages: raw?.totalPages ?? 1,
+  };
+}
+
 export async function getSummaryReport(q: AttendanceLogQuery): Promise<SummaryReport> {
   const p = filterParams(q);
   p.set("page", String(q.page ?? 1));
@@ -189,7 +330,6 @@ export async function getSummaryReport(q: AttendanceLogQuery): Promise<SummaryRe
 
   const body = (raw ?? {}) as Partial<SummaryReport>;
   const data = Array.isArray(body.data) ? body.data : [];
-  const page = body.pagination;
   return {
     dateFrom: body.dateFrom ?? q.dateFrom ?? "",
     dateTo: body.dateTo ?? q.dateTo ?? "",
@@ -199,12 +339,66 @@ export async function getSummaryReport(q: AttendanceLogQuery): Promise<SummaryRe
     lateAfter: body.lateAfter ?? "",
     totals: { ...EMPTY_COUNTS, totalEmployees: 0, ...(body.totals ?? {}) },
     data,
-    pagination: {
-      page: page?.page ?? q.page ?? 1,
-      limit: page?.limit ?? q.limit ?? 25,
-      total: page?.total ?? data.length,
-      totalPages: page?.totalPages ?? 1,
-    },
+    pagination: toPagination(body.pagination, q, data.length, 25),
+    unreconciled: toUnreconciled(body.unreconciled),
+  };
+}
+
+/**
+ * `GET /reports/daily` — one row per employee for a single date.
+ *
+ * Reads `attendance_record`, NOT the punch log, so a timeless `PAID_LEAVE`/`ABSENT` day is
+ * representable rather than inferred absent from missing punches (contract resolved 29/07/2026).
+ * That is the whole reason the office-staff review moved off `GET /logs`.
+ *
+ * Pages on `limit`, not `pageSize` — verified against the contract rather than inherited from
+ * `/logs`. Both routes carry `@NoEnvelope()`, so the body IS the response.
+ */
+export async function getDailyReport(q: AttendanceLogQuery): Promise<DailyReport> {
+  const p = filterParams(q);
+  p.set("page", String(q.page ?? 1));
+  p.set("limit", String(q.limit ?? 20));
+  const raw = await apiClient.get<unknown>(`/reports/daily?${p.toString()}`);
+
+  const body = (raw ?? {}) as Partial<DailyReport>;
+  const data = Array.isArray(body.data) ? body.data : [];
+  return {
+    date: body.date ?? q.date ?? "",
+    isHoliday: body.isHoliday === true,
+    holiday: body.holiday ?? null,
+    lateAfter: body.lateAfter ?? "",
+    totals: { ...EMPTY_COUNTS, totalEmployees: 0, ...(body.totals ?? {}) },
+    data,
+    pagination: toPagination(body.pagination, q, data.length, 20),
+    unreconciled: toUnreconciled(body.unreconciled),
+  };
+}
+
+/**
+ * `GET /reports/range` — every date in the window per employee, absences included.
+ *
+ * The gap-free calendar: unlike `GET /logs`, which omits punch-less days entirely, this emits
+ * a record for every date, so the client renders a month with no gap-filling of its own.
+ */
+export async function getRangeReport(q: AttendanceLogQuery): Promise<RangeReport> {
+  const p = filterParams(q);
+  p.set("page", String(q.page ?? 1));
+  p.set("limit", String(q.limit ?? 25));
+  const raw = await apiClient.get<unknown>(`/reports/range?${p.toString()}`);
+
+  const body = (raw ?? {}) as Partial<RangeReport>;
+  const data = Array.isArray(body.data) ? body.data : [];
+  return {
+    dateFrom: body.dateFrom ?? q.dateFrom ?? "",
+    dateTo: body.dateTo ?? q.dateTo ?? "",
+    label: body.label ?? "",
+    totalDays: count(body.totalDays),
+    totalWorkingDays: count(body.totalWorkingDays),
+    lateAfter: body.lateAfter ?? "",
+    totals: { ...EMPTY_COUNTS, totalEmployees: 0, ...(body.totals ?? {}) },
+    data,
+    pagination: toPagination(body.pagination, q, data.length, 25),
+    unreconciled: toUnreconciled(body.unreconciled),
   };
 }
 
@@ -388,6 +582,20 @@ export interface ImportRow {
   /** `HH:mm` or `HH:mm:ss`. */
   checkIn: string;
   checkOut: string;
+  /**
+   * The work location for THIS row (optional) — a human-readable string, not a picker id,
+   * because a person typed it into a cell. The server matches it against the project master
+   * by CODE first, then name, case-insensitively and trimmed, and writes the resolved project
+   * onto every punch the row produces — rank 1 of the resolution order, outranking the device
+   * default (rank 2) and the employee default (rank 3).
+   *
+   * Left blank the row falls back to the device default, then the employee's, then a
+   * `NO_PROJECT` skip — so a sheet with no Location column keeps working untouched. Without
+   * this column the WHOLE upload resolves to one project (whichever device default it
+   * inherits), so a branch office's entry log is costed entirely to head-office overhead and
+   * that labour cost never reaches the site.
+   */
+  location?: string;
 }
 
 export interface ImportRowError {
