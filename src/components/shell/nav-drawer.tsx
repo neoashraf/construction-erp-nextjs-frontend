@@ -9,6 +9,7 @@ import {
   visibleTreeForRole,
   matchNav,
   suppressesHeader,
+  navSectionSlug,
   CHIP_CLASS,
   type NavSectionGroup,
   type NavItem,
@@ -87,13 +88,7 @@ export function NavDrawer({ user }: { user: UserMenuUser & { permissions?: impor
                     {showDivider && (
                       <hr role="separator" className="mx-2 my-2 border-t border-sidebar-border" />
                     )}
-                    {suppressesHeader(group) ? (
-                      <div className="mb-2">
-                        <DrawerItem item={group.items[0]!} active={group.items[0]!.route === activeRoute} />
-                      </div>
-                    ) : (
-                      <DrawerSection group={group} activeRoute={activeRoute} />
-                    )}
+                    <DrawerSection group={group} activeRoute={activeRoute} />
                   </div>
                 );
               })
@@ -122,14 +117,25 @@ function SectionChip({ group }: { group: NavSectionGroup }) {
   );
 }
 
-/** A headed section: heading + its flat item rows (no disclosure — nothing collapses). */
+/**
+ * A section: heading + its flat item rows (no disclosure — nothing collapses).
+ * Every section is its own `nav[aria-labelledby]` landmark (spec §10), even when
+ * `suppressesHeader` is true (`PARTIES → Parties`) — in that case the heading
+ * (chip + label) is visually hidden (`sr-only`) rather than omitted, so the
+ * landmark keeps an accessible name for landmark-traversal a11y while the
+ * VISIBLE result stays a bare row with no header.
+ */
 function DrawerSection({ group, activeRoute }: { group: NavSectionGroup; activeRoute: string | null }) {
-  const headingId = `drawer-section-${group.icon}`;
+  const headingId = `drawer-section-${navSectionSlug(group.section)}`;
+  const suppressed = suppressesHeader(group);
   return (
     <nav aria-labelledby={headingId} className="mb-2">
       <div
         id={headingId}
-        className="flex items-center gap-2.5 px-3 pb-1 pt-4 text-[10px] font-semibold uppercase tracking-wide text-sidebar-muted"
+        className={cn(
+          "flex items-center gap-2.5 px-3 pb-1 pt-4 text-[10px] font-semibold uppercase tracking-wide text-sidebar-muted",
+          suppressed && "sr-only",
+        )}
       >
         <SectionChip group={group} />
         <span>{group.section}</span>

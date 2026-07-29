@@ -118,6 +118,22 @@ export function suppressesHeader(group: NavSectionGroup): boolean {
   return group.items.length === 1 && group.items[0]!.label.toUpperCase() === group.section;
 }
 
+/**
+ * Kebab-case a section label for its landmark id (spec §10: `slug = kebab-case
+ * section label`, e.g. `nav-section-reports-analysis` for `REPORTS & ANALYSIS`).
+ * Deliberately derived from the LABEL, not `group.icon` — the icon key is a
+ * design/iconography concern (§9.6 of the IA redesign spec) that happens to
+ * coincide with most section slugs but diverges for `REPORTS & ANALYSIS`
+ * (icon `reports`, slug `reports-analysis`).
+ */
+export function navSectionSlug(section: string): string {
+  return section
+    .toLowerCase()
+    .replace(/&/g, "")
+    .replace(/[^a-z0-9]+/g, "-")
+    .replace(/^-+|-+$/g, "");
+}
+
 const ALL: readonly Role[] = [
   "ADMIN",
   "ACCOUNTS_TEAM",

@@ -7,6 +7,7 @@ import {
   visibleTreeForRole,
   matchNav,
   suppressesHeader,
+  navSectionSlug,
   CHIP_CLASS,
   type NavSectionGroup,
   type NavItem,
@@ -81,7 +82,10 @@ export function Sidebar({ user }: { user: SidebarUser }) {
           content height so overflow engages and the pinned footer isn't clipped.
           scrollbar-thin keeps the gutter subtle (thumb only on hover) so a nav that
           barely overflows doesn't show a heavy always-on scrollbar. A plain <div>,
-          not a <nav> — each visible section is its OWN navigation landmark below. */}
+          not a <nav> — each visible section is its OWN navigation landmark below,
+          INCLUDING sections whose header is visually suppressed (§10: header
+          suppression is a visual fix, not a semantic one — the landmark still
+          needs a name for landmark-traversal a11y). */}
       <div data-testid="sidebar-nav" className="scrollbar-thin min-h-0 flex-1 overflow-y-auto px-2 pb-3">
         {tree.length === 0 ? (
           <p className="px-3 py-2 text-[13px] text-sidebar-muted" data-testid="sidebar-empty">
@@ -98,10 +102,6 @@ export function Sidebar({ user }: { user: SidebarUser }) {
                 )}
                 {collapsed ? (
                   <RailSection group={group} activeRoute={activeRoute} />
-                ) : suppressesHeader(group) ? (
-                  <div className="mb-1">
-                    <ItemRow item={group.items[0]!} active={group.items[0]!.route === activeRoute} />
-                  </div>
                 ) : (
                   <SectionNav group={group} activeRoute={activeRoute} />
                 )}
@@ -135,18 +135,24 @@ function SidebarFooter({ user, collapsed }: { user: UserMenuUser; collapsed: boo
 }
 
 /**
- * A headed section: `nav[aria-labelledby]` naming the landmark after the section
- * label (spec §10), an `h2` heading, then its item rows. Rendered whenever the
- * section holds more than one item, or its one item's label doesn't restate the
- * section (`suppressesHeader` false).
+ * A section: `nav[aria-labelledby]` naming the landmark after the section label
+ * (spec §10), an `h2` heading, then its item rows. Every section is its own
+ * landmark, even when `suppressesHeader` is true (`PROJECTS → Projects`) — in
+ * that case the heading is visually hidden (`sr-only`) rather than omitted, so
+ * the landmark still has an accessible name for landmark-traversal a11y while
+ * the VISIBLE result stays a bare row with no header.
  */
 function SectionNav({ group, activeRoute }: { group: NavSectionGroup; activeRoute: string | null }) {
-  const headingId = `nav-section-${group.icon}`;
+  const headingId = `nav-section-${navSectionSlug(group.section)}`;
+  const suppressed = suppressesHeader(group);
   return (
     <nav aria-labelledby={headingId} className="mb-1">
       <h2
         id={headingId}
-        className="px-3 pb-1.5 pt-4 text-[10px] font-semibold uppercase tracking-wide text-sidebar-muted"
+        className={cn(
+          "px-3 pb-1.5 pt-4 text-[10px] font-semibold uppercase tracking-wide text-sidebar-muted",
+          suppressed && "sr-only",
+        )}
       >
         {group.section}
       </h2>
@@ -241,62 +247,64 @@ function RailSection({ group, activeRoute }: { group: NavSectionGroup; activeRou
   );
 
   return (
-    <div
-      ref={wrapRef}
-      className="relative my-0.5 flex justify-center"
-      onMouseEnter={() => setOpen(true)}
-      onMouseLeave={() => setOpen(false)}
-      onBlur={(e) => {
-        if (!wrapRef.current?.contains(e.relatedTarget as Node)) setOpen(false);
-      }}
-    >
-      {direct ? (
-        <Link
-          href={group.items[0]!.route}
-          data-testid={`nav-rail-${group.icon}`}
-          aria-label={group.section}
-          aria-current={isActiveSection ? "page" : undefined}
-          className={iconBtnClass}
-        >
-          {isActiveSection && <span className="absolute inset-y-1.5 left-0 w-[3px] rounded-r bg-accent" aria-hidden />}
-          <SectionChip group={group} />
-        </Link>
-      ) : (
-        <button
-          type="button"
-          data-testid={`nav-rail-${group.icon}`}
-          aria-label={group.section}
-          aria-haspopup="menu"
-          aria-expanded={open}
-          onClick={() => setOpen((v) => !v)}
-          className={iconBtnClass}
-        >
-          {isActiveSection && <span className="absolute inset-y-1.5 left-0 w-[3px] rounded-r bg-accent" aria-hidden />}
-          <SectionChip group={group} />
-        </button>
-      )}
+    <nav aria-label={group.section}>
+      <div
+        ref={wrapRef}
+        className="relative my-0.5 flex justify-center"
+        onMouseEnter={() => setOpen(true)}
+        onMouseLeave={() => setOpen(false)}
+        onBlur={(e) => {
+          if (!wrapRef.current?.contains(e.relatedTarget as Node)) setOpen(false);
+        }}
+      >
+        {direct ? (
+          <Link
+            href={group.items[0]!.route}
+            data-testid={`nav-rail-${group.icon}`}
+            aria-label={group.section}
+            aria-current={isActiveSection ? "page" : undefined}
+            className={iconBtnClass}
+          >
+            {isActiveSection && <span className="absolute inset-y-1.5 left-0 w-[3px] rounded-r bg-accent" aria-hidden />}
+            <SectionChip group={group} />
+          </Link>
+        ) : (
+          <button
+            type="button"
+            data-testid={`nav-rail-${group.icon}`}
+            aria-label={group.section}
+            aria-haspopup="menu"
+            aria-expanded={open}
+            onClick={() => setOpen((v) => !v)}
+            className={iconBtnClass}
+          >
+            {isActiveSection && <span className="absolute inset-y-1.5 left-0 w-[3px] rounded-r bg-accent" aria-hidden />}
+            <SectionChip group={group} />
+          </button>
+        )}
 
-      {open && !direct && (
-        <div
-          role="menu"
-          data-testid={`nav-flyout-${group.icon}`}
-          className="absolute left-full top-0 z-50 ml-1 w-56 rounded-lg border border-sidebar-border bg-sidebar p-2 shadow-lg"
-        >
-          <div className="flex items-center gap-2 px-1.5 pb-2 pt-1">
-            <Icon className="h-3.5 w-3.5 text-sidebar-muted" aria-hidden />
-            <span className="text-[11px] font-semibold uppercase tracking-wide text-sidebar-muted">
-              {group.section}
-            </span>
+        {open && !direct && (
+          <div
+            role="menu"
+            data-testid={`nav-flyout-${group.icon}`}
+            className="absolute left-full top-0 z-50 ml-1 w-56 rounded-lg border border-sidebar-border bg-sidebar p-2 shadow-lg"
+          >
+            <div className="flex items-center gap-2 px-1.5 pb-2 pt-1">
+              <Icon className="h-3.5 w-3.5 text-sidebar-muted" aria-hidden />
+              <span className="text-[11px] font-semibold uppercase tracking-wide text-sidebar-muted">
+                {group.section}
+              </span>
+            </div>
+            <ul className="flex flex-col">
+              {group.items.map((item) => (
+                <li key={item.route}>
+                  <ItemRow item={item} active={item.route === activeRoute} />
+                </li>
+              ))}
+            </ul>
           </div>
-          <ul className="flex flex-col">
-            {group.items.map((item) => (
-              <li key={item.route}>
-                <ItemRow item={item} active={item.route === activeRoute} />
-              </li>
-            ))}
-          </ul>
-        </div>
-      )}
-    </div>
+        )}
+      </div>
+    </nav>
   );
 }

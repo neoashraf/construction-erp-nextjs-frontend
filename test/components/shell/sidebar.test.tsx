@@ -14,6 +14,7 @@ import { ShellChromeProvider } from "@/components/shell/shell-chrome-context";
 import { ToastProvider } from "@/components/ui/toast";
 import { Sidebar } from "@/components/shell/sidebar";
 import { type Role } from "@/lib/auth/roles";
+import { visibleTreeForRole } from "@/lib/nav/nav-tree";
 
 let mockPath = "/dashboard";
 jest.mock("next/navigation", () => ({
@@ -118,15 +119,31 @@ describe("flat sidebar (nav IA redesign)", () => {
     expect(screen.getByRole("link", { name: "Trial balance" })).toBeVisible();
   });
 
-  it("labels each section as a landmark", () => {
+  it("labels EVERY visible section as its own navigation landmark (spec §10)", () => {
     renderSidebarAs("ADMIN");
-    expect(screen.getByRole("navigation", { name: "MATERIALS" })).toBeInTheDocument();
+    const admin = visibleTreeForRole("ADMIN");
+    // Loop over the full Admin tree — not just one section — so a future section
+    // that regresses (or loses its landmark) fails here rather than slipping
+    // through on a single hand-picked example.
+    for (const group of admin) {
+      expect(screen.getByRole("navigation", { name: group.section })).toBeInTheDocument();
+    }
   });
 
-  it("renders Parties as a bare row with no section header", () => {
+  it("renders Parties as a bare row — but its landmark still exists, visually hidden (spec §10)", () => {
     renderSidebarAs("ADMIN");
+    // Visible: still a bare row, no visible header — header suppression (§3.1) is a
+    // VISUAL fix only. Semantically the section remains its own `nav` landmark
+    // (§10: "a section that suppresses its visible header still carries a
+    // visually-hidden label so the landmark name survives") so screen-reader
+    // landmark traversal still reaches it.
     expect(screen.getByRole("link", { name: "Parties" })).toBeVisible();
-    expect(screen.queryByRole("navigation", { name: "PARTIES" })).toBeNull();
+    const partiesNav = screen.getByRole("navigation", { name: "PARTIES" });
+    expect(partiesNav).toBeInTheDocument();
+    // The heading text is present in the accessibility tree (names the landmark)
+    // but not visually rendered — no on-screen "PARTIES" header above the row.
+    const heading = within(partiesNav).getByText("PARTIES");
+    expect(heading).toHaveClass("sr-only");
   });
 
   it("draws the governance divider for Admin only", () => {
@@ -135,5 +152,29 @@ describe("flat sidebar (nav IA redesign)", () => {
     cleanup();
     renderSidebarAs("STORE_KEEPER");
     expect(screen.queryByRole("separator")).toBeNull();
+  });
+});
+
+describe("Sidebar — rail mode (collapsed, spec §4/§9/§10)", () => {
+  beforeEach(() => {
+    // ShellChromeProvider hydrates `collapsed` from localStorage on mount.
+    window.localStorage.setItem("ze.shell.sidebarCollapsed", "1");
+  });
+  afterEach(() => {
+    window.localStorage.removeItem("ze.shell.sidebarCollapsed");
+  });
+
+  it("every visible section is STILL its own navigation landmark when collapsed to the icon rail", () => {
+    renderSidebarAs("ADMIN");
+    const admin = visibleTreeForRole("ADMIN");
+    for (const group of admin) {
+      expect(screen.getByRole("navigation", { name: group.section })).toBeInTheDocument();
+    }
+  });
+
+  it("a rail section icon is reachable inside its section's landmark", () => {
+    renderSidebarAs("ADMIN");
+    const materialsNav = screen.getByRole("navigation", { name: "MATERIALS" });
+    expect(within(materialsNav).getByTestId("nav-rail-materials")).toBeInTheDocument();
   });
 });

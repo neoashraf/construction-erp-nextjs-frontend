@@ -2,10 +2,10 @@ import { test, expect, type Page } from "@playwright/test";
 
 /**
  * FE-SHELL app-shell happy path (screen spec §3/§4/§9): log in → land on the shell →
- * drill through the two-level nav to a built screen (≤ 2 clicks, no ModuleIndex card) →
+ * reach a built screen from the flat, one-level nav (1 click, no ModuleIndex card) →
  * collapse the sidebar to the 56px icon rail and confirm the choice persists across a
- * reload. The full role-filtering / accordion / switcher / Ctrl+K matrix is in the
- * component tests; this proves the assembled frame works end-to-end.
+ * reload. The full role-filtering / switcher / Ctrl+K matrix is in the component
+ * tests; this proves the assembled frame works end-to-end.
  */
 
 const ADMIN = { email: "admin@ze.test", password: "Passw0rd!" };
@@ -52,7 +52,7 @@ async function login(page: Page) {
   await page.waitForURL("**/dashboard");
 }
 
-test("nav drill to a built screen + persistent collapse rail", async ({ page }) => {
+test("nav reach to a built screen + persistent collapse rail", async ({ page }) => {
   await stubShellData(page);
   await login(page);
 
@@ -60,8 +60,7 @@ test("nav drill to a built screen + persistent collapse rail", async ({ page }) 
   await page.keyboard.press("Tab");
   await expect(page.getByRole("link", { name: "Skip to content" })).toBeFocused();
 
-  // Drill: expand the Ledger module (accordion) → click Trial balance (≤ 2 clicks).
-  await page.getByTestId("nav-module-ledger").click();
+  // Reach: Trial balance is a flat sidebar row now — one click, no parent to expand.
   await page.getByTestId("nav-item-/ledger/trial-balance").click();
   await page.waitForURL("**/ledger/trial-balance");
 
@@ -82,7 +81,7 @@ test("nav drill to a built screen + persistent collapse rail", async ({ page }) 
   await page.reload();
   await expect(page.getByTestId("sidebar")).toHaveAttribute("data-collapsed", "true");
 
-  // A rail icon exposes the module's flyout on hover, still reaching a built screen.
-  await page.getByTestId("nav-rail-ledger").hover();
-  await expect(page.getByTestId("nav-flyout-ledger")).toBeVisible();
+  // A rail icon exposes the section's flyout on hover, still reaching a built screen.
+  await page.getByTestId("nav-rail-accounts").hover();
+  await expect(page.getByTestId("nav-flyout-accounts")).toBeVisible();
 });
