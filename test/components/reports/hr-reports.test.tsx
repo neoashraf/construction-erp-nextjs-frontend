@@ -33,6 +33,12 @@ jest.mock("next/link", () => ({
 jest.mock("@/features/reports/api/reports");
 jest.mock("@/features/reports/api/masters");
 jest.mock("@/lib/hooks/use-online", () => ({ useOnline: () => true }));
+// FE-66: the Daily/Range levels read HR's own routes through `apiClient`, which
+// return the whole-body envelope (`{ totals, data, pagination }`) rather than the
+// `{ data, meta }` shape `runReport` normalizes.
+jest.mock("@/lib/api/client", () => ({
+  apiClient: { get: jest.fn(), post: jest.fn(), patch: jest.fn(), put: jest.fn(), delete: jest.fn() },
+}));
 
 const runMock = reportsApi.runReport as jest.Mock;
 const exportMock = reportsApi.exportReport as jest.Mock;
@@ -42,15 +48,74 @@ const projMock = mastersApi.listProjectOptions as jest.Mock;
 const ccMock = mastersApi.listCostCentreOptions as jest.Mock;
 const empMock = mastersApi.listEmployeeOptions as jest.Mock;
 const runOptMock = mastersApi.listSalaryRunOptions as jest.Mock;
+const getMock = (jest.requireMock("@/lib/api/client") as { apiClient: { get: jest.Mock } })
+  .apiClient.get;
+
+/**
+ * FE-66 — HR's `/reports/range` whole-body envelope. Two employees; the second
+ * carries a **timeless PAID_LEAVE day** (status, no times), the shape the report
+ * must render with blank time cells rather than dropping or erroring on.
+ * `totals` deliberately exceeds the visible rows, so any page-sum would show.
+ */
+const HR_RANGE_BODY = {
+  dateFrom: "2026-06-01",
+  dateTo: "2026-06-30",
+  label: "June 2026",
+  totalDays: 30,
+  totalWorkingDays: 25,
+  lateAfter: "09:30",
+  totals: {
+    totalEmployees: 42, workingDays: 25, onTimeCount: 980, lateCount: 63,
+    presentCount: 1043, absentCount: 76, paidLeaveCount: 24, unpaidLeaveCount: 33,
+    holidayCount: 168, attendancePercentage: 90.7,
+  },
+  data: [
+    {
+      id: "att-1", userId: "EMP-001", name: "Ashraf Uddin", designation: "Site Accountant",
+      projectName: "Bridge-04 — Buriganga", costCentreName: "Superstructure / Deck",
+      workingDays: 25, onTimeCount: 20, lateCount: 3, presentCount: 23,
+      absentCount: 0, paidLeaveCount: 1, unpaidLeaveCount: 0, holidayCount: 4,
+      attendancePercentage: 100,
+      records: [
+        {
+          id: "rec-1", attendanceDate: "2026-06-01", status: "Present",
+          holidayName: null, holidayType: null,
+          checkInAt: "2026-06-01 09:02:00", checkOutAt: "2026-06-01 18:04:00",
+          checkInTime: "9:02:00 AM", checkOutTime: "6:04:00 PM", punchCount: 2,
+          punches: [{ time: "09:02:00", sourceType: "DEVICE_PUSH", projectId: "proj-a", projectName: "Bridge-04 — Buriganga" }],
+        },
+      ],
+    },
+    {
+      id: "att-2", userId: "EMP-002", name: "ফারজানা আক্তার", designation: "Coordinator",
+      projectName: "Bridge-04 — Buriganga", costCentreName: "Site establishment",
+      workingDays: 25, onTimeCount: 21, lateCount: 1, presentCount: 22,
+      absentCount: 2, paidLeaveCount: 1, unpaidLeaveCount: 0, holidayCount: 4,
+      attendancePercentage: 88,
+      records: [
+        {
+          // A day carrying a status and NO times — an expected shape, not a gap.
+          id: "rec-2", attendanceDate: "2026-06-04", status: "Paid leave",
+          holidayName: null, holidayType: null,
+          checkInAt: null, checkOutAt: null, checkInTime: "", checkOutTime: "",
+          punchCount: 0,
+          punches: [{ time: "00:00:00", sourceType: "MANUAL", projectId: "proj-a", projectName: "Bridge-04 — Buriganga" }],
+        },
+      ],
+    },
+  ],
+  pagination: { page: 1, limit: 20, total: 2, totalPages: 1 },
+  unreconciled: { days: 0, reasons: {}, sample: [] },
+};
 
 const ATT_RESULT = {
   reportName: "attendance-summary",
   parameters: { month: "2026-05" },
   rows: [
-    { projectId: "proj-a", projectName: "Bridge-04", employeeId: "emp-1", employeeName: "Ashraf Uddin", partyId: null, partyName: null, costCentreId: "cc-1", costCentreCode: "CC-01", costCentreName: "Materials", present: 22, paidLeave: 1, unpaidLeave: 0, absent: 3, headCount: 1, mode: "OFFICE" },
-    { projectId: "proj-a", projectName: "Bridge-04", employeeId: "emp-gone", employeeName: null, partyId: null, partyName: null, costCentreId: "cc-1", costCentreCode: "CC-01", costCentreName: "Materials", present: 15, paidLeave: 0, unpaidLeave: 2, absent: 1, headCount: 1, mode: "OFFICE" },
+    { projectId: "proj-a", projectName: "Bridge-04", employeeId: "emp-1", employeeName: "Ashraf Uddin", partyId: null, partyName: null, costCentreId: "cc-1", costCentreCode: "CC-01", costCentreName: "Materials", present: 22, paidLeave: 1, unpaidLeave: 0, absent: 3, headCount: 1, mode: "OFFICE", attendancePercentage: 88.5 },
+    { projectId: "proj-a", projectName: "Bridge-04", employeeId: "emp-gone", employeeName: null, partyId: null, partyName: null, costCentreId: "cc-1", costCentreCode: "CC-01", costCentreName: "Materials", present: 15, paidLeave: 0, unpaidLeave: 2, absent: 1, headCount: 1, mode: "OFFICE", attendancePercentage: 83.3 },
   ],
-  meta: { page: 1, pageSize: 2, total: 2, generatedAt: "2026-07-15T10:00:00Z", totals: { present: 37, paidLeave: 1, unpaidLeave: 2, absent: 4, headCount: 2 } },
+  meta: { page: 1, pageSize: 2, total: 2, generatedAt: "2026-07-15T10:00:00Z", totals: { present: 37, paidLeave: 1, unpaidLeave: 2, absent: 4, headCount: 2, attendancePercentage: 90.2 } },
 };
 const SR_RESULT = {
   reportName: "salary-register",
@@ -109,7 +174,22 @@ beforeEach(() => {
     { id: "run-1", label: "2026-05 · posted" },
     { id: "run-2", label: "2026-04 · posted" },
   ]);
+  getMock.mockResolvedValue(HR_RANGE_BODY);
 });
+
+/**
+ * Set the Daily/Range window and Run. Those levels take a date range rather than
+ * the Summary level's month, so they need their own helper.
+ */
+async function runAttendanceRange(from = "2026-06-01", to = "2026-06-30") {
+  fireEvent.change(screen.getByTestId("hr-filter-date-from") as HTMLInputElement, {
+    target: { value: from },
+  });
+  fireEvent.change(screen.getByTestId("hr-filter-date-to") as HTMLInputElement, {
+    target: { value: to },
+  });
+  await userEvent.click(screen.getByTestId("report-run"));
+}
 
 // The Salary-run options load async (masters fetch) — wait for them before selecting.
 async function selectRun(id = "run-1") {
@@ -152,8 +232,10 @@ describe("Attendance summary — required month gate (FR-RPT-026)", () => {
     await userEvent.click(screen.getByTestId("report-run"));
     await screen.findByTestId("hr-att-table");
     expect(runMock).toHaveBeenCalled();
-    // Month totals footer visible.
-    expect(screen.getByTestId("hr-att-totals-footer")).toHaveTextContent(/Month totals/);
+    // FE-66: the `Month totals` <tfoot> is replaced by the `Report totals` band
+    // ABOVE the table — the server's figure over the whole filtered set.
+    expect(screen.getByTestId("hr-att-totals-band")).toHaveTextContent(/Report totals/);
+    expect(screen.queryByTestId("hr-att-totals-footer")).not.toBeInTheDocument();
     // Partial name row.
     expect(screen.getByTestId("hr-name-unavailable")).toBeInTheDocument();
   });
@@ -278,5 +360,300 @@ describe("Read-only assertion — no mutating control (FR-RPT-003)", () => {
     for (const btn of within(container).getAllByRole("button")) {
       expect(btn.textContent ?? "").not.toMatch(forbidden);
     }
+  });
+
+  // The detail control adds three new buttons; none of them may be a write.
+  it("stays read-only at Daily level too", async () => {
+    renderScreen();
+    await screen.findByTestId("hr-viewer");
+    await userEvent.click(screen.getByTestId("hr-tab-ATTENDANCE_SUMMARY"));
+    await userEvent.click(screen.getByTestId("attendance-level-daily"));
+    await runAttendanceRange();
+    await screen.findByTestId("hr-att-daily-table");
+    const forbidden = /\b(Save changes|Post|Reverse|Delete|Edit)\b/i;
+    for (const btn of within(screen.getByTestId("hr-viewer")).getAllByRole("button")) {
+      expect(btn.textContent ?? "").not.toMatch(forbidden);
+    }
+  });
+});
+
+/* ==================================================================== *
+ * FE-66 — one report, three grains (FR-RPT-026, FR-RPT-004; spec §3–§10)
+ * ==================================================================== */
+
+describe("FE-66 detail control — a radiogroup subordinate to the tablist (spec §3, §10)", () => {
+  it("renders only on the attendance tab, is a radiogroup named 'Detail', and leaves the switcher a tablist", async () => {
+    renderScreen();
+    await screen.findByTestId("hr-viewer");
+
+    // Salary register is the landing tab — no detail control there.
+    expect(screen.queryByTestId("attendance-detail-control")).not.toBeInTheDocument();
+
+    await userEvent.click(screen.getByTestId("hr-tab-ATTENDANCE_SUMMARY"));
+    expect(screen.getByTestId("attendance-detail-control")).toBeInTheDocument();
+
+    // Named "Detail" so a screen-reader user hears three grains, not five reports.
+    const group = screen.getByRole("radiogroup", { name: "Detail" });
+    expect(within(group).getAllByRole("radio")).toHaveLength(3);
+    // Level 1 is STILL a tablist — the two levels must not read as siblings.
+    expect(screen.getByRole("tablist")).toBeInTheDocument();
+
+    // …and it disappears again on a report with only one grain.
+    await userEvent.click(screen.getByTestId("hr-tab-PAYMENT_HISTORY"));
+    expect(screen.queryByTestId("attendance-detail-control")).not.toBeInTheDocument();
+  });
+
+  it("announces the new level + row count and moves focus to the results heading", async () => {
+    renderScreen();
+    await screen.findByTestId("hr-viewer");
+    await userEvent.click(screen.getByTestId("hr-tab-ATTENDANCE_SUMMARY"));
+    await userEvent.click(screen.getByTestId("attendance-level-range"));
+    await runAttendanceRange();
+    await screen.findByTestId("hr-att-range-table");
+
+    await waitFor(() =>
+      expect(screen.getByTestId("hr-level-announcement")).toHaveTextContent(/Range detail — 2 rows/),
+    );
+    expect(screen.getByTestId("hr-results-heading")).toHaveFocus();
+    expect(screen.getByTestId("hr-results-heading")).toHaveTextContent(/Range detail/);
+  });
+});
+
+describe("FE-66 per-level columns + endpoint (spec §4, §5, §9)", () => {
+  it("Daily renders its 8 columns, keeps a status-only day's blank times, and queries /reports at day grain", async () => {
+    renderScreen();
+    await screen.findByTestId("hr-viewer");
+    await userEvent.click(screen.getByTestId("hr-tab-ATTENDANCE_SUMMARY"));
+    await userEvent.click(screen.getByTestId("attendance-level-daily"));
+    await runAttendanceRange();
+
+    const table = await screen.findByTestId("hr-att-daily-table");
+    const headers = within(table).getAllByRole("columnheader").map((h) => h.textContent?.trim());
+    expect(headers).toEqual([
+      "Employee", "Date", "Location", "Check-in", "Check-out", "Status", "Punches", "Source",
+    ]);
+    // No day counts and no Attendance % at this grain.
+    expect(headers).not.toContain("Attendance %");
+    expect(headers).not.toContain("Present");
+
+    // The whole point: a leave day carries its status with BOTH time cells blank.
+    // It is an expected shape — never an error, never a dropped row.
+    const rows = within(table).getAllByTestId("hr-att-daily-row");
+    expect(rows).toHaveLength(2);
+    const leaveRow = rows[1]!;
+    expect(within(leaveRow).getByTestId("hr-att-status")).toHaveTextContent("Paid leave");
+    expect(within(leaveRow).getByTestId("hr-att-daily-checkin")).toHaveTextContent("");
+    expect(within(leaveRow).getByTestId("hr-att-daily-checkout")).toHaveTextContent("");
+    // …and the worked day still shows real times.
+    expect(within(rows[0]!).getByTestId("hr-att-daily-checkin")).toHaveTextContent("09:02");
+    expect(getMock).toHaveBeenCalledWith(expect.stringContaining("/reports/range"));
+  });
+
+  it("Range renders its 8 columns with Attendance % and re-queries at the new grain", async () => {
+    renderScreen();
+    await screen.findByTestId("hr-viewer");
+    await userEvent.click(screen.getByTestId("hr-tab-ATTENDANCE_SUMMARY"));
+    await userEvent.click(screen.getByTestId("attendance-level-range"));
+    await runAttendanceRange();
+
+    const table = await screen.findByTestId("hr-att-range-table");
+    expect(within(table).getAllByRole("columnheader").map((h) => h.textContent?.trim())).toEqual([
+      "Employee", "Project", "Cost centre", "Present", "Paid leave", "Unpaid leave", "Absent",
+      "Attendance %",
+    ]);
+    expect(getMock).toHaveBeenCalledWith(expect.stringContaining("/reports/range"));
+    // The grain is served, never re-filtered from a cached Summary result.
+    expect(runMock).not.toHaveBeenCalledWith("attendance-summary", expect.anything());
+  });
+
+  it("Summary keeps the registered report and gains Project + Attendance %", async () => {
+    renderScreen();
+    await screen.findByTestId("hr-viewer");
+    await userEvent.click(screen.getByTestId("hr-tab-ATTENDANCE_SUMMARY"));
+    fireEvent.change(screen.getByTestId("hr-filter-month") as HTMLInputElement, {
+      target: { value: "2026-05" },
+    });
+    await userEvent.click(screen.getByTestId("report-run"));
+
+    const table = await screen.findByTestId("hr-att-table");
+    const headers = within(table).getAllByRole("columnheader").map((h) => h.textContent?.trim());
+    expect(headers[0]).toBe("Project");
+    expect(headers).toContain("Attendance %");
+    expect(headers).toContain("Head count");
+    expect(runMock).toHaveBeenCalledWith("attendance-summary", expect.anything());
+  });
+});
+
+describe("FE-66 Attendance % is RENDERED, never computed (FR-RPT-004)", () => {
+  it("shows the served figure verbatim even when it disagrees with a row-sum", async () => {
+    // 88.5 is deliberately NOT derivable from this row's own counts — if the FE
+    // ever divided, this assertion would fail.
+    runMock.mockImplementation((name: string) =>
+      name === "attendance-summary"
+        ? Promise.resolve({
+            ...ATT_RESULT,
+            rows: [{ ...ATT_RESULT.rows[0], attendancePercentage: 88.5 }],
+          })
+        : Promise.resolve(ATT_RESULT),
+    );
+    renderScreen();
+    await screen.findByTestId("hr-viewer");
+    await userEvent.click(screen.getByTestId("hr-tab-ATTENDANCE_SUMMARY"));
+    fireEvent.change(screen.getByTestId("hr-filter-month") as HTMLInputElement, {
+      target: { value: "2026-05" },
+    });
+    await userEvent.click(screen.getByTestId("report-run"));
+    await screen.findByTestId("hr-att-table");
+    expect(screen.getByTestId("hr-att-percent")).toHaveTextContent("88.5%");
+  });
+
+  it("omits the column entirely where the endpoint serves no percentage", async () => {
+    runMock.mockImplementation(() =>
+      Promise.resolve({
+        ...ATT_RESULT,
+        rows: ATT_RESULT.rows.map((r) => ({ ...r, attendancePercentage: null })),
+      }),
+    );
+    renderScreen();
+    await screen.findByTestId("hr-viewer");
+    await userEvent.click(screen.getByTestId("hr-tab-ATTENDANCE_SUMMARY"));
+    fireEvent.change(screen.getByTestId("hr-filter-month") as HTMLInputElement, {
+      target: { value: "2026-05" },
+    });
+    await userEvent.click(screen.getByTestId("report-run"));
+    const table = await screen.findByTestId("hr-att-table");
+    // Absent rather than fabricated.
+    expect(
+      within(table).getAllByRole("columnheader").map((h) => h.textContent?.trim()),
+    ).not.toContain("Attendance %");
+    expect(screen.queryByTestId("hr-att-percent")).not.toBeInTheDocument();
+  });
+});
+
+describe("FE-66 totals are the server's, never a page sum (FR-RPT-004)", () => {
+  it("renders `totals` covering the whole set even when the visible page sums to less", async () => {
+    // The page shows 2 rows summing to 37 present; the server's totals cover
+    // 1,240 employee-days. A page-sum fallback would render 37 — this is the
+    // fixture that proves the fallback is gone.
+    runMock.mockImplementation(() =>
+      Promise.resolve({
+        ...ATT_RESULT,
+        meta: {
+          ...ATT_RESULT.meta,
+          total: 1240,
+          totals: {
+            present: 1043, paidLeave: 24, unpaidLeave: 33, absent: 76,
+            headCount: 42, attendancePercentage: 90.7,
+          },
+        },
+      }),
+    );
+    renderScreen();
+    await screen.findByTestId("hr-viewer");
+    await userEvent.click(screen.getByTestId("hr-tab-ATTENDANCE_SUMMARY"));
+    fireEvent.change(screen.getByTestId("hr-filter-month") as HTMLInputElement, {
+      target: { value: "2026-05" },
+    });
+    await userEvent.click(screen.getByTestId("report-run"));
+
+    const band = await screen.findByTestId("hr-att-totals-band");
+    expect(band).toHaveTextContent(/Report totals/);
+    expect(band).toHaveTextContent("1043");
+    expect(band).toHaveTextContent("90.7%");
+    expect(band).toHaveTextContent(/not a sum of this page/);
+    // The page's own sum (37) must appear nowhere in the band.
+    expect(band).not.toHaveTextContent(/\b37\b/);
+  });
+
+  it("renders NO totals band when the server omits totals — never a synthesised one", async () => {
+    runMock.mockImplementation(() =>
+      Promise.resolve({
+        ...ATT_RESULT,
+        meta: { page: 1, pageSize: 2, total: 2, generatedAt: "2026-07-15T10:00:00Z" },
+      }),
+    );
+    renderScreen();
+    await screen.findByTestId("hr-viewer");
+    await userEvent.click(screen.getByTestId("hr-tab-ATTENDANCE_SUMMARY"));
+    fireEvent.change(screen.getByTestId("hr-filter-month") as HTMLInputElement, {
+      target: { value: "2026-05" },
+    });
+    await userEvent.click(screen.getByTestId("report-run"));
+    await screen.findByTestId("hr-att-table");
+    // A missing number is recoverable; a wrong one is not.
+    expect(screen.queryByTestId("hr-att-totals-band")).not.toBeInTheDocument();
+  });
+});
+
+describe("FE-66 per-level empty copy (spec §8)", () => {
+  it("says 'this month' at Summary and 'this period' at Daily/Range", async () => {
+    runMock.mockImplementation(() => Promise.resolve({ ...ATT_RESULT, rows: [] }));
+    getMock.mockResolvedValue({ data: [], totals: {}, pagination: { page: 1, limit: 20, total: 0 } });
+    renderScreen();
+    await screen.findByTestId("hr-viewer");
+    await userEvent.click(screen.getByTestId("hr-tab-ATTENDANCE_SUMMARY"));
+    fireEvent.change(screen.getByTestId("hr-filter-month") as HTMLInputElement, {
+      target: { value: "2026-05" },
+    });
+    await userEvent.click(screen.getByTestId("report-run"));
+    expect(await screen.findByTestId("hr-att-empty")).toHaveTextContent(
+      "No attendance recorded for this month.",
+    );
+
+    await userEvent.click(screen.getByTestId("attendance-level-range"));
+    await runAttendanceRange();
+    expect(await screen.findByTestId("hr-att-empty")).toHaveTextContent(
+      "No attendance recorded for this period.",
+    );
+  });
+});
+
+describe("FE-66 export follows the active level (FR-RPT-029, -031; spec §9)", () => {
+  it("names the level + period in the scope note and re-issues at that grain", async () => {
+    renderScreen();
+    await screen.findByTestId("hr-viewer");
+    await userEvent.click(screen.getByTestId("hr-tab-ATTENDANCE_SUMMARY"));
+    await userEvent.click(screen.getByTestId("attendance-level-daily"));
+    await runAttendanceRange();
+    await screen.findByTestId("hr-att-daily-table");
+
+    // The note states exactly what the file will contain, so a Summary file can
+    // never be mistaken for a Daily one.
+    expect(screen.getByTestId("report-export-scope-note")).toHaveTextContent(
+      "The file matches what's on screen — Daily detail, 01/06/2026–30/06/2026.",
+    );
+
+    await userEvent.click(screen.getByTestId("report-export-excel"));
+    await userEvent.click(screen.getByTestId("report-export-run"));
+    await waitFor(() => expect(exportMock).toHaveBeenCalled());
+    const [name, , format] = exportMock.mock.calls[0]!;
+    // The DAILY endpoint, not the Summary report.
+    expect(name).toBe("daily");
+    expect(format).toBe("excel");
+    // The table is never re-rendered by an export.
+    expect(screen.getByTestId("hr-att-daily-table")).toBeInTheDocument();
+  });
+
+  it("stays enabled on an empty result", async () => {
+    getMock.mockResolvedValue({ data: [], totals: {}, pagination: { page: 1, limit: 20, total: 0 } });
+    renderScreen();
+    await screen.findByTestId("hr-viewer");
+    await userEvent.click(screen.getByTestId("hr-tab-ATTENDANCE_SUMMARY"));
+    await userEvent.click(screen.getByTestId("attendance-level-range"));
+    await runAttendanceRange();
+    await screen.findByTestId("hr-att-empty");
+    expect((screen.getByTestId("report-export-excel") as HTMLButtonElement).disabled).toBe(false);
+  });
+});
+
+describe("FE-66 range-clamped note (spec §7)", () => {
+  it("tells the user the report stops at today", async () => {
+    renderScreen();
+    await screen.findByTestId("hr-viewer");
+    await userEvent.click(screen.getByTestId("hr-tab-ATTENDANCE_SUMMARY"));
+    await userEvent.click(screen.getByTestId("attendance-level-range"));
+    expect(screen.getByTestId("hr-range-clamped-note")).toHaveTextContent(
+      "This report stops at today — future dates aren't counted as absences.",
+    );
   });
 });

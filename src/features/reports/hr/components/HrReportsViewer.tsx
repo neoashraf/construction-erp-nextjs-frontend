@@ -1,19 +1,26 @@
 "use client";
 
-import { useMemo, useState } from "react";
+import { useCallback, useEffect, useMemo, useRef, useState } from "react";
 import { Ban, WifiOff } from "lucide-react";
 import { Alert } from "@/components/ui/alert";
 import { Card } from "@/components/ui/card";
 import { EmptyState } from "@/components/ui/empty-state";
 import { ReportViewerHeader, type ReportScopeTone } from "../../components/ReportViewerHeader";
 import { asApiError } from "@/lib/api/errors";
+import { cn } from "@/lib/utils";
 import { useOnline } from "@/lib/hooks/use-online";
 import { useAuthenticatedUser } from "@/providers/session-provider";
 import { ReportExportControl } from "../../components/ReportExportControl";
 import { ReportParameterPanel } from "../../components/ReportParameterPanel";
 import { type ReportDescriptor, type ReportParams } from "../../types";
 import {
+  ATTENDANCE_LEVEL_ENDPOINT,
+  ATTENDANCE_LEVEL_LABEL,
   REPORT_NAME,
+  type AttendanceDailyRow,
+  type AttendanceLevel,
+  type AttendanceRangeRow,
+  type AttendanceReportTotals,
   type AttendanceSummaryRow,
   type AttendanceTotals,
   type EmployeePaymentRow,
@@ -26,9 +33,15 @@ import {
   breadcrumbFor,
   emptyLabelFor,
   subtitleFor,
+  useAttendanceLevelReport,
   useHrReport,
 } from "../hooks/useHrReport";
+import { AttendanceDailyTable } from "./AttendanceDailyTable";
+import { AttendanceDetailControl } from "./AttendanceDetailControl";
+import { AttendanceMobileNotice } from "./AttendanceMobileNotice";
+import { AttendanceRangeTable } from "./AttendanceRangeTable";
 import { AttendanceSummaryTable } from "./AttendanceSummaryTable";
+import { ddMmYyyy } from "./shared";
 import { EmployeePaymentHistoryTable } from "./EmployeePaymentHistoryTable";
 import { HrReportFilters } from "./HrReportFilters";
 import { HrReportSwitcher } from "./HrReportSwitcher";
@@ -66,12 +79,26 @@ export function HrReportsViewer({
   const [ran, setRan] = useState(false);
   const [monthError, setMonthError] = useState<string | null>(null);
   const [runXorError, setRunXorError] = useState<string | null>(null);
+  /**
+   * FE-66 — the attendance detail level. Summary is the landing grain, since the
+   * registered report (FR-RPT-026) and the dashboard tile that drills in here are
+   * both monthly roll-ups.
+   */
+  const [level, setLevel] = useState<AttendanceLevel>("SUMMARY");
+  const [announcement, setAnnouncement] = useState("");
+  const resultsHeading = useRef<HTMLHeadingElement>(null);
+  /** Set once a level change has been made, so focus moves only on a real switch. */
+  const pendingFocus = useRef(false);
 
   const descriptor: ReportDescriptor = useMemo(() => buildDescriptor(tab), [tab]);
 
   const effectiveParams = useMemo<ReportParams>(() => {
     const p: ReportParams = { ...params };
     if (tab === "PAYMENT_HISTORY") {
+      p.asOf = null;
+      p.periodId = null;
+    } else if (tab === "ATTENDANCE_SUMMARY" && level !== "SUMMARY") {
+      // Daily and Range read an arbitrary window — the date bounds ARE the query.
       p.asOf = null;
       p.periodId = null;
     } else {
@@ -84,9 +111,63 @@ export function HrReportsViewer({
     // DTO forbids financialYearId, so drop it from what we actually send.
     if (tab === "ATTENDANCE_SUMMARY") p.financialYearId = "";
     return p;
-  }, [params, tab]);
+  }, [params, tab, level]);
 
-  const query = useHrReport(tab, effectiveParams, ran);
+  /**
+   * The attendance report is ONE report at three grains, so the level decides
+   * which read backs it — never a client-side re-filter of a cached result
+   * (spec §9). Summary is RPT's registered `attendance-summary`; Daily and Range
+   * are HR's own routes, adapted in `api/attendance-levels`.
+   */
+  const attendanceLevelActive = tab === "ATTENDANCE_SUMMARY" && level !== "SUMMARY";
+  const query = useHrReport(tab, effectiveParams, ran && !attendanceLevelActive);
+  const levelQuery = useAttendanceLevelReport(
+    level,
+    effectiveParams,
+    ran && attendanceLevelActive,
+  );
+
+  const active = attendanceLevelActive
+    ? {
+        isFetching: levelQuery.isFetching,
+        isError: levelQuery.isError,
+        error: levelQuery.error,
+        refetch: () => void levelQuery.refetch(),
+        rowCount: levelQuery.data?.rows.length ?? 0,
+        settled: levelQuery.isSuccess || levelQuery.isError,
+      }
+    : {
+        isFetching: query.isFetching,
+        isError: query.isError,
+        error: query.error,
+        refetch: () => void query.refetch(),
+        rowCount: query.data?.rows.length ?? 0,
+        settled: query.isSuccess || query.isError,
+      };
+
+  /**
+   * A level change replaces the table entirely, so announce the new level and the
+   * row count, and move focus to the results heading — otherwise a screen-reader
+   * user is silently left on a control whose result has been swapped underneath
+   * them (spec §10).
+   */
+  useEffect(() => {
+    // Wait for the new grain to actually SETTLE — announcing mid-flight would
+    // report the previous level's row count, or zero before anything arrived.
+    if (!pendingFocus.current || active.isFetching || !active.settled) return;
+    pendingFocus.current = false;
+    setAnnouncement(
+      `${ATTENDANCE_LEVEL_LABEL[level]} detail — ${active.rowCount} ${
+        active.rowCount === 1 ? "row" : "rows"
+      }.`,
+    );
+    resultsHeading.current?.focus();
+  }, [active.isFetching, active.settled, active.rowCount, level]);
+
+  const onLevelChange = useCallback((next: AttendanceLevel) => {
+    setLevel(next);
+    pendingFocus.current = true;
+  }, []);
 
   function onTabChange(next: HrReportTab) {
     // Reset per-tab extras and re-fetch trigger; keep FY.
@@ -97,17 +178,23 @@ export function HrReportsViewer({
     setMonthError(null);
     setRunXorError(null);
     setRan(false);
+    setLevel("SUMMARY");
     setTab(next);
     onReportChange?.(REPORT_NAME[next], breadcrumbFor(next));
   }
 
   function onRun(p: ReportParams) {
     if (tab === "ATTENDANCE_SUMMARY") {
-      if (!(p.extras?.month as string | undefined)) {
-        setMonthError("Select a month.");
+      if (level === "SUMMARY") {
+        if (!(p.extras?.month as string | undefined)) {
+          setMonthError("Select a month.");
+          return;
+        }
+        setMonthError(null);
+      } else if (p.dateFrom && p.dateTo && p.dateFrom > p.dateTo) {
+        // Blocks inline at Daily/Range; the shared range control owns the copy.
         return;
       }
-      setMonthError(null);
     }
     if (tab === "SALARY_REGISTER") {
       const runId = (p.extras?.salaryRunId as string | undefined) ?? "";
@@ -122,12 +209,33 @@ export function HrReportsViewer({
     setRan(true);
   }
 
-  const err = query.error ? asApiError(query.error) : null;
+  const err = active.error ? asApiError(active.error) : null;
   const forbidden = err?.status === 403;
   const dateInvalid =
     tab === "PAYMENT_HISTORY" && params.dateFrom && params.dateTo && params.dateFrom > params.dateTo
       ? "'Date from' must be before 'Date to'."
       : null;
+  /** The same rule at attendance Daily/Range, rendered inside the filter block. */
+  const rangeDateInvalid =
+    attendanceLevelActive && params.dateFrom && params.dateTo && params.dateFrom > params.dateTo
+      ? "'Date from' must be before 'Date to'."
+      : null;
+
+  /**
+   * "The file matches what's on screen — {level} detail, {period}." (spec §8).
+   * Export re-issues the identical query with `format` changed, so the note
+   * names the grain and the window the download will actually contain.
+   */
+  const exportScopeNote = useMemo(() => {
+    if (tab !== "ATTENDANCE_SUMMARY") return undefined;
+    const period =
+      level === "SUMMARY"
+        ? ((params.extras?.month as string | undefined) ?? "the selected month")
+        : params.dateFrom && params.dateTo
+          ? `${ddMmYyyy(params.dateFrom)}–${ddMmYyyy(params.dateTo)}`
+          : "the selected period";
+    return `The file matches what's on screen — ${ATTENDANCE_LEVEL_LABEL[level]} detail, ${period}.`;
+  }, [tab, level, params.extras, params.dateFrom, params.dateTo]);
 
   // Scope pill: attendance (by month) + salary register (by run) are balance
   // reports (violet); payment history is a date-range flow report (blue).
@@ -152,6 +260,28 @@ export function HrReportsViewer({
       {/* The `/reports` hub's catalog card already renders the chip row. */}
       {!embedded && <HrReportSwitcher value={tab} onChange={onTabChange} />}
 
+      {/*
+        Level 2 — subordinate to the Level-1 report switcher and shown ONLY on the
+        attendance tab: the salary register and payment history have one grain
+        each, so a detail control there would offer a choice that does not exist.
+      */}
+      {tab === "ATTENDANCE_SUMMARY" && (
+        <>
+          {/*
+            ≤640 the report degrades to the notice frame the comp specifies: the
+            wide roll-up and its Export are hidden (CSS-only, so there is no
+            viewport-detection flash) and the phone gets the pointer to the
+            capture screen, which is the surface that answers an on-site question.
+          */}
+          <div className="mt-3 sm:hidden">
+            <AttendanceMobileNotice />
+          </div>
+          <div className="max-sm:hidden">
+            <AttendanceDetailControl value={level} onChange={onLevelChange} disabled={!online} />
+          </div>
+        </>
+      )}
+
       {!online && (
         <Alert
           tone="warning"
@@ -166,23 +296,53 @@ export function HrReportsViewer({
         </Alert>
       )}
 
-      <div className="mt-4 space-y-3">
+      <div
+        className={cn("mt-4 space-y-3", tab === "ATTENDANCE_SUMMARY" && "max-sm:hidden")}
+      >
+        {/*
+          Attendance renders its per-level fields INSIDE the shared panel's
+          leading slot, so the design's single horizontal filter row holds
+          Month/Dates · Employee · Filters · Run rather than splitting across two
+          cards. The other two reports keep their own filter block below, where
+          the salary register's run-XOR fieldset needs the room.
+        */}
         <ReportParameterPanel
           descriptor={descriptor}
           value={params}
           onChange={setParams}
           onRun={onRun}
-          running={query.isFetching}
+          running={active.isFetching}
           disabled={!online}
+          // Attendance is keyed by month (Summary) or a date range (Daily/Range),
+          // never by the financial year — and its DTO rejects `financialYearId`.
+          hideFinancialYear={tab === "ATTENDANCE_SUMMARY"}
+          leadingSlot={
+            tab === "ATTENDANCE_SUMMARY" ? (
+              <HrReportFilters
+                tab={tab}
+                level={level}
+                value={params}
+                onChange={setParams}
+                monthError={monthError}
+                runXorError={runXorError}
+                dateError={rangeDateInvalid}
+                inline
+              />
+            ) : undefined
+          }
         />
 
-        <HrReportFilters
-          tab={tab}
-          value={params}
-          onChange={setParams}
-          monthError={monthError}
-          runXorError={runXorError}
-        />
+        {tab !== "ATTENDANCE_SUMMARY" && (
+          <HrReportFilters
+            tab={tab}
+            level={level}
+            value={params}
+            onChange={setParams}
+            monthError={monthError}
+            runXorError={runXorError}
+            dateError={rangeDateInvalid}
+          />
+        )}
 
         {dateInvalid && (
           <Alert
@@ -193,20 +353,54 @@ export function HrReportsViewer({
         )}
       </div>
 
-      <Card className="mt-4 overflow-hidden">
+      <Card
+        className={cn(
+          "mt-4 overflow-hidden",
+          // The nine-column roll-up (and its Export) belong to the notice frame's
+          // "open this on a desktop or tablet", so neither renders on a phone.
+          tab === "ATTENDANCE_SUMMARY" && "max-sm:hidden",
+        )}
+      >
         <div className="flex flex-wrap items-center justify-between gap-2 border-b border-border px-4 py-3">
           <div>
-            <h2 className="text-[14px] font-bold text-foreground">{breadcrumbFor(tab)}</h2>
+            {/*
+              The results heading is the focus target on a level change, so it
+              names the grain being shown ("Attendance summary — Daily detail").
+              `tabIndex={-1}` makes it programmatically focusable without adding
+              a tab stop for keyboard users who did not change level.
+            */}
+            <h2
+              id="results-heading"
+              ref={resultsHeading}
+              tabIndex={-1}
+              className="text-[14px] font-bold text-foreground outline-none"
+              data-testid="hr-results-heading"
+            >
+              {breadcrumbFor(tab)}
+              {tab === "ATTENDANCE_SUMMARY" && ` — ${ATTENDANCE_LEVEL_LABEL[level]} detail`}
+            </h2>
             <p className="mt-0.5 text-[11.5px] text-muted-foreground">{subtitleFor(tab)}</p>
           </div>
           <div className="flex flex-col items-end gap-1">
             <ReportExportControl
-              reportName={REPORT_NAME[tab]}
+              // Export never exports a grain other than the one displayed: the
+              // report name follows the active level (FR-RPT-029; spec §9).
+              reportName={
+                attendanceLevelActive
+                  ? ATTENDANCE_LEVEL_ENDPOINT[level]
+                  : REPORT_NAME[tab]
+              }
               params={effectiveParams}
               disabled={!online || forbidden}
+              scopeNote={exportScopeNote}
             />
           </div>
         </div>
+
+        {/* Level changes replace the table wholesale — say so out loud. */}
+        <p className="sr-only" role="status" aria-live="polite" data-testid="hr-level-announcement">
+          {announcement}
+        </p>
 
         {forbidden ? (
           <div className="p-8" data-testid="hr-forbidden">
@@ -216,6 +410,29 @@ export function HrReportsViewer({
               description="HR reports are gated by the reports:hr resource — ask an administrator."
             />
           </div>
+        ) : attendanceLevelActive ? (
+          // Daily / Range — HR's own routes, already adapted to rows + totals.
+          level === "DAILY" ? (
+            <AttendanceDailyTable
+              rows={levelQuery.data?.rows as AttendanceDailyRow[] | undefined}
+              totals={levelQuery.data?.totals ?? null}
+              generatedAt={levelQuery.data?.generatedAt}
+              isLoading={levelQuery.isFetching}
+              isError={levelQuery.isError && !forbidden}
+              onRetry={() => void levelQuery.refetch()}
+              emptyLabel={emptyLabelFor(tab, level)}
+            />
+          ) : (
+            <AttendanceRangeTable
+              rows={levelQuery.data?.rows as AttendanceRangeRow[] | undefined}
+              totals={levelQuery.data?.totals ?? null}
+              generatedAt={levelQuery.data?.generatedAt}
+              isLoading={levelQuery.isFetching}
+              isError={levelQuery.isError && !forbidden}
+              onRetry={() => void levelQuery.refetch()}
+              emptyLabel={emptyLabelFor(tab, level)}
+            />
+          )
         ) : (
           <BodyForTab
             tab={tab}
@@ -223,7 +440,7 @@ export function HrReportsViewer({
             isLoading={query.isFetching}
             isError={query.isError && !forbidden}
             onRetry={() => query.refetch()}
-            emptyLabel={emptyLabelFor(tab)}
+            emptyLabel={emptyLabelFor(tab, level)}
           />
         )}
       </Card>
@@ -251,14 +468,22 @@ function BodyForTab({
   const generatedAt = meta?.generatedAt;
 
   if (tab === "ATTENDANCE_SUMMARY") {
-    const t = (meta?.totals ?? null) as Partial<AttendanceTotals> | null;
-    const totals: AttendanceTotals | null = t
+    const t = (meta?.totals ?? null) as Partial<AttendanceTotals & { attendancePercentage: number }> | null;
+    // No server totals → `null` → the band renders nothing. There is deliberately
+    // no page-sum fallback here (FR-RPT-004).
+    const totals: AttendanceReportTotals | null = t
       ? {
           present: t.present ?? 0,
           paidLeave: t.paidLeave ?? 0,
           unpaidLeave: t.unpaidLeave ?? 0,
           absent: t.absent ?? 0,
           headCount: t.headCount ?? 0,
+          attendancePercentage:
+            typeof t.attendancePercentage === "number" ? t.attendancePercentage : null,
+          scopeNote:
+            rows && meta
+              ? `${meta.total ?? rows.length} rows${t.headCount ? ` · ${t.headCount} people counted` : ""}`
+              : undefined,
         }
       : null;
     return (

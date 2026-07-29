@@ -108,6 +108,7 @@ export function ReportParameterPanel({
   disabled = false,
   primarySlot,
   leadingSlot,
+  hideFinancialYear,
 }: {
   descriptor: ReportDescriptor;
   value: ReportParams;
@@ -127,6 +128,14 @@ export function ReportParameterPanel({
    * Party selects, which the design shows first.
    */
   leadingSlot?: React.ReactNode;
+  /**
+   * FE-66 (additive, opt-in — every existing caller is unchanged): hide the
+   * Financial year control for a report that is not keyed by one. The attendance
+   * report is scoped by month or by a date range and its backend DTO REJECTS an
+   * unknown `financialYearId`, so rendering a required FY select there asks for a
+   * value the report will never send.
+   */
+  hideFinancialYear?: boolean;
 }) {
   const user = useAuthenticatedUser();
   const fys = useFinancialYearOptions();
@@ -151,8 +160,12 @@ export function ReportParameterPanel({
   function submit(e: React.FormEvent) {
     e.preventDefault();
     const result = validateReportParams(descriptor, value);
-    setErrors(result.errors);
-    if (result.ok) onRun(value);
+    // A hidden Financial year cannot be filled in, so it must not block Run —
+    // the report that hides it is keyed by something else entirely (FE-66).
+    const errs = { ...result.errors };
+    if (hideFinancialYear) delete errs.financialYearId;
+    setErrors(errs);
+    if (Object.keys(errs).length === 0) onRun(value);
   }
 
   function onCancel() {
@@ -186,7 +199,7 @@ export function ReportParameterPanel({
           {/* Report-specific leading control(s), e.g. Account + Party. */}
           {leadingSlot}
 
-          <div className="min-w-[180px] flex-1">
+          <div className={cn("min-w-[180px] flex-1", hideFinancialYear && "hidden")}>
             <FieldLabel htmlFor="param-fy" required>
               Financial year
             </FieldLabel>
