@@ -8237,7 +8237,14 @@ export async function mockNestjsFetch(req: MockReq): Promise<MockResult> {
           name: l.employeeName,
           designation: l.designation,
           periodLabel: sheet.periodLabel,
+          wageType: l.wageType,
+          // FR-HR-013a — served from the stored line, never recomputed (#47).
+          standardDays: l.standardDays,
+          unpaidDays: l.unpaidDays,
           paidDays: l.paidDays,
+          lateCount: l.lateCount,
+          latePenaltyDays: l.latePenaltyDays,
+          latePenaltyAmount: l.latePenaltyAmount,
           grossAmount: l.grossAmount,
           allowances: l.allowances,
           deductions: {

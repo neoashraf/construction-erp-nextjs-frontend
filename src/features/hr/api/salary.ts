@@ -301,7 +301,19 @@ export interface Payslip {
   name: string;
   designation: string | null;
   periodLabel: string;
+  /** `MONTHLY` | `DAILY` — a DAILY payslip carries no penalty line or baseline sub-line. */
+  wageType?: "MONTHLY" | "DAILY" | null;
+  // ── FR-HR-013a day/penalty figures — from the STORED posted line, never recomputed at
+  //    render, so a reprint months later matches what was posted. All tolerant of absence:
+  //    a run posted before FR-HR-013a has no stored fields, and absent is not nil — the
+  //    document renders WITHOUT the penalty line rather than with zeros.
+  standardDays?: string | null;
+  unpaidDays?: string | null;
   paidDays: string;
+  lateCount?: number | null;
+  latePenaltyDays?: string | null;
+  latePenaltyAmount?: string | null;
+  /** Already NET of the late penalty — never subtract `latePenaltyAmount` again. */
   grossAmount: string;
   allowances: string;
   deductions: { tds: string; pf: string; advanceRecovery: string; other: string };
